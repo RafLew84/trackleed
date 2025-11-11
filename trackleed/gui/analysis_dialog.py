@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSplitt
                              QTableWidgetItem, QPushButton, QDialogButtonBox, QTabWidget, QGroupBox,
                              QSlider, QComboBox, QMessageBox, QProgressDialog, QListWidget)
 
-# Zaimportujmy nasze modele danych i przeglądarkę
+# Import data models and the image viewer
 from trackleed.core.data_models import Track
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.logic.generic_worker import GenericWorker
@@ -89,7 +89,7 @@ class AnalysisResultsDialog(QDialog):
 
         # --- Basic Window Setup ---
         self.setWindowTitle("Final Analysis & Results")
-        self.setMinimumSize(1600, 900) # Ustawiamy większy domyślny rozmiar
+        self.setMinimumSize(1600, 900) # Use a larger default dialog size
 
         # Add minimize and maximize buttons to the window's title bar.
         current_flags = self.windowFlags()
@@ -97,7 +97,7 @@ class AnalysisResultsDialog(QDialog):
 
         # --- Store Core Data ---
         self.tracks = tracks
-        self.all_files_map = all_files_map # Zapisz mapę plików
+        self.all_files_map = all_files_map # Keep a local copy of the file map
         self.background_file = background_file
         # Placeholders for the background worker and thread.
         self.worker_thread = None
@@ -129,7 +129,7 @@ class AnalysisResultsDialog(QDialog):
         
         main_splitter.addWidget(config_panel)
         main_splitter.addWidget(visualization_panel)
-        main_splitter.setSizes([400, 2000]) # Ustawienie początkowych proporcji
+        main_splitter.setSizes([400, 2000]) # Initial proportions for the split panes
 
         # Create and add the bottom panel with action buttons (Perform, Export, OK).
         action_panel = self._create_action_panel()
@@ -174,15 +174,15 @@ class AnalysisResultsDialog(QDialog):
         self._update_dialog_bg_preview()
 
     def _update_dialog_bg_preview(self):
-        """Aktualizuje podgląd tła i dane w pamięci w tym oknie dialogowym."""
+        """Refresh the background preview and cached data inside the dialog."""
         if self.background_file:
-            # Aktualizuj UI
+            # Update the preview widgets
             image_data = load_tiff(self.background_file.filepath)
             pixmap = self._numpy_to_pixmap(image_data)
             self.dialog_bg_preview_label.setPixmap(pixmap.scaled(128, 128, Qt.AspectRatioMode.KeepAspectRatio))
             self.dialog_bg_filename_label.setText(f"Filename: {self.background_file.filename}")
             
-            # Wczytaj ponownie dane do pamięci na potrzeby analizy
+            # Reload data into memory for subsequent processing
             temp_bg_data = load_tiff(self.background_file.filepath)
             if temp_bg_data is not None:
                 if temp_bg_data.ndim == 3:
@@ -261,16 +261,16 @@ class AnalysisResultsDialog(QDialog):
         Args:
             checked: The new state for the checkboxes (True for checked).
         """
-        # Iterujemy przez wszystkie wiersze w tabeli
+        # Iterate over each row in the table
         for row in range(self.config_table.rowCount()):
-            # Pobieramy widget (checkbox) z kolumny 1 ('Sub. BG')
+            # Retrieve the checkbox widget stored in column 1 ("Sub. BG")
             checkbox = self.config_table.cellWidget(row, 1)
             if isinstance(checkbox, QCheckBox):
-                # Ustawiamy jego stan na taki sam, jak stan głównego checkboxa
+                # Match the state of the "apply to all" checkbox
                 checkbox.setChecked(checked)
 
     def change_background_file(self):
-        """Otwiera dialog do zmiany pliku tła z poziomu okna analizy."""
+        """Open a file picker to change the background used by this dialog."""
         filepath, _ = QFileDialog.getOpenFileName(self, "Select New Background", "", "Image Files (*.tif *.tiff)")
         if not filepath: return
 
@@ -464,7 +464,7 @@ class AnalysisResultsDialog(QDialog):
         
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(["Frame ID", "Parameter", "Value", "Uncertainty (±)"])
+        self.results_table.setHorizontalHeaderLabels(["Frame ID", "Parameter", "Value", "Uncertainty (+/-)"])
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         tab_table_layout.addWidget(self.results_table)
         self.tab_widget.addTab(tab_table, "Results Table")
@@ -620,8 +620,8 @@ class AnalysisResultsDialog(QDialog):
             center_info = self.all_files_map[current_frame_id].pattern_center
             if center_info:
                 text = (f"Pattern Center (X,Y): "
-                        f"({center_info['center_x']:.2f} ± {center_info['error_x']:.2f}, "
-                        f"{center_info['center_y']:.2f} ± {center_info['error_y']:.2f})")
+                        f"({center_info['center_x']:.2f} +/- {center_info['error_x']:.2f}, "
+                        f"{center_info['center_y']:.2f} +/- {center_info['error_y']:.2f})")
                 self.pattern_center_label.setText(text)
             else:
                 self.pattern_center_label.setText("Pattern Center (0,0): Not calculated")
@@ -632,7 +632,7 @@ class AnalysisResultsDialog(QDialog):
             # Call all the individual update methods to redraw every plot and preview.
             self.update_2d_preview(track, current_frame_id)
             self.update_3d_plots(track, current_frame_id)
-            self.update_2d_plot(track, current_frame_id) # Wywołaj nową funkcję
+            self.update_2d_plot(track, current_frame_id) # Invoke the new helper
             self.update_position_plot(current_frame_id)
             self.update_comparison_plot(current_frame_id)
             self.update_results_table(track)
@@ -641,7 +641,7 @@ class AnalysisResultsDialog(QDialog):
             print(f"Could not update plots: {e}")
     
     def update_radius_plot(self, current_frame_id: int):
-        """Aktualizuje wykres promieni z słupkami błędów."""
+        """Update the radius plot, optionally showing error bars."""
         ax = self.radius_plot_canvas.axes
         ax.clear()
 
@@ -661,13 +661,13 @@ class AnalysisResultsDialog(QDialog):
             track_id_item = self.config_table.item(current_row, 0)
             if track_id_item:
                 highlighted_track_id = int(track_id_item.text())
-        # Poprawiony sposób odczytu tekstu z ComboBox
+        # Read the combo-box selection safely
         x_key = self.radius_x_axis_combo.currentText()
         x_data_key = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}.get(x_key)
         if not x_data_key: return
 
         colors = plt.get_cmap('tab10').colors
-        # Rysuj dane dla poszczególnych ścieżek (ta część jest poprawna)
+        # Plot individual tracks
         for i, track in enumerate(self.tracks):
             if track.track_id in track_ids_to_show and hasattr(track, 'analysis_results'):
                 x_data, y_data, y_error = [], [], []
@@ -683,12 +683,12 @@ class AnalysisResultsDialog(QDialog):
                 alpha = 1.0 if track.track_id == highlighted_track_id else 0.7
 
                 if show_errors:
-                    # Rysuj ze słupkami błędów
+                    # Plot with error bars
                     ax.errorbar(x_data, y_data, yerr=y_error, fmt='o', markersize=4, 
                                 color=colors[i % len(colors)], label=f'Track {track.track_id}', 
                                 capsize=3, linewidth=linewidth, alpha=alpha)
                 else:
-                    # Rysuj bez słupków błędów
+                    # Plot without error bars
                     ax.plot(x_data, y_data, linestyle='-',
                             color=colors[i % len(colors)], label=f'Track {track.track_id}',
                             linewidth=linewidth, alpha=alpha)
@@ -697,12 +697,12 @@ class AnalysisResultsDialog(QDialog):
                 #             color=colors[i % len(colors)], label=f'Track {track.track_id}', 
                 #             capsize=3, linewidth=linewidth, alpha=alpha)
 
-        # Zbierz dane dla osi X i Y dla średniej, respektując wybór użytkownika
+        # Build the average series respecting the chosen X axis
         avg_x_data, avg_y_data, avg_y_error = [], [], []
         for frame_id, leed_file in sorted(self.all_files_map.items()):
             if hasattr(leed_file, 'post_analysis_results') and leed_file.post_analysis_results:
                 
-                # Pobierz wartość X zgodnie z wyborem w ComboBox
+                # Figure out the X coordinate based on combo-box selection
                 x_val = frame_id if x_data_key == 'id' else getattr(leed_file, x_data_key, None)
                 if x_val is None: continue
                 
@@ -710,9 +710,9 @@ class AnalysisResultsDialog(QDialog):
                 avg_y_data.append(leed_file.post_analysis_results.get('avg_radius'))
                 avg_y_error.append(leed_file.post_analysis_results.get('avg_radius_error', 0))
 
-        # Narysuj średni promień z poprawną osią X
+        # Plot the average radius with the correct X axis
         if avg_x_data and avg_y_data:
-            # Posortuj dane wg osi X, aby linia była ciągła
+            # Sort by X so the average line stays monotonic
             sorted_indices = np.argsort(avg_x_data)
             sorted_avg_x = np.array(avg_x_data)[sorted_indices]
             sorted_avg_y = np.array(avg_y_data)[sorted_indices]
@@ -720,12 +720,12 @@ class AnalysisResultsDialog(QDialog):
 
             ax.plot(sorted_avg_x, sorted_avg_y, color='black', linewidth=2, label='Average Radius')
             ax.fill_between(sorted_avg_x, sorted_avg_y - sorted_avg_y_err, sorted_avg_y + sorted_avg_y_err, color='black', alpha=0.2)
-        # --- KONIEC NOWEJ LOGIKI ---
+        # --- End of additional logic ---
         
         ax.set_xlabel(x_key)
         ax.set_ylabel("Radius (pixels)")
         ax.set_title("Spot Radius vs. " + x_key)
-        # ax.legend() # Legenda jest wyłączona zgodnie z poprzednią prośbą
+        # ax.legend() # Intentionally disabled per earlier request
         ax.grid(True)
         self.radius_plot_canvas.draw()
 
@@ -743,7 +743,7 @@ class AnalysisResultsDialog(QDialog):
         checked_params = {name for name, checkbox in self.param_checkboxes.items() 
                         if checkbox.isChecked()}
 
-        # --- ZMIANA: ZAKTUALIZOWANE MAPY DANYCH ---
+        # --- Updated data mapping tables ---
         param_map = {
             "Radius": "radius", # <-- DODANE
             "Global Center X": "global_center_x", "Global Center Y": "global_center_y",
@@ -760,7 +760,7 @@ class AnalysisResultsDialog(QDialog):
             'fwhm_y': 'fwhm_y_error'
         }
         
-        # --- Populate Table (logika pętli pozostaje bez zmian) ---
+        # --- Populate the table (loop logic unchanged) ---
         for frame_id, results in sorted(track.analysis_results.items()):
             if selected_frame != "All Frames" and str(frame_id) != selected_frame:
                 continue
@@ -819,7 +819,7 @@ class AnalysisResultsDialog(QDialog):
         highlighted_track_id = -1
         current_row = self.config_table.currentRow()
         if current_row >= 0:
-            # Pobieramy ID ścieżki z pierwszej kolumny (indeks 0) zaznaczonego wiersza
+            # Read the track ID from column 0 of the selected row
             track_id_item = self.config_table.item(current_row, 0)
             if track_id_item:
                 highlighted_track_id = int(track_id_item.text())
@@ -1045,7 +1045,7 @@ class AnalysisResultsDialog(QDialog):
             else:
                 roi_for_preview = original_roi_data # Fallback
         else:
-            # Użyj oryginalnych danych
+            # Use the original ROI data
             roi_for_preview = original_roi_data
 
         # Convert the final ROI data (raw or subtracted) to a pixmap and display it.
@@ -1225,7 +1225,7 @@ class AnalysisResultsDialog(QDialog):
         ax_raw = self.plot3d_raw_canvas.axes
         ax_raw.clear()
         ax_raw.plot_surface(X, Y, data_for_plot, cmap='viridis', rstride=1, cstride=1, antialiased=True)
-        ax_raw.set_title(plot_title) # Użyj dynamicznego tytułu
+        ax_raw.set_title(plot_title) # Apply the dynamic title determined above
         ax_raw.set_xlabel("X (pixels)"); ax_raw.set_ylabel("Y (pixels)"); ax_raw.set_zlabel("Intensity")
         self.plot3d_raw_canvas.draw()
         
@@ -1573,19 +1573,19 @@ class AnalysisResultsDialog(QDialog):
         self.on_selection_changed()
         self.update_radius_data_table()
         
-        # TODO: Tutaj wywołaj funkcje, które odświeżą wykresy na podstawie nowych danych
-        # np. self.update_plots()
+        # TODO: Call any additional plot refresh helpers if further views are added
+        # e.g. self.update_plots()
 
     def update_radius_data_table(self):
         """
         Populates the "Radius Data" table with radius and uncertainty values.
         Rows represent frames, columns represent tracks.
         """
-        self.radius_data_table.clear() # Wyczyść całą tabelę
+        self.radius_data_table.clear() # Reset the entire table structure
         if not self.tracks or not hasattr(self.tracks[0], 'analysis_results'):
             return
 
-        # 1. Przygotuj nagłówki i wymiary tabeli
+        # 1. Prepare headers and overall shape
         all_frame_ids = sorted(list({fid for t in self.tracks for fid in t.analysis_results}))
         
         self.radius_data_table.setRowCount(len(all_frame_ids))
@@ -1594,18 +1594,18 @@ class AnalysisResultsDialog(QDialog):
         self.radius_data_table.setVerticalHeaderLabels([str(fid) for fid in all_frame_ids])
         self.radius_data_table.setHorizontalHeaderLabels([f"Track {t.track_id}" for t in self.tracks])
 
-        # 2. Wypełnij komórki danymi
+        # 2. Populate the cells with data
         for col_idx, track in enumerate(self.tracks):
             if not hasattr(track, 'analysis_results'): continue
 
             for row_idx, frame_id in enumerate(all_frame_ids):
                 results = track.analysis_results.get(frame_id)
                 
-                cell_text = "N/A" # Domyślna wartość
+                cell_text = "N/A" # Default text when no data is available
                 if results and 'radius' in results:
                     radius = results['radius']
                     error = results.get('radius_error', 0)
-                    cell_text = f"{radius:.2f} ± {error:.2f}"
+                    cell_text = f"{radius:.2f} +/- {error:.2f}"
                 
                 item = QTableWidgetItem(cell_text)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)

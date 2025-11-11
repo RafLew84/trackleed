@@ -402,7 +402,7 @@ def retrack_single_spot_optical_flow(
     if start_frame_id not in track_to_update.spots_by_image_id:
         raise ValueError(f"Cannot start re-tracking. Track {track_to_update.track_id} has no point on frame {start_frame_id}.")
 
-    # "Ucinamy" ścieżkę, usuwając wszystkie punkty po klatce startowej
+    # Trim the track by discarding every point that comes after the start frame
     frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
     for fid in frames_to_remove:
         del track_to_update.spots_by_image_id[fid]
@@ -431,10 +431,10 @@ def retrack_single_spot_optical_flow(
     # --- 3. Tracking Loop ---
     num_frames_to_process = len(sorted_frame_ids) - (start_frame_index + 1)
     if num_frames_to_process <= 0:
-        return track_to_update # Nic do zrobienia
+        return track_to_update # Nothing else to process
 
     for i in range(start_frame_index + 1, len(sorted_frame_ids)):
-        if len(p0) == 0: break # Punkt zniknął
+        if len(p0) == 0: break # The spot disappeared
 
         current_frame_id = sorted_frame_ids[i]
         current_gray = _load_and_prep_image(all_files_map[current_frame_id].filepath)
@@ -448,7 +448,7 @@ def retrack_single_spot_optical_flow(
             roi_half = roi_size // 2
             new_rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
             new_spot = SpotROI(
-                id=start_spot.id, # Używamy tego samego ID dla spójności
+                id=start_spot.id, # Preserve the original identifier for consistency
                 roi_rect=new_rect,
                 center_x=x, center_y=y, intensity=0, source='re-tracked'
             )
@@ -457,7 +457,7 @@ def retrack_single_spot_optical_flow(
             prev_gray = current_gray.copy()
             p0 = p1
         else:
-            # Punkt został zgubiony, przerywamy śledzenie
+            # Lost the point, stop re-tracking
             break
         
         if progress_callback:
@@ -488,31 +488,32 @@ def optical_flow_with_skip_anchor(
     roi_size: int = 32,
 ) -> List[List[Tuple[int, float, float]]]:
     """
-    Prosty tracking z 'skip': jeśli na klatce t nie znajdziemy punktu,
-    to NIC nie zapisujemy i NIE aktualizujemy kotwicy. Na klatce t+1
-    dopasowujemy z powrotem do ostatniej pewnej klatki (np. t-1), a nie do t.
+    Skip-anchor tracker: when a frame fails to produce a match we do not append
+    a point and we keep the anchor on the last successful frame. The next LK
+    solve always starts from that anchor frame instead of the previous attempt.
 
-    frames    : lista obrazów (uint8, grayscale) tego samego rozmiaru
-    points0   : lista (x,y) punktów na klatce 0
-    err_threshold : maksymalny błąd LK (mniejszy = lepszy)
-    fb_threshold  : maksymalna odległość domknięcia forward-backward (px)
-    max_skip_frames_per_point : ile kolejnych klatek wolno pominąć (0 = bez limitu)
-    oob_behavior : 'skip' aby ignorować punkty poza kadrem, 'mark_lost' aby kończyć tor
-    use_ncc_check : czy włączać dodatkowy test NCC w łatce wokół punktu
-    ncc_threshold : minimalna akceptowana wartość NCC
-    ncc_patch_radius : promień łatki NCC (r=4 → 9x9)
-    use_centroid_refinement : wykonuj rekenterowanie po udanym dopasowaniu
-    centroid_patch_multiplier : mnożnik promienia ROI dla łatki centroidu
-    centroid_rel_threshold : próg relatywny maski centroidu
-    centroid_max_expand : ile razy można powiększyć łatkę przy centroidzie
-    roi_size : bazowy rozmiar ROI (do oszacowania promienia)
+    Args:
+        frames: list of grayscale images (uint8) with identical shape.
+        points0: list of (x, y) coordinates defined on frame 0.
+        err_threshold: maximum acceptable LK residual (smaller is stricter).
+        fb_threshold: closure distance for the forward-backward check in pixels.
+        max_skip_frames_per_point: how many consecutive misses are tolerated.
+        oob_behavior: either 'skip' (ignore) or 'mark_lost' when leaving frame.
+        use_ncc_check: enable an extra NCC gate around the tracked point.
+        ncc_threshold: minimum NCC value to treat the match as valid.
+        ncc_patch_radius: NCC patch radius (e.g., 4 → 9x9 window).
+        use_centroid_refinement: recenter ROI via centroid after a success.
+        centroid_patch_multiplier: ROI radius multiplier for centroid cutout.
+        centroid_rel_threshold: relative intensity threshold for centroid mask.
+        centroid_max_expand: how many times the centroid patch can expand.
+        roi_size: base ROI size used for centroid operations.
 
-    Zwraca:
-      tracks: lista ścieżek; dla każdego punktu lista (frame_idx, x, y)
-              Tylko klatki z sukcesem (luki = „skip”).
+    Returns:
+        tracks: list of polylines; each entry is a list of (frame_idx, x, y)
+                recorded only for successful frames.
     """
     if frames is None or len(frames) < 2:
-        raise ValueError("Potrzebne są co najmniej 2 klatki.")
+        raise ValueError("At least two frames are required for skip-anchor tracking.")
 
     H, W = frames[0].shape[:2]
     base_lk = dict(
@@ -536,29 +537,29 @@ def optical_flow_with_skip_anchor(
     roi_radius = max(1.0, roi_size / 2)
     tracks: List[List[Tuple[int, float, float]]] = [[] for _ in range(n)]
 
-    # Kotwice per-punkt: numer klatki i pozycja. Aktualizujemy TYLKO po sukcesie.
+    # Per-point anchors (frame index and position). Update them only after success.
     anchor_idx = np.zeros(n, dtype=int)
     anchor_pos = np.array(points0, dtype=np.float32)  # (N,2)
     alive = np.ones(n, dtype=bool)
     skip_counters = np.zeros(n, dtype=int)
 
-    # Zapis startu (frame 0)
+    # Store the initial detections (frame 0)
     for i, (x, y) in enumerate(points0):
         if 0 <= x < W and 0 <= y < H:
             tracks[i].append((0, float(x), float(y)))
         else:
-            alive[i] = False  # start poza kadrem → nie śledzimy
+            alive[i] = False  # Initial position is outside the image
 
-    # Główna pętla po klatkach docelowych
+    # Main loop over target frames
     for t in range(1, len(frames)):
         img_t = frames[t]
 
-        # Które punkty możemy próbować? Te, które żyją i mają kotwicę < t
+        # Consider only living tracks whose anchor frame is older than t
         idxs = [i for i in range(n) if alive[i] and anchor_idx[i] < t]
         if not idxs:
             continue
 
-        # Grupuj wg wspólnej kotwicy (OpenCV liczy LK dla pary obrazów)
+        # Group by shared anchor; OpenCV runs LK on an image pair
         from collections import defaultdict
         groups = defaultdict(list)
         for i in idxs:
@@ -568,10 +569,10 @@ def optical_flow_with_skip_anchor(
             img_anchor = frames[a_idx]
             p0 = anchor_pos[group].reshape(-1, 1, 2).astype(np.float32)
 
-            # LK: ANCHOR → t (nie do t-1, nie do poprzedniej nieudanej próby!)
+            # LK always starts from the anchor frame, never the previous attempt
             p1, st, err = cv2.calcOpticalFlowPyrLK(img_anchor, img_t, p0, None, **base_lk)
 
-            # Opcjonalny forward-backward
+            # Optional forward-backward verification
             fb_ok = np.ones(len(group), dtype=bool)
             if use_forward_backward:
                 p0_fb, st_fb, _ = cv2.calcOpticalFlowPyrLK(
@@ -589,7 +590,7 @@ def optical_flow_with_skip_anchor(
                         if fb_dist > fb_threshold:
                             fb_ok[k] = False
 
-            # Zapisuj WYŁĄCZNIE sukcesy. Porażka = skip = brak wpisu i brak zmiany kotwicy.
+            # Record only successful matches; failures simply keep the previous anchor.
             for k, gi in enumerate(group):
                 success = True
                 out_of_bounds = False
@@ -631,7 +632,7 @@ def optical_flow_with_skip_anchor(
 
                 if success:
                     tracks[gi].append((t, x, y))
-                    # TUTAJ dopiero przesuwamy kotwicę na t
+                    # Only now do we move the anchor to frame t
                     anchor_idx[gi] = t
                     anchor_pos[gi] = np.array([x, y], dtype=np.float32)
                     skip_counters[gi] = 0

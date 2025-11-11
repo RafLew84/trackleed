@@ -119,27 +119,27 @@ def _is_fit_valid(fit_results: Optional[Dict], roi_shape: Tuple) -> bool:
     
     height, width = roi_shape
     
-    # 1. Sprawdź jakość dopasowania (R-kwadrat)
-    if fit_results.get('r_squared', 0) < 0.85: # Próg można dostosować
+    # 1. Validate goodness of fit (R-squared threshold)
+    if fit_results.get('r_squared', 0) < 0.85: # Threshold can be tuned
         return False
         
-    # 2. Sprawdź, czy pik nie jest "płaski" (amplituda jest znikoma)
-    if fit_results.get('amplitude', 0) < 0.05: # Próg dla znormalizowanych danych [0,1]
+    # 2. Reject very flat peaks (near-zero amplitude)
+    if fit_results.get('amplitude', 0) < 0.05: # Threshold for normalized [0,1] data
         return False
 
-    # 3. Sprawdź, czy centrum piku jest w granicach ROI (z małym marginesem)
+    # 3. Ensure the peak center stays inside the ROI (with a small margin)
     if not (-2 < fit_results.get('center_x', 0) < width + 2):
         return False
     if not (-2 < fit_results.get('center_y', 0) < height + 2):
         return False
         
-    # 4. Sprawdź, czy szerokość piku jest sensowna
+    # 4. Verify that sigmas remain within reasonable bounds
     if not (0.5 < fit_results.get('sigma_x', 0) < width):
         return False
     if not (0.5 < fit_results.get('sigma_y', 0) < height):
         return False
 
-    return True # Jeśli wszystkie testy przejdą pomyślnie
+    return True # All checks passed
 
 # def run_full_analysis(
 #     tracks_to_analyze: List[Track],

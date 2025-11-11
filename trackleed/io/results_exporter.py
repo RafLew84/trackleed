@@ -10,7 +10,7 @@ from trackleed.core.data_models import LeedFile, Track
 from trackleed.io.image_reader import load_tiff
 
 def _save_full_data_csv(tracks: List[Track], all_files_map: Dict[int, LeedFile], directory_path: str):
-    """Zapisuje pełne dane numeryczne, włączając promienie."""
+    """Write the full per-spot numerical results, including radius metrics."""
     all_results = []
     for track in tracks:
         if not hasattr(track, 'analysis_results'): continue
@@ -41,7 +41,7 @@ def _save_full_data_csv(tracks: List[Track], all_files_map: Dict[int, LeedFile],
     df.to_csv(output_path, index=False, float_format='%.4f')
 
 def _save_center_data_csv(all_files_map: Dict[int, LeedFile], directory_path: str):
-    """Zapisuje dane o centrum wzoru dla każdej klatki."""
+    """Write pattern-center information for every processed frame."""
     center_data = []
     for frame_id, leed_file in sorted(all_files_map.items()):
         if leed_file.pattern_center:
@@ -52,7 +52,7 @@ def _save_center_data_csv(all_files_map: Dict[int, LeedFile], directory_path: st
     df.to_csv(output_path, index=False, float_format='%.4f')
 
 def _save_average_radius_csv(all_files_map: Dict[int, LeedFile], directory_path: str):
-    """Zapisuje dane o średnim promieniu dla każdej klatki."""
+    """Write frame-level average radius summaries."""
     avg_data = []
     for frame_id, leed_file in sorted(all_files_map.items()):
         if hasattr(leed_file, 'post_analysis_results') and leed_file.post_analysis_results:

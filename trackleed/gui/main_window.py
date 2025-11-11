@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("STAL - Spot Tracking & Analysis for LEED")
+        self.setWindowTitle("LEEDTrack - Spot Tracking")
         self.setGeometry(100, 100, 1200, 800)
 
         # --- Store data ---
@@ -296,7 +296,7 @@ class MainWindow(QMainWindow):
         directory = Path(dir_path)
         try:
             self.data_files = parse_directory(directory)
-            # Zerujemy tło przy wczytywaniu nowego katalogu
+            # Reset background metadata whenever a new directory is loaded
             self.background_file = None
             self._clear_bg_preview()
         except Exception as e:
@@ -313,25 +313,25 @@ class MainWindow(QMainWindow):
         filepath, _ = QFileDialog.getOpenFileName(
             self,
             "Select Background Image",
-            "", # Domyślny katalog
+            "", # Default directory
             "Image Files (*.tif *.tiff *.png *.jpg)"
         )
         
-        if not filepath: # Jeśli użytkownik anulował
+        if not filepath: # User cancelled the dialog
             return
 
         path_obj = Path(filepath)
         
-        # Tworzymy uproszczony obiekt LeedFile dla tła
+        # Create a lightweight LeedFile object for the background frame
         self.background_file = LeedFile(
             filepath=path_obj,
             filename=path_obj.name,
             is_background=True,
-            # Pozostałe metadane mogą być domyślne, bo nie są używane dla tła
+            # Other metadata can stay at defaults because the background is not analyzed
             element='', surface=0, mode='', temperature=0, energy=0, id=None, coverage=None
         )
         
-        # Aktualizujemy etykietę na pasku statusu
+        # Update the status bar label
         self._update_bg_preview()
         QMessageBox.information(self, "Success", "Background file loaded successfully.")
     
@@ -554,7 +554,7 @@ class MainWindow(QMainWindow):
         self.lk_win_size_spinbox.setSingleStep(2)
         self.lk_win_size_spinbox.setValue(41)
         self.lk_win_size_spinbox.setToolTip(
-            "Rozmiar okna LK. Wi?ksze = wi?ksza tolerancja ruchu/deformacji, ale wolniej i wi?ksze ryzyko zlewania detali."
+            "Lucas–Kanade window size. Larger windows tolerate more motion/deformation but blur fine detail."
         )
         optical_basic_layout.addRow("Window size (px):", self.lk_win_size_spinbox)
 
@@ -562,7 +562,7 @@ class MainWindow(QMainWindow):
         self.lk_max_level_spinbox.setRange(0, 6)
         self.lk_max_level_spinbox.setValue(4)
         self.lk_max_level_spinbox.setToolTip(
-            "Liczba poziom?w piramidy. Wi?ksza warto?? pomaga przy wi?kszych przemieszczeniach, ale spowalnia."
+            "Number of pyramid levels. Higher values handle larger displacements but slow processing."
         )
         optical_basic_layout.addRow("Pyramid levels:", self.lk_max_level_spinbox)
 
@@ -570,7 +570,7 @@ class MainWindow(QMainWindow):
         self.lk_iterations_spinbox.setRange(10, 100)
         self.lk_iterations_spinbox.setValue(50)
         self.lk_iterations_spinbox.setToolTip(
-            "Kryterium zbie?no?ci LK: maksymalna liczba iteracji i pr?g zmian pomi?dzy iteracjami."
+            "Lucas–Kanade convergence criterion: maximum number of iterations."
         )
         self.lk_epsilon_spinbox = QDoubleSpinBox()
         self.lk_epsilon_spinbox.setDecimals(5)
@@ -578,7 +578,7 @@ class MainWindow(QMainWindow):
         self.lk_epsilon_spinbox.setSingleStep(0.0001)
         self.lk_epsilon_spinbox.setValue(0.01)
         self.lk_epsilon_spinbox.setToolTip(
-            "Kryterium zbie?no?ci LK: maksymalna liczba iteracji i pr?g zmian pomi?dzy iteracjami."
+            "Lucas–Kanade epsilon threshold: acceptable delta between iterations."
         )
         iterations_widget = QWidget()
         iterations_layout = QHBoxLayout(iterations_widget)
@@ -596,20 +596,20 @@ class MainWindow(QMainWindow):
         self.lk_min_eig_spinbox.setSingleStep(0.000001)
         self.lk_min_eig_spinbox.setValue(0.00001)
         self.lk_min_eig_spinbox.setToolTip(
-            "Pr?g jako?ci tekstury w oknie. Ni?ej = ?atwiej akceptowa? s?abe detale, ale wi?ksze ryzyko b??d?w."
+            "Texture-quality threshold inside the LK window (lower = accept weaker detail but risk noise)."
         )
         optical_basic_layout.addRow("Min eigenvalue:", self.lk_min_eig_spinbox)
 
-        self.lk_subtract_bg_checkbox = QCheckBox("Odejmij t?o przed LK")
+        self.lk_subtract_bg_checkbox = QCheckBox("Subtract background before LK")
         self.lk_subtract_bg_checkbox.setToolTip(
-            "U?yj za?adowanego obrazu t?a i odejmij go z ka?dej klatki przed obr?bk? LK (wymaga pliku t?a)."
+            "Use the loaded background image and subtract it from every frame before LK (requires a background file)."
         )
         optical_basic_layout.addRow(self.lk_subtract_bg_checkbox)
 
-        self.lk_use_centroid_checkbox = QCheckBox("Centroidowe rekenterowanie")
+        self.lk_use_centroid_checkbox = QCheckBox("Centroid-based recentering")
         self.lk_use_centroid_checkbox.setChecked(True)
         self.lk_use_centroid_checkbox.setToolTip(
-            "Po ka?dym udanym dopasowaniu wylicz lokalny ?rodek masy, by wycentrowa? ROI i unikn?? przyci?cia plamki."
+            "After each successful match, compute a local centroid to recentre the ROI and avoid clipping the spot."
         )
         optical_basic_layout.addRow(self.lk_use_centroid_checkbox)
 
@@ -618,34 +618,34 @@ class MainWindow(QMainWindow):
         self.lk_centroid_multiplier_spinbox.setRange(1.0, 3.0)
         self.lk_centroid_multiplier_spinbox.setSingleStep(0.1)
         self.lk_centroid_multiplier_spinbox.setValue(1.5)
-        self.lk_centroid_multiplier_spinbox.setToolTip("Mno?nik promienia ROI u?ywany do wycinka centroidu (np. 1.5 ? ~1.5? wi?kszy).")
-        optical_basic_layout.addRow("Mno?nik promienia centroidu:", self.lk_centroid_multiplier_spinbox)
+        self.lk_centroid_multiplier_spinbox.setToolTip("Multiplier applied to the ROI radius when extracting the centroid patch (e.g., 1.5 ~= 1.5x larger).")
+        optical_basic_layout.addRow("Centroid radius multiplier:", self.lk_centroid_multiplier_spinbox)
 
         self.lk_centroid_rel_thr_spinbox = QDoubleSpinBox()
         self.lk_centroid_rel_thr_spinbox.setDecimals(2)
         self.lk_centroid_rel_thr_spinbox.setRange(0.1, 0.9)
         self.lk_centroid_rel_thr_spinbox.setSingleStep(0.05)
         self.lk_centroid_rel_thr_spinbox.setValue(0.4)
-        self.lk_centroid_rel_thr_spinbox.setToolTip("Relatywny pr?g intensywno?ci (wzgl?dem maksimum) dla maski centroidu.")
-        optical_basic_layout.addRow("Pr?g relatywny centroidu:", self.lk_centroid_rel_thr_spinbox)
+        self.lk_centroid_rel_thr_spinbox.setToolTip("Relative intensity threshold (with respect to the peak) for the centroid mask.")
+        optical_basic_layout.addRow("Centroid relative threshold:", self.lk_centroid_rel_thr_spinbox)
 
         self.lk_centroid_expand_spinbox = QSpinBox()
         self.lk_centroid_expand_spinbox.setRange(0, 3)
         self.lk_centroid_expand_spinbox.setValue(1)
-        self.lk_centroid_expand_spinbox.setToolTip("Ile razy mo?na powi?kszy? wycinek, gdy centroid wypada blisko kraw?dzi.")
-        optical_basic_layout.addRow("Maks. rozszerze? centroidu:", self.lk_centroid_expand_spinbox)
+        self.lk_centroid_expand_spinbox.setToolTip("How many times the centroid patch may expand when it sits near the edge.")
+        optical_basic_layout.addRow("Max centroid expansions:", self.lk_centroid_expand_spinbox)
 
         form_layout.addRow(self.optical_basic_group)
 
         # --- Optical Flow (skip anchor) Extras ---
-        self.optical_skip_group = QGroupBox("Optical Flow (skip anchor) ? dodatkowe zabezpieczenia")
+        self.optical_skip_group = QGroupBox("Optical Flow (skip anchor) safeguards")
         optical_skip_layout = QFormLayout(self.optical_skip_group)
 
         self.lk_error_threshold_spinbox = QSpinBox()
         self.lk_error_threshold_spinbox.setRange(10, 80)
         self.lk_error_threshold_spinbox.setValue(30)
         self.lk_error_threshold_spinbox.setToolTip(
-            "Maksymalny b??d dopasowania z LK (ni?ej = surowiej). U?ywany do akceptacji trafienia."
+            "Maximum LK fit error (lower = stricter). Used to discard questionable matches."
         )
         optical_skip_layout.addRow("Error threshold (LK):", self.lk_error_threshold_spinbox)
         self.lkErrSpin = self.lk_error_threshold_spinbox
@@ -653,7 +653,7 @@ class MainWindow(QMainWindow):
         self.lk_fb_checkbox = QCheckBox("Forward-Backward check")
         self.lk_fb_checkbox.setChecked(True)
         self.lk_fb_checkbox.setToolTip(
-            "Weryfikacja przez przep?yw w prz?d i z powrotem. Zwi?ksza jako?? kosztem czasu."
+            "Validate tracks by running LK forward and backward. Improves quality at additional cost."
         )
         optical_skip_layout.addRow(self.lk_fb_checkbox)
 
@@ -664,7 +664,7 @@ class MainWindow(QMainWindow):
         default_fb_threshold = max(2.0, round(self.lk_win_size_spinbox.value() * 0.2, 1))
         self.lk_fb_threshold_spinbox.setValue(default_fb_threshold)
         self.lk_fb_threshold_spinbox.setToolTip(
-            "Maksymalna odleg?o?? domkni?cia forward-backward. Wi?ksza warto?? = ?agodniejsza weryfikacja."
+            "Maximum closure distance allowed for the forward-backward pass (higher = more tolerant)."
         )
         optical_skip_layout.addRow("FB threshold (px):", self.lk_fb_threshold_spinbox)
         self.lkFBSpin = self.lk_fb_threshold_spinbox
@@ -673,23 +673,23 @@ class MainWindow(QMainWindow):
         self.lk_max_skip_frames_spinbox.setRange(0, 1000)
         self.lk_max_skip_frames_spinbox.setValue(0)
         self.lk_max_skip_frames_spinbox.setToolTip(
-            "Ile kolejnych klatek mo?na pomin?? dla pojedynczego punktu zanim uznamy tor za przerwany (0 = bez limitu)."
+            "How many consecutive frames a point may skip before we terminate its track (0 = unlimited)."
         )
         optical_skip_layout.addRow("Max skip frames:", self.lk_max_skip_frames_spinbox)
 
         self.oob_behavior_combo = QComboBox()
-        self.oob_behavior_combo.addItem("Ignoruj (skip)", "skip")
-        self.oob_behavior_combo.addItem("Oznacz jako utracony", "mark_lost")
+        self.oob_behavior_combo.addItem("Ignore (skip)", "skip")
+        self.oob_behavior_combo.addItem("Mark as lost", "mark_lost")
         self.oob_behavior_combo.setCurrentIndex(0)
         self.oob_behavior_combo.setToolTip(
-            "Co zrobi?, gdy estymowana pozycja wypada poza obraz."
+            "Choose how to handle spots that leave the image bounds."
         )
         optical_skip_layout.addRow("Out-of-bounds:", self.oob_behavior_combo)
 
-        self.lk_use_ncc_checkbox = QCheckBox("W??cz test NCC")
+        self.lk_use_ncc_checkbox = QCheckBox("Enable NCC test")
         self.lk_use_ncc_checkbox.setChecked(True)
         self.lk_use_ncc_checkbox.setToolTip(
-            "Dodatkowe sprawdzenie podobie?stwa (Normalised Cross-Correlation) w ma?ej ?atce, skutecznie eliminuje halucynacje."
+            "Run an additional Normalized Cross-Correlation check in a local patch to suppress hallucinations."
         )
         optical_skip_layout.addRow(self.lk_use_ncc_checkbox)
 
@@ -698,14 +698,14 @@ class MainWindow(QMainWindow):
         self.lk_ncc_threshold_spinbox.setRange(0.3, 0.95)
         self.lk_ncc_threshold_spinbox.setSingleStep(0.05)
         self.lk_ncc_threshold_spinbox.setValue(0.65)
-        self.lk_ncc_threshold_spinbox.setToolTip("Minimalna warto?? NCC wymagana do zaakceptowania dopasowania.")
-        optical_skip_layout.addRow("Pr?g NCC:", self.lk_ncc_threshold_spinbox)
+        self.lk_ncc_threshold_spinbox.setToolTip("Minimum NCC value required to accept a match.")
+        optical_skip_layout.addRow("NCC threshold:", self.lk_ncc_threshold_spinbox)
 
         self.lk_ncc_patch_spinbox = QSpinBox()
         self.lk_ncc_patch_spinbox.setRange(3, 6)
         self.lk_ncc_patch_spinbox.setValue(4)
-        self.lk_ncc_patch_spinbox.setToolTip("Promie? ?atki NCC (r=3 ? 7x7, r=4 ? 9x9).")
-        optical_skip_layout.addRow("Promie? ?atki NCC:", self.lk_ncc_patch_spinbox)
+        self.lk_ncc_patch_spinbox.setToolTip("Patch radius for NCC (r=3 => 7x7, r=4 => 9x9).")
+        optical_skip_layout.addRow("NCC patch radius:", self.lk_ncc_patch_spinbox)
 
         form_layout.addRow(self.optical_skip_group)
 
@@ -810,8 +810,6 @@ class MainWindow(QMainWindow):
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
-        params = {"roi_size": self.roi_size_spinbox.value()}  # Common parameters
-
         worker = None
         if "Hungarian" in selected_scenario:
             all_spots = {f.id: f.spots for f in self.data_files if f.id is not None and f.spots}
@@ -822,6 +820,7 @@ class MainWindow(QMainWindow):
             worker = GenericWorker(track_spots_hungarian, all_spots, max_dist)
 
         elif "Optical Flow" in selected_scenario:
+            optical_params = {"roi_size": self.roi_size_spinbox.value()}
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
                 QMessageBox.warning(self, "No Reference", "Optical Flow requires selecting a reference frame.")
@@ -836,30 +835,36 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(
                     self,
                     "No Background",
-                    "Załaduj plik tła zanim włączysz odejmowanie tła dla Optical Flow.",
+                    "Load a background file before enabling background subtraction for Optical Flow.",
                 )
                 return
 
-            params["lk_win_size"] = self.lk_win_size_spinbox.value()
-            params["lk_max_level"] = self.lk_max_level_spinbox.value()
-            params["lk_max_iterations"] = self.lk_iterations_spinbox.value()
-            params["lk_epsilon"] = self.lk_epsilon_spinbox.value()
-            params["lk_min_eigen_threshold"] = self.lk_min_eig_spinbox.value()
-            params["lk_err_threshold"] = self.lk_error_threshold_spinbox.value()
-            params["lk_fb_threshold"] = self.lk_fb_threshold_spinbox.value()
-            params["use_forward_backward"] = self.lk_fb_checkbox.isChecked()
-            params["max_skip_frames"] = self.lk_max_skip_frames_spinbox.value()
-            params["oob_behavior"] = self.oob_behavior_combo.currentData()
-            params["subtract_background"] = subtract_background
+            optical_params.update({
+                "lk_win_size": self.lk_win_size_spinbox.value(),
+                "lk_max_level": self.lk_max_level_spinbox.value(),
+                "lk_max_iterations": self.lk_iterations_spinbox.value(),
+                "lk_epsilon": self.lk_epsilon_spinbox.value(),
+                "lk_min_eigen_threshold": self.lk_min_eig_spinbox.value(),
+                "use_centroid_refinement": self.lk_use_centroid_checkbox.isChecked(),
+                "centroid_patch_multiplier": self.lk_centroid_multiplier_spinbox.value(),
+                "centroid_rel_threshold": self.lk_centroid_rel_thr_spinbox.value(),
+                "centroid_max_expand": self.lk_centroid_expand_spinbox.value(),
+                "subtract_background": subtract_background,
+            })
             if subtract_background and self.background_file:
-                params["background_filepath"] = str(self.background_file.filepath)
-            params["use_ncc_check"] = self.lk_use_ncc_checkbox.isChecked()
-            params["ncc_threshold"] = self.lk_ncc_threshold_spinbox.value()
-            params["ncc_patch_radius"] = self.lk_ncc_patch_spinbox.value()
-            params["use_centroid_refinement"] = self.lk_use_centroid_checkbox.isChecked()
-            params["centroid_patch_multiplier"] = self.lk_centroid_multiplier_spinbox.value()
-            params["centroid_rel_threshold"] = self.lk_centroid_rel_thr_spinbox.value()
-            params["centroid_max_expand"] = self.lk_centroid_expand_spinbox.value()
+                optical_params["background_filepath"] = str(self.background_file.filepath)
+
+            if selected_scenario == "Optical Flow (skip, anchor)":
+                optical_params.update({
+                    "lk_err_threshold": self.lk_error_threshold_spinbox.value(),
+                    "lk_fb_threshold": self.lk_fb_threshold_spinbox.value(),
+                    "use_forward_backward": self.lk_fb_checkbox.isChecked(),
+                    "max_skip_frames": self.lk_max_skip_frames_spinbox.value(),
+                    "oob_behavior": self.oob_behavior_combo.currentData(),
+                    "use_ncc_check": self.lk_use_ncc_checkbox.isChecked(),
+                    "ncc_threshold": self.lk_ncc_threshold_spinbox.value(),
+                    "ncc_patch_radius": self.lk_ncc_patch_spinbox.value(),
+                })
 
             file_map = {f.id: f for f in self.data_files if f.id is not None}
             sorted_ids = sorted(file_map.keys())
@@ -870,7 +875,7 @@ class MainWindow(QMainWindow):
                     file_map,
                     sorted_ids,
                     ref_file.id,
-                    params,
+                    optical_params,
                 )
             else:
                 worker = GenericWorker(
@@ -878,7 +883,7 @@ class MainWindow(QMainWindow):
                     file_map,
                     sorted_ids,
                     ref_file.id,
-                    params,
+                    optical_params,
                 )
 
         else:
@@ -898,7 +903,7 @@ class MainWindow(QMainWindow):
         self.worker = worker
         self.worker.moveToThread(self.thread)
 
-        progress_dialog.canceled.connect(self.thread.requestInterruption) # Możliwość anulowania
+        progress_dialog.canceled.connect(self.thread.requestInterruption) # Allow cancellation
         self.worker.progress.connect(progress_dialog.setValue)
         self.worker.finished.connect(self.on_tracking_finished)
         self.worker.error.connect(self.on_tracking_error)

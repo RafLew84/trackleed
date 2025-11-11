@@ -10,7 +10,7 @@ from scipy.ndimage import center_of_mass
 def gaussian_2d(
     xy_data: Tuple[np.ndarray, np.ndarray],
     amplitude: float,
-    center_x: float, center_y: float, # <-- ZMIANA 1: Używamy spójnych nazw
+    center_x: float, center_y: float, # CHANGE: keep naming consistent
     sigma_x: float, sigma_y: float,
     theta: float,
     offset: float
