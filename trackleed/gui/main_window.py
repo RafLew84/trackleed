@@ -22,7 +22,6 @@ from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.analysis.tracking import (
-    track_spots_hungarian,
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
 )
@@ -510,10 +509,6 @@ class MainWindow(QMainWindow):
         self.roi_size_spinbox.setValue(32) # Default value
         form_layout.addRow("ROI Size:", self.roi_size_spinbox)
 
-        self.max_dist_spinbox = QSpinBox()
-        self.max_dist_spinbox.setRange(5, 200)
-        self.max_dist_spinbox.setValue(20)
-        form_layout.addRow("Max Track Distance:", self.max_dist_spinbox)
 
         self.find_spots_button = QPushButton("Find Spots")
         self.find_spots_button.clicked.connect(self.run_spot_finding)
@@ -529,7 +524,6 @@ class MainWindow(QMainWindow):
         self.tracking_scenario_combo = QComboBox()
         self.tracking_scenario_combo.addItems([
             "Optical Flow Tracking",
-            "Hungarian Tracking",
             "Optical Flow (skip, anchor)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
@@ -538,12 +532,6 @@ class MainWindow(QMainWindow):
         # layout.addWidget(tracking_group)
 
         # --- Group for Scenario 1 Parameters ---
-        self.hungarian_group = QGroupBox("Hungarian Tracking Parameters")
-        s1_layout = QFormLayout(self.hungarian_group)
-        self.max_dist_spinbox = QSpinBox()
-        self.max_dist_spinbox.setRange(5, 200); self.max_dist_spinbox.setValue(20)
-        s1_layout.addRow("Max Track Distance:", self.max_dist_spinbox)
-        form_layout.addRow(self.hungarian_group)
         # layout.addWidget(s1_group)
 
         # --- Optical Flow (shared) Parameters ---
@@ -747,12 +735,9 @@ class MainWindow(QMainWindow):
         if scenario is None:
             scenario = self.tracking_scenario_combo.currentText()
 
-        show_hungarian = scenario == "Hungarian Tracking"
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
 
-        if hasattr(self, "hungarian_group"):
-            self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "optical_basic_group"):
             self.optical_basic_group.setVisible(show_optical_basic)
         if hasattr(self, "optical_skip_group"):
@@ -813,15 +798,7 @@ class MainWindow(QMainWindow):
         selected_scenario = self.tracking_scenario_combo.currentText()
         worker = None
         cancel_event = Event()
-        if "Hungarian" in selected_scenario:
-            all_spots = {f.id: f.spots for f in self.data_files if f.id is not None and f.spots}
-            if not all_spots:
-                QMessageBox.warning(self, "No Spots", "Hungarian Tracking requires spots to be defined on frames.")
-                return
-            max_dist = self.max_dist_spinbox.value()
-            worker = GenericWorker(track_spots_hungarian, all_spots, max_dist, cancel_event=cancel_event)
-
-        elif "Optical Flow" in selected_scenario:
+        if "Optical Flow" in selected_scenario:
             optical_params = {"roi_size": self.roi_size_spinbox.value()}
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:

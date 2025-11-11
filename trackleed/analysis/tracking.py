@@ -7,7 +7,6 @@ from threading import Event
 import cv2
 import numpy as np
 from PyQt6.QtCore import QRect
-from scipy.optimize import linear_sum_assignment
 from scipy.ndimage import gaussian_filter
 from skimage.color import rgb2gray
 from skimage.morphology import white_tophat, disk
@@ -137,116 +136,6 @@ def refine_center_by_centroid(
         return np.array([new_x, new_y], dtype=np.float32)
     return approx_xy
 
-# --- HUNGARIAN TRACKER ---
-def track_spots_hungarian(
-    all_spots_by_frame: Dict[int, List[SpotROI]], 
-    max_distance: float,
-    progress_callback: Callable[[int], None] | None = None,
-    cancel_event: Optional[Event] = None,
-) -> Optional[List[Track]]:
-    """
-    Tracks spots between consecutive frames using the Hungarian algorithm.
-
-    This function is ideal for scenarios where spots are detected independently
-    on each frame. It works by solving the assignment problem for each pair of
-    frames, finding the optimal pairing of spots that minimizes the total
-    distance.
-
-    Args:
-        all_spots_by_frame: A dictionary mapping a frame ID (int) to a list
-                            of SpotROI objects detected on that frame.
-        max_distance: The maximum distance (in pixels) a spot can move
-                      between two consecutive frames to be considered part of
-                      the same track.
-        progress_callback: An optional function that can be called to report
-                           tracking progress as an integer percentage (0-100).
-
-    Returns:
-        A list of Track objects. Each Track represents a single spot's
-        trajectory across multiple frames.
-    """
-    # active_tracks: Tracks that appeared in the previous frame and can be extended.
-    # completed_tracks: Tracks that have terminated (disappeared).
-    active_tracks, completed_tracks, next_track_id = [], [], 0
-
-    # Sort frame IDs to process them in chronological order.
-    sorted_frame_ids = sorted(all_spots_by_frame.keys())
-    if not sorted_frame_ids: return []
-    
-    # --- Bootstrap the process ---
-    # Initialize active tracks with all spots from the very first frame.
-    first_frame_id = sorted_frame_ids[0]
-    for spot in all_spots_by_frame[first_frame_id]:
-        active_tracks.append(Track(track_id=next_track_id, spots_by_image_id={first_frame_id: spot}))
-        next_track_id += 1
-
-    # Main loop: iterate through consecutive pairs of frames.
-    num_frames_to_process = len(sorted_frame_ids) - 1
-    if num_frames_to_process <= 0: return active_tracks
-
-    for i in range(num_frames_to_process):
-        if cancel_event and cancel_event.is_set():
-            return None
-        prev_frame_id, current_frame_id = sorted_frame_ids[i], sorted_frame_ids[i+1]
-        prev_spots = [t.spots_by_image_id[prev_frame_id] for t in active_tracks]
-        current_spots = all_spots_by_frame[current_frame_id]
-        
-        # Only perform assignment if there are spots in both frames.
-        if prev_spots and current_spots:
-            # --- Core of the Algorithm ---
-            # 1. Build a cost matrix: each element (r, c) is the squared Euclidean
-            #    distance between previous spot r and current spot c.
-            cost_matrix = np.array([[(p.center_x - c.center_x)**2 + (p.center_y - c.center_y)**2 for c in current_spots] for p in prev_spots])
-            
-            # 2. Solve the assignment problem using the Hungarian algorithm.
-            #    This finds the optimal pairing that minimizes the total cost (distance).
-            row_ind, col_ind = linear_sum_assignment(cost_matrix)
-            
-            # --- Process Assignments ---
-            max_dist_sq = max_distance**2
-            unassigned_tracks, assigned_current_spot_indices = list(active_tracks), set()
-
-            # 3. Link successfully matched spots.
-            for r, c in zip(row_ind, col_ind):
-                # Check if the matched distance is within the allowed maximum.
-                if cost_matrix[r, c] < max_dist_sq:
-                    track, spot = active_tracks[r], current_spots[c]
-                    # Extend the existing track with the new spot.
-                    track.spots_by_image_id[current_frame_id] = spot
-                    # Mark track and spot as assigned.
-                    unassigned_tracks.remove(track)
-                    assigned_current_spot_indices.add(c)
-
-            # 4. Handle unassigned tracks and spots.
-            # Tracks from the previous frame that found no partner are considered terminated.
-            completed_tracks.extend(unassigned_tracks)
-
-            # The new set of active tracks are those that were successfully linked.
-            active_tracks = [t for t in active_tracks if t not in unassigned_tracks]
-
-            # Spots in the current frame that were not assigned to any old track start a new track.
-            for c, spot in enumerate(current_spots):
-                if c not in assigned_current_spot_indices:
-                    active_tracks.append(Track(track_id=next_track_id, spots_by_image_id={current_frame_id: spot})); next_track_id += 1
-        else:
-            # Handle cases where one of the frames is empty.
-            # All previously active tracks are terminated.
-            completed_tracks.extend(active_tracks)
-            # All spots in the current frame (if any) start new tracks.
-            active_tracks = [Track(track_id=next_track_id + i, spots_by_image_id={current_frame_id: s}) for i, s in enumerate(current_spots)]
-            next_track_id += len(current_spots)
-
-        # Report progress if a callback function is provided.
-        if progress_callback:
-            progress_percent = int(((i + 1) / num_frames_to_process) * 100)
-            progress_callback(progress_percent)
-
-    # After the loop, any remaining active tracks are also considered completed.
-    completed_tracks.extend(active_tracks)
-    return completed_tracks
-
-
-# --- OPTICAL FLOW TRACKER ---
 def track_spots_optical_flow(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
