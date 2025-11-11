@@ -545,32 +545,32 @@ class MainWindow(QMainWindow):
         form_layout.addRow(self.hungarian_group)
         # layout.addWidget(s1_group)
 
-        # --- Group for Scenario 3 Parameters ---
-        self.s3_group = QGroupBox("Optical Flow Settings")
-        s3_layout = QFormLayout(self.s3_group)
+        # --- Optical Flow (shared) Parameters ---
+        self.optical_basic_group = QGroupBox("Optical Flow Parameters")
+        optical_basic_layout = QFormLayout(self.optical_basic_group)
 
         self.lk_win_size_spinbox = QSpinBox()
         self.lk_win_size_spinbox.setRange(21, 71)
         self.lk_win_size_spinbox.setSingleStep(2)
         self.lk_win_size_spinbox.setValue(41)
         self.lk_win_size_spinbox.setToolTip(
-            "Rozmiar okna LK. Większe = większa tolerancja ruchu/deformacji, ale wolniej i większe ryzyko zlewania detali."
+            "Rozmiar okna LK. Wi?ksze = wi?ksza tolerancja ruchu/deformacji, ale wolniej i wi?ksze ryzyko zlewania detali."
         )
-        s3_layout.addRow("Window size (px):", self.lk_win_size_spinbox)
+        optical_basic_layout.addRow("Window size (px):", self.lk_win_size_spinbox)
 
         self.lk_max_level_spinbox = QSpinBox()
         self.lk_max_level_spinbox.setRange(0, 6)
         self.lk_max_level_spinbox.setValue(4)
         self.lk_max_level_spinbox.setToolTip(
-            "Liczba poziomów piramidy. Większa wartość pomaga przy większych przemieszczeniach, ale spowalnia."
+            "Liczba poziom?w piramidy. Wi?ksza warto?? pomaga przy wi?kszych przemieszczeniach, ale spowalnia."
         )
-        s3_layout.addRow("Pyramid levels:", self.lk_max_level_spinbox)
+        optical_basic_layout.addRow("Pyramid levels:", self.lk_max_level_spinbox)
 
         self.lk_iterations_spinbox = QSpinBox()
         self.lk_iterations_spinbox.setRange(10, 100)
         self.lk_iterations_spinbox.setValue(50)
         self.lk_iterations_spinbox.setToolTip(
-            "Kryterium zbieżności LK: maksymalna liczba iteracji i próg zmian pomiędzy iteracjami."
+            "Kryterium zbie?no?ci LK: maksymalna liczba iteracji i pr?g zmian pomi?dzy iteracjami."
         )
         self.lk_epsilon_spinbox = QDoubleSpinBox()
         self.lk_epsilon_spinbox.setDecimals(5)
@@ -578,7 +578,7 @@ class MainWindow(QMainWindow):
         self.lk_epsilon_spinbox.setSingleStep(0.0001)
         self.lk_epsilon_spinbox.setValue(0.01)
         self.lk_epsilon_spinbox.setToolTip(
-            "Kryterium zbieżności LK: maksymalna liczba iteracji i próg zmian pomiędzy iteracjami."
+            "Kryterium zbie?no?ci LK: maksymalna liczba iteracji i pr?g zmian pomi?dzy iteracjami."
         )
         iterations_widget = QWidget()
         iterations_layout = QHBoxLayout(iterations_widget)
@@ -588,7 +588,7 @@ class MainWindow(QMainWindow):
         iterations_layout.addSpacing(8)
         iterations_layout.addWidget(QLabel("Eps:"))
         iterations_layout.addWidget(self.lk_epsilon_spinbox)
-        s3_layout.addRow("Iterations / epsilon:", iterations_widget)
+        optical_basic_layout.addRow("Iterations / epsilon:", iterations_widget)
 
         self.lk_min_eig_spinbox = QDoubleSpinBox()
         self.lk_min_eig_spinbox.setDecimals(6)
@@ -596,25 +596,66 @@ class MainWindow(QMainWindow):
         self.lk_min_eig_spinbox.setSingleStep(0.000001)
         self.lk_min_eig_spinbox.setValue(0.00001)
         self.lk_min_eig_spinbox.setToolTip(
-            "Próg jakości tekstury w oknie. Niżej = łatwiej akceptować słabe detale, ale większe ryzyko błędów."
+            "Pr?g jako?ci tekstury w oknie. Ni?ej = ?atwiej akceptowa? s?abe detale, ale wi?ksze ryzyko b??d?w."
         )
-        s3_layout.addRow("Min eigenvalue:", self.lk_min_eig_spinbox)
+        optical_basic_layout.addRow("Min eigenvalue:", self.lk_min_eig_spinbox)
+
+        self.lk_subtract_bg_checkbox = QCheckBox("Odejmij t?o przed LK")
+        self.lk_subtract_bg_checkbox.setToolTip(
+            "U?yj za?adowanego obrazu t?a i odejmij go z ka?dej klatki przed obr?bk? LK (wymaga pliku t?a)."
+        )
+        optical_basic_layout.addRow(self.lk_subtract_bg_checkbox)
+
+        self.lk_use_centroid_checkbox = QCheckBox("Centroidowe rekenterowanie")
+        self.lk_use_centroid_checkbox.setChecked(True)
+        self.lk_use_centroid_checkbox.setToolTip(
+            "Po ka?dym udanym dopasowaniu wylicz lokalny ?rodek masy, by wycentrowa? ROI i unikn?? przyci?cia plamki."
+        )
+        optical_basic_layout.addRow(self.lk_use_centroid_checkbox)
+
+        self.lk_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.lk_centroid_multiplier_spinbox.setDecimals(2)
+        self.lk_centroid_multiplier_spinbox.setRange(1.0, 3.0)
+        self.lk_centroid_multiplier_spinbox.setSingleStep(0.1)
+        self.lk_centroid_multiplier_spinbox.setValue(1.5)
+        self.lk_centroid_multiplier_spinbox.setToolTip("Mno?nik promienia ROI u?ywany do wycinka centroidu (np. 1.5 ? ~1.5? wi?kszy).")
+        optical_basic_layout.addRow("Mno?nik promienia centroidu:", self.lk_centroid_multiplier_spinbox)
+
+        self.lk_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.lk_centroid_rel_thr_spinbox.setDecimals(2)
+        self.lk_centroid_rel_thr_spinbox.setRange(0.1, 0.9)
+        self.lk_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.lk_centroid_rel_thr_spinbox.setValue(0.4)
+        self.lk_centroid_rel_thr_spinbox.setToolTip("Relatywny pr?g intensywno?ci (wzgl?dem maksimum) dla maski centroidu.")
+        optical_basic_layout.addRow("Pr?g relatywny centroidu:", self.lk_centroid_rel_thr_spinbox)
+
+        self.lk_centroid_expand_spinbox = QSpinBox()
+        self.lk_centroid_expand_spinbox.setRange(0, 3)
+        self.lk_centroid_expand_spinbox.setValue(1)
+        self.lk_centroid_expand_spinbox.setToolTip("Ile razy mo?na powi?kszy? wycinek, gdy centroid wypada blisko kraw?dzi.")
+        optical_basic_layout.addRow("Maks. rozszerze? centroidu:", self.lk_centroid_expand_spinbox)
+
+        form_layout.addRow(self.optical_basic_group)
+
+        # --- Optical Flow (skip anchor) Extras ---
+        self.optical_skip_group = QGroupBox("Optical Flow (skip anchor) ? dodatkowe zabezpieczenia")
+        optical_skip_layout = QFormLayout(self.optical_skip_group)
 
         self.lk_error_threshold_spinbox = QSpinBox()
         self.lk_error_threshold_spinbox.setRange(10, 80)
         self.lk_error_threshold_spinbox.setValue(30)
         self.lk_error_threshold_spinbox.setToolTip(
-            "Maksymalny błąd dopasowania z LK (niżej = surowiej). Używany do akceptacji trafienia."
+            "Maksymalny b??d dopasowania z LK (ni?ej = surowiej). U?ywany do akceptacji trafienia."
         )
-        s3_layout.addRow("Error threshold (LK):", self.lk_error_threshold_spinbox)
+        optical_skip_layout.addRow("Error threshold (LK):", self.lk_error_threshold_spinbox)
         self.lkErrSpin = self.lk_error_threshold_spinbox
 
         self.lk_fb_checkbox = QCheckBox("Forward-Backward check")
         self.lk_fb_checkbox.setChecked(True)
         self.lk_fb_checkbox.setToolTip(
-            "Weryfikacja przez przepływ w przód i z powrotem. Zwiększa jakość kosztem czasu."
+            "Weryfikacja przez przep?yw w prz?d i z powrotem. Zwi?ksza jako?? kosztem czasu."
         )
-        s3_layout.addRow(self.lk_fb_checkbox)
+        optical_skip_layout.addRow(self.lk_fb_checkbox)
 
         self.lk_fb_threshold_spinbox = QDoubleSpinBox()
         self.lk_fb_threshold_spinbox.setDecimals(1)
@@ -623,85 +664,50 @@ class MainWindow(QMainWindow):
         default_fb_threshold = max(2.0, round(self.lk_win_size_spinbox.value() * 0.2, 1))
         self.lk_fb_threshold_spinbox.setValue(default_fb_threshold)
         self.lk_fb_threshold_spinbox.setToolTip(
-            "Maksymalna odległość domknięcia przód↔tył. Większa wartość = łagodniejsza weryfikacja."
+            "Maksymalna odleg?o?? domkni?cia forward-backward. Wi?ksza warto?? = ?agodniejsza weryfikacja."
         )
-        s3_layout.addRow("FB threshold (px):", self.lk_fb_threshold_spinbox)
+        optical_skip_layout.addRow("FB threshold (px):", self.lk_fb_threshold_spinbox)
         self.lkFBSpin = self.lk_fb_threshold_spinbox
 
         self.lk_max_skip_frames_spinbox = QSpinBox()
         self.lk_max_skip_frames_spinbox.setRange(0, 1000)
         self.lk_max_skip_frames_spinbox.setValue(0)
         self.lk_max_skip_frames_spinbox.setToolTip(
-            "Ile kolejnych klatek można pominąć dla pojedynczego punktu zanim uznamy tor za przerwany (0 = bez limitu)."
+            "Ile kolejnych klatek mo?na pomin?? dla pojedynczego punktu zanim uznamy tor za przerwany (0 = bez limitu)."
         )
-        s3_layout.addRow("Max skip frames:", self.lk_max_skip_frames_spinbox)
+        optical_skip_layout.addRow("Max skip frames:", self.lk_max_skip_frames_spinbox)
 
         self.oob_behavior_combo = QComboBox()
         self.oob_behavior_combo.addItem("Ignoruj (skip)", "skip")
         self.oob_behavior_combo.addItem("Oznacz jako utracony", "mark_lost")
         self.oob_behavior_combo.setCurrentIndex(0)
         self.oob_behavior_combo.setToolTip(
-            "Co zrobić, gdy estymowana pozycja wypada poza obraz."
+            "Co zrobi?, gdy estymowana pozycja wypada poza obraz."
         )
-        s3_layout.addRow("Out-of-bounds:", self.oob_behavior_combo)
+        optical_skip_layout.addRow("Out-of-bounds:", self.oob_behavior_combo)
 
-        self.lk_subtract_bg_checkbox = QCheckBox("Odejmij tło przed LK")
-        self.lk_subtract_bg_checkbox.setToolTip(
-            "Użyj załadowanego obrazu tła i odejmij go z każdej klatki przed obróbką LK (wymaga pliku tła)."
-        )
-        s3_layout.addRow(self.lk_subtract_bg_checkbox)
-
-        self.lk_use_ncc_checkbox = QCheckBox("Włącz test NCC")
+        self.lk_use_ncc_checkbox = QCheckBox("W??cz test NCC")
         self.lk_use_ncc_checkbox.setChecked(True)
         self.lk_use_ncc_checkbox.setToolTip(
-            "Dodatkowe sprawdzenie podobieństwa (Normalised Cross-Correlation) w małej łatce, skutecznie eliminuje halucynacje."
+            "Dodatkowe sprawdzenie podobie?stwa (Normalised Cross-Correlation) w ma?ej ?atce, skutecznie eliminuje halucynacje."
         )
-        s3_layout.addRow(self.lk_use_ncc_checkbox)
+        optical_skip_layout.addRow(self.lk_use_ncc_checkbox)
 
         self.lk_ncc_threshold_spinbox = QDoubleSpinBox()
         self.lk_ncc_threshold_spinbox.setDecimals(2)
         self.lk_ncc_threshold_spinbox.setRange(0.3, 0.95)
         self.lk_ncc_threshold_spinbox.setSingleStep(0.05)
         self.lk_ncc_threshold_spinbox.setValue(0.65)
-        self.lk_ncc_threshold_spinbox.setToolTip("Minimalna wartość NCC wymagana do zaakceptowania dopasowania.")
-        s3_layout.addRow("Próg NCC:", self.lk_ncc_threshold_spinbox)
+        self.lk_ncc_threshold_spinbox.setToolTip("Minimalna warto?? NCC wymagana do zaakceptowania dopasowania.")
+        optical_skip_layout.addRow("Pr?g NCC:", self.lk_ncc_threshold_spinbox)
 
         self.lk_ncc_patch_spinbox = QSpinBox()
         self.lk_ncc_patch_spinbox.setRange(3, 6)
-        self.lk_ncc_patch_spinbox.setValue(4)  # 9x9
-        self.lk_ncc_patch_spinbox.setToolTip("Promień łatki NCC (r=3 → 7x7, r=4 → 9x9).")
-        s3_layout.addRow("Promień łatki NCC:", self.lk_ncc_patch_spinbox)
+        self.lk_ncc_patch_spinbox.setValue(4)
+        self.lk_ncc_patch_spinbox.setToolTip("Promie? ?atki NCC (r=3 ? 7x7, r=4 ? 9x9).")
+        optical_skip_layout.addRow("Promie? ?atki NCC:", self.lk_ncc_patch_spinbox)
 
-        self.lk_use_centroid_checkbox = QCheckBox("Centroidowe rekenterowanie")
-        self.lk_use_centroid_checkbox.setChecked(True)
-        self.lk_use_centroid_checkbox.setToolTip(
-            "Po każdym udanym dopasowaniu wylicz lokalny środek masy, by wycentrować ROI i uniknąć przycięcia plamki."
-        )
-        s3_layout.addRow(self.lk_use_centroid_checkbox)
-
-        self.lk_centroid_multiplier_spinbox = QDoubleSpinBox()
-        self.lk_centroid_multiplier_spinbox.setDecimals(2)
-        self.lk_centroid_multiplier_spinbox.setRange(1.0, 3.0)
-        self.lk_centroid_multiplier_spinbox.setSingleStep(0.1)
-        self.lk_centroid_multiplier_spinbox.setValue(1.5)
-        self.lk_centroid_multiplier_spinbox.setToolTip("Mnożnik promienia ROI używany do wycinka centroidu (np. 1.5 → ~1.5× większy).")
-        s3_layout.addRow("Mnożnik promienia centroidu:", self.lk_centroid_multiplier_spinbox)
-
-        self.lk_centroid_rel_thr_spinbox = QDoubleSpinBox()
-        self.lk_centroid_rel_thr_spinbox.setDecimals(2)
-        self.lk_centroid_rel_thr_spinbox.setRange(0.1, 0.9)
-        self.lk_centroid_rel_thr_spinbox.setSingleStep(0.05)
-        self.lk_centroid_rel_thr_spinbox.setValue(0.4)
-        self.lk_centroid_rel_thr_spinbox.setToolTip("Relatywny próg intensywności (względem maksimum) dla maski centroidu.")
-        s3_layout.addRow("Próg relatywny centroidu:", self.lk_centroid_rel_thr_spinbox)
-
-        self.lk_centroid_expand_spinbox = QSpinBox()
-        self.lk_centroid_expand_spinbox.setRange(0, 3)
-        self.lk_centroid_expand_spinbox.setValue(1)
-        self.lk_centroid_expand_spinbox.setToolTip("Ile razy można powiększyć wycinek, gdy centroid wypada blisko krawędzi.")
-        s3_layout.addRow("Maks. rozszerzeń centroidu:", self.lk_centroid_expand_spinbox)
-
-        form_layout.addRow(self.s3_group)
+        form_layout.addRow(self.optical_skip_group)
 
         self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
         self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
@@ -741,12 +747,15 @@ class MainWindow(QMainWindow):
             scenario = self.tracking_scenario_combo.currentText()
 
         show_hungarian = scenario == "Hungarian Tracking"
-        show_optical = scenario.startswith("Optical Flow")
+        show_optical_basic = scenario.startswith("Optical Flow")
+        show_optical_skip = scenario == "Optical Flow (skip, anchor)"
 
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
-        if hasattr(self, "s3_group"):
-            self.s3_group.setVisible(show_optical)
+        if hasattr(self, "optical_basic_group"):
+            self.optical_basic_group.setVisible(show_optical_basic)
+        if hasattr(self, "optical_skip_group"):
+            self.optical_skip_group.setVisible(show_optical_skip)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
