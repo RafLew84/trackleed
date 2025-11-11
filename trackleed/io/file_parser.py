@@ -6,6 +6,10 @@ from typing import List
 
 from trackleed.core.data_models import LeedFile
 
+ALLOWED_EXTENSIONS = {'.tif', '.tiff', '.png'}
+START_DIGIT_PATTERN = re.compile(r'^(0{0,2}\d{1,3})')
+END_DIGIT_PATTERN = re.compile(r'(0{0,2}\d{1,3})$')
+
 # The pattern now only needs to match the data files.
 DATA_FILE_PATTERN = re.compile(
     r"^([a-zA-Z]+)(\d+)([a-zA-Z])_"  # Element, Surface, Mode (e.g., Ru0001G)
@@ -32,7 +36,9 @@ def parse_directory(directory: Path) -> List[LeedFile]:
     data_files: List[LeedFile] = []
 
     for filepath in directory.iterdir():
-        if not (filepath.is_file() and filepath.suffix.lower() in ['.tif', '.tiff']):
+        if not filepath.is_file():
+            continue
+        if filepath.suffix.lower() not in ALLOWED_EXTENSIONS:
             continue
 
         filename = filepath.name
@@ -53,6 +59,34 @@ def parse_directory(directory: Path) -> List[LeedFile]:
                     temperature=float(temp),
                     energy=float(energy),
                     coverage=float(coverage) / 100.0
+                )
+            )
+            continue
+
+        # Fallback: accept numeric prefixes or suffixes (e.g., 1.tif, sample_001.png)
+        stem = filepath.stem
+        fallback_id = None
+        start_match = START_DIGIT_PATTERN.match(stem)
+        if start_match:
+            fallback_id = int(start_match.group(1))
+        else:
+            end_match = END_DIGIT_PATTERN.search(stem)
+            if end_match:
+                fallback_id = int(end_match.group(1))
+
+        if fallback_id is not None:
+            data_files.append(
+                LeedFile(
+                    filepath=filepath,
+                    filename=filename,
+                    is_background=False,
+                    element="GEN",
+                    surface=0,
+                    mode="U",
+                    id=fallback_id,
+                    temperature=0.0,
+                    energy=0.0,
+                    coverage=None,
                 )
             )
 
