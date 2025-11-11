@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from typing import List
+from threading import Event
 import numpy as np
 from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread
 from PyQt6.QtGui import QAction, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QActionGroup , QIcon
@@ -811,13 +812,14 @@ class MainWindow(QMainWindow):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
         worker = None
+        cancel_event = Event()
         if "Hungarian" in selected_scenario:
             all_spots = {f.id: f.spots for f in self.data_files if f.id is not None and f.spots}
             if not all_spots:
                 QMessageBox.warning(self, "No Spots", "Hungarian Tracking requires spots to be defined on frames.")
                 return
             max_dist = self.max_dist_spinbox.value()
-            worker = GenericWorker(track_spots_hungarian, all_spots, max_dist)
+            worker = GenericWorker(track_spots_hungarian, all_spots, max_dist, cancel_event=cancel_event)
 
         elif "Optical Flow" in selected_scenario:
             optical_params = {"roi_size": self.roi_size_spinbox.value()}
@@ -876,6 +878,7 @@ class MainWindow(QMainWindow):
                     sorted_ids,
                     ref_file.id,
                     optical_params,
+                    cancel_event=cancel_event,
                 )
             else:
                 worker = GenericWorker(
@@ -884,6 +887,7 @@ class MainWindow(QMainWindow):
                     sorted_ids,
                     ref_file.id,
                     optical_params,
+                    cancel_event=cancel_event,
                 )
 
         else:
@@ -891,9 +895,9 @@ class MainWindow(QMainWindow):
             return
 
         if worker:
-            self._launch_worker_with_progress(worker, "Running tracking...")
+            self._launch_worker_with_progress(worker, "Running tracking...", cancel_event)
 
-    def _launch_worker_with_progress(self, worker: GenericWorker, title: str):
+    def _launch_worker_with_progress(self, worker: GenericWorker, title: str, cancel_event: Event):
         """Helper method to run any worker with a progress dialog."""
         progress_dialog = QProgressDialog(title, "Cancel", 0, 100, self)
         progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -903,7 +907,7 @@ class MainWindow(QMainWindow):
         self.worker = worker
         self.worker.moveToThread(self.thread)
 
-        progress_dialog.canceled.connect(self.thread.requestInterruption) # Allow cancellation
+        progress_dialog.canceled.connect(lambda: self._handle_worker_cancel(cancel_event, progress_dialog))
         self.worker.progress.connect(progress_dialog.setValue)
         self.worker.finished.connect(self.on_tracking_finished)
         self.worker.error.connect(self.on_tracking_error)
@@ -917,8 +921,21 @@ class MainWindow(QMainWindow):
         self.thread.started.connect(self.worker.run)
         self.thread.start()
 
-    def on_tracking_finished(self, tracks: List[Track]):
+    def _handle_worker_cancel(self, cancel_event: Event, dialog: QProgressDialog):
+        """Signal handler invoked when the user clicks Cancel on a progress dialog."""
+        if cancel_event:
+            cancel_event.set()
+        dialog.setLabelText("Cancelling, please wait...")
+        dialog.setEnabled(False)
+        if self.thread:
+            self.thread.requestInterruption()
+
+    def on_tracking_finished(self, tracks: List[Track] | None):
         """Slot to handle the successful completion of the tracking task."""
+        if tracks is None:
+            print("Tracking task was cancelled by the user.")
+            QMessageBox.information(self, "Tracking Cancelled", "Tracking run was cancelled.")
+            return
         print("Tracking task finished successfully.")
         self.tracking_results = tracks
         self.visualize_button.setEnabled(True)

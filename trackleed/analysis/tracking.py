@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import List, Dict, Callable, Tuple, Optional
+from threading import Event
 
 import cv2
 import numpy as np
@@ -140,8 +141,9 @@ def refine_center_by_centroid(
 def track_spots_hungarian(
     all_spots_by_frame: Dict[int, List[SpotROI]], 
     max_distance: float,
-    progress_callback: Callable[[int], None] | None = None
-) -> List[Track]:
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
     """
     Tracks spots between consecutive frames using the Hungarian algorithm.
 
@@ -183,6 +185,8 @@ def track_spots_hungarian(
     if num_frames_to_process <= 0: return active_tracks
 
     for i in range(num_frames_to_process):
+        if cancel_event and cancel_event.is_set():
+            return None
         prev_frame_id, current_frame_id = sorted_frame_ids[i], sorted_frame_ids[i+1]
         prev_spots = [t.spots_by_image_id[prev_frame_id] for t in active_tracks]
         current_spots = all_spots_by_frame[current_frame_id]
@@ -248,8 +252,9 @@ def track_spots_optical_flow(
     sorted_frame_ids: List[int],
     reference_frame_id: int,
     params: dict,
-    progress_callback: Callable[[int], None] | None = None
-) -> List[Track]:
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
     """
     Tracks spots from a reference frame using the sparse Lucas-Kanade optical flow.
 
@@ -324,6 +329,8 @@ def track_spots_optical_flow(
     good_track_ids = list(tracks_map.keys())  # Keep track of which tracks are still active.
 
     for i in range(ref_frame_index + 1, len(sorted_frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return None
         if progress_callback:
             progress_percent = int(((i - ref_frame_index) / total_steps) * 100)
             progress_callback(progress_percent)
@@ -486,7 +493,8 @@ def optical_flow_with_skip_anchor(
     centroid_rel_threshold: float = 0.4,
     centroid_max_expand: int = 1,
     roi_size: int = 32,
-) -> List[List[Tuple[int, float, float]]]:
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[List[Tuple[int, float, float]]]]:
     """
     Skip-anchor tracker: when a frame fails to produce a match we do not append
     a point and we keep the anchor on the last successful frame. The next LK
@@ -552,6 +560,8 @@ def optical_flow_with_skip_anchor(
 
     # Main loop over target frames
     for t in range(1, len(frames)):
+        if cancel_event and cancel_event.is_set():
+            return None
         img_t = frames[t]
 
         # Consider only living tracks whose anchor frame is older than t
@@ -566,6 +576,8 @@ def optical_flow_with_skip_anchor(
             groups[anchor_idx[i]].append(i)
 
         for a_idx, group in groups.items():
+            if cancel_event and cancel_event.is_set():
+                return None
             img_anchor = frames[a_idx]
             p0 = anchor_pos[group].reshape(-1, 1, 2).astype(np.float32)
 
@@ -655,7 +667,8 @@ def track_spots_optical_flow_skip_anchor(
     reference_frame_id: int,
     params: dict,
     progress_callback: Callable[[int], None] | None = None,
-) -> List[Track]:
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
     """
     Wrapper that prepares image stacks and converts the skip-anchor LK output into Track objects.
     """
@@ -680,6 +693,8 @@ def track_spots_optical_flow_skip_anchor(
 
     frames: List[np.ndarray] = []
     for idx, frame_id in enumerate(subset_frame_ids):
+        if cancel_event and cancel_event.is_set():
+            return None
         prepared = _load_and_prep_image(
             all_files_map[frame_id].filepath,
             background_image,
@@ -722,13 +737,18 @@ def track_spots_optical_flow_skip_anchor(
         centroid_rel_threshold=params.get("centroid_rel_threshold", 0.4),
         centroid_max_expand=params.get("centroid_max_expand", 1),
         roi_size=params.get("roi_size", 32),
+        cancel_event=cancel_event,
     )
+    if raw_tracks is None:
+        return None
 
     roi_size = params.get("roi_size", 32)
     roi_half = roi_size // 2
     converted_tracks: List[Track] = []
 
     for spot, positions in zip(ref_file.spots, raw_tracks):
+        if cancel_event and cancel_event.is_set():
+            return None
         if not positions:
             continue
         track = Track(track_id=spot.id, spots_by_image_id={})
