@@ -537,12 +537,12 @@ class MainWindow(QMainWindow):
         # layout.addWidget(tracking_group)
 
         # --- Group for Scenario 1 Parameters ---
-        s1_group = QGroupBox("Hungarian Tracking Parameters")
-        s1_layout = QFormLayout(s1_group)
+        self.hungarian_group = QGroupBox("Hungarian Tracking Parameters")
+        s1_layout = QFormLayout(self.hungarian_group)
         self.max_dist_spinbox = QSpinBox()
         self.max_dist_spinbox.setRange(5, 200); self.max_dist_spinbox.setValue(20)
         s1_layout.addRow("Max Track Distance:", self.max_dist_spinbox)
-        form_layout.addRow(s1_group)
+        form_layout.addRow(self.hungarian_group)
         # layout.addWidget(s1_group)
 
         # --- Group for Scenario 3 Parameters ---
@@ -703,6 +703,9 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.s3_group)
 
+        self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
+        self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
+
         # --- Action Buttons ---
         self.track_button = QPushButton("Track Spots")
         self.track_button.clicked.connect(self.run_tracking)
@@ -731,6 +734,19 @@ class MainWindow(QMainWindow):
         scroll_area.setWidgetResizable(True)
         scroll_area.setWidget(controls_widget)
         self.analysis_dock.setWidget(scroll_area)
+
+    def _update_tracking_params_visibility(self, scenario: str | None = None):
+        """Shows parameter groups only for the currently selected tracking algorithm."""
+        if scenario is None:
+            scenario = self.tracking_scenario_combo.currentText()
+
+        show_hungarian = scenario == "Hungarian Tracking"
+        show_optical = scenario.startswith("Optical Flow")
+
+        if hasattr(self, "hungarian_group"):
+            self.hungarian_group.setVisible(show_hungarian)
+        if hasattr(self, "s3_group"):
+            self.s3_group.setVisible(show_optical)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
