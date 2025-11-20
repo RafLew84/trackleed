@@ -161,4 +161,7 @@ cython_debug/
 
 data/
 context.md
+dl.md
+dl_plan.md
+ui_plan.md
 tests/

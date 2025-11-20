@@ -9,12 +9,23 @@ from typing import List, Tuple
 
 import numpy as np
 import tifffile
+import imageio.v3 as iio
 
 
 @dataclass
 class SynthConfig:
     frames: int = 30
     frame_size: int = 256
+    # Background baseline and temporal drift
+    bg_base_level: float = 0.05
+    bg_wave_amplitude: float = 0.0
+    bg_wave_period: int = 200
+    bg_wave_mode: str = "none"  # "none" | "sin"
+    # Spatial background inhomogeneity (gradients / smooth patches)
+    bg_grad_amplitude: float = 0.0     # linear gradient component
+    bg_quad_amplitude: float = 0.0     # radial quadratic component
+    bg_spot_amplitude: float = 0.0     # amplitude for smooth local bright/dark blobs
+    bg_spot_count: int = 0             # number of blobs to place
     ring_radius: float = 80.0
     spots_per_ring: int = 8
     num_rings: int = 1
@@ -179,6 +190,112 @@ def _apply_grid_artifact(image: np.ndarray, config: SynthConfig, rng: np.random.
     np.clip(image, 0.0, None, out=image)
 
 
+def _generate_spatial_background(config: SynthConfig, rng: np.random.Generator) -> np.ndarray:
+    """
+    Generate a smooth, spatially varying background field with zero mean,
+    combining a global gradient, radial component, and a few broad blobs.
+    """
+    h = config.frame_size
+    w = config.frame_size
+    yy, xx = np.mgrid[0:h, 0:w]
+    xnorm = (xx / max(w - 1, 1)) - 0.5
+    ynorm = (yy / max(h - 1, 1)) - 0.5
+
+    field = np.zeros((h, w), dtype=np.float32)
+
+    # Linear gradient along a random direction
+    if config.bg_grad_amplitude != 0.0:
+        theta = rng.uniform(0, 2 * np.pi)
+        grad_dir = np.cos(theta) * xnorm + np.sin(theta) * ynorm
+        field += config.bg_grad_amplitude * grad_dir.astype(np.float32)
+
+    # Radial quadratic term (brighter/darker center vs edges)
+    if config.bg_quad_amplitude != 0.0:
+        r2 = xnorm**2 + ynorm**2
+        r2 = r2 - r2.mean()
+        field += config.bg_quad_amplitude * r2.astype(np.float32)
+
+    # A few smooth local blobs (additive bright/dark patches)
+    if config.bg_spot_amplitude != 0.0 and config.bg_spot_count > 0:
+        blobs = np.zeros_like(field)
+        for _ in range(config.bg_spot_count):
+            cx = rng.uniform(-0.25, 0.25)
+            cy = rng.uniform(-0.25, 0.25)
+            sx = rng.uniform(0.15, 0.35)
+            sy = rng.uniform(0.15, 0.35)
+            sign = rng.choice([-1.0, 1.0])
+            dx = xnorm - cx
+            dy = ynorm - cy
+            blob = np.exp(-((dx**2) / (2 * sx**2) + (dy**2) / (2 * sy**2)))
+            blobs += sign * blob.astype(np.float32)
+        # Normalize blobs to roughly [-1,1]
+        maxabs = float(np.max(np.abs(blobs))) if blobs.size else 0.0
+        if maxabs > 1e-6:
+            blobs = blobs / maxabs
+        field += config.bg_spot_amplitude * blobs
+
+    # Normalize global field to zero mean and clamp to a reasonable range
+    field = field - float(field.mean())
+    maxabs = float(np.max(np.abs(field))) if field.size else 0.0
+    if maxabs > 0:
+        field = field / maxabs  # now roughly in [-1, 1]
+    return field.astype(np.float32)
+
+
+def _spot_to_yolo_label(
+    pos: np.ndarray,
+    sigma_x: float,
+    sigma_y: float,
+    frame_size: int,
+    box_scale: float = 3.0,
+    class_id: int = 0,
+) -> str:
+    width = max(1.0, box_scale * sigma_x * 2.0)
+    height = max(1.0, box_scale * sigma_y * 2.0)
+    half_w = width / 2.0
+    half_h = height / 2.0
+    x0 = max(0.0, pos[0] - half_w)
+    y0 = max(0.0, pos[1] - half_h)
+    x1 = min(frame_size - 1.0, pos[0] + half_w)
+    y1 = min(frame_size - 1.0, pos[1] + half_h)
+    center_x = ((x0 + x1) / 2.0) / frame_size
+    center_y = ((y0 + y1) / 2.0) / frame_size
+    box_w = max(1e-6, (x1 - x0) / frame_size)
+    box_h = max(1e-6, (y1 - y0) / frame_size)
+    center_x = float(np.clip(center_x, 0.0, 1.0))
+    center_y = float(np.clip(center_y, 0.0, 1.0))
+    box_w = float(np.clip(box_w, 1e-6, 1.0))
+    box_h = float(np.clip(box_h, 1e-6, 1.0))
+    return f"{class_id} {center_x:.6f} {center_y:.6f} {box_w:.6f} {box_h:.6f}"
+
+
+def _write_image(path: Path, image: np.ndarray, fmt: str, is_mask: bool = False) -> None:
+    fmt = fmt.lower()
+    if fmt == "tiff":
+        if is_mask:
+            tifffile.imwrite(path, image.astype(np.uint8))
+        else:
+            tifffile.imwrite(path, image.astype(np.float32))
+        return
+
+    if fmt == "png":
+        if is_mask:
+            arr = (image > 0).astype(np.uint8) * 255
+        else:
+            arr = image.astype(np.float32)
+            min_v = float(arr.min())
+            max_v = float(arr.max())
+            if max_v > min_v:
+                arr = (arr - min_v) / (max_v - min_v)
+            else:
+                arr = np.zeros_like(arr)
+            arr = np.clip(arr * 65535.0, 0, 65535).astype(np.uint16)
+        iio.imwrite(path, arr)
+        return
+
+    raise ValueError(f"Unsupported image format: {fmt}")
+
+
 def _update_spot_state(
     spot: SpotState, config: SynthConfig, rng: np.random.Generator
 ) -> SpotState:
@@ -205,10 +322,25 @@ def _update_spot_state(
     )
 
 
-def generate_sequence(config: SynthConfig, output_dir: Path):
+def generate_sequence(
+    config: SynthConfig,
+    output_dir: Path,
+    save_mask: bool = False,
+    save_yolo: bool = False,
+    image_format: str = "tiff",
+    yolo_box_scale: float = 3.0,
+    yolo_class_id: int = 0,
+):
+    """
+    Generate a synthetic LEED sequence.
+
+    If save_mask is True, in addition to the intensity image a binary mask
+    of all spots is written for each frame (useful for segmentation training).
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(config.seed)
     spots = _generate_initial_spots(config, rng)
+    spatial_bg = _generate_spatial_background(config, rng)
 
     track_records = {spot.track_id: [] for spot in spots}
     center = np.array([config.frame_size / 2, config.frame_size / 2], dtype=np.float32)
@@ -217,8 +349,28 @@ def generate_sequence(config: SynthConfig, output_dir: Path):
         [np.cos(drift_direction), np.sin(drift_direction)], dtype=np.float32
     ) * config.drift_per_frame
 
+    image_format = image_format.lower()
+    if image_format not in {"tiff", "png"}:
+        raise ValueError(f"Unsupported image format: {image_format}")
+
     for frame_idx in range(config.frames):
-        image = np.full((config.frame_size, config.frame_size), 0.05, dtype=np.float32)
+        # Time-varying background: global level can brighten/darken over the sequence.
+        bg_level = config.bg_base_level
+        if (
+            config.bg_wave_mode.lower() == "sin"
+            and config.bg_wave_amplitude != 0.0
+            and config.bg_wave_period > 0
+        ):
+            phase = 2 * np.pi * frame_idx / float(config.bg_wave_period)
+            bg_level = config.bg_base_level + config.bg_wave_amplitude * np.sin(phase)
+        # Start from global level plus spatial inhomogeneity
+        base_background = np.full((config.frame_size, config.frame_size), float(bg_level), dtype=np.float32)
+        if spatial_bg is not None:
+            base_background = base_background + spatial_bg
+        image = base_background.copy()
+        spot_layer = np.zeros_like(image, dtype=np.float32)
+        mask = np.zeros_like(image, dtype=np.float32) if save_mask else None
+        yolo_labels = [] if save_yolo else None
         frame_center = center + drift_vector * frame_idx
 
         for spot in spots:
@@ -245,7 +397,7 @@ def generate_sequence(config: SynthConfig, output_dir: Path):
                 continue
 
             _render_gaussian_blob(
-                image,
+                spot_layer,
                 pos[0],
                 pos[1],
                 spot.sigma_x,
@@ -253,6 +405,17 @@ def generate_sequence(config: SynthConfig, output_dir: Path):
                 spot.theta,
                 current_intensity,
             )
+            if mask is not None:
+                # Draw a unit-amplitude Gaussian into the mask; will be thresholded later.
+                _render_gaussian_blob(
+                    mask,
+                    pos[0],
+                    pos[1],
+                    spot.sigma_x,
+                    spot.sigma_y,
+                    spot.theta,
+                    1.0,
+                )
             track_records[spot.track_id].append(
                 {
                     "frame": frame_idx,
@@ -269,10 +432,32 @@ def generate_sequence(config: SynthConfig, output_dir: Path):
                 }
             )
 
-        _apply_grid_artifact(image, config, rng)
+            if save_yolo and yolo_labels is not None:
+                yolo_labels.append(
+                    _spot_to_yolo_label(
+                        pos,
+                        spot.sigma_x,
+                        spot.sigma_y,
+                        config.frame_size,
+                        box_scale=yolo_box_scale,
+                        class_id=yolo_class_id,
+                    )
+                )
+
+        _apply_grid_artifact(spot_layer, config, rng)
+        image = base_background + spot_layer
         image += rng.normal(0, config.noise_level, image.shape).astype(np.float32)
-        image_path = output_dir / f"synthetic_{frame_idx:04d}.tiff"
-        tifffile.imwrite(image_path, image.astype(np.float32))
+        image_path = output_dir / f"synthetic_{frame_idx:04d}.{image_format}"
+        _write_image(image_path, image, image_format)
+
+        if mask is not None:
+            mask_bin = (mask > 0).astype(np.uint8)
+            mask_path = output_dir / f"synthetic_{frame_idx:04d}_mask.{image_format}"
+            _write_image(mask_path, mask_bin.astype(np.float32), image_format, is_mask=True)
+
+        if save_yolo and yolo_labels is not None:
+            label_path = output_dir / f"synthetic_{frame_idx:04d}.txt"
+            label_path.write_text("\n".join(yolo_labels))
 
         spots = [_update_spot_state(spot, config, rng) for spot in spots]
 
@@ -311,6 +496,21 @@ def main_cli(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Generate synthetic LEED sequences.")
     parser.add_argument("--output", type=Path, required=True, help="Output directory for TIFFs/JSON.")
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["sequence", "segmentation"],
+        default="sequence",
+        help="If 'segmentation', also save per-frame binary masks for spots.",
+    )
+    parser.add_argument(
+        "--save-mask",
+        action="store_true",
+        help="Explicitly request saving segmentation masks (equivalent to --mode segmentation).",
+    )
+    parser.add_argument("--image-format", choices=["tiff", "png"], default="tiff", help="Image format for outputs.")
+    parser.add_argument("--save-yolo", action="store_true", help="Also save YOLO label files per frame.")
+    parser.add_argument("--yolo-box-scale", type=float, default=3.0, help="Bounding-box multiplier relative to spot sigma (default 3.0).")
     parser.add_argument("--frames", type=int, default=30)
     parser.add_argument("--frame-size", type=int, default=256)
     parser.add_argument("--spots-per-ring", type=int, default=8)
@@ -319,6 +519,50 @@ def main_cli(argv: list[str] | None = None) -> int:
     parser.add_argument("--drift", type=float, default=0.5, help="Drift per frame (pixels).")
     parser.add_argument("--expansion", type=float, default=0.2, help="Radial expansion per frame.")
     parser.add_argument("--noise", type=float, default=0.02)
+    parser.add_argument("--bg-base", type=float, default=0.05, help="Base background level.")
+    parser.add_argument(
+        "--bg-wave-amplitude",
+        type=float,
+        default=0.0,
+        help="Amplitude of global background variation over time.",
+    )
+    parser.add_argument(
+        "--bg-wave-period",
+        type=int,
+        default=200,
+        help="Period (in frames) of the background variation wave.",
+    )
+    parser.add_argument(
+        "--bg-wave-mode",
+        type=str,
+        choices=["none", "sin"],
+        default="none",
+        help="Background variation mode over time.",
+    )
+    parser.add_argument(
+        "--bg-grad-amplitude",
+        type=float,
+        default=0.0,
+        help="Amplitude of a smooth linear gradient component in the background.",
+    )
+    parser.add_argument(
+        "--bg-quad-amplitude",
+        type=float,
+        default=0.0,
+        help="Amplitude of a smooth radial quadratic component in the background.",
+    )
+    parser.add_argument(
+        "--bg-spot-amplitude",
+        type=float,
+        default=0.0,
+        help="Amplitude of smooth local bright/dark background blobs.",
+    )
+    parser.add_argument(
+        "--bg-spot-count",
+        type=int,
+        default=0,
+        help="Number of smooth local background blobs to place.",
+    )
     parser.add_argument(
         "--spot-sigma",
         type=float,
@@ -391,6 +635,14 @@ def main_cli(argv: list[str] | None = None) -> int:
         radial_expansion_per_frame=args.expansion,
         noise_level=args.noise,
         seed=args.seed,
+        bg_base_level=args.bg_base,
+        bg_wave_amplitude=args.bg_wave_amplitude,
+        bg_wave_period=args.bg_wave_period,
+        bg_wave_mode=args.bg_wave_mode,
+        bg_grad_amplitude=args.bg_grad_amplitude,
+        bg_quad_amplitude=args.bg_quad_amplitude,
+        bg_spot_amplitude=args.bg_spot_amplitude,
+        bg_spot_count=args.bg_spot_count,
     )
     if args.spot_sigma is not None:
         config.sigma_x_range = (args.spot_sigma, args.spot_sigma)
@@ -422,7 +674,16 @@ def main_cli(argv: list[str] | None = None) -> int:
         config.satellite_radius_offset = tuple(args.satellite_radius_offset)
     if args.satellite_angle_offset is not None:
         config.satellite_angle_offset = tuple(args.satellite_angle_offset)
-    generate_sequence(config, args.output)
+
+    save_mask = args.save_mask or (args.mode == "segmentation")
+    generate_sequence(
+        config,
+        args.output,
+        save_mask=save_mask,
+        save_yolo=args.save_yolo,
+        image_format=args.image_format,
+        yolo_box_scale=args.yolo_box_scale,
+    )
     print(f"Synthetic sequence saved to {args.output}")
     return 0
 

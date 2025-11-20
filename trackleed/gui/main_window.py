@@ -1,6 +1,7 @@
 # stal/gui/main_window.py
 
 from pathlib import Path
+from dataclasses import dataclass
 
 from typing import List
 from threading import Event
@@ -11,13 +12,14 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QLabel, QFileDialog, QListWidgetItem, QMessageBox, QApplication,
                              QDialog, QDockWidget, QFormLayout, QSpinBox, QDoubleSpinBox,
                              QPushButton, QCheckBox, QToolBar, QComboBox, QProgressDialog,
-                             QScrollArea)
+                             QScrollArea, QStackedWidget, QSizePolicy)
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory
 from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
+from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
 from trackleed.logic.generic_worker import GenericWorker
@@ -31,6 +33,16 @@ from skimage.color import rgb2gray
 from scipy.ndimage import gaussian_filter
 from skimage.feature import peak_local_max
 from skimage.morphology import white_tophat, disk
+
+
+@dataclass
+class DLSpotSettings:
+    model_path: str | None = None
+    confidence: float = 0.5
+    min_area_px: int = 10
+    max_area_px: int = 10000
+    bbox_margin_px: int = 4
+    dilate_radius_px: int = 0
 
 
 class MainWindow(QMainWindow):
@@ -48,6 +60,10 @@ class MainWindow(QMainWindow):
         self.background_file: LeedFile | None = None
         self.metadata_mask_list: list[QRect] = []
         self.tracking_results: List[Track] = []
+        self.dl_settings = DLSpotSettings()
+        self.current_spot_backend = "Classic"
+        self.segmentation_models_dir = Path("segmentation_models")
+        self._dl_models_available = False
 
         # --- Initialize UI ---
         self._init_ui()
@@ -479,42 +495,30 @@ class MainWindow(QMainWindow):
         
         # Use a form layout for neat parameter alignment
         find_spots_group = QGroupBox("Find Spots")
-        form_layout = QFormLayout(find_spots_group)
-        # --- Parameter Widgets ---
-        self.wth_radius_spinbox = QSpinBox()
-        self.wth_radius_spinbox.setRange(1, 50)
-        self.wth_radius_spinbox.setValue(8) # Default value
-        form_layout.addRow("WTH Radius:", self.wth_radius_spinbox)
-        
-        self.blur_sigma_spinbox = QDoubleSpinBox()
-        self.blur_sigma_spinbox.setRange(1.0, 100.0)
-        self.blur_sigma_spinbox.setSingleStep(0.5)
-        self.blur_sigma_spinbox.setValue(20.0) # Default value
-        form_layout.addRow("Blur Sigma:", self.blur_sigma_spinbox)
-        
-        self.min_distance_spinbox = QSpinBox()
-        self.min_distance_spinbox.setRange(1, 100)
-        self.min_distance_spinbox.setValue(10) # Default value
-        form_layout.addRow("Min Peak Distance:", self.min_distance_spinbox)
+        find_spots_layout = QVBoxLayout(find_spots_group)
 
-        self.threshold_rel_spinbox = QDoubleSpinBox()
-        self.threshold_rel_spinbox.setRange(0.01, 1.0)
-        self.threshold_rel_spinbox.setSingleStep(0.01)
-        self.threshold_rel_spinbox.setValue(0.1) # Default value
-        form_layout.addRow("Relative Threshold:", self.threshold_rel_spinbox)
+        backend_form = QFormLayout()
+        self.spot_backend_combo = QComboBox()
+        self.spot_backend_combo.addItems(["Classic", "Deep Learning"])
+        self.spot_backend_combo.setToolTip(
+            "Select the spot detection backend. Classic uses the existing WTH/peak pipeline; "
+            "Deep Learning uses a segmentation model from the segmentation_models folder."
+        )
+        backend_form.addRow("Spot detector:", self.spot_backend_combo)
+        find_spots_layout.addLayout(backend_form)
 
-        self.roi_size_spinbox = QSpinBox()
-        self.roi_size_spinbox.setRange(8, 128)
-        self.roi_size_spinbox.setSingleStep(2)
-        self.roi_size_spinbox.setValue(32) # Default value
-        form_layout.addRow("ROI Size:", self.roi_size_spinbox)
-
+        self.spot_backend_stack = QStackedWidget()
+        self.spot_backend_stack.addWidget(self._build_classic_find_spots_panel())
+        self.spot_backend_stack.addWidget(self._build_dl_find_spots_panel())
+        find_spots_layout.addWidget(self.spot_backend_stack)
 
         self.find_spots_button = QPushButton("Find Spots")
         self.find_spots_button.clicked.connect(self.run_spot_finding)
-        form_layout.addRow(self.find_spots_button)
+        find_spots_layout.addWidget(self.find_spots_button)
 
         layout.addWidget(find_spots_group)
+        self.spot_backend_combo.currentTextChanged.connect(self._on_spot_backend_changed)
+
         layout.addStretch() # Pushes everything up
 
         tracking_group = QGroupBox("Tracking")
@@ -730,6 +734,188 @@ class MainWindow(QMainWindow):
         scroll_area.setWidget(controls_widget)
         self.analysis_dock.setWidget(scroll_area)
 
+        self._refresh_segmentation_models()
+        self._on_spot_backend_changed(self.spot_backend_combo.currentText())
+
+    def _build_classic_find_spots_panel(self) -> QWidget:
+        widget = QWidget()
+        form_layout = QFormLayout(widget)
+
+        self.wth_radius_spinbox = QSpinBox()
+        self.wth_radius_spinbox.setRange(1, 50)
+        self.wth_radius_spinbox.setValue(8)
+        form_layout.addRow("WTH Radius:", self.wth_radius_spinbox)
+
+        self.blur_sigma_spinbox = QDoubleSpinBox()
+        self.blur_sigma_spinbox.setRange(1.0, 100.0)
+        self.blur_sigma_spinbox.setSingleStep(0.5)
+        self.blur_sigma_spinbox.setValue(20.0)
+        form_layout.addRow("Blur Sigma:", self.blur_sigma_spinbox)
+
+        self.min_distance_spinbox = QSpinBox()
+        self.min_distance_spinbox.setRange(1, 100)
+        self.min_distance_spinbox.setValue(10)
+        form_layout.addRow("Min Peak Distance:", self.min_distance_spinbox)
+
+        self.threshold_rel_spinbox = QDoubleSpinBox()
+        self.threshold_rel_spinbox.setRange(0.01, 1.0)
+        self.threshold_rel_spinbox.setSingleStep(0.01)
+        self.threshold_rel_spinbox.setValue(0.1)
+        form_layout.addRow("Relative Threshold:", self.threshold_rel_spinbox)
+
+        self.roi_size_spinbox = QSpinBox()
+        self.roi_size_spinbox.setRange(8, 128)
+        self.roi_size_spinbox.setSingleStep(2)
+        self.roi_size_spinbox.setValue(32)
+        form_layout.addRow("ROI Size:", self.roi_size_spinbox)
+
+        return widget
+
+    def _build_dl_find_spots_panel(self) -> QWidget:
+        widget = QWidget()
+        form_layout = QFormLayout(widget)
+
+        model_row_widget = QWidget()
+        model_row_layout = QHBoxLayout(model_row_widget)
+        model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.dl_model_combo = QComboBox()
+        self.dl_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.dl_model_combo.setToolTip(
+            "Select a trained segmentation model (.pt) placed in the segmentation_models folder."
+        )
+        self.dl_model_combo.currentIndexChanged.connect(self._on_dl_model_selected)
+        self.dl_refresh_models_button = QPushButton("Refresh")
+        self.dl_refresh_models_button.setToolTip("Re-scan the segmentation_models directory for new checkpoints.")
+        self.dl_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
+        model_row_layout.addWidget(self.dl_model_combo)
+        model_row_layout.addWidget(self.dl_refresh_models_button)
+        form_layout.addRow("Model:", model_row_widget)
+
+        self.dl_confidence_spinbox = QDoubleSpinBox()
+        self.dl_confidence_spinbox.setRange(0.1, 0.99)
+        self.dl_confidence_spinbox.setSingleStep(0.01)
+        self.dl_confidence_spinbox.setValue(self.dl_settings.confidence)
+        self.dl_confidence_spinbox.setToolTip(
+            "Cut-off applied to the U-Net probability map (higher = fewer, cleaner components)."
+        )
+        self.dl_confidence_spinbox.valueChanged.connect(
+            lambda v: setattr(self.dl_settings, "confidence", float(v))
+        )
+        form_layout.addRow("Confidence:", self.dl_confidence_spinbox)
+
+        self.dl_min_area_spinbox = QSpinBox()
+        self.dl_min_area_spinbox.setRange(1, 10000)
+        self.dl_min_area_spinbox.setValue(self.dl_settings.min_area_px)
+        self.dl_min_area_spinbox.setToolTip("Discard connected components smaller than this pixel area to avoid noise blobs.")
+        self.dl_min_area_spinbox.valueChanged.connect(
+            lambda v: setattr(self.dl_settings, "min_area_px", int(v))
+        )
+        form_layout.addRow("Min area (px):", self.dl_min_area_spinbox)
+
+        self.dl_max_area_spinbox = QSpinBox()
+        self.dl_max_area_spinbox.setRange(10, 100000)
+        self.dl_max_area_spinbox.setValue(self.dl_settings.max_area_px)
+        self.dl_max_area_spinbox.setToolTip("Discard unusually large components (pixels). Increase if spots cover many pixels.")
+        self.dl_max_area_spinbox.valueChanged.connect(
+            lambda v: setattr(self.dl_settings, "max_area_px", int(v))
+        )
+        form_layout.addRow("Max area (px):", self.dl_max_area_spinbox)
+
+        self.dl_bbox_margin_spinbox = QSpinBox()
+        self.dl_bbox_margin_spinbox.setRange(0, 50)
+        self.dl_bbox_margin_spinbox.setValue(self.dl_settings.bbox_margin_px)
+        self.dl_bbox_margin_spinbox.setToolTip("Extra padding (pixels) around each connected component when creating SpotROI rectangles.")
+        self.dl_bbox_margin_spinbox.valueChanged.connect(
+            lambda v: setattr(self.dl_settings, "bbox_margin_px", int(v))
+        )
+        form_layout.addRow("BBox margin (px):", self.dl_bbox_margin_spinbox)
+
+        self.dl_dilate_spinbox = QSpinBox()
+        self.dl_dilate_spinbox.setRange(0, 15)
+        self.dl_dilate_spinbox.setValue(self.dl_settings.dilate_radius_px)
+        self.dl_dilate_spinbox.setToolTip(
+            "Optional dilation radius in pixels applied to the binary mask before measuring components (helps close gaps)."
+        )
+        self.dl_dilate_spinbox.valueChanged.connect(
+            lambda v: setattr(self.dl_settings, "dilate_radius_px", int(v))
+        )
+        form_layout.addRow("Dilate radius (px):", self.dl_dilate_spinbox)
+
+        info_label = QLabel(
+            "Drop your trained checkpoints into <code>segmentation_models/</code>.\n"
+            "The model produces a probability mask that we threshold, clean up, and convert to ROIs based on the settings above."
+        )
+        info_label.setWordWrap(True)
+        form_layout.addRow(info_label)
+
+        self.dl_warning_label = QLabel()
+        self.dl_warning_label.setStyleSheet("color: #d9534f;")
+        self.dl_warning_label.setWordWrap(True)
+        form_layout.addRow(self.dl_warning_label)
+
+        return widget
+
+    def _refresh_segmentation_models(self):
+        self.dl_model_combo.blockSignals(True)
+        self.dl_model_combo.clear()
+        models_dir = self.segmentation_models_dir
+        model_paths: list[Path] = []
+        if models_dir.exists():
+            model_paths = sorted(models_dir.glob("*.pt"))
+
+        if not model_paths:
+            self.dl_model_combo.addItem("No models found", userData=None)
+            self.dl_model_combo.setEnabled(False)
+            self._dl_models_available = False
+            self.dl_settings.model_path = None
+            if hasattr(self, "dl_warning_label"):
+                self.dl_warning_label.setText(
+                    "No models detected. Copy .pt checkpoints into the segmentation_models folder and press Refresh."
+                )
+        else:
+            self.dl_model_combo.setEnabled(True)
+            for path in model_paths:
+                self.dl_model_combo.addItem(path.name, userData=str(path.resolve()))
+            self._dl_models_available = True
+            if self.dl_settings.model_path:
+                idx = self.dl_model_combo.findData(self.dl_settings.model_path)
+                if idx >= 0:
+                    self.dl_model_combo.setCurrentIndex(idx)
+            if not self.dl_settings.model_path and self.dl_model_combo.count() > 0:
+                self.dl_model_combo.setCurrentIndex(0)
+                self.dl_settings.model_path = self.dl_model_combo.currentData()
+            if hasattr(self, "dl_warning_label"):
+                self.dl_warning_label.setText("")
+        self.dl_model_combo.blockSignals(False)
+        self._update_find_spots_button_state()
+
+    def _on_spot_backend_changed(self, backend: str):
+        self.current_spot_backend = backend
+        index = 0 if backend == "Classic" else 1
+        self.spot_backend_stack.setCurrentIndex(index)
+        self._update_find_spots_button_state()
+
+    def _on_dl_model_selected(self, index: int):
+        model_path = self.dl_model_combo.itemData(index)
+        self.dl_settings.model_path = model_path
+        self._update_find_spots_button_state()
+
+    def _update_find_spots_button_state(self):
+        if not hasattr(self, "find_spots_button"):
+            return
+        if self.current_spot_backend == "Deep Learning":
+            enabled = self._dl_models_available and bool(self.dl_settings.model_path)
+            self.find_spots_button.setEnabled(enabled)
+            if not enabled:
+                self.find_spots_button.setToolTip(
+                    "Add a .pt model to segmentation_models/ and click Refresh, then pick it from the list."
+                )
+            else:
+                self.find_spots_button.setToolTip("")
+        else:
+            self.find_spots_button.setEnabled(True)
+            self.find_spots_button.setToolTip("")
+
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
         if scenario is None:
@@ -763,15 +949,54 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "No Image", "Please select an image to analyze.")
             return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
-        
+
+        spot_settings = self._collect_spot_settings()
+        backend = spot_settings["backend"]
         # 2. Gather data (main image, background, mask)
         main_image = load_tiff(leed_file.filepath)
         background_image = None
         if self.background_file:
             background_image = load_tiff(self.background_file.filepath)
 
-        # 3. Gather parameters from the GUI
-        params = {
+        if backend == "Deep Learning":
+            dl_cfg = spot_settings["dl"]
+            if not dl_cfg.get("model_path"):
+                QMessageBox.warning(self, "No Model", "Select a deep-learning model before running detection.")
+                return
+            try:
+                found_spots = detect_spots_with_model(main_image, self.metadata_mask_list, dl_cfg)
+                leed_file.spots = found_spots
+            except DLSpotDetectionError as exc:
+                QMessageBox.critical(self, "DL Detector Error", str(exc))
+                return
+            except Exception as exc:
+                QMessageBox.critical(
+                    self,
+                    "DL Detector Error",
+                    f"Unexpected error during deep-learning detection:\n{exc}",
+                )
+                return
+        else:
+            # 3. Gather parameters from the GUI
+            params = spot_settings["classic"]
+
+            # 4. Run the analysis in the backend
+            try:
+                print(f"Running analysis on {leed_file.filename} with params: {params}")
+                found_spots = find_spots(main_image, background_image, self.metadata_mask_list, params)
+                # Store results in the data model
+                leed_file.spots = found_spots
+            except Exception as e:
+                QMessageBox.critical(self, "Analysis Error", f"An error occurred during spot finding:\n{e}")
+                return
+        
+        # 5. Update the UI with results
+        self.populate_spot_list(found_spots)
+        self.refresh_current_view()
+
+    def _collect_spot_settings(self) -> dict:
+        """Serialize the current spot-finding UI state for persistence or reuse."""
+        classic_settings = {
             'wth_radius': self.wth_radius_spinbox.value(),
             'blur_sigma': self.blur_sigma_spinbox.value(),
             'min_distance': self.min_distance_spinbox.value(),
@@ -779,19 +1004,53 @@ class MainWindow(QMainWindow):
             'roi_size': self.roi_size_spinbox.value(),
         }
 
-        # 4. Run the analysis in the backend
-        try:
-            print(f"Running analysis on {leed_file.filename} with params: {params}")
-            found_spots = find_spots(main_image, background_image, self.metadata_mask_list, params)
-            # Store results in the data model
-            leed_file.spots = found_spots
-        except Exception as e:
-            QMessageBox.critical(self, "Analysis Error", f"An error occurred during spot finding:\n{e}")
-            return
-        
-        # 5. Update the UI with results
-        self.populate_spot_list(found_spots)
-        self.refresh_current_view()
+        dl_settings = {
+            'model_path': self.dl_settings.model_path,
+            'confidence': self.dl_confidence_spinbox.value(),
+            'min_area_px': self.dl_min_area_spinbox.value(),
+            'max_area_px': self.dl_max_area_spinbox.value(),
+            'bbox_margin_px': self.dl_bbox_margin_spinbox.value(),
+            'dilate_radius_px': self.dl_dilate_spinbox.value(),
+        }
+
+        return {
+            'backend': self.current_spot_backend,
+            'classic': classic_settings,
+            'dl': dl_settings,
+        }
+
+    def _apply_spot_settings(self, settings: dict) -> None:
+        """Apply serialized spot-finding settings back to the UI widgets."""
+        classic = settings.get('classic', {})
+        if classic:
+            self.wth_radius_spinbox.setValue(int(classic.get('wth_radius', self.wth_radius_spinbox.value())))
+            self.blur_sigma_spinbox.setValue(float(classic.get('blur_sigma', self.blur_sigma_spinbox.value())))
+            self.min_distance_spinbox.setValue(int(classic.get('min_distance', self.min_distance_spinbox.value())))
+            self.threshold_rel_spinbox.setValue(float(classic.get('threshold_rel', self.threshold_rel_spinbox.value())))
+            self.roi_size_spinbox.setValue(int(classic.get('roi_size', self.roi_size_spinbox.value())))
+
+        dl = settings.get('dl', {})
+        if dl:
+            if 'confidence' in dl:
+                self.dl_confidence_spinbox.setValue(float(dl['confidence']))
+            if 'min_area_px' in dl:
+                self.dl_min_area_spinbox.setValue(int(dl['min_area_px']))
+            if 'max_area_px' in dl:
+                self.dl_max_area_spinbox.setValue(int(dl['max_area_px']))
+            if 'bbox_margin_px' in dl:
+                self.dl_bbox_margin_spinbox.setValue(int(dl['bbox_margin_px']))
+            if 'dilate_radius_px' in dl:
+                self.dl_dilate_spinbox.setValue(int(dl['dilate_radius_px']))
+            if 'model_path' in dl and dl['model_path']:
+                idx = self.dl_model_combo.findData(dl['model_path'])
+                if idx >= 0:
+                    self.dl_model_combo.setCurrentIndex(idx)
+
+        backend = settings.get('backend')
+        if backend:
+            idx = self.spot_backend_combo.findText(backend)
+            if idx >= 0:
+                self.spot_backend_combo.setCurrentIndex(idx)
 
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
