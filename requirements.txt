@@ -7,3 +7,4 @@ pandas
 Pillow
 tifffile
 PyQt6
+ultralytics

@@ -19,8 +19,17 @@ class TrackingDialog(QDialog):
     """
     A dedicated dialog for visualizing, analyzing, and editing tracking results.
     """
-    def __init__(self, tracking_data: List[Track], all_files: List[LeedFile], masks: List, 
-                 roi_size: int, lk_win_size: int, lk_max_level: int, parent=None):
+    def __init__(
+        self,
+        tracking_data: List[Track],
+        all_files: List[LeedFile],
+        masks: List,
+        roi_size: int,
+        lk_win_size: int,
+        lk_max_level: int,
+        parent=None,
+        save_session_callback=None,
+    ):
         super().__init__(parent)
         self.setWindowTitle("Tracking Results Visualizer")
         self.setMinimumSize(1200, 800)
@@ -37,6 +46,7 @@ class TrackingDialog(QDialog):
         self.roi_size = roi_size
         self.lk_win_size = lk_win_size  
         self.lk_max_level = lk_max_level
+        self.save_session_callback = save_session_callback
 
         self.sorted_frame_ids = sorted(list(self.file_map.keys()))
         
@@ -86,8 +96,12 @@ class TrackingDialog(QDialog):
         self.animation_timer.timeout.connect(self.advance_frame)
 
         self.button_box = QDialogButtonBox(
-        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        self.save_session_button = self.button_box.addButton(
+            "Save Session", QDialogButtonBox.ButtonRole.ActionRole
+        )
+        self.save_session_button.clicked.connect(self._on_save_session)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         main_layout.addWidget(self.button_box)
@@ -133,7 +147,14 @@ class TrackingDialog(QDialog):
         mode_group.addAction(add_new_track_mode_action)
 
         self.image_viewer.new_track_started_at.connect(self.handle_add_new_track)
-    
+
+    def _on_save_session(self):
+        """Trigger saving the current session from inside the dialog."""
+        if self.save_session_callback:
+            self.save_session_callback(self.tracks)
+        else:
+            QMessageBox.information(self, "Save Session", "Save session is not available in this context.")
+
 
     def _init_ui_elements(self):
         """Initializes the UI widgets like table and slider."""

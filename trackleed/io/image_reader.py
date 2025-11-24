@@ -4,6 +4,7 @@ from pathlib import Path
 from functools import lru_cache
 import numpy as np
 import tifffile
+from PIL import Image
 
 CACHE_SIZE = 15
 
@@ -27,4 +28,10 @@ def load_tiff(filepath: Path) -> np.ndarray:
         return np.array([])
     except Exception as e:
         print(f"An error occurred while reading {filepath}: {e}")
-        return np.array([])
+        # Fallback to Pillow for non-TIFF formats (e.g., PNG from GIF extraction)
+        try:
+            with Image.open(filepath) as im:
+                return np.array(im.convert("L"))
+        except Exception as e2:
+            print(f"Pillow fallback also failed for {filepath}: {e2}")
+            return np.array([])

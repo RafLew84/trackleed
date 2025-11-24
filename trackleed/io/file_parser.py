@@ -7,8 +7,9 @@ from typing import List
 from trackleed.core.data_models import LeedFile
 
 ALLOWED_EXTENSIONS = {'.tif', '.tiff', '.png'}
-START_DIGIT_PATTERN = re.compile(r'^(0{0,2}\d{1,3})')
-END_DIGIT_PATTERN = re.compile(r'(0{0,2}\d{1,3})$')
+# Allow arbitrary-length numeric prefixes/suffixes so generated frames (e.g., GIF extractions) are accepted.
+START_DIGIT_PATTERN = re.compile(r'^(0*\d+)')
+END_DIGIT_PATTERN = re.compile(r'(0*\d+)$')
 
 # The pattern now only needs to match the data files.
 DATA_FILE_PATTERN = re.compile(

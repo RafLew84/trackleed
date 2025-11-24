@@ -6,13 +6,15 @@ from dataclasses import dataclass
 from typing import List
 from threading import Event
 import numpy as np
+import shutil
 from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread
 from PyQt6.QtGui import QAction, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QActionGroup , QIcon
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QGroupBox,
                              QLabel, QFileDialog, QListWidgetItem, QMessageBox, QApplication,
                              QDialog, QDockWidget, QFormLayout, QSpinBox, QDoubleSpinBox,
                              QPushButton, QCheckBox, QToolBar, QComboBox, QProgressDialog,
-                             QScrollArea, QStackedWidget, QSizePolicy)
+                             QScrollArea, QStackedWidget, QSizePolicy, QInputDialog)
+import os
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory
@@ -20,6 +22,9 @@ from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
+from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
+from trackleed.io.session import load_session_from_file, save_session_to_file
+from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
 from trackleed.logic.generic_worker import GenericWorker
@@ -45,6 +50,15 @@ class DLSpotSettings:
     dilate_radius_px: int = 0
 
 
+@dataclass
+class YOLOSpotSettings:
+    model_path: str | None = None
+    confidence: float = 0.25
+    iou: float = 0.45
+    max_det: int = 300
+    bbox_margin_px: int = 2
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -61,9 +75,11 @@ class MainWindow(QMainWindow):
         self.metadata_mask_list: list[QRect] = []
         self.tracking_results: List[Track] = []
         self.dl_settings = DLSpotSettings()
+        self.yolo_settings = YOLOSpotSettings()
         self.current_spot_backend = "Classic"
         self.segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
+        self._yolo_models_available = False
 
         # --- Initialize UI ---
         self._init_ui()
@@ -85,9 +101,29 @@ class MainWindow(QMainWindow):
         open_action.triggered.connect(self.open_directory_dialog)
         file_menu.addAction(open_action)
 
+        import_gif_action = QAction("Import GIF (sample 0.1s)...", self)
+        import_gif_action.triggered.connect(self.import_gif_dialog)
+        file_menu.addAction(import_gif_action)
+
+        load_session_action = QAction("Load Session...", self)
+        load_session_action.triggered.connect(self.load_session_dialog)
+        file_menu.addAction(load_session_action)
+
+        save_session_action = QAction("Save Session...", self)
+        save_session_action.triggered.connect(self.save_session_dialog)
+        file_menu.addAction(save_session_action)
+
         load_bg_action = QAction("&Load Background File...", self)
         load_bg_action.triggered.connect(self.load_background_file_dialog)
         file_menu.addAction(load_bg_action)
+
+        export_yolo_action = QAction("Export Spots to YOLO Labels...", self)
+        export_yolo_action.triggered.connect(self.export_spots_to_yolo)
+        file_menu.addAction(export_yolo_action)
+
+        export_all_yolo_action = QAction("Export All (images + YOLO labels)...", self)
+        export_all_yolo_action.triggered.connect(self.export_all_to_yolo)
+        file_menu.addAction(export_all_yolo_action)
 
         # --- Mask Menu ---
         mask_menu = menu_bar.addMenu("&Mask")
@@ -324,6 +360,47 @@ class MainWindow(QMainWindow):
 
         self.populate_file_list()
 
+    def import_gif_dialog(self):
+        """Import a GIF, sample frames every 0.1s, and append them as images."""
+        gif_path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select GIF to import",
+            "",
+            "GIF Files (*.gif);;All Files (*)",
+        )
+        if not gif_path_str:
+            return
+        interval, ok = QInputDialog.getInt(
+            self,
+            "Sampling interval",
+            "Sample every N milliseconds:",
+            value=100,
+            min=1,
+            max=10000,
+        )
+        if not ok:
+            return
+        gif_path = Path(gif_path_str)
+        try:
+            out_dir, saved = extract_gif_frames(gif_path, dest_root=Path("data/gif_import") / gif_path.stem, sample_ms=interval)
+            new_files = parse_directory(out_dir)
+            if not new_files:
+                QMessageBox.warning(self, "No Frames", "Could not extract any frames from the GIF.")
+                return
+            # Offset IDs to avoid collisions
+            max_id = max([f.id for f in self.data_files if f.id is not None] + [0])
+            for idx, lf in enumerate(new_files, start=1):
+                lf.id = max_id + idx
+            self.data_files.extend(new_files)
+            self.populate_file_list()
+            QMessageBox.information(
+                self,
+                "GIF Imported",
+                f"Extracted {len(saved)} frame(s) every {interval} ms to {out_dir} and added to the list.",
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to import GIF:\n{e}")
+
     def load_background_file_dialog(self):
         """Opens a dialog to manually select a background image file."""
         filepath, _ = QFileDialog.getOpenFileName(
@@ -499,7 +576,7 @@ class MainWindow(QMainWindow):
 
         backend_form = QFormLayout()
         self.spot_backend_combo = QComboBox()
-        self.spot_backend_combo.addItems(["Classic", "Deep Learning"])
+        self.spot_backend_combo.addItems(["Classic", "Deep Learning", "YOLO"])
         self.spot_backend_combo.setToolTip(
             "Select the spot detection backend. Classic uses the existing WTH/peak pipeline; "
             "Deep Learning uses a segmentation model from the segmentation_models folder."
@@ -510,6 +587,7 @@ class MainWindow(QMainWindow):
         self.spot_backend_stack = QStackedWidget()
         self.spot_backend_stack.addWidget(self._build_classic_find_spots_panel())
         self.spot_backend_stack.addWidget(self._build_dl_find_spots_panel())
+        self.spot_backend_stack.addWidget(self._build_yolo_find_spots_panel())
         find_spots_layout.addWidget(self.spot_backend_stack)
 
         self.find_spots_button = QPushButton("Find Spots")
@@ -855,14 +933,80 @@ class MainWindow(QMainWindow):
 
         return widget
 
+    def _build_yolo_find_spots_panel(self) -> QWidget:
+        widget = QWidget()
+        form_layout = QFormLayout(widget)
+
+        model_row_widget = QWidget()
+        model_row_layout = QHBoxLayout(model_row_widget)
+        model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.yolo_model_combo = QComboBox()
+        self.yolo_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.yolo_model_combo.setToolTip(
+            "Select a YOLO checkpoint (.pt) placed in the segmentation_models folder."
+        )
+        self.yolo_model_combo.currentIndexChanged.connect(self._on_yolo_model_selected)
+        self.yolo_refresh_models_button = QPushButton("Refresh")
+        self.yolo_refresh_models_button.setToolTip("Re-scan the segmentation_models directory for YOLO checkpoints.")
+        self.yolo_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
+        model_row_layout.addWidget(self.yolo_model_combo)
+        model_row_layout.addWidget(self.yolo_refresh_models_button)
+        form_layout.addRow("YOLO model:", model_row_widget)
+
+        self.yolo_conf_spinbox = QDoubleSpinBox()
+        self.yolo_conf_spinbox.setRange(0.01, 0.99)
+        self.yolo_conf_spinbox.setSingleStep(0.01)
+        self.yolo_conf_spinbox.setValue(self.yolo_settings.confidence)
+        self.yolo_conf_spinbox.setToolTip("Detection confidence threshold (higher = fewer boxes).")
+        self.yolo_conf_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "confidence", float(v)))
+        form_layout.addRow("Confidence:", self.yolo_conf_spinbox)
+
+        self.yolo_iou_spinbox = QDoubleSpinBox()
+        self.yolo_iou_spinbox.setRange(0.05, 0.95)
+        self.yolo_iou_spinbox.setSingleStep(0.01)
+        self.yolo_iou_spinbox.setValue(self.yolo_settings.iou)
+        self.yolo_iou_spinbox.setToolTip("NMS IoU threshold used by YOLO.")
+        self.yolo_iou_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "iou", float(v)))
+        form_layout.addRow("NMS IoU:", self.yolo_iou_spinbox)
+
+        self.yolo_max_det_spinbox = QSpinBox()
+        self.yolo_max_det_spinbox.setRange(1, 9999)
+        self.yolo_max_det_spinbox.setValue(self.yolo_settings.max_det)
+        self.yolo_max_det_spinbox.setToolTip("Maximum number of detections to keep.")
+        self.yolo_max_det_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "max_det", int(v)))
+        form_layout.addRow("Max detections:", self.yolo_max_det_spinbox)
+
+        self.yolo_bbox_margin_spinbox = QSpinBox()
+        self.yolo_bbox_margin_spinbox.setRange(0, 50)
+        self.yolo_bbox_margin_spinbox.setValue(self.yolo_settings.bbox_margin_px)
+        self.yolo_bbox_margin_spinbox.setToolTip("Extra padding (px) around YOLO boxes when creating SpotROI.")
+        self.yolo_bbox_margin_spinbox.valueChanged.connect(
+            lambda v: setattr(self.yolo_settings, "bbox_margin_px", int(v))
+        )
+        form_layout.addRow("BBox margin (px):", self.yolo_bbox_margin_spinbox)
+
+        warn = QLabel(
+            "YOLO backend requires ultralytics installed. Detected boxes are converted to SpotROI; adjust confidence/IoU to control clutter."
+        )
+        warn.setWordWrap(True)
+        form_layout.addRow(warn)
+
+        self.yolo_warning_label = QLabel()
+        self.yolo_warning_label.setStyleSheet("color: #d9534f;")
+        self.yolo_warning_label.setWordWrap(True)
+        form_layout.addRow(self.yolo_warning_label)
+
+        return widget
+
     def _refresh_segmentation_models(self):
-        self.dl_model_combo.blockSignals(True)
-        self.dl_model_combo.clear()
-        models_dir = self.segmentation_models_dir
         model_paths: list[Path] = []
+        models_dir = self.segmentation_models_dir
         if models_dir.exists():
             model_paths = sorted(models_dir.glob("*.pt"))
 
+        # DL models
+        self.dl_model_combo.blockSignals(True)
+        self.dl_model_combo.clear()
         if not model_paths:
             self.dl_model_combo.addItem("No models found", userData=None)
             self.dl_model_combo.setEnabled(False)
@@ -887,17 +1031,51 @@ class MainWindow(QMainWindow):
             if hasattr(self, "dl_warning_label"):
                 self.dl_warning_label.setText("")
         self.dl_model_combo.blockSignals(False)
+
+        # YOLO models
+        self.yolo_model_combo.blockSignals(True)
+        self.yolo_model_combo.clear()
+        if not model_paths:
+            self.yolo_model_combo.addItem("No models found", userData=None)
+            self.yolo_model_combo.setEnabled(False)
+            self._yolo_models_available = False
+            self.yolo_settings.model_path = None
+            if hasattr(self, "yolo_warning_label"):
+                self.yolo_warning_label.setText(
+                    "No YOLO models detected. Copy .pt checkpoints into segmentation_models and press Refresh."
+                )
+        else:
+            self.yolo_model_combo.setEnabled(True)
+            for path in model_paths:
+                self.yolo_model_combo.addItem(path.name, userData=str(path.resolve()))
+            self._yolo_models_available = True
+            if self.yolo_settings.model_path:
+                idx = self.yolo_model_combo.findData(self.yolo_settings.model_path)
+                if idx >= 0:
+                    self.yolo_model_combo.setCurrentIndex(idx)
+            if not self.yolo_settings.model_path and self.yolo_model_combo.count() > 0:
+                self.yolo_model_combo.setCurrentIndex(0)
+                self.yolo_settings.model_path = self.yolo_model_combo.currentData()
+            if hasattr(self, "yolo_warning_label"):
+                self.yolo_warning_label.setText("")
+        self.yolo_model_combo.blockSignals(False)
+
         self._update_find_spots_button_state()
 
     def _on_spot_backend_changed(self, backend: str):
         self.current_spot_backend = backend
-        index = 0 if backend == "Classic" else 1
+        index = 0 if backend == "Classic" else 1 if backend == "Deep Learning" else 2
         self.spot_backend_stack.setCurrentIndex(index)
         self._update_find_spots_button_state()
 
     def _on_dl_model_selected(self, index: int):
         model_path = self.dl_model_combo.itemData(index)
         self.dl_settings.model_path = model_path
+        self._update_find_spots_button_state()
+
+    def _on_yolo_model_selected(self, index: int):
+        model_path = self.yolo_model_combo.itemData(index)
+        self.yolo_settings.model_path = model_path
         self._update_find_spots_button_state()
 
     def _update_find_spots_button_state(self):
@@ -909,6 +1087,15 @@ class MainWindow(QMainWindow):
             if not enabled:
                 self.find_spots_button.setToolTip(
                     "Add a .pt model to segmentation_models/ and click Refresh, then pick it from the list."
+                )
+            else:
+                self.find_spots_button.setToolTip("")
+        elif self.current_spot_backend == "YOLO":
+            enabled = self._yolo_models_available and bool(self.yolo_settings.model_path)
+            self.find_spots_button.setEnabled(enabled)
+            if not enabled:
+                self.find_spots_button.setToolTip(
+                    "Add a YOLO .pt checkpoint to segmentation_models and click Refresh."
                 )
             else:
                 self.find_spots_button.setToolTip("")
@@ -976,6 +1163,31 @@ class MainWindow(QMainWindow):
                     f"Unexpected error during deep-learning detection:\n{exc}",
                 )
                 return
+        elif backend == "YOLO":
+            y_cfg = spot_settings["yolo"]
+            if not y_cfg.get("model_path"):
+                QMessageBox.warning(self, "No Model", "Select a YOLO model before running detection.")
+                return
+            try:
+                yolo_settings = YOLOSettings(
+                    model_path=y_cfg.get("model_path"),
+                    confidence=float(y_cfg.get("confidence", 0.25)),
+                    iou=float(y_cfg.get("iou", 0.45)),
+                    max_det=int(y_cfg.get("max_det", 300)),
+                    bbox_margin_px=int(y_cfg.get("bbox_margin_px", 2)),
+                )
+                found_spots = detect_spots_with_yolo(main_image, self.metadata_mask_list, yolo_settings)
+                leed_file.spots = found_spots
+            except YOLODetectionError as exc:
+                QMessageBox.critical(self, "YOLO Detector Error", str(exc))
+                return
+            except Exception as exc:
+                QMessageBox.critical(
+                    self,
+                    "YOLO Detector Error",
+                    f"Unexpected error during YOLO detection:\n{exc}",
+                )
+                return
         else:
             # 3. Gather parameters from the GUI
             params = spot_settings["classic"]
@@ -1013,10 +1225,19 @@ class MainWindow(QMainWindow):
             'dilate_radius_px': self.dl_dilate_spinbox.value(),
         }
 
+        yolo_settings = {
+            'model_path': self.yolo_settings.model_path,
+            'confidence': self.yolo_conf_spinbox.value(),
+            'iou': self.yolo_iou_spinbox.value(),
+            'max_det': self.yolo_max_det_spinbox.value(),
+            'bbox_margin_px': self.yolo_bbox_margin_spinbox.value(),
+        }
+
         return {
             'backend': self.current_spot_backend,
             'classic': classic_settings,
             'dl': dl_settings,
+            'yolo': yolo_settings,
         }
 
     def _apply_spot_settings(self, settings: dict) -> None:
@@ -1045,6 +1266,21 @@ class MainWindow(QMainWindow):
                 idx = self.dl_model_combo.findData(dl['model_path'])
                 if idx >= 0:
                     self.dl_model_combo.setCurrentIndex(idx)
+
+        yolo = settings.get('yolo', {})
+        if yolo:
+            if 'confidence' in yolo:
+                self.yolo_conf_spinbox.setValue(float(yolo['confidence']))
+            if 'iou' in yolo:
+                self.yolo_iou_spinbox.setValue(float(yolo['iou']))
+            if 'max_det' in yolo:
+                self.yolo_max_det_spinbox.setValue(int(yolo['max_det']))
+            if 'bbox_margin_px' in yolo:
+                self.yolo_bbox_margin_spinbox.setValue(int(yolo['bbox_margin_px']))
+            if 'model_path' in yolo and yolo['model_path']:
+                idx = self.yolo_model_combo.findData(yolo['model_path'])
+                if idx >= 0:
+                    self.yolo_model_combo.setCurrentIndex(idx)
 
         backend = settings.get('backend')
         if backend:
@@ -1175,6 +1411,12 @@ class MainWindow(QMainWindow):
         print("Tracking task finished successfully.")
         self.tracking_results = tracks
         self.visualize_button.setEnabled(True)
+        self._apply_tracks_to_files(tracks)
+        current_item = self.file_list_widget.currentItem()
+        if current_item:
+            lf: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
+            self.populate_spot_list(lf.spots)
+            self.refresh_current_view()
         # Reset progress bar state in case it was cancelled
         QApplication.processEvents() # Process any pending events
         self.show_tracking_visualizer()
@@ -1203,7 +1445,8 @@ class MainWindow(QMainWindow):
             roi_size=current_roi_size,
             lk_win_size=lk_win_size,  
             lk_max_level=lk_max_level,
-            parent=self
+            parent=self,
+            save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
 
         result = dialog.exec()
@@ -1213,8 +1456,26 @@ class MainWindow(QMainWindow):
             print(f"Tracking data accepted. Final number of tracks: {len(self.tracking_results)}")
 
             QMessageBox.information(self, "Tracks Confirmed", "Corrected tracks have been saved.")
+            self._apply_tracks_to_files(self.tracking_results)
+            current_item = self.file_list_widget.currentItem()
+            if current_item:
+                lf: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
+                self.populate_spot_list(lf.spots)
+                self.refresh_current_view()
         else:
             print("Tracking dialog was closed without accepting changes.")
+
+    def _apply_tracks_to_files(self, tracks: List[Track]):
+        """Sync SpotROI instances from tracking results back into LeedFile objects for display."""
+        spots_by_file: dict[int, list[SpotROI]] = {}
+        for tr in tracks:
+            for frame_id, spot in tr.spots_by_image_id.items():
+                spots_by_file.setdefault(frame_id, []).append(spot)
+        file_map = {f.id: f for f in self.data_files if f.id is not None}
+        for fid, spots in spots_by_file.items():
+            lf = file_map.get(fid)
+            if lf:
+                lf.spots = spots
     
     def populate_spot_list(self, spots: list[SpotROI]):
         """Populates the spot list widget with analysis results."""
@@ -1230,3 +1491,198 @@ class MainWindow(QMainWindow):
         current_item = self.file_list_widget.currentItem()
         if current_item:
             self.display_selected_image(current_item, None)
+
+    def save_session_dialog(self, tracks_override: List[Track] | None = None):
+        """Open dialog to save current session (data, masks, spots, tracks)."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load a directory or session before saving.")
+            return
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Session",
+            "",
+            "LEEDTrack Session (*.lts.json);;JSON (*.json);;All Files (*)",
+        )
+        if not path_str:
+            return
+        try:
+            self._save_session(Path(path_str), tracks_override)
+            QMessageBox.information(self, "Session Saved", f"Session saved to:\n{path_str}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save session:\n{e}")
+
+    def _save_session(self, path: Path, tracks_override: List[Track] | None = None):
+        tracks_list: List[Track] = []
+        if isinstance(tracks_override, list):
+            tracks_list = tracks_override
+            self.tracking_results = tracks_override
+            self._apply_tracks_to_files(tracks_override)
+        elif self.tracking_results:
+            tracks_list = self.tracking_results
+        spot_settings = self._collect_spot_settings()
+        save_session_to_file(
+            path,
+            self.data_files,
+            self.metadata_mask_list,
+            self.background_file,
+            tracks_list,
+            spot_settings,
+        )
+
+    def load_session_dialog(self):
+        """Open dialog to load a session from disk."""
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Session",
+            "",
+            "LEEDTrack Session (*.lts.json *.json);;All Files (*)",
+        )
+        if not path_str:
+            return
+        try:
+            self._load_session(Path(path_str))
+        except Exception as e:
+            QMessageBox.critical(self, "Load Error", f"Failed to load session:\n{e}")
+
+    def _load_session(self, path: Path):
+        files, background, masks, tracks, spot_settings = load_session_from_file(path)
+
+        missing_files = [str(f.filepath) for f in files if not f.filepath.exists()]
+        if missing_files:
+            QMessageBox.warning(
+                self,
+                "Missing Files",
+                "Some image files could not be found and were skipped:\n" + "\n".join(missing_files),
+            )
+        valid_files = [f for f in files if f.filepath.exists()]
+        self.data_files = valid_files
+
+        if background and background.filepath.exists():
+            self.background_file = background
+        else:
+            self.background_file = None
+
+        self.metadata_mask_list = masks
+
+        valid_ids = {f.id for f in self.data_files if f.id is not None}
+        filtered_tracks: List[Track] = []
+        for tr in tracks:
+            filtered_map = {fid: spot for fid, spot in tr.spots_by_image_id.items() if fid in valid_ids}
+            if filtered_map:
+                filtered_tracks.append(Track(track_id=tr.track_id, spots_by_image_id=filtered_map))
+        self.tracking_results = filtered_tracks
+        if filtered_tracks:
+            self._apply_tracks_to_files(filtered_tracks)
+
+        self.populate_file_list()
+        if spot_settings:
+            self._apply_spot_settings(spot_settings)
+
+        if self.file_list_widget.count() > 0:
+            self.file_list_widget.setCurrentRow(0)
+            self.display_selected_image(self.file_list_widget.item(0), None)
+        QMessageBox.information(self, "Session Loaded", f"Loaded session from:\n{path}")
+
+    def export_spots_to_yolo(self):
+        """Export current spots to YOLO label files for all loaded frames."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load a directory with LEED frames first.")
+            return
+
+        target_dir = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if not target_dir:
+            return
+        target_path = Path(target_dir)
+        labels_dir = target_path / "labels"
+        labels_dir.mkdir(parents=True, exist_ok=True)
+
+        exported = 0
+        skipped = 0
+        for lf in self.data_files:
+            if not lf.spots:
+                skipped += 1
+                continue
+            img = load_tiff(lf.filepath)
+            if img is None or img.size == 0:
+                skipped += 1
+                continue
+            height, width = img.shape[:2]
+            yolo_lines = []
+            for spot in lf.spots:
+                rect = spot.roi_rect
+                x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+                cx = (x + w / 2.0) / width
+                cy = (y + h / 2.0) / height
+                bw = w / width
+                bh = h / height
+                cx = float(min(max(cx, 0.0), 1.0))
+                cy = float(min(max(cy, 0.0), 1.0))
+                bw = float(min(max(bw, 1e-6), 1.0))
+                bh = float(min(max(bh, 1e-6), 1.0))
+                yolo_lines.append(f"0 {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+            label_name = f"{lf.filename}.txt"
+            (labels_dir / label_name).write_text("\n".join(yolo_lines))
+            exported += 1
+
+        QMessageBox.information(
+            self,
+            "YOLO Export",
+            f"Exported labels for {exported} frames to {labels_dir}\nSkipped {skipped} frames without spots or unreadable images.",
+        )
+
+    def export_all_to_yolo(self):
+        """Export all frames as YOLO labels + copy images (for easy val set augmentation)."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load a directory with LEED frames first.")
+            return
+
+        target_dir = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if not target_dir:
+            return
+        target_path = Path(target_dir)
+        labels_dir = target_path / "labels"
+        images_dir = target_path / "images"
+        labels_dir.mkdir(parents=True, exist_ok=True)
+        images_dir.mkdir(parents=True, exist_ok=True)
+
+        exported = 0
+        skipped = 0
+        for lf in self.data_files:
+            if not lf.spots:
+                skipped += 1
+                continue
+            img_path = lf.filepath
+            if not img_path.exists():
+                skipped += 1
+                continue
+            img = load_tiff(img_path)
+            if img is None or img.size == 0:
+                skipped += 1
+                continue
+            height, width = img.shape[:2]
+            yolo_lines = []
+            for spot in lf.spots:
+                rect = spot.roi_rect
+                x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+                cx = (x + w / 2.0) / width
+                cy = (y + h / 2.0) / height
+                bw = w / width
+                bh = h / height
+                cx = float(min(max(cx, 0.0), 1.0))
+                cy = float(min(max(cy, 0.0), 1.0))
+                bw = float(min(max(bw, 1e-6), 1.0))
+                bh = float(min(max(bh, 1e-6), 1.0))
+                yolo_lines.append(f"0 {cx:.6f} {cy:.6f} {bw:.6f} {bh:.6f}")
+
+            stem = Path(lf.filename).stem
+            label_name = f"{stem}.txt"
+            image_name = lf.filename
+            (labels_dir / label_name).write_text("\n".join(yolo_lines))
+            shutil.copy2(img_path, images_dir / image_name)
+            exported += 1
+
+        QMessageBox.information(
+            self,
+            "YOLO Export",
+            f"Exported {exported} frames to {target_path} (images + labels). Skipped {skipped} frames without spots or unreadable images.",
+        )
