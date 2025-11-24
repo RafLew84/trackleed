@@ -7,7 +7,7 @@ from typing import List
 from threading import Event
 import numpy as np
 import shutil
-from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread
+from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread, QPoint
 from PyQt6.QtGui import QAction, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QActionGroup , QIcon
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QGroupBox,
                              QLabel, QFileDialog, QListWidgetItem, QMessageBox, QApplication,
@@ -24,6 +24,7 @@ from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
 from trackleed.io.session import load_session_from_file, save_session_to_file
+from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
@@ -73,6 +74,7 @@ class MainWindow(QMainWindow):
         self.data_files: list[LeedFile] = []
         self.background_file: LeedFile | None = None
         self.metadata_mask_list: list[QRect] = []
+        self.analysis_circle: tuple[int, int, int] | None = None  # (cx, cy, r)
         self.tracking_results: List[Track] = []
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
@@ -133,6 +135,12 @@ class MainWindow(QMainWindow):
         clear_mask_action = QAction("Clear Current Mask", self)
         clear_mask_action.triggered.connect(self.clear_mask)
         mask_menu.addAction(clear_mask_action)
+        set_analysis_circle_action = QAction("Set Analysis Circle...", self)
+        set_analysis_circle_action.triggered.connect(self.open_analysis_circle_dialog)
+        mask_menu.addAction(set_analysis_circle_action)
+        clear_analysis_circle_action = QAction("Clear Analysis Circle", self)
+        clear_analysis_circle_action.triggered.connect(self.clear_analysis_circle)
+        mask_menu.addAction(clear_analysis_circle_action)
 
     def _create_toolbar(self):
         """Creates the main toolbar for interaction modes."""
@@ -490,6 +498,55 @@ class MainWindow(QMainWindow):
         if current_item:
             self.display_selected_image(current_item, None)
 
+    def open_analysis_circle_dialog(self):
+        """Opens a dialog to set a global analysis circle (applied to all images)."""
+        current_item = self.file_list_widget.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Image Selected", "Please select an image from the list before setting an analysis circle.")
+            return
+
+        leed_file: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
+        original_image_data = load_tiff(leed_file.filepath)
+        if original_image_data is None or original_image_data.size == 0:
+            QMessageBox.critical(self, "Error", "Could not load the image to set an analysis circle.")
+            return
+
+        height, width = original_image_data.shape[:2]
+        if original_image_data.ndim == 2:
+            q_image = QImage(original_image_data.data, width, height, width, QImage.Format.Format_Grayscale8)
+        else:
+            q_image = QImage(original_image_data.data, width, height, 3 * width, QImage.Format.Format_RGB888)
+        full_res_pixmap = QPixmap.fromImage(q_image)
+
+        existing_center = None
+        existing_radius = 0
+        if self.analysis_circle:
+            cx, cy, r = self.analysis_circle
+            existing_center = QPoint(cx, cy)
+            existing_radius = r
+
+        dialog = CircleMaskDialog(full_res_pixmap, existing_center, existing_radius, self)
+        result = dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            center, radius = dialog.get_circle()
+            if center and radius > 0:
+                self.analysis_circle = (int(center.x()), int(center.y()), int(radius))
+                print(f"Analysis circle set: center=({center.x()}, {center.y()}), r={radius}")
+            else:
+                self.analysis_circle = None
+                print("Analysis circle cleared (empty selection).")
+            self.refresh_current_view()
+
+    def clear_analysis_circle(self):
+        """Clears the analysis circle overlay and mask."""
+        if self.analysis_circle is None:
+            return
+        self.analysis_circle = None
+        print("Analysis circle has been cleared.")
+        current_item = self.file_list_widget.currentItem()
+        if current_item:
+            self.display_selected_image(current_item, None)
+
     def display_selected_image(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """
         Prepares the base image (original or processed) and tells the viewer
@@ -519,6 +576,7 @@ class MainWindow(QMainWindow):
         
         # 3. Tell the viewer to draw overlays
         self.image_viewer.update_masks(self.metadata_mask_list)
+        self.image_viewer.update_analysis_circle(self.analysis_circle)
         self.image_viewer.update_rois(leed_file.spots)
 
     def _get_base_image_for_display(self, leed_file, original_image_data):
@@ -560,6 +618,23 @@ class MainWindow(QMainWindow):
         else: # Grayscale
             q_image = QImage(image_data.data, width, height, width, QImage.Format.Format_Grayscale8)
         return QPixmap.fromImage(q_image)
+
+    def _apply_analysis_circle_mask(self, image_data: np.ndarray) -> np.ndarray:
+        """Zero out pixels outside the analysis circle, if defined."""
+        if self.analysis_circle is None or image_data is None or image_data.size == 0:
+            return image_data
+        cx, cy, r = self.analysis_circle
+        h, w = image_data.shape[:2]
+        yy, xx = np.ogrid[:h, :w]
+        mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+        if image_data.ndim == 2:
+            out = image_data.copy()
+            out[~mask] = 0
+            return out
+        else:
+            out = image_data.copy()
+            out[~mask, ...] = 0
+            return out
     
     def _create_analysis_panel(self):
         """Creates a dockable widget with analysis controls."""
@@ -1144,6 +1219,13 @@ class MainWindow(QMainWindow):
         background_image = None
         if self.background_file:
             background_image = load_tiff(self.background_file.filepath)
+        # Apply analysis circle mask globally
+        if main_image is None or main_image.size == 0:
+            QMessageBox.warning(self, "Image Error", "Could not load the selected image.")
+            return
+        main_image = self._apply_analysis_circle_mask(main_image)
+        if background_image is not None and background_image.size > 0:
+            background_image = self._apply_analysis_circle_mask(background_image)
 
         if backend == "Deep Learning":
             dl_cfg = spot_settings["dl"]
@@ -1287,6 +1369,20 @@ class MainWindow(QMainWindow):
             idx = self.spot_backend_combo.findText(backend)
             if idx >= 0:
                 self.spot_backend_combo.setCurrentIndex(idx)
+
+    def _analysis_circle_to_dict(self):
+        if not self.analysis_circle:
+            return None
+        cx, cy, r = self.analysis_circle
+        return {"cx": int(cx), "cy": int(cy), "r": int(r)}
+
+    def _analysis_circle_from_dict(self, data):
+        if not data:
+            return None
+        try:
+            return (int(data.get("cx", 0)), int(data.get("cy", 0)), int(data.get("r", 0)))
+        except Exception:
+            return None
 
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
@@ -1527,6 +1623,7 @@ class MainWindow(QMainWindow):
             self.background_file,
             tracks_list,
             spot_settings,
+            self._analysis_circle_to_dict(),
         )
 
     def load_session_dialog(self):
@@ -1545,7 +1642,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Load Error", f"Failed to load session:\n{e}")
 
     def _load_session(self, path: Path):
-        files, background, masks, tracks, spot_settings = load_session_from_file(path)
+        files, background, masks, tracks, spot_settings, analysis_circle = load_session_from_file(path)
 
         missing_files = [str(f.filepath) for f in files if not f.filepath.exists()]
         if missing_files:
@@ -1563,6 +1660,7 @@ class MainWindow(QMainWindow):
             self.background_file = None
 
         self.metadata_mask_list = masks
+        self.analysis_circle = self._analysis_circle_from_dict(analysis_circle)
 
         valid_ids = {f.id for f in self.data_files if f.id is not None}
         filtered_tracks: List[Track] = []

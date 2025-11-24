@@ -109,6 +109,7 @@ def serialize_session(
     background: LeedFile | None,
     tracks: Iterable[Track],
     spot_settings: Dict | None = None,
+    analysis_circle: Dict | None = None,
 ) -> Dict:
     return {
         "version": SESSION_VERSION,
@@ -117,10 +118,11 @@ def serialize_session(
         "metadata_masks": [_rect_to_dict(r) for r in masks],
         "tracks": [_track_to_dict(t) for t in tracks],
         "spot_settings": spot_settings or {},
+        "analysis_circle": analysis_circle,
     }
 
 
-def deserialize_session(data: Dict) -> Tuple[List[LeedFile], LeedFile | None, List[QRect], List[Track], Dict]:
+def deserialize_session(data: Dict) -> Tuple[List[LeedFile], LeedFile | None, List[QRect], List[Track], Dict, Dict | None]:
     data_files_raw = data.get("data_files", [])
     if data_files_raw is None:
         data_files_raw = []
@@ -144,7 +146,8 @@ def deserialize_session(data: Dict) -> Tuple[List[LeedFile], LeedFile | None, Li
         raise ValueError(f"Invalid session: tracks must be a list, got {type(tracks_raw)}")
     tracks = [_track_from_dict(t) for t in tracks_raw]
     spot_settings = data.get("spot_settings", {})
-    return files, background, masks, tracks, spot_settings
+    analysis_circle = data.get("analysis_circle")
+    return files, background, masks, tracks, spot_settings, analysis_circle
 
 
 def save_session_to_file(
@@ -154,13 +157,14 @@ def save_session_to_file(
     background: LeedFile | None,
     tracks: Iterable[Track],
     spot_settings: Dict | None = None,
+    analysis_circle: Dict | None = None,
 ) -> None:
-    payload = serialize_session(files, masks, background, tracks, spot_settings)
+    payload = serialize_session(files, masks, background, tracks, spot_settings, analysis_circle)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def load_session_from_file(path: Path) -> Tuple[List[LeedFile], LeedFile | None, List[QRect], List[Track], Dict]:
+def load_session_from_file(path: Path) -> Tuple[List[LeedFile], LeedFile | None, List[QRect], List[Track], Dict, Dict | None]:
     raw = path.read_text(encoding="utf-8")
     data = json.loads(raw)
     return deserialize_session(data)

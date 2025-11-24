@@ -50,6 +50,7 @@ class LeedImageViewer(QGraphicsView):
         self._track_path_item: QGraphicsPathItem | None = None
         self._track_path_items = []
         self._pattern_center_item = None
+        self._analysis_circle_item: QGraphicsEllipseItem | None = None
 
         # --- Define Drawing Styles ---
         # Default pen for drawing standard ROIs.
@@ -315,6 +316,9 @@ class LeedImageViewer(QGraphicsView):
         self._mask_items.clear()
         self._roi_items.clear()
         self._roi_label_items.clear()
+        if self._analysis_circle_item:
+            self._scene.removeItem(self._analysis_circle_item)
+            self._analysis_circle_item = None
 
     def set_image(self, pixmap: QPixmap | None, fit: bool = False):
         """
@@ -353,6 +357,22 @@ class LeedImageViewer(QGraphicsView):
         brush = QBrush(QColor(255, 0, 0, 70))
         for rect in masks: 
             self._mask_items.append(self._scene.addRect(QRectF(rect), pen, brush))
+
+    def update_analysis_circle(self, circle: tuple[int, int, int] | None):
+        """Draw a single analysis circle (cx, cy, r) if provided."""
+        if self._analysis_circle_item:
+            self._scene.removeItem(self._analysis_circle_item)
+            self._analysis_circle_item = None
+        if circle is None:
+            return
+        cx, cy, r = circle
+        pen = QPen(QColor(0, 200, 255, 200))
+        pen.setWidth(2)
+        pen.setCosmetic(True)
+        ellipse = QGraphicsEllipseItem(cx - r, cy - r, 2 * r, 2 * r)
+        ellipse.setPen(pen)
+        self._analysis_circle_item = ellipse
+        self._scene.addItem(ellipse)
 
     def wheelEvent(self, event: QWheelEvent):
         """
