@@ -32,6 +32,7 @@ from trackleed.logic.generic_worker import GenericWorker
 from trackleed.analysis.tracking import (
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
+    track_spots_hungarian,
 )
 
 from skimage.util import img_as_float
@@ -665,9 +666,17 @@ class MainWindow(QMainWindow):
         self.spot_backend_stack.addWidget(self._build_yolo_find_spots_panel())
         find_spots_layout.addWidget(self.spot_backend_stack)
 
+        self.det_subtract_bg_checkbox = QCheckBox("Subtract background before detection (DL/YOLO)")
+        self.det_subtract_bg_checkbox.setToolTip("Applies only when backend is Deep Learning or YOLO and a background file is loaded.")
+        find_spots_layout.addWidget(self.det_subtract_bg_checkbox)
+
         self.find_spots_button = QPushButton("Find Spots")
         self.find_spots_button.clicked.connect(self.run_spot_finding)
         find_spots_layout.addWidget(self.find_spots_button)
+        self.find_all_spots_button = QPushButton("Find All Spots")
+        self.find_all_spots_button.setToolTip("Run the selected detector on every frame in the list.")
+        self.find_all_spots_button.clicked.connect(self.run_spot_finding_all)
+        find_spots_layout.addWidget(self.find_all_spots_button)
 
         layout.addWidget(find_spots_group)
         self.spot_backend_combo.currentTextChanged.connect(self._on_spot_backend_changed)
@@ -682,6 +691,7 @@ class MainWindow(QMainWindow):
         self.tracking_scenario_combo.addItems([
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
+            "Detection Linking (Hungarian)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
         self.trackingAlgoCombo = self.tracking_scenario_combo
@@ -854,6 +864,27 @@ class MainWindow(QMainWindow):
         optical_skip_layout.addRow("NCC patch radius:", self.lk_ncc_patch_spinbox)
 
         form_layout.addRow(self.optical_skip_group)
+
+        # --- Detection linking (Hungarian) params ---
+        self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
+        hung_layout = QFormLayout(self.hungarian_group)
+        self.hung_max_dist_spinbox = QDoubleSpinBox()
+        self.hung_max_dist_spinbox.setRange(1.0, 200.0)
+        self.hung_max_dist_spinbox.setValue(20.0)
+        self.hung_max_dist_spinbox.setSingleStep(1.0)
+        self.hung_max_dist_spinbox.setToolTip("Maximum distance (px) to associate detections between consecutive frames.")
+        hung_layout.addRow("Max distance (px):", self.hung_max_dist_spinbox)
+        self.hung_max_gap_spinbox = QSpinBox()
+        self.hung_max_gap_spinbox.setRange(0, 9999)
+        self.hung_max_gap_spinbox.setValue(2)
+        self.hung_max_gap_spinbox.setToolTip("Allowed gap (frames) to keep a track alive when no detection is matched.")
+        hung_layout.addRow("Max gap (frames):", self.hung_max_gap_spinbox)
+        self.hung_min_len_spinbox = QSpinBox()
+        self.hung_min_len_spinbox.setRange(1, 200)
+        self.hung_min_len_spinbox.setValue(2)
+        self.hung_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
+        hung_layout.addRow("Min track length:", self.hung_min_len_spinbox)
+        form_layout.addRow(self.hungarian_group)
 
         self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
         self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
@@ -1156,27 +1187,34 @@ class MainWindow(QMainWindow):
     def _update_find_spots_button_state(self):
         if not hasattr(self, "find_spots_button"):
             return
+        buttons = [self.find_spots_button, getattr(self, "find_all_spots_button", None)]
         if self.current_spot_backend == "Deep Learning":
             enabled = self._dl_models_available and bool(self.dl_settings.model_path)
-            self.find_spots_button.setEnabled(enabled)
-            if not enabled:
-                self.find_spots_button.setToolTip(
-                    "Add a .pt model to segmentation_models/ and click Refresh, then pick it from the list."
-                )
-            else:
-                self.find_spots_button.setToolTip("")
+            for btn in buttons:
+                if btn:
+                    btn.setEnabled(enabled)
+                    if not enabled:
+                        btn.setToolTip(
+                            "Add a .pt model to segmentation_models/ and click Refresh, then pick it from the list."
+                        )
+                    else:
+                        btn.setToolTip("")
         elif self.current_spot_backend == "YOLO":
             enabled = self._yolo_models_available and bool(self.yolo_settings.model_path)
-            self.find_spots_button.setEnabled(enabled)
-            if not enabled:
-                self.find_spots_button.setToolTip(
-                    "Add a YOLO .pt checkpoint to segmentation_models and click Refresh."
-                )
-            else:
-                self.find_spots_button.setToolTip("")
+            for btn in buttons:
+                if btn:
+                    btn.setEnabled(enabled)
+                    if not enabled:
+                        btn.setToolTip(
+                            "Add a YOLO .pt checkpoint to segmentation_models and click Refresh."
+                        )
+                    else:
+                        btn.setToolTip("")
         else:
-            self.find_spots_button.setEnabled(True)
-            self.find_spots_button.setToolTip("")
+            for btn in buttons:
+                if btn:
+                    btn.setEnabled(True)
+                    btn.setToolTip("")
 
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
@@ -1185,11 +1223,14 @@ class MainWindow(QMainWindow):
 
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
+        show_hungarian = scenario == "Detection Linking (Hungarian)"
 
         if hasattr(self, "optical_basic_group"):
             self.optical_basic_group.setVisible(show_optical_basic)
         if hasattr(self, "optical_skip_group"):
             self.optical_skip_group.setVisible(show_optical_skip)
+        if hasattr(self, "hungarian_group"):
+            self.hungarian_group.setVisible(show_hungarian)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -1213,80 +1254,120 @@ class MainWindow(QMainWindow):
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
 
         spot_settings = self._collect_spot_settings()
-        backend = spot_settings["backend"]
-        # 2. Gather data (main image, background, mask)
-        main_image = load_tiff(leed_file.filepath)
-        background_image = None
-        if self.background_file:
-            background_image = load_tiff(self.background_file.filepath)
-        # Apply analysis circle mask globally
-        if main_image is None or main_image.size == 0:
-            QMessageBox.warning(self, "Image Error", "Could not load the selected image.")
+        try:
+            found_spots = self._detect_spots_on_leed_file(leed_file, spot_settings)
+            leed_file.spots = found_spots
+        except (DLSpotDetectionError, YOLODetectionError) as exc:
+            QMessageBox.critical(self, "Detector Error", str(exc))
             return
-        main_image = self._apply_analysis_circle_mask(main_image)
-        if background_image is not None and background_image.size > 0:
-            background_image = self._apply_analysis_circle_mask(background_image)
-
-        if backend == "Deep Learning":
-            dl_cfg = spot_settings["dl"]
-            if not dl_cfg.get("model_path"):
-                QMessageBox.warning(self, "No Model", "Select a deep-learning model before running detection.")
-                return
-            try:
-                found_spots = detect_spots_with_model(main_image, self.metadata_mask_list, dl_cfg)
-                leed_file.spots = found_spots
-            except DLSpotDetectionError as exc:
-                QMessageBox.critical(self, "DL Detector Error", str(exc))
-                return
-            except Exception as exc:
-                QMessageBox.critical(
-                    self,
-                    "DL Detector Error",
-                    f"Unexpected error during deep-learning detection:\n{exc}",
-                )
-                return
-        elif backend == "YOLO":
-            y_cfg = spot_settings["yolo"]
-            if not y_cfg.get("model_path"):
-                QMessageBox.warning(self, "No Model", "Select a YOLO model before running detection.")
-                return
-            try:
-                yolo_settings = YOLOSettings(
-                    model_path=y_cfg.get("model_path"),
-                    confidence=float(y_cfg.get("confidence", 0.25)),
-                    iou=float(y_cfg.get("iou", 0.45)),
-                    max_det=int(y_cfg.get("max_det", 300)),
-                    bbox_margin_px=int(y_cfg.get("bbox_margin_px", 2)),
-                )
-                found_spots = detect_spots_with_yolo(main_image, self.metadata_mask_list, yolo_settings)
-                leed_file.spots = found_spots
-            except YOLODetectionError as exc:
-                QMessageBox.critical(self, "YOLO Detector Error", str(exc))
-                return
-            except Exception as exc:
-                QMessageBox.critical(
-                    self,
-                    "YOLO Detector Error",
-                    f"Unexpected error during YOLO detection:\n{exc}",
-                )
-                return
-        else:
-            # 3. Gather parameters from the GUI
-            params = spot_settings["classic"]
-
-            # 4. Run the analysis in the backend
-            try:
-                print(f"Running analysis on {leed_file.filename} with params: {params}")
-                found_spots = find_spots(main_image, background_image, self.metadata_mask_list, params)
-                # Store results in the data model
-                leed_file.spots = found_spots
-            except Exception as e:
-                QMessageBox.critical(self, "Analysis Error", f"An error occurred during spot finding:\n{e}")
-                return
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Detector Error",
+                f"Unexpected error during detection:\n{exc}",
+            )
+            return
         
         # 5. Update the UI with results
         self.populate_spot_list(found_spots)
         self.refresh_current_view()
+
+    def _detect_spots_on_leed_file(self, leed_file: LeedFile, spot_settings: dict):
+        """Core spot detection logic shared by single-frame and batch runs."""
+        backend = spot_settings["backend"]
+        main_image = load_tiff(leed_file.filepath)
+        background_image = load_tiff(self.background_file.filepath) if self.background_file else None
+        if main_image is None or main_image.size == 0:
+            raise ValueError(f"Could not load image: {leed_file.filepath}")
+        main_image = self._apply_analysis_circle_mask(main_image)
+        if background_image is not None and background_image.size > 0:
+            background_image = self._apply_analysis_circle_mask(background_image)
+        subtract_bg = False
+        if backend in ("Deep Learning", "YOLO"):
+            subtract_bg = bool(spot_settings.get(backend.lower(), {}).get("subtract_bg")) or bool(
+                spot_settings.get("dl", {}).get("subtract_bg") if backend == "Deep Learning" else spot_settings.get("yolo", {}).get("subtract_bg")
+            )
+        if subtract_bg:
+            if background_image is None or background_image.size == 0:
+                raise ValueError("Background file not loaded. Load a background image before subtracting.")
+            main_image = self._subtract_background_image(main_image, background_image)
+
+        if backend == "Deep Learning":
+            dl_cfg = spot_settings["dl"]
+            if not dl_cfg.get("model_path"):
+                raise ValueError("Select a deep-learning model before running detection.")
+            return detect_spots_with_model(main_image, self.metadata_mask_list, dl_cfg)
+        elif backend == "YOLO":
+            y_cfg = spot_settings["yolo"]
+            if not y_cfg.get("model_path"):
+                raise ValueError("Select a YOLO model before running detection.")
+            yolo_settings = YOLOSettings(
+                model_path=y_cfg.get("model_path"),
+                confidence=float(y_cfg.get("confidence", 0.25)),
+                iou=float(y_cfg.get("iou", 0.45)),
+                max_det=int(y_cfg.get("max_det", 300)),
+                bbox_margin_px=int(y_cfg.get("bbox_margin_px", 2)),
+            )
+            return detect_spots_with_yolo(main_image, self.metadata_mask_list, yolo_settings)
+        else:
+            params = spot_settings["classic"]
+            return find_spots(main_image, background_image, self.metadata_mask_list, params)
+
+    def _subtract_background_image(self, main_image: np.ndarray, background_image: np.ndarray) -> np.ndarray:
+        """Simple background subtraction with mean scaling and respecting metadata masks."""
+        try:
+            main_float = img_as_float(main_image)
+            bg_float = rgb2gray(background_image) if background_image.ndim == 3 else img_as_float(background_image)
+            main_masked_for_mean = main_float.copy()
+            bg_masked_for_mean = bg_float.copy()
+            for rect in self.metadata_mask_list:
+                x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+                main_masked_for_mean[y:y+h, x:x+w] = 0
+                bg_masked_for_mean[y:y+h, x:x+w] = 0
+            main_mean = main_masked_for_mean[main_masked_for_mean > 0].mean() if (main_masked_for_mean > 0).any() else 0
+            bg_mean = bg_masked_for_mean[bg_masked_for_mean > 0].mean() if (bg_masked_for_mean > 0).any() else 0
+            scale = (main_mean / bg_mean) if bg_mean > 1e-9 else 1.0
+            subtracted = main_float - (bg_float * scale)
+            return subtracted
+        except Exception as exc:
+            print(f"Background subtraction failed, returning original image: {exc}")
+            return main_image
+
+    def run_spot_finding_all(self):
+        """Run spot detection on all frames in the list using the current backend."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load images before running batch detection.")
+            return
+        spot_settings = self._collect_spot_settings()
+        files = [f for f in self.data_files if not f.is_background]
+        if not files:
+            QMessageBox.information(self, "No Frames", "No frames available for detection.")
+            return
+
+        progress = QProgressDialog("Detecting spots on all frames...", "Cancel", 0, len(files), self)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        processed = 0
+        for idx, lf in enumerate(files, start=1):
+            progress.setValue(idx - 1)
+            QApplication.processEvents()
+            if progress.wasCanceled():
+                break
+            try:
+                lf.spots = self._detect_spots_on_leed_file(lf, spot_settings)
+            except Exception as exc:
+                progress.cancel()
+                QMessageBox.critical(self, "Detector Error", f"Failed on {lf.filename}:\n{exc}")
+                return
+            processed += 1
+        progress.setValue(len(files))
+        self.populate_file_list()
+        current_item = self.file_list_widget.currentItem()
+        if current_item is None and self.file_list_widget.count() > 0:
+            self.file_list_widget.setCurrentRow(0)
+            current_item = self.file_list_widget.currentItem()
+        if current_item:
+            self.display_selected_image(current_item, None)
+        QMessageBox.information(self, "Find All Spots", f"Processed {processed} frame(s).")
 
     def _collect_spot_settings(self) -> dict:
         """Serialize the current spot-finding UI state for persistence or reuse."""
@@ -1305,6 +1386,7 @@ class MainWindow(QMainWindow):
             'max_area_px': self.dl_max_area_spinbox.value(),
             'bbox_margin_px': self.dl_bbox_margin_spinbox.value(),
             'dilate_radius_px': self.dl_dilate_spinbox.value(),
+            'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
         }
 
         yolo_settings = {
@@ -1313,6 +1395,7 @@ class MainWindow(QMainWindow):
             'iou': self.yolo_iou_spinbox.value(),
             'max_det': self.yolo_max_det_spinbox.value(),
             'bbox_margin_px': self.yolo_bbox_margin_spinbox.value(),
+            'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
         }
 
         return {
@@ -1344,6 +1427,8 @@ class MainWindow(QMainWindow):
                 self.dl_bbox_margin_spinbox.setValue(int(dl['bbox_margin_px']))
             if 'dilate_radius_px' in dl:
                 self.dl_dilate_spinbox.setValue(int(dl['dilate_radius_px']))
+            if 'subtract_bg' in dl:
+                self.det_subtract_bg_checkbox.setChecked(bool(dl['subtract_bg']))
             if 'model_path' in dl and dl['model_path']:
                 idx = self.dl_model_combo.findData(dl['model_path'])
                 if idx >= 0:
@@ -1359,6 +1444,8 @@ class MainWindow(QMainWindow):
                 self.yolo_max_det_spinbox.setValue(int(yolo['max_det']))
             if 'bbox_margin_px' in yolo:
                 self.yolo_bbox_margin_spinbox.setValue(int(yolo['bbox_margin_px']))
+            if 'subtract_bg' in yolo:
+                self.det_subtract_bg_checkbox.setChecked(bool(yolo['subtract_bg']))
             if 'model_path' in yolo and yolo['model_path']:
                 idx = self.yolo_model_combo.findData(yolo['model_path'])
                 if idx >= 0:
@@ -1457,6 +1544,28 @@ class MainWindow(QMainWindow):
                     optical_params,
                     cancel_event=cancel_event,
                 )
+
+        elif selected_scenario == "Detection Linking (Hungarian)":
+            params = {
+                "max_distance_px": self.hung_max_dist_spinbox.value(),
+                "max_gap": self.hung_max_gap_spinbox.value(),
+                "min_track_length": self.hung_min_len_spinbox.value(),
+            }
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            if not sorted_ids:
+                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
+                return
+            if all((not lf.spots) for lf in file_map.values()):
+                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before linking.")
+                return
+            worker = GenericWorker(
+                track_spots_hungarian,
+                file_map,
+                sorted_ids,
+                params,
+                cancel_event=cancel_event,
+            )
 
         else:
             QMessageBox.information(self, "Not Implemented", "This scenario is not implemented yet.")
