@@ -8,3 +8,5 @@ Pillow
 tifffile
 PyQt6
 ultralytics
+torch
+torchvision
