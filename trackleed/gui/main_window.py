@@ -84,8 +84,10 @@ class MainWindow(QMainWindow):
         self.yolo_settings = YOLOSpotSettings()
         self.current_spot_backend = "Classic"
         self.segmentation_models_dir = Path("segmentation_models")
+        self.flow_models_dir = Path("flow_models")
         self._dl_models_available = False
         self._yolo_models_available = False
+        self._raft_models_available = False
 
         # --- Initialize UI ---
         self._init_ui()
@@ -898,19 +900,16 @@ class MainWindow(QMainWindow):
         # --- RAFT (with LK fallback) params ---
         self.raft_group = QGroupBox("RAFT (with LK fallback)")
         raft_layout = QFormLayout(self.raft_group)
-        self.raft_model_path_edit = QLineEdit(str(Path("flow_models/raft-small.pth")))
-        browse_btn = QPushButton("Browse…")
-        def browse_raft():
-            path, _ = QFileDialog.getOpenFileName(self, "Select RAFT checkpoint", "", "PyTorch (*.pth *.pt);;All Files (*)")
-            if path:
-                self.raft_model_path_edit.setText(path)
-        browse_btn.clicked.connect(browse_raft)
-        path_widget = QWidget()
-        path_layout = QHBoxLayout(path_widget)
-        path_layout.setContentsMargins(0, 0, 0, 0)
-        path_layout.addWidget(self.raft_model_path_edit)
-        path_layout.addWidget(browse_btn)
-        raft_layout.addRow("Model path:", path_widget)
+        self.raft_model_combo = QComboBox()
+        self.raft_refresh_button = QPushButton("Refresh")
+        self.raft_refresh_button.setToolTip("Re-scan the flow_models directory for RAFT checkpoints.")
+        self.raft_refresh_button.clicked.connect(self._refresh_flow_models)
+        raft_row = QWidget()
+        raft_row_layout = QHBoxLayout(raft_row)
+        raft_row_layout.setContentsMargins(0, 0, 0, 0)
+        raft_row_layout.addWidget(self.raft_model_combo)
+        raft_row_layout.addWidget(self.raft_refresh_button)
+        raft_layout.addRow("Model:", raft_row)
 
         self.raft_resize_spinbox = QSpinBox()
         self.raft_resize_spinbox.setRange(128, 2048)
@@ -935,6 +934,8 @@ class MainWindow(QMainWindow):
 
         self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
         self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
+        # Populate RAFT models
+        self._refresh_flow_models()
 
         # --- Action Buttons ---
         self.track_button = QPushButton("Track Spots")
@@ -1519,6 +1520,27 @@ class MainWindow(QMainWindow):
             if idx >= 0:
                 self.spot_backend_combo.setCurrentIndex(idx)
 
+    def _refresh_flow_models(self):
+        """Scan flow_models directory for RAFT checkpoints and populate the combo."""
+        model_paths: list[Path] = []
+        models_dir = self.flow_models_dir
+        if models_dir.exists():
+            model_paths = sorted(models_dir.glob("*.pt")) + sorted(models_dir.glob("*.pth"))
+
+        self.raft_model_combo.blockSignals(True)
+        self.raft_model_combo.clear()
+        if not model_paths:
+            self.raft_model_combo.addItem("No RAFT models found", userData=None)
+            self.raft_model_combo.setEnabled(False)
+            self._raft_models_available = False
+        else:
+            self.raft_model_combo.setEnabled(True)
+            for path in model_paths:
+                self.raft_model_combo.addItem(path.name, userData=str(path.resolve()))
+            self._raft_models_available = True
+            self.raft_model_combo.setCurrentIndex(0)
+        self.raft_model_combo.blockSignals(False)
+
     def _analysis_circle_to_dict(self):
         if not self.analysis_circle:
             return None
@@ -1630,7 +1652,7 @@ class MainWindow(QMainWindow):
             )
         elif selected_scenario == "RAFT (with LK fallback)":
             params = {
-                "model_path": self.raft_model_path_edit.text().strip(),
+                "model_path": self.raft_model_combo.currentData(),
                 "device": "cuda" if torch.cuda.is_available() else "cpu",
                 "raft_resize_short_side": self.raft_resize_spinbox.value(),
                 "fwd_bwd_tau": self.raft_tau_spinbox.value(),
