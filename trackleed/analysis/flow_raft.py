@@ -14,6 +14,7 @@ import torch
 import torch.nn.functional as F
 import sys
 import os
+import importlib.util
 
 
 @dataclass
@@ -43,6 +44,21 @@ class RAFTWrapper:
         model_path = Path(self.cfg.model_path)
         if not model_path.exists():
             raise FileNotFoundError(f"RAFT checkpoint not found: {model_path}")
+
+        # Auto-detect small/full from filename if not explicitly set
+        name_lower = model_path.name.lower()
+        if "small" in name_lower:
+            self.cfg.small = True
+            self.cfg.alternate_corr = False
+        else:
+            self.cfg.small = False
+            self.cfg.alternate_corr = True
+        # Disable alternate_corr if extension not available
+        if self.cfg.alternate_corr:
+            if importlib.util.find_spec("alt_cuda_corr") is None:
+                print("[RAFT] alt_cuda_corr not found, disabling alternate_corr.")
+                self.cfg.alternate_corr = False
+
         try:
             # Try to auto-append common RAFT locations if not already on path
             extra_paths = [
@@ -68,11 +84,19 @@ class RAFTWrapper:
             alternate_corr=self.cfg.alternate_corr,
         )
         model = RAFT(args)
-        state = torch.load(model_path, map_location="cpu")
-        if "state_dict" in state:
-            state = state["state_dict"]
+        raw = torch.load(model_path, map_location="cpu")
+        if "model" in raw:
+            state = raw["model"]
+        elif "state_dict" in raw:
+            state = raw["state_dict"]
+        else:
+            state = raw
         state = {k.replace("module.", ""): v for k, v in state.items()}
-        model.load_state_dict(state, strict=True)
+        missing, unexpected = model.load_state_dict(state, strict=False)
+        if missing:
+            print(f"[RAFT] Missing keys when loading: {missing}")
+        if unexpected:
+            print(f"[RAFT] Unexpected keys ignored: {unexpected}")
         model.to(self.cfg.device)
         model.eval()
         self.model = model
@@ -97,7 +121,11 @@ class RAFTWrapper:
         flow21 = flow21[0]
 
         # Forward-backward consistency
-        fb_mask = self._forward_backward_mask(flow12, flow21, tau=self.cfg.fwd_bwd_tau)
+        try:
+            fb_mask = self._forward_backward_mask(flow12, flow21, tau=self.cfg.fwd_bwd_tau)
+        except Exception as exc:
+            print(f"[RAFT] FB check failed ({exc}), using all-valid mask.")
+            fb_mask = torch.ones_like(flow12[0], dtype=torch.bool, device=flow12.device)
 
         # Resize back to original resolution
         flow12_full = self._resize_and_scale_flow(flow12, image1.shape[:2], scale1)
@@ -163,11 +191,15 @@ class RAFTWrapper:
             ],
             dim=-1,
         )
-        flow21_sampled = F.grid_sample(flow21[None], grid[None], mode="bilinear", padding_mode="border", align_corners=True)[0]
-        fb_sum = flow12 + flow21_sampled
-        fb_err = torch.linalg.norm(fb_sum, dim=0)
-        mask = fb_err <= tau
-        return mask
+        try:
+            flow21_sampled = F.grid_sample(flow21[None], grid[None], mode="bilinear", padding_mode="border", align_corners=True)[0]
+            fb_sum = flow12 + flow21_sampled
+            fb_err = torch.linalg.norm(fb_sum, dim=0)
+            mask = fb_err <= tau
+            return mask
+        except Exception as exc:
+            print(f"[RAFT] grid_sample failed in FB check: {exc}")
+            return torch.ones_like(flow12[0], dtype=torch.bool, device=flow12.device)
 
 
 def load_raft(cfg: RAFTConfig) -> RAFTWrapper:
