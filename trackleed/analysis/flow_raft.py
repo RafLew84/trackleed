@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import sys
 import os
 import importlib.util
+import cv2
 
 
 @dataclass
@@ -110,15 +111,41 @@ class RAFTWrapper:
         """
         model = self.load()
         dev = self.cfg.device
-        t1, scale1 = self._prep_image(image1, dev)
-        t2, scale2 = self._prep_image(image2, dev)
-        # they share the same resize, so scale factors should match
+        # 1) Wspólny crop do min rozmiaru, żeby uniknąć off-by-one
+        h0, w0 = image1.shape[:2]
+        h1, w1 = image2.shape[:2]
+        h = min(h0, h1)
+        w = min(w0, w1)
+        image1 = image1[:h, :w]
+        image2 = image2[:h, :w]
+
+        # 2) Wspólny resize krótszego boku (opcjonalny)
+        scale = 1.0
+        if self.cfg.resize_short_side and min(h, w) != self.cfg.resize_short_side:
+            scale = float(self.cfg.resize_short_side) / float(min(h, w))
+            new_h = int(round(h * scale))
+            new_w = int(round(w * scale))
+            image1 = cv2.resize(image1, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            image2 = cv2.resize(image2, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        else:
+            new_h, new_w = h, w
+
+        # 3) Tensory + padder
+        t1 = self._prep_image(image1, dev)
+        t2 = self._prep_image(image2, dev)
+        try:
+            from utils.utils import InputPadder
+        except Exception:
+            from raft.utils.utils import InputPadder  # depending on repo layout
+        padder = InputPadder(t1.shape)
+        t1, t2 = padder.pad(t1, t2)
+
         with torch.no_grad():
-            flow12, _ = model(t1, t2, iters=20, test_mode=True)  # returns (flow_up, coords)
+            flow12, _ = model(t1, t2, iters=20, test_mode=True)
             flow21, _ = model(t2, t1, iters=20, test_mode=True)
 
-        flow12 = flow12[0]  # (2,H,W)
-        flow21 = flow21[0]
+        flow12 = padder.unpad(flow12)[0]  # (2,H,W)
+        flow21 = padder.unpad(flow21)[0]
 
         # Forward-backward consistency
         try:
@@ -127,19 +154,25 @@ class RAFTWrapper:
             print(f"[RAFT] FB check failed ({exc}), using all-valid mask.")
             fb_mask = torch.ones_like(flow12[0], dtype=torch.bool, device=flow12.device)
 
-        # Resize back to original resolution
-        flow12_full = self._resize_and_scale_flow(flow12, image1.shape[:2], scale1)
-        fb_mask_full = F.interpolate(fb_mask[None, None].float(), size=image1.shape[:2], mode="nearest")[0, 0]
-        fb_mask_np = fb_mask_full.cpu().numpy() >= 0.5
+        # 4) Do numpy
+        flow_np = flow12.permute(1, 2, 0).cpu().numpy()  # (H,W,2)
+        fb_mask_np = fb_mask.cpu().numpy()
+
+        # 5) Jeśli był resize, przeskaluj flow do oryginalnego (po crop) rozmiaru
+        if (new_h, new_w) != (h, w):
+            flow_np = cv2.resize(flow_np, (w, h), interpolation=cv2.INTER_LINEAR)
+            flow_np[..., 0] *= (w / float(new_w))
+            flow_np[..., 1] *= (h / float(new_h))
+            fb_mask_np = cv2.resize(fb_mask_np.astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST) > 0
 
         if self.cfg.max_step_px:
-            mag = np.linalg.norm(flow12_full.transpose(1, 2, 0), axis=2)
+            mag = np.linalg.norm(flow_np, axis=2)
             fb_mask_np &= mag <= float(self.cfg.max_step_px)
 
-        return flow12_full.transpose(1, 2, 0), fb_mask_np
+        return flow_np, fb_mask_np
 
     def _prep_image(self, img: np.ndarray, device: str):
-        """Normalize, add batch/channel, resize short side."""
+        """Normalize to [0,1], force 3ch, add batch dim."""
         if img.ndim == 2:
             img = img[..., None]
         if img.shape[2] == 1:
@@ -147,29 +180,7 @@ class RAFTWrapper:
         img_float = img.astype(np.float32)
         img_float = (img_float - img_float.min()) / (img_float.max() - img_float.min() + 1e-6)
         t = torch.from_numpy(img_float).permute(2, 0, 1)[None].to(device)
-        _, _, h, w = t.shape
-        scale = 1.0
-        if self.cfg.resize_short_side and min(h, w) != self.cfg.resize_short_side:
-            if h < w:
-                new_h = self.cfg.resize_short_side
-                new_w = int(w * (new_h / h))
-            else:
-                new_w = self.cfg.resize_short_side
-                new_h = int(h * (new_w / w))
-            t = F.interpolate(t, size=(new_h, new_w), mode="bilinear", align_corners=False)
-            scale = (w / new_w, h / new_h)
-        else:
-            scale = (1.0, 1.0)
-        return t, scale
-
-    def _resize_and_scale_flow(self, flow: torch.Tensor, target_hw: Tuple[int, int], scale: Tuple[float, float]):
-        """Upsample flow to target size and adjust magnitude to original pixels."""
-        _, h, w = flow.shape
-        flow_up = F.interpolate(flow[None], size=target_hw, mode="bilinear", align_corners=False)[0]
-        sx, sy = scale
-        flow_up[0] *= sx * (target_hw[1] / w)
-        flow_up[1] *= sy * (target_hw[0] / h)
-        return flow_up.cpu().numpy()
+        return t
 
     def _forward_backward_mask(self, flow12: torch.Tensor, flow21: torch.Tensor, tau: float):
         """
