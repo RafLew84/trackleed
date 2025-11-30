@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
+import torch
 from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import SpotROI
@@ -23,6 +24,7 @@ class YOLOSettings:
     iou: float = 0.45
     max_det: int = 300
     bbox_margin_px: int = 2
+    device: str = "auto"
 
 
 _model_cache = {}
@@ -36,7 +38,7 @@ def detect_spots_with_yolo(
     if settings.model_path is None:
         raise YOLODetectionError("No YOLO model selected.")
 
-    model = _load_model(settings.model_path)
+    model = _load_model(settings.model_path, device=settings.device)
 
     # YOLO expects 3-channel inputs; stack grayscale if needed
     if image.ndim == 2:
@@ -109,7 +111,7 @@ def detect_spots_with_yolo(
     return rois
 
 
-def _load_model(path_str: str):
+def _load_model(path_str: str, device: str = "auto"):
     path = Path(path_str)
     key = str(path.resolve())
     if key in _model_cache:
@@ -122,7 +124,18 @@ def _load_model(path_str: str):
         raise YOLODetectionError("Ultralytics YOLO is not installed. Please `pip install ultralytics`.") from exc
     try:
         model = YOLO(str(path))
+        dev = device.lower() if isinstance(device, str) else "auto"
+        if dev == "auto":
+            dev = 0 if torch.cuda.is_available() else "cpu"
+        elif dev == "gpu":
+            dev = 0 if torch.cuda.is_available() else "cpu"
+        elif dev == "cpu":
+            dev = "cpu"
+        model.to(dev)
     except Exception as exc:
-        raise YOLODetectionError(f"Failed to load YOLO model: {exc}") from exc
+        hint = ""
+        if "OrderedDict" in str(exc):
+            hint = " (wygląda na state_dict zamiast pełnego checkpointu Ultralytics; użyj best.pt z runs/detect/.../weights)"
+        raise YOLODetectionError(f"Failed to load YOLO model: {exc}{hint}") from exc
     _model_cache[key] = model
     return model

@@ -157,6 +157,46 @@ def _clamp_position(pos: np.ndarray, frame_size: int, sigma_x: float, sigma_y: f
     )
 
 
+def _build_flow_from_spots(frame_a: list[dict], frame_b: list[dict], frame_size: int) -> np.ndarray:
+    """
+    Build dense flow map (H,W,2) from spot positions between consecutive frames.
+    Flow is filled with per-spot displacement inside Gaussian support; overlaps are averaged.
+    """
+    flow = np.zeros((frame_size, frame_size, 2), dtype=np.float32)
+    weight = np.zeros((frame_size, frame_size), dtype=np.float32)
+    # Map track_id -> spot meta in frame B
+    next_map = {s["track_id"]: s for s in frame_b}
+    for spot in frame_a:
+        tid = spot["track_id"]
+        if tid not in next_map:
+            continue
+        nxt = next_map[tid]
+        dx = nxt["x"] - spot["x"]
+        dy = nxt["y"] - spot["y"]
+        # Draw Gaussian weight and accumulate flow
+        support = max(int(3 * max(spot["sigma_x"], spot["sigma_y"])), 1)
+        xs = np.arange(int(spot["x"]) - support, int(spot["x"]) + support + 1)
+        ys = np.arange(int(spot["y"]) - support, int(spot["y"]) + support + 1)
+        xs = xs[(0 <= xs) & (xs < frame_size)]
+        ys = ys[(0 <= ys) & (ys < frame_size)]
+        if xs.size == 0 or ys.size == 0:
+            continue
+        grid_x, grid_y = np.meshgrid(xs, ys)
+        dx_local = grid_x - spot["x"]
+        dy_local = grid_y - spot["y"]
+        cos_t = np.cos(spot["theta"])
+        sin_t = np.sin(spot["theta"])
+        x_rot = cos_t * dx_local + sin_t * dy_local
+        y_rot = -sin_t * dx_local + cos_t * dy_local
+        gaussian = np.exp(-((x_rot**2) / (2 * spot["sigma_x"] ** 2) + (y_rot**2) / (2 * spot["sigma_y"] ** 2)))
+        flow[np.ix_(ys, xs, [0])] += gaussian[..., None] * dx
+        flow[np.ix_(ys, xs, [1])] += gaussian[..., None] * dy
+        weight[np.ix_(ys, xs)] += gaussian
+    mask = weight > 1e-6
+    flow[mask] /= weight[mask, None]
+    return flow
+
+
 def _apply_grid_artifact(image: np.ndarray, config: SynthConfig, rng: np.random.Generator):
     mode = (config.grid_mode or "none").lower()
     amplitude = max(0.0, config.grid_amplitude)
@@ -327,6 +367,7 @@ def generate_sequence(
     output_dir: Path,
     save_mask: bool = False,
     save_yolo: bool = False,
+    save_flow: bool = False,
     image_format: str = "tiff",
     yolo_box_scale: float = 3.0,
     yolo_class_id: int = 0,
@@ -353,6 +394,10 @@ def generate_sequence(
     if image_format not in {"tiff", "png"}:
         raise ValueError(f"Unsupported image format: {image_format}")
 
+    # For flow export, keep images and per-frame spot metadata
+    images_cache = []
+    spots_per_frame: list[list[dict]] = []
+
     for frame_idx in range(config.frames):
         # Time-varying background: global level can brighten/darken over the sequence.
         bg_level = config.bg_base_level
@@ -373,6 +418,7 @@ def generate_sequence(
         yolo_labels = [] if save_yolo else None
         frame_center = center + drift_vector * frame_idx
 
+        frame_spots_meta = []
         for spot in spots:
             pos = frame_center + spot.radius * np.array([np.cos(spot.angle), np.sin(spot.angle)])
             pos = _clamp_position(pos, config.frame_size, spot.sigma_x, spot.sigma_y)
@@ -431,6 +477,17 @@ def generate_sequence(
                     "parent_track_id": spot.parent_track_id if spot.parent_track_id is not None else None,
                 }
             )
+            frame_spots_meta.append(
+                {
+                    "track_id": spot.track_id,
+                    "x": float(pos[0]),
+                    "y": float(pos[1]),
+                    "sigma_x": float(spot.sigma_x),
+                    "sigma_y": float(spot.sigma_y),
+                    "theta": float(spot.theta),
+                    "active": bool(spot.is_active),
+                }
+            )
 
             if save_yolo and yolo_labels is not None:
                 yolo_labels.append(
@@ -449,6 +506,9 @@ def generate_sequence(
         image += rng.normal(0, config.noise_level, image.shape).astype(np.float32)
         image_path = output_dir / f"synthetic_{frame_idx:04d}.{image_format}"
         _write_image(image_path, image, image_format)
+        if save_flow:
+            images_cache.append(image.copy())
+            spots_per_frame.append(frame_spots_meta)
 
         if mask is not None:
             mask_bin = (mask > 0).astype(np.uint8)
@@ -460,6 +520,17 @@ def generate_sequence(
             label_path.write_text("\n".join(yolo_labels))
 
         spots = [_update_spot_state(spot, config, rng) for spot in spots]
+
+    if save_flow and len(images_cache) >= 2:
+        flows_dir = output_dir / "flows"
+        flows_dir.mkdir(parents=True, exist_ok=True)
+        for i in range(len(images_cache) - 1):
+            flow = _build_flow_from_spots(
+                spots_per_frame[i],
+                spots_per_frame[i + 1],
+                config.frame_size,
+            )
+            np.save(flows_dir / f"synthetic_{i:04d}.npy", flow)
 
     metadata = {
         "config": asdict(config),
@@ -623,6 +694,7 @@ def main_cli(argv: list[str] | None = None) -> int:
         help="Range of angular offsets (radians) for satellites relative to parent angle.",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--save-flow", action="store_true", help="Also save dense flow .npy between consecutive frames.")
     args = parser.parse_args(argv)
 
     config = SynthConfig(
@@ -681,6 +753,7 @@ def main_cli(argv: list[str] | None = None) -> int:
         args.output,
         save_mask=save_mask,
         save_yolo=args.save_yolo,
+        save_flow=args.save_flow,
         image_format=args.image_format,
         yolo_box_scale=args.yolo_box_scale,
     )

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import List
 from threading import Event
 import numpy as np
+import torch
 import shutil
 from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread, QPoint
 from PyQt6.QtGui import QAction, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QActionGroup , QIcon
@@ -13,8 +14,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QLabel, QFileDialog, QListWidgetItem, QMessageBox, QApplication,
                              QDialog, QDockWidget, QFormLayout, QSpinBox, QDoubleSpinBox,
                              QPushButton, QCheckBox, QToolBar, QComboBox, QProgressDialog,
-                             QScrollArea, QStackedWidget, QSizePolicy, QInputDialog)
+                             QScrollArea, QStackedWidget, QSizePolicy, QInputDialog, QLineEdit)
 import os
+import sys
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory
@@ -33,6 +35,7 @@ from trackleed.analysis.tracking import (
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
+    track_spots_raft_fallback,
 )
 
 from skimage.util import img_as_float
@@ -666,6 +669,11 @@ class MainWindow(QMainWindow):
         self.spot_backend_stack.addWidget(self._build_yolo_find_spots_panel())
         find_spots_layout.addWidget(self.spot_backend_stack)
 
+        self.dl_device_combo = QComboBox()
+        self.dl_device_combo.addItems(["Auto", "CPU", "GPU"])
+        self.dl_device_combo.setToolTip("Device for DL/YOLO inference. Auto = GPU if available.")
+        find_spots_layout.addWidget(self.dl_device_combo)
+
         self.det_subtract_bg_checkbox = QCheckBox("Subtract background before detection (DL/YOLO)")
         self.det_subtract_bg_checkbox.setToolTip("Applies only when backend is Deep Learning or YOLO and a background file is loaded.")
         find_spots_layout.addWidget(self.det_subtract_bg_checkbox)
@@ -692,6 +700,7 @@ class MainWindow(QMainWindow):
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
             "Detection Linking (Hungarian)",
+            "RAFT (with LK fallback)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
         self.trackingAlgoCombo = self.tracking_scenario_combo
@@ -885,6 +894,44 @@ class MainWindow(QMainWindow):
         self.hung_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
         hung_layout.addRow("Min track length:", self.hung_min_len_spinbox)
         form_layout.addRow(self.hungarian_group)
+
+        # --- RAFT (with LK fallback) params ---
+        self.raft_group = QGroupBox("RAFT (with LK fallback)")
+        raft_layout = QFormLayout(self.raft_group)
+        self.raft_model_path_edit = QLineEdit(str(Path("flow_models/raft-small.pth")))
+        browse_btn = QPushButton("Browse…")
+        def browse_raft():
+            path, _ = QFileDialog.getOpenFileName(self, "Select RAFT checkpoint", "", "PyTorch (*.pth *.pt);;All Files (*)")
+            if path:
+                self.raft_model_path_edit.setText(path)
+        browse_btn.clicked.connect(browse_raft)
+        path_widget = QWidget()
+        path_layout = QHBoxLayout(path_widget)
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        path_layout.addWidget(self.raft_model_path_edit)
+        path_layout.addWidget(browse_btn)
+        raft_layout.addRow("Model path:", path_widget)
+
+        self.raft_resize_spinbox = QSpinBox()
+        self.raft_resize_spinbox.setRange(128, 2048)
+        self.raft_resize_spinbox.setValue(512)
+        self.raft_resize_spinbox.setSingleStep(32)
+        raft_layout.addRow("Resize short side:", self.raft_resize_spinbox)
+
+        self.raft_tau_spinbox = QDoubleSpinBox()
+        self.raft_tau_spinbox.setRange(0.1, 10.0)
+        self.raft_tau_spinbox.setDecimals(2)
+        self.raft_tau_spinbox.setValue(1.5)
+        raft_layout.addRow("FB tau:", self.raft_tau_spinbox)
+
+        self.raft_max_step_spinbox = QDoubleSpinBox()
+        self.raft_max_step_spinbox.setRange(0.0, 500.0)
+        self.raft_max_step_spinbox.setDecimals(1)
+        self.raft_max_step_spinbox.setValue(0.0)
+        self.raft_max_step_spinbox.setToolTip("0 = brak limitu, >0 ogranicza długość wektora flow.")
+        raft_layout.addRow("Max step (px):", self.raft_max_step_spinbox)
+
+        form_layout.addRow(self.raft_group)
 
         self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
         self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
@@ -1224,6 +1271,7 @@ class MainWindow(QMainWindow):
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
+        show_raft = scenario == "RAFT (with LK fallback)"
 
         if hasattr(self, "optical_basic_group"):
             self.optical_basic_group.setVisible(show_optical_basic)
@@ -1231,6 +1279,8 @@ class MainWindow(QMainWindow):
             self.optical_skip_group.setVisible(show_optical_skip)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
+        if hasattr(self, "raft_group"):
+            self.raft_group.setVisible(show_raft)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -1296,6 +1346,7 @@ class MainWindow(QMainWindow):
             dl_cfg = spot_settings["dl"]
             if not dl_cfg.get("model_path"):
                 raise ValueError("Select a deep-learning model before running detection.")
+            device = dl_cfg.get("device", "Auto")
             return detect_spots_with_model(main_image, self.metadata_mask_list, dl_cfg)
         elif backend == "YOLO":
             y_cfg = spot_settings["yolo"]
@@ -1307,6 +1358,7 @@ class MainWindow(QMainWindow):
                 iou=float(y_cfg.get("iou", 0.45)),
                 max_det=int(y_cfg.get("max_det", 300)),
                 bbox_margin_px=int(y_cfg.get("bbox_margin_px", 2)),
+                device=y_cfg.get("device", "auto"),
             )
             return detect_spots_with_yolo(main_image, self.metadata_mask_list, yolo_settings)
         else:
@@ -1387,6 +1439,7 @@ class MainWindow(QMainWindow):
             'bbox_margin_px': self.dl_bbox_margin_spinbox.value(),
             'dilate_radius_px': self.dl_dilate_spinbox.value(),
             'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
+            'device': self.dl_device_combo.currentText(),
         }
 
         yolo_settings = {
@@ -1396,6 +1449,7 @@ class MainWindow(QMainWindow):
             'max_det': self.yolo_max_det_spinbox.value(),
             'bbox_margin_px': self.yolo_bbox_margin_spinbox.value(),
             'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
+            'device': self.dl_device_combo.currentText(),
         }
 
         return {
@@ -1429,6 +1483,10 @@ class MainWindow(QMainWindow):
                 self.dl_dilate_spinbox.setValue(int(dl['dilate_radius_px']))
             if 'subtract_bg' in dl:
                 self.det_subtract_bg_checkbox.setChecked(bool(dl['subtract_bg']))
+            if 'device' in dl:
+                idx = self.dl_device_combo.findText(str(dl['device']))
+                if idx >= 0:
+                    self.dl_device_combo.setCurrentIndex(idx)
             if 'model_path' in dl and dl['model_path']:
                 idx = self.dl_model_combo.findData(dl['model_path'])
                 if idx >= 0:
@@ -1446,6 +1504,10 @@ class MainWindow(QMainWindow):
                 self.yolo_bbox_margin_spinbox.setValue(int(yolo['bbox_margin_px']))
             if 'subtract_bg' in yolo:
                 self.det_subtract_bg_checkbox.setChecked(bool(yolo['subtract_bg']))
+            if 'device' in yolo:
+                idx = self.dl_device_combo.findText(str(yolo['device']))
+                if idx >= 0:
+                    self.dl_device_combo.setCurrentIndex(idx)
             if 'model_path' in yolo and yolo['model_path']:
                 idx = self.yolo_model_combo.findData(yolo['model_path'])
                 if idx >= 0:
@@ -1566,6 +1628,45 @@ class MainWindow(QMainWindow):
                 params,
                 cancel_event=cancel_event,
             )
+        elif selected_scenario == "RAFT (with LK fallback)":
+            params = {
+                "model_path": self.raft_model_path_edit.text().strip(),
+                "device": "cuda" if torch.cuda.is_available() else "cpu",
+                "raft_resize_short_side": self.raft_resize_spinbox.value(),
+                "fwd_bwd_tau": self.raft_tau_spinbox.value(),
+                "max_step_px": self.raft_max_step_spinbox.value() if self.raft_max_step_spinbox.value() > 0 else None,
+                "roi_size": self.roi_size_spinbox.value(),
+                "lk_win_size": self.lk_win_size_spinbox.value(),
+                "lk_max_level": self.lk_max_level_spinbox.value(),
+                "lk_max_iterations": self.lk_iterations_spinbox.value(),
+                "lk_epsilon": self.lk_epsilon_spinbox.value(),
+                "lk_min_eigen_threshold": self.lk_min_eig_spinbox.value(),
+            }
+            if not params["model_path"]:
+                QMessageBox.warning(self, "No RAFT model", "Select RAFT checkpoint path before running.")
+                return
+            if not self._ensure_raft_on_path():
+                QMessageBox.critical(
+                    self,
+                    "RAFT not available",
+                    "RAFT code not found on PYTHONPATH. Clone https://github.com/princeton-vl/RAFT and add its 'core' folder to PYTHONPATH.",
+                )
+                return
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            if not sorted_ids:
+                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
+                return
+            if all((not lf.spots) for lf in file_map.values()):
+                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before tracking with RAFT.")
+                return
+            worker = GenericWorker(
+                track_spots_raft_fallback,
+                file_map,
+                sorted_ids,
+                params,
+                cancel_event=cancel_event,
+            )
 
         else:
             QMessageBox.information(self, "Not Implemented", "This scenario is not implemented yet.")
@@ -1594,6 +1695,8 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.finished.connect(lambda: setattr(self, "thread", None))
+        self.thread.finished.connect(lambda: setattr(self, "worker", None))
 
         self.thread.started.connect(self.worker.run)
         self.thread.start()
@@ -1605,7 +1708,30 @@ class MainWindow(QMainWindow):
         dialog.setLabelText("Cancelling, please wait...")
         dialog.setEnabled(False)
         if self.thread:
-            self.thread.requestInterruption()
+            try:
+                self.thread.requestInterruption()
+            except RuntimeError:
+                # Thread already deleted, nothing to cancel.
+                pass
+
+    def _ensure_raft_on_path(self) -> bool:
+        """Try to ensure RAFT code is importable by appending common paths."""
+        import importlib
+        if importlib.util.find_spec("raft") is not None:
+            return True
+        extra_paths = [
+            os.environ.get("RAFT_CORE_PATH"),
+            Path("third_party/RAFT/core"),
+            Path("RAFT/core"),
+            Path.cwd() / "third_party" / "RAFT" / "core",
+            Path.cwd() / "RAFT" / "core",
+        ]
+        for p in extra_paths:
+            if p and Path(p).exists() and str(p) not in sys.path:
+                sys.path.append(str(p))
+                if importlib.util.find_spec("raft") is not None:
+                    return True
+        return importlib.util.find_spec("raft") is not None
 
     def on_tracking_finished(self, tracks: List[Track] | None):
         """Slot to handle the successful completion of the tracking task."""

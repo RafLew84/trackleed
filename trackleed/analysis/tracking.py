@@ -6,6 +6,7 @@ from threading import Event
 
 import cv2
 import numpy as np
+import torch
 from PyQt6.QtCore import QRect
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import linear_sum_assignment
@@ -15,6 +16,7 @@ from skimage.util import img_as_ubyte
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.image_reader import load_tiff
+from trackleed.analysis.flow_raft import RAFTWrapper, RAFTConfig
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
@@ -50,6 +52,133 @@ def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None
     else:
         normalized_final = np.zeros_like(final_for_tracking)
     return img_as_ubyte(normalized_final)
+
+
+def track_spots_raft_fallback(
+    file_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots using RAFT dense flow with LK fallback for unreliable vectors.
+    Expects detections (SpotROI) already present in each LeedFile.
+    """
+    model_path = params.get("model_path")
+    if not model_path:
+        raise ValueError("RAFT model path not provided.")
+    device = params.get("device", "cuda" if torch.cuda.is_available() else "cpu")
+    raft_cfg = RAFTConfig(
+        model_path=Path(model_path),
+        device=device,
+        resize_short_side=params.get("raft_resize_short_side", 512),
+        fwd_bwd_tau=float(params.get("fwd_bwd_tau", 1.5)),
+        flow_conf_threshold=float(params.get("flow_conf_threshold", 0.0)),
+        max_step_px=params.get("max_step_px"),
+        small=bool(params.get("raft_small", True)),
+        alternate_corr=bool(params.get("alternate_corr", False)),
+        mixed_precision=bool(params.get("mixed_precision", False)),
+        dropout=float(params.get("dropout", 0.0)),
+    )
+    raft = RAFTWrapper(raft_cfg)
+
+    roi_size = params.get("roi_size", 32)
+    roi_half = roi_size // 2
+    lk_params = dict(
+        winSize=(params.get("lk_win_size", 41), params.get("lk_win_size", 41)),
+        maxLevel=params.get("lk_max_level", 3),
+        criteria=(
+            cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+            params.get("lk_max_iterations", 10),
+            params.get("lk_epsilon", 0.03),
+        ),
+        minEigThreshold=params.get("lk_min_eigen_threshold", 1e-5),
+    )
+
+    # Initialize tracks from first frame detections
+    if not sorted_frame_ids:
+        return []
+    first_id = sorted_frame_ids[0]
+    first_file = file_map.get(first_id)
+    if not first_file or not first_file.spots:
+        raise ValueError("First frame must contain detections to start tracking.")
+    tracks_map = {s.id: Track(track_id=s.id, spots_by_image_id={first_id: s}) for s in first_file.spots}
+    last_positions = {s.id: np.array([s.center_x, s.center_y], dtype=np.float32) for s in first_file.spots}
+
+    total = max(1, len(sorted_frame_ids) - 1)
+    for idx in range(len(sorted_frame_ids) - 1):
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(int(100 * idx / total))
+
+        fid_a = sorted_frame_ids[idx]
+        fid_b = sorted_frame_ids[idx + 1]
+        file_a = file_map.get(fid_a)
+        file_b = file_map.get(fid_b)
+        if not file_a or not file_b:
+            continue
+
+        img_a = load_tiff(file_a.filepath)
+        img_b = load_tiff(file_b.filepath)
+        if img_a is None or img_a.size == 0 or img_b is None or img_b.size == 0:
+            continue
+
+        try:
+            flow, fb_mask = raft.compute_flow(img_a, img_b)
+        except Exception as exc:
+            print(f"RAFT flow failed on frames {fid_a}->{fid_b}: {exc}")
+            continue
+
+        # Prepare LK images for fallback
+        prev_gray = _load_and_prep_image(file_a.filepath)
+        curr_gray = _load_and_prep_image(file_b.filepath)
+        p0_list, track_ids = [], []
+        for tid, pos in last_positions.items():
+            p0_list.append(pos)
+            track_ids.append(tid)
+        if p0_list:
+            p0 = np.array(p0_list, dtype=np.float32).reshape(-1, 1, 2)
+        else:
+            break
+
+        # For each track: sample flow
+        new_positions = {}
+        need_lk = []
+        for tid, pos in zip(track_ids, p0_list):
+            fv = _bilinear_sample_flow(flow, pos)
+            if fv is None:
+                need_lk.append((tid, pos))
+                continue
+            x_new = pos[0] + fv[0]
+            y_new = pos[1] + fv[1]
+            # check fb mask
+            x_i, y_i = int(round(pos[0])), int(round(pos[1]))
+            ok_fb = False
+            if 0 <= y_i < fb_mask.shape[0] and 0 <= x_i < fb_mask.shape[1]:
+                ok_fb = bool(fb_mask[y_i, x_i])
+            if not ok_fb:
+                need_lk.append((tid, pos))
+                continue
+            new_positions[tid] = np.array([x_new, y_new], dtype=np.float32)
+
+        # LK fallback where needed
+        if need_lk and prev_gray is not None and curr_gray is not None:
+            p0_fallback = np.array([p for _, p in need_lk], dtype=np.float32).reshape(-1, 1, 2)
+            p1, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, curr_gray, p0_fallback, None, **lk_params)
+            for (tid, pos), st, newp in zip(need_lk, status, p1):
+                if st[0] == 1:
+                    new_positions[tid] = newp.reshape(-1)
+
+        # Update tracks
+        for tid, new_pos in new_positions.items():
+            roi = QRect(int(new_pos[0] - roi_half), int(new_pos[1] - roi_half), roi_size, roi_size)
+            spot = SpotROI(id=tid, roi_rect=roi, center_x=float(new_pos[0]), center_y=float(new_pos[1]), intensity=0, source="raft")
+            tracks_map[tid].spots_by_image_id[fid_b] = spot
+        last_positions = new_positions
+
+    return list(tracks_map.values())
 
 
 def _load_background_image(filepath: Optional[str | Path]) -> Optional[np.ndarray]:
@@ -136,6 +265,21 @@ def refine_center_by_centroid(
             continue
         return np.array([new_x, new_y], dtype=np.float32)
     return approx_xy
+
+
+def _bilinear_sample_flow(flow: np.ndarray, xy: np.ndarray) -> Optional[np.ndarray]:
+    """Sample flow (H,W,2) at floating-point xy."""
+    h, w, _ = flow.shape
+    x, y = xy
+    if x < 0 or y < 0 or x >= w - 1 or y >= h - 1:
+        return None
+    x0, y0 = int(np.floor(x)), int(np.floor(y))
+    dx, dy = x - x0, y - y0
+    f00 = flow[y0, x0]
+    f10 = flow[y0, x0 + 1]
+    f01 = flow[y0 + 1, x0]
+    f11 = flow[y0 + 1, x0 + 1]
+    return (f00 * (1 - dx) * (1 - dy) + f10 * dx * (1 - dy) + f01 * (1 - dx) * dy + f11 * dx * dy)
 
 
 def track_spots_hungarian(
