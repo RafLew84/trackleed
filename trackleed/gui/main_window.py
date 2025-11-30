@@ -35,6 +35,7 @@ from trackleed.analysis.tracking import (
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
+    track_spots_hungarian_directional,
     track_spots_raft_fallback,
 )
 
@@ -702,6 +703,7 @@ class MainWindow(QMainWindow):
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
             "Detection Linking (Hungarian)",
+            "Detection Linking (Directional)",
             "RAFT (with LK fallback)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
@@ -896,6 +898,95 @@ class MainWindow(QMainWindow):
         self.hung_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
         hung_layout.addRow("Min track length:", self.hung_min_len_spinbox)
         form_layout.addRow(self.hungarian_group)
+
+        # --- Directional detection linking params ---
+        self.dir_group = QGroupBox("Directional Detection Linking")
+        dir_layout = QFormLayout(self.dir_group)
+
+        self.dir_center_mode_combo = QComboBox()
+        self.dir_center_mode_combo.addItems(["Auto (RANSAC)", "Manual"])
+        self.dir_center_mode_combo.setCurrentIndex(0)
+        self.dir_center_mode_combo.setToolTip("Use RANSAC-estimated pattern center (auto) or manual coordinates.")
+        self.dir_center_mode_combo.currentIndexChanged.connect(self._on_dir_center_mode_changed)
+        dir_layout.addRow("Center mode:", self.dir_center_mode_combo)
+
+        center_row = QWidget()
+        center_row_layout = QHBoxLayout(center_row)
+        center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.dir_center_x_spinbox = QDoubleSpinBox()
+        self.dir_center_x_spinbox.setRange(0.0, 10000.0)
+        self.dir_center_x_spinbox.setDecimals(1)
+        self.dir_center_x_spinbox.setValue(0.0)
+        self.dir_center_y_spinbox = QDoubleSpinBox()
+        self.dir_center_y_spinbox.setRange(0.0, 10000.0)
+        self.dir_center_y_spinbox.setDecimals(1)
+        self.dir_center_y_spinbox.setValue(0.0)
+        center_row_layout.addWidget(QLabel("Cx:"))
+        center_row_layout.addWidget(self.dir_center_x_spinbox)
+        center_row_layout.addSpacing(8)
+        center_row_layout.addWidget(QLabel("Cy:"))
+        center_row_layout.addWidget(self.dir_center_y_spinbox)
+        dir_layout.addRow("Manual center (px):", center_row)
+
+        self.dir_direction_combo = QComboBox()
+        self.dir_direction_combo.addItems(["Auto", "Inward", "Outward"])
+        self.dir_direction_combo.setCurrentIndex(0)
+        self.dir_direction_combo.setToolTip("Expected dominant radial direction; Auto infers sign from motion.")
+        dir_layout.addRow("Direction:", self.dir_direction_combo)
+
+        self.dir_lateral_tol_spinbox = QDoubleSpinBox()
+        self.dir_lateral_tol_spinbox.setRange(0.0, 90.0)
+        self.dir_lateral_tol_spinbox.setDecimals(1)
+        self.dir_lateral_tol_spinbox.setValue(20.0)
+        self.dir_lateral_tol_spinbox.setToolTip("Allowed angular deviation from the radial direction before penalty.")
+        dir_layout.addRow("Lateral tolerance (deg):", self.dir_lateral_tol_spinbox)
+
+        self.dir_ring_bin_spinbox = QDoubleSpinBox()
+        self.dir_ring_bin_spinbox.setRange(1.0, 500.0)
+        self.dir_ring_bin_spinbox.setDecimals(1)
+        self.dir_ring_bin_spinbox.setValue(25.0)
+        self.dir_ring_bin_spinbox.setToolTip("Ring bin size (px) to penalize jumps between distant rings.")
+        dir_layout.addRow("Ring bin (px):", self.dir_ring_bin_spinbox)
+
+        self.dir_base_max_dist_spinbox = QDoubleSpinBox()
+        self.dir_base_max_dist_spinbox.setRange(1.0, 500.0)
+        self.dir_base_max_dist_spinbox.setDecimals(1)
+        self.dir_base_max_dist_spinbox.setValue(20.0)
+        self.dir_base_max_dist_spinbox.setToolTip("Base max distance for matching (used when dynamic gating is off).")
+        dir_layout.addRow("Base max distance (px):", self.dir_base_max_dist_spinbox)
+
+        self.dir_dynamic_max_checkbox = QCheckBox("Dynamic max distance")
+        self.dir_dynamic_max_checkbox.setChecked(True)
+        self.dir_dynamic_max_checkbox.setToolTip("Adjust match radius from recent step median plus margin.")
+        dir_layout.addRow(self.dir_dynamic_max_checkbox)
+
+        self.dir_dynamic_margin_spinbox = QDoubleSpinBox()
+        self.dir_dynamic_margin_spinbox.setRange(0.0, 200.0)
+        self.dir_dynamic_margin_spinbox.setDecimals(1)
+        self.dir_dynamic_margin_spinbox.setValue(5.0)
+        self.dir_dynamic_margin_spinbox.setToolTip("Extra slack added to median step when dynamic gating is on.")
+        dir_layout.addRow("Dynamic margin (px):", self.dir_dynamic_margin_spinbox)
+
+        self.dir_max_gap_spinbox = QSpinBox()
+        self.dir_max_gap_spinbox.setRange(0, 9999)
+        self.dir_max_gap_spinbox.setValue(2)
+        self.dir_max_gap_spinbox.setToolTip("Allowed gap (frames) to keep a directional track alive when unmatched.")
+        dir_layout.addRow("Max gap (frames):", self.dir_max_gap_spinbox)
+
+        self.dir_max_misses_spinbox = QSpinBox()
+        self.dir_max_misses_spinbox.setRange(0, 9999)
+        self.dir_max_misses_spinbox.setValue(3)
+        self.dir_max_misses_spinbox.setToolTip("Consecutive misses tolerated before dropping a track.")
+        dir_layout.addRow("Max misses:", self.dir_max_misses_spinbox)
+
+        self.dir_min_len_spinbox = QSpinBox()
+        self.dir_min_len_spinbox.setRange(1, 200)
+        self.dir_min_len_spinbox.setValue(2)
+        self.dir_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
+        dir_layout.addRow("Min track length:", self.dir_min_len_spinbox)
+
+        form_layout.addRow(self.dir_group)
+        self._on_dir_center_mode_changed(self.dir_center_mode_combo.currentIndex())
 
         # --- RAFT (with LK fallback) params ---
         self.raft_group = QGroupBox("RAFT (with LK fallback)")
@@ -1272,6 +1363,7 @@ class MainWindow(QMainWindow):
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
+        show_dir = scenario == "Detection Linking (Directional)"
         show_raft = scenario == "RAFT (with LK fallback)"
 
         if hasattr(self, "optical_basic_group"):
@@ -1280,8 +1372,15 @@ class MainWindow(QMainWindow):
             self.optical_skip_group.setVisible(show_optical_skip)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
+        if hasattr(self, "dir_group"):
+            self.dir_group.setVisible(show_dir)
         if hasattr(self, "raft_group"):
             self.raft_group.setVisible(show_raft)
+
+    def _on_dir_center_mode_changed(self, idx: int):
+        manual = idx == 1
+        self.dir_center_x_spinbox.setEnabled(manual)
+        self.dir_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -1645,6 +1744,38 @@ class MainWindow(QMainWindow):
                 return
             worker = GenericWorker(
                 track_spots_hungarian,
+                file_map,
+                sorted_ids,
+                params,
+                cancel_event=cancel_event,
+            )
+        elif selected_scenario == "Detection Linking (Directional)":
+            params = {
+                "center_mode": "manual" if self.dir_center_mode_combo.currentIndex() == 1 else "auto",
+                "manual_center": (
+                    self.dir_center_x_spinbox.value(),
+                    self.dir_center_y_spinbox.value(),
+                ),
+                "direction_mode": ["auto", "inward", "outward"][self.dir_direction_combo.currentIndex()],
+                "lateral_angle_tolerance_deg": self.dir_lateral_tol_spinbox.value(),
+                "ring_bin_px": self.dir_ring_bin_spinbox.value(),
+                "base_max_distance_px": self.dir_base_max_dist_spinbox.value(),
+                "dynamic_max_distance": self.dir_dynamic_max_checkbox.isChecked(),
+                "dynamic_margin_px": self.dir_dynamic_margin_spinbox.value(),
+                "max_gap": self.dir_max_gap_spinbox.value(),
+                "max_misses": self.dir_max_misses_spinbox.value(),
+                "min_track_length": self.dir_min_len_spinbox.value(),
+            }
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            if not sorted_ids:
+                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
+                return
+            if all((not lf.spots) for lf in file_map.values()):
+                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before linking.")
+                return
+            worker = GenericWorker(
+                track_spots_hungarian_directional,
                 file_map,
                 sorted_ids,
                 params,
