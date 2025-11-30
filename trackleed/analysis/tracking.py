@@ -17,6 +17,7 @@ from skimage.util import img_as_ubyte
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.flow_raft import RAFTWrapper, RAFTConfig
+from trackleed.analysis.peak_analyzer import find_pattern_center
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
@@ -280,6 +281,269 @@ def _bilinear_sample_flow(flow: np.ndarray, xy: np.ndarray) -> Optional[np.ndarr
     f01 = flow[y0 + 1, x0]
     f11 = flow[y0 + 1, x0 + 1]
     return (f00 * (1 - dx) * (1 - dy) + f10 * dx * (1 - dy) + f01 * (1 - dx) * dy + f11 * dx * dy)
+
+
+def compute_global_pattern_center(
+    files: list[LeedFile],
+    per_frame_error_threshold: float = 3.0,
+    iqr_multiplier: float = 3.0,
+) -> Optional[dict]:
+    """
+    Estimate a global pattern center using YOLO/spot detections from many frames.
+    - For each frame with >=4 spots: run RANSAC center; collect (cx, cy, err).
+    - Reject frames with large error; reject outliers by distance from median.
+    - Return median center and an uncertainty (mad-based) or None if insufficient data.
+    """
+    candidates = []
+    for lf in files:
+        if not lf.spots or len(lf.spots) < 4:
+            continue
+        spot_positions = [{"center_x": s.center_x, "center_y": s.center_y} for s in lf.spots]
+        center_info = find_pattern_center(spot_positions)
+        if center_info is None:
+            continue
+        err = max(center_info.get("error_x", 0), center_info.get("error_y", 0))
+        if err > per_frame_error_threshold:
+            continue
+        candidates.append(center_info)
+
+    if len(candidates) < 1:
+        return None
+
+    cx_all = np.array([c["center_x"] for c in candidates], dtype=np.float32)
+    cy_all = np.array([c["center_y"] for c in candidates], dtype=np.float32)
+
+    med_cx, med_cy = np.median(cx_all), np.median(cy_all)
+    dist = np.sqrt((cx_all - med_cx) ** 2 + (cy_all - med_cy) ** 2)
+    q1, q3 = np.percentile(dist, [25, 75])
+    iqr = q3 - q1
+    keep_mask = dist <= (q3 + iqr_multiplier * iqr if iqr > 0 else dist.max())
+    cx_keep = cx_all[keep_mask]
+    cy_keep = cy_all[keep_mask]
+
+    if cx_keep.size == 0:
+        return None
+
+    final_cx = float(np.median(cx_keep))
+    final_cy = float(np.median(cy_keep))
+    mad_cx = float(np.median(np.abs(cx_keep - final_cx))) if cx_keep.size > 1 else 0.0
+    mad_cy = float(np.median(np.abs(cy_keep - final_cy))) if cy_keep.size > 1 else 0.0
+
+    result = {
+        "center_x": final_cx,
+        "center_y": final_cy,
+        "error_x": mad_cx,
+        "error_y": mad_cy,
+        "frames_used": int(cx_keep.size),
+        "frames_total": int(len(candidates)),
+    }
+    return result
+
+
+def track_spots_polar_hungarian(
+    file_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots using Hungarian matching in polar coordinates with gating.
+    """
+    if not sorted_frame_ids:
+        return []
+    # Determine center
+    center_source = params.get("center_source", "auto")
+    center: Tuple[float, float] | None = None
+    if center_source == "file":
+        for fid in sorted_frame_ids:
+            lf = file_map.get(fid)
+            if lf and lf.pattern_center:
+                c = _center_from_pattern_dict(lf.pattern_center)
+                if c:
+                    center = c
+                    break
+    if center is None:
+        center_info = compute_global_pattern_center(list(file_map.values()))
+        if center_info:
+            center = (center_info["center_x"], center_info["center_y"])
+    if center is None:
+        # fallback: center of first frame image
+        first_file = file_map.get(sorted_frame_ids[0])
+        if first_file:
+            img = load_tiff(first_file.filepath)
+            if img is not None and img.size > 0:
+                h, w = img.shape[:2]
+                center = (w / 2.0, h / 2.0)
+            else:
+                center = (0.0, 0.0)
+        else:
+            center = (0.0, 0.0)
+
+    max_dr = float(params.get("max_dr", 20.0))
+    max_dtheta = float(params.get("max_dtheta", 0.05))
+    direction = params.get("direction", "both").lower()
+    max_missing = int(params.get("max_missing", 3))
+    radial_slack = float(params.get("radial_slack", max_dr * 0.25))
+    next_track_id = 1
+
+    # Initialize tracks from first frame detections
+    first_id = sorted_frame_ids[0]
+    first_file = file_map.get(first_id)
+    if not first_file or not first_file.spots:
+        return []
+    tracks: Dict[int, Track] = {s.id: Track(track_id=s.id, spots_by_image_id={first_id: s}) for s in first_file.spots}
+    missing_counts: Dict[int, int] = {s.id: 0 for s in first_file.spots}
+    next_track_id = max(next_track_id, max(tracks.keys()) + 1 if tracks else 1)
+
+    total = max(1, len(sorted_frame_ids) - 1)
+    for idx in range(len(sorted_frame_ids) - 1):
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(int(100 * idx / total))
+
+        fid = sorted_frame_ids[idx + 1]
+        lf = file_map.get(fid)
+        if lf is None:
+            continue
+        detections = lf.spots if lf.spots else []
+        tracks_list = list(tracks.values())
+        tracks_list, missing_counts, assigned_dets = match_tracks_polar(
+            tracks_list,
+            detections,
+            center=center,
+            max_dr=max_dr,
+            max_dtheta=max_dtheta,
+            direction=direction,
+            max_missing=max_missing,
+            radial_slack=radial_slack,
+            missing_counts=missing_counts,
+            frame_id=fid,
+        )
+        # Rebuild dict and drop missing
+        tracks = {tr.track_id: tr for tr in tracks_list}
+        # Start new tracks for unmatched detections
+        unmatched = [det for idx, det in enumerate(detections) if idx not in assigned_dets]
+        for det in unmatched:
+            tid = next_track_id
+            next_track_id += 1
+            tracks[tid] = Track(track_id=tid, spots_by_image_id={fid: det})
+            missing_counts[tid] = 0
+    return list(tracks.values())
+
+
+def _to_polar(center: Tuple[float, float], point: Tuple[float, float]) -> Tuple[float, float]:
+    cx, cy = center
+    x, y = point
+    dx, dy = x - cx, y - cy
+    r = float(np.hypot(dx, dy))
+    theta = float(np.arctan2(dy, dx))
+    return r, theta
+
+
+def match_tracks_polar(
+    tracks: List[Track],
+    detections: List[SpotROI],
+    center: Tuple[float, float],
+    max_dr: float,
+    max_dtheta: float,
+    direction: str = "both",
+    alpha: float = 1.0,
+    beta: float = 10.0,
+    max_missing: int = 3,
+    radial_slack: float = 0.0,
+    missing_counts: Optional[dict] = None,
+    frame_id: Optional[int] = None,
+) -> Tuple[List[Track], dict, set]:
+    """
+    Hungarian matching in polar coords with gating.
+    direction: "both" | "inward" | "outward"
+    missing_counts: dict track_id -> consecutive misses
+    """
+    if missing_counts is None:
+        missing_counts = {}
+    # Current positions of tracks: take last known spot
+    track_points = []
+    for tr in tracks:
+        if not tr.spots_by_image_id:
+            continue
+        last_frame = max(tr.spots_by_image_id.keys())
+        last_spot = tr.spots_by_image_id[last_frame]
+        track_points.append((tr, last_spot))
+
+    if not track_points or not detections:
+        if not track_points:
+            return tracks, missing_counts, set()
+        # No detections: increase missing counters
+        new_tracks = []
+        for tr, _ in track_points:
+            miss = missing_counts.get(tr.track_id, 0) + 1
+            missing_counts[tr.track_id] = miss
+            if miss <= max_missing:
+                new_tracks.append(tr)
+        return new_tracks, missing_counts, set()
+
+    # Build cost matrix with gating
+    nT = len(track_points)
+    nD = len(detections)
+    cost = np.full((nT, nD), fill_value=1e9, dtype=np.float32)
+    for i, (tr, spot_t) in enumerate(track_points):
+        r_t, th_t = _to_polar(center, (spot_t.center_x, spot_t.center_y))
+        for j, det in enumerate(detections):
+            r_d, th_d = _to_polar(center, (det.center_x, det.center_y))
+            dr = r_d - r_t
+            dtheta = abs(th_d - th_t)
+            # wrap angle to [-pi, pi]
+            if dtheta > np.pi:
+                dtheta = 2 * np.pi - dtheta
+            # direction gating
+            if direction == "inward" and dr > radial_slack:
+                continue
+            if direction == "outward" and dr < -radial_slack:
+                continue
+            if abs(dr) > max_dr or dtheta > max_dtheta:
+                continue
+            cost[i, j] = alpha * abs(dr) + beta * (dtheta * r_t)
+
+    row_ind, col_ind = linear_sum_assignment(cost)
+    assigned_tracks = set()
+    assigned_dets = set()
+    for r, c in zip(row_ind, col_ind):
+        if cost[r, c] >= 1e9:
+            continue  # gated out
+        tr, spot_prev = track_points[r]
+        det = detections[c]
+        frame_key = frame_id if frame_id is not None else det.id
+        tr.spots_by_image_id[frame_key] = det
+        assigned_tracks.add(tr.track_id)
+        assigned_dets.add(c)
+        missing_counts[tr.track_id] = 0
+
+    # Update missing counts and drop tracks that exceed max_missing
+    new_tracks = []
+    for tr, _ in track_points:
+        if tr.track_id not in assigned_tracks:
+            miss = missing_counts.get(tr.track_id, 0) + 1
+            missing_counts[tr.track_id] = miss
+            if miss > max_missing:
+                continue  # drop track
+        new_tracks.append(tr)
+
+    return new_tracks, missing_counts, assigned_dets
+
+
+def _center_from_pattern_dict(center_dict: dict) -> Optional[Tuple[float, float]]:
+    """Extract (cx, cy) from various center dict formats."""
+    if not center_dict:
+        return None
+    for kx, ky in [("center_x", "center_y"), ("cx", "cy"), ("x", "y")]:
+        if kx in center_dict and ky in center_dict:
+            try:
+                return float(center_dict[kx]), float(center_dict[ky])
+            except Exception:
+                continue
+    return None
 
 
 def track_spots_hungarian(

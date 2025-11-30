@@ -35,6 +35,7 @@ from trackleed.analysis.tracking import (
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
+    track_spots_polar_hungarian,
     track_spots_raft_fallback,
 )
 
@@ -702,6 +703,7 @@ class MainWindow(QMainWindow):
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
             "Detection Linking (Hungarian)",
+            "Detection Linking (Polar)",
             "RAFT (with LK fallback)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
@@ -896,6 +898,45 @@ class MainWindow(QMainWindow):
         self.hung_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
         hung_layout.addRow("Min track length:", self.hung_min_len_spinbox)
         form_layout.addRow(self.hungarian_group)
+
+        # --- Polar Hungarian params ---
+        self.polar_group = QGroupBox("Detection Linking (Polar)")
+        polar_layout = QFormLayout(self.polar_group)
+        self.polar_max_dr_spinbox = QDoubleSpinBox()
+        self.polar_max_dr_spinbox.setRange(0.0, 500.0)
+        self.polar_max_dr_spinbox.setValue(20.0)
+        self.polar_max_dr_spinbox.setSingleStep(1.0)
+        self.polar_max_dr_spinbox.setToolTip("Maksymalny krok promieniowy (px) na klatkę.")
+        polar_layout.addRow("Max Δr (px/frame):", self.polar_max_dr_spinbox)
+
+        self.polar_max_dtheta_spinbox = QDoubleSpinBox()
+        self.polar_max_dtheta_spinbox.setRange(0.0, 3.14)
+        self.polar_max_dtheta_spinbox.setDecimals(3)
+        self.polar_max_dtheta_spinbox.setValue(0.05)
+        self.polar_max_dtheta_spinbox.setSingleStep(0.01)
+        self.polar_max_dtheta_spinbox.setToolTip("Maksymalna zmiana kąta na klatkę (radiany).")
+        polar_layout.addRow("Max Δθ (rad/frame):", self.polar_max_dtheta_spinbox)
+
+        self.polar_center_combo = QComboBox()
+        self.polar_center_combo.addItem("Auto (YOLO median across frames)", "auto")
+        self.polar_center_combo.addItem("Use stored pattern_center (if available)", "file")
+        self.polar_center_combo.setToolTip(
+            "Sposób wyboru środka wzoru: automatyczny z detekcji lub zapisany w pliku (pattern_center)."
+        )
+        polar_layout.addRow("Center source:", self.polar_center_combo)
+
+        self.polar_direction_combo = QComboBox()
+        self.polar_direction_combo.addItems(["Both", "Inward", "Outward"])
+        self.polar_direction_combo.setToolTip("Ograniczenie kierunku: do środka, na zewnątrz lub oba.")
+        polar_layout.addRow("Direction:", self.polar_direction_combo)
+
+        self.polar_miss_spinbox = QSpinBox()
+        self.polar_miss_spinbox.setRange(0, 50)
+        self.polar_miss_spinbox.setValue(3)
+        self.polar_miss_spinbox.setToolTip("Maksymalna liczba kolejnych klatek bez dopasowania zanim track zostanie ucięty.")
+        polar_layout.addRow("Max missing frames:", self.polar_miss_spinbox)
+
+        form_layout.addRow(self.polar_group)
 
         # --- RAFT (with LK fallback) params ---
         self.raft_group = QGroupBox("RAFT (with LK fallback)")
@@ -1272,6 +1313,7 @@ class MainWindow(QMainWindow):
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
+        show_polar = scenario == "Detection Linking (Polar)"
         show_raft = scenario == "RAFT (with LK fallback)"
 
         if hasattr(self, "optical_basic_group"):
@@ -1280,6 +1322,8 @@ class MainWindow(QMainWindow):
             self.optical_skip_group.setVisible(show_optical_skip)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
+        if hasattr(self, "polar_group"):
+            self.polar_group.setVisible(show_polar)
         if hasattr(self, "raft_group"):
             self.raft_group.setVisible(show_raft)
 
@@ -1645,6 +1689,29 @@ class MainWindow(QMainWindow):
                 return
             worker = GenericWorker(
                 track_spots_hungarian,
+                file_map,
+                sorted_ids,
+                params,
+                cancel_event=cancel_event,
+            )
+        elif selected_scenario == "Detection Linking (Polar)":
+            params = {
+                "max_dr": self.polar_max_dr_spinbox.value(),
+                "max_dtheta": self.polar_max_dtheta_spinbox.value(),
+                "direction": self.polar_direction_combo.currentText().lower(),
+                "max_missing": self.polar_miss_spinbox.value(),
+                "center_source": self.polar_center_combo.currentData(),
+            }
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            if not sorted_ids:
+                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
+                return
+            if all((not lf.spots) for lf in file_map.values()):
+                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before linking.")
+                return
+            worker = GenericWorker(
+                track_spots_polar_hungarian,
                 file_map,
                 sorted_ids,
                 params,

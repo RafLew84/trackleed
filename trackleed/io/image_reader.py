@@ -7,6 +7,7 @@ import tifffile
 from PIL import Image
 
 CACHE_SIZE = 15
+VERBOSE = False
 
 @lru_cache(maxsize=CACHE_SIZE)
 def load_tiff(filepath: Path) -> np.ndarray:
@@ -19,19 +20,22 @@ def load_tiff(filepath: Path) -> np.ndarray:
     Returns:
         A NumPy array containing the image data.
     """
-    print(f"CACHE MISS: Reading from disk: {filepath.name}")
+    if VERBOSE:
+        print(f"CACHE MISS: Reading from disk: {filepath.name}")
     try:
         return tifffile.imread(filepath)
     except FileNotFoundError:
-        print(f"Error: File not found at {filepath}")
-        # Return an empty array or raise the exception, depending on desired error handling
+        if VERBOSE:
+            print(f"Error: File not found at {filepath}")
         return np.array([])
     except Exception as e:
-        print(f"An error occurred while reading {filepath}: {e}")
+        if VERBOSE:
+            print(f"An error occurred while reading {filepath}: {e}")
         # Fallback to Pillow for non-TIFF formats (e.g., PNG from GIF extraction)
         try:
             with Image.open(filepath) as im:
                 return np.array(im.convert("L"))
         except Exception as e2:
-            print(f"Pillow fallback also failed for {filepath}: {e2}")
+            if VERBOSE:
+                print(f"Pillow fallback also failed for {filepath}: {e2}")
             return np.array([])
