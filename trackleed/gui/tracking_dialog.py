@@ -82,9 +82,13 @@ class TrackingDialog(QDialog):
 
         self.delete_track_button = QPushButton("Delete Selected Track")
         self.delete_track_button.clicked.connect(self.delete_selected_track)
+        self.merge_tracks_button = QPushButton("Merge Selected Tracks")
+        self.merge_tracks_button.setToolTip("Select two tracks to merge them into one timeline.")
+        self.merge_tracks_button.clicked.connect(self.merge_selected_tracks)
         right_layout.addWidget(QLabel("Found Tracks:"))
         right_layout.addWidget(self.tracks_table)
         right_layout.addWidget(self.delete_track_button)
+        right_layout.insertWidget(3, self.merge_tracks_button)
         right_layout.insertWidget(3, self.add_track_button)
         right_layout.addWidget(QLabel("Track Analysis:"))
         right_layout.addWidget(self.plot_widget)
@@ -166,6 +170,7 @@ class TrackingDialog(QDialog):
         self.tracks_table.setColumnCount(4)
         self.tracks_table.setHorizontalHeaderLabels(["Track ID", "Start Frame", "End Frame", "Length"])
         self.tracks_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tracks_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tracks_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tracks_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.tracks_table.itemSelectionChanged.connect(self.on_track_selected)
@@ -425,6 +430,59 @@ class TrackingDialog(QDialog):
             # Refresh the UI
             self.populate_tracks_table()
             self.image_viewer.show_track_path(None) # Clear any drawn path
+
+    def merge_selected_tracks(self):
+        """Merge exactly two selected tracks into one timeline."""
+        selected_rows = sorted({idx.row() for idx in self.tracks_table.selectedIndexes()})
+        if len(selected_rows) != 2:
+            QMessageBox.warning(self, "Select Two Tracks", "Select exactly two tracks to merge.")
+            return
+
+        row_a, row_b = selected_rows
+        track_id_a = int(self.tracks_table.item(row_a, 0).text())
+        track_id_b = int(self.tracks_table.item(row_b, 0).text())
+
+        track_a = next((t for t in self.tracks if t.track_id == track_id_a), None)
+        track_b = next((t for t in self.tracks if t.track_id == track_id_b), None)
+        if not track_a or not track_b:
+            QMessageBox.warning(self, "Tracks Missing", "Could not find the selected tracks.")
+            return
+
+        # Pick base track: earlier start frame, fallback to lower track_id
+        start_a = min(track_a.spots_by_image_id.keys())
+        start_b = min(track_b.spots_by_image_id.keys())
+        base, other = (track_a, track_b) if (start_a, track_a.track_id) <= (start_b, track_b.track_id) else (track_b, track_a)
+
+        merged_spots = dict(base.spots_by_image_id)
+        conflicts = []
+        added = 0
+        for fid, spot in other.spots_by_image_id.items():
+            if fid in merged_spots:
+                conflicts.append(fid)
+                continue
+            merged_spots[fid] = spot
+            added += 1
+
+        merged_track = Track(track_id=base.track_id, spots_by_image_id=merged_spots)
+
+        # Replace tracks in list
+        self.tracks = [t for t in self.tracks if t.track_id not in {track_id_a, track_id_b}]
+        self.tracks.append(merged_track)
+
+        self.populate_tracks_table()
+        current_frame_id = self.sorted_frame_ids[self.frame_slider.value()]
+        self.show_frame(current_frame_id)
+
+        # Select merged track row
+        for row in range(self.tracks_table.rowCount()):
+            if int(self.tracks_table.item(row, 0).text()) == merged_track.track_id:
+                self.tracks_table.selectRow(row)
+                break
+
+        msg = f"Merged tracks {track_id_a} and {track_id_b} into {merged_track.track_id}. Added {added} frames."
+        if conflicts:
+            msg += f" Skipped {len(conflicts)} overlapping frame(s): {', '.join(map(str, conflicts))}."
+        QMessageBox.information(self, "Tracks Merged", msg)
 
     def populate_tracks_table(self):
         """Fills the table with data from the tracks."""
