@@ -562,6 +562,11 @@ def track_spots_hungarian_directional(
         return None  # auto
 
     expected_sign = _expected_sign()
+    flip_candidate: Optional[int] = None
+    flip_counter = 0
+    min_tracks_for_flip = int(cfg.get("min_tracks_for_flip", 5))
+    flip_hold_frames = int(cfg.get("flip_hold_frames", 2))
+    min_radial_speed_for_flip = float(cfg.get("min_radial_speed_for_flip", 1.0))
 
     next_track_id = 1
     active_tracks: Dict[int, dict] = {}  # track_id -> {"last_frame": fid, "last_xy": (x,y), "gap": 0, "misses": 0, "spots": {fid: spot}, "history": [(x,y)]}
@@ -677,6 +682,45 @@ def track_spots_hungarian_directional(
                 to_remove.append(tid)
         for tid in to_remove:
             active_tracks.pop(tid, None)
+
+        # --- Global direction flip detection ---
+        if direction_mode == "auto" and active_tracks:
+            radial_signs = []
+            for tid, data in active_tracks.items():
+                hist = data.get("history", [])
+                if len(hist) < 2:
+                    continue
+                p_prev = np.array(hist[-2], dtype=np.float32)
+                p_last = np.array(hist[-1], dtype=np.float32)
+                ru_last, _ = radial_unit_and_radius(center_xy, (float(p_prev[0]), float(p_prev[1])))
+                disp = p_last - p_prev
+                radial_comp = float(np.dot(disp, ru_last))
+                if abs(radial_comp) < min_radial_speed_for_flip:
+                    continue
+                radial_signs.append(np.sign(radial_comp))
+
+            if len(radial_signs) >= min_tracks_for_flip:
+                median_sign = int(np.sign(np.median(radial_signs)))
+                if median_sign == 0:
+                    flip_candidate = None
+                    flip_counter = 0
+                elif expected_sign is None:
+                    expected_sign = median_sign
+                    print(f"[DirectionalLink] auto direction initialized to {expected_sign:+d}")
+                elif median_sign != expected_sign:
+                    if flip_candidate == median_sign:
+                        flip_counter += 1
+                    else:
+                        flip_candidate = median_sign
+                        flip_counter = 1
+                    if flip_counter >= flip_hold_frames:
+                        expected_sign = flip_candidate
+                        print(f"[DirectionalLink] direction flipped to {expected_sign:+d} after {flip_counter} checks")
+                        flip_candidate = None
+                        flip_counter = 0
+                else:
+                    flip_candidate = None
+                    flip_counter = 0
 
     # Flush remaining active tracks
     for tid, data in active_tracks.items():
