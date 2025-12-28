@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import List
 from threading import Event
 import numpy as np
-import torch
 import shutil
 from PyQt6.QtCore import Qt, QPointF, QRect, QRectF, QThread, QPoint
 from PyQt6.QtGui import QAction, QPixmap, QImage, QPainter, QPen, QBrush, QColor, QActionGroup , QIcon
@@ -15,8 +14,6 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QDialog, QDockWidget, QFormLayout, QSpinBox, QDoubleSpinBox,
                              QPushButton, QCheckBox, QToolBar, QComboBox, QProgressDialog,
                              QScrollArea, QStackedWidget, QSizePolicy, QInputDialog, QLineEdit)
-import os
-import sys
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory
@@ -36,7 +33,6 @@ from trackleed.analysis.tracking import (
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
     track_spots_hungarian_directional,
-    track_spots_raft_fallback,
 )
 
 from skimage.util import img_as_float
@@ -85,10 +81,8 @@ class MainWindow(QMainWindow):
         self.yolo_settings = YOLOSpotSettings()
         self.current_spot_backend = "Classic"
         self.segmentation_models_dir = Path("segmentation_models")
-        self.flow_models_dir = Path("flow_models")
         self._dl_models_available = False
         self._yolo_models_available = False
-        self._raft_models_available = False
 
         # --- Initialize UI ---
         self._init_ui()
@@ -658,10 +652,11 @@ class MainWindow(QMainWindow):
 
         backend_form = QFormLayout()
         self.spot_backend_combo = QComboBox()
-        self.spot_backend_combo.addItems(["Classic", "Deep Learning", "YOLO"])
+        # To re-enable U-Net/segmentation, add "Deep Learning" back to this list.
+        self.spot_backend_combo.addItems(["Classic", "YOLO"])
         self.spot_backend_combo.setToolTip(
             "Select the spot detection backend. Classic uses the existing WTH/peak pipeline; "
-            "Deep Learning uses a segmentation model from the segmentation_models folder."
+            "YOLO uses a detector from the segmentation_models folder."
         )
         backend_form.addRow("Spot detector:", self.spot_backend_combo)
         find_spots_layout.addLayout(backend_form)
@@ -674,11 +669,11 @@ class MainWindow(QMainWindow):
 
         self.dl_device_combo = QComboBox()
         self.dl_device_combo.addItems(["Auto", "CPU", "GPU"])
-        self.dl_device_combo.setToolTip("Device for DL/YOLO inference. Auto = GPU if available.")
+        self.dl_device_combo.setToolTip("Device for YOLO inference. Auto = GPU if available.")
         find_spots_layout.addWidget(self.dl_device_combo)
 
-        self.det_subtract_bg_checkbox = QCheckBox("Subtract background before detection (DL/YOLO)")
-        self.det_subtract_bg_checkbox.setToolTip("Applies only when backend is Deep Learning or YOLO and a background file is loaded.")
+        self.det_subtract_bg_checkbox = QCheckBox("Subtract background before detection (YOLO)")
+        self.det_subtract_bg_checkbox.setToolTip("Applies only when backend is YOLO and a background file is loaded.")
         find_spots_layout.addWidget(self.det_subtract_bg_checkbox)
 
         self.find_spots_button = QPushButton("Find Spots")
@@ -704,7 +699,6 @@ class MainWindow(QMainWindow):
             "Optical Flow (skip, anchor)",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
-            "RAFT (with LK fallback)",
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
         self.trackingAlgoCombo = self.tracking_scenario_combo
@@ -988,45 +982,8 @@ class MainWindow(QMainWindow):
         form_layout.addRow(self.dir_group)
         self._on_dir_center_mode_changed(self.dir_center_mode_combo.currentIndex())
 
-        # --- RAFT (with LK fallback) params ---
-        self.raft_group = QGroupBox("RAFT (with LK fallback)")
-        raft_layout = QFormLayout(self.raft_group)
-        self.raft_model_combo = QComboBox()
-        self.raft_refresh_button = QPushButton("Refresh")
-        self.raft_refresh_button.setToolTip("Re-scan the flow_models directory for RAFT checkpoints.")
-        self.raft_refresh_button.clicked.connect(self._refresh_flow_models)
-        raft_row = QWidget()
-        raft_row_layout = QHBoxLayout(raft_row)
-        raft_row_layout.setContentsMargins(0, 0, 0, 0)
-        raft_row_layout.addWidget(self.raft_model_combo)
-        raft_row_layout.addWidget(self.raft_refresh_button)
-        raft_layout.addRow("Model:", raft_row)
-
-        self.raft_resize_spinbox = QSpinBox()
-        self.raft_resize_spinbox.setRange(128, 2048)
-        self.raft_resize_spinbox.setValue(512)
-        self.raft_resize_spinbox.setSingleStep(32)
-        raft_layout.addRow("Resize short side:", self.raft_resize_spinbox)
-
-        self.raft_tau_spinbox = QDoubleSpinBox()
-        self.raft_tau_spinbox.setRange(0.1, 10.0)
-        self.raft_tau_spinbox.setDecimals(2)
-        self.raft_tau_spinbox.setValue(1.5)
-        raft_layout.addRow("FB tau:", self.raft_tau_spinbox)
-
-        self.raft_max_step_spinbox = QDoubleSpinBox()
-        self.raft_max_step_spinbox.setRange(0.0, 500.0)
-        self.raft_max_step_spinbox.setDecimals(1)
-        self.raft_max_step_spinbox.setValue(0.0)
-        self.raft_max_step_spinbox.setToolTip("0 = brak limitu, >0 ogranicza długość wektora flow.")
-        raft_layout.addRow("Max step (px):", self.raft_max_step_spinbox)
-
-        form_layout.addRow(self.raft_group)
-
         self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
         self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
-        # Populate RAFT models
-        self._refresh_flow_models()
 
         # --- Action Buttons ---
         self.track_button = QPushButton("Track Spots")
@@ -1364,7 +1321,6 @@ class MainWindow(QMainWindow):
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
-        show_raft = scenario == "RAFT (with LK fallback)"
 
         if hasattr(self, "optical_basic_group"):
             self.optical_basic_group.setVisible(show_optical_basic)
@@ -1374,8 +1330,6 @@ class MainWindow(QMainWindow):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
             self.dir_group.setVisible(show_dir)
-        if hasattr(self, "raft_group"):
-            self.raft_group.setVisible(show_raft)
 
     def _on_dir_center_mode_changed(self, idx: int):
         manual = idx == 1
@@ -1619,27 +1573,6 @@ class MainWindow(QMainWindow):
             if idx >= 0:
                 self.spot_backend_combo.setCurrentIndex(idx)
 
-    def _refresh_flow_models(self):
-        """Scan flow_models directory for RAFT checkpoints and populate the combo."""
-        model_paths: list[Path] = []
-        models_dir = self.flow_models_dir
-        if models_dir.exists():
-            model_paths = sorted(models_dir.glob("*.pt")) + sorted(models_dir.glob("*.pth"))
-
-        self.raft_model_combo.blockSignals(True)
-        self.raft_model_combo.clear()
-        if not model_paths:
-            self.raft_model_combo.addItem("No RAFT models found", userData=None)
-            self.raft_model_combo.setEnabled(False)
-            self._raft_models_available = False
-        else:
-            self.raft_model_combo.setEnabled(True)
-            for path in model_paths:
-                self.raft_model_combo.addItem(path.name, userData=str(path.resolve()))
-            self._raft_models_available = True
-            self.raft_model_combo.setCurrentIndex(0)
-        self.raft_model_combo.blockSignals(False)
-
     def _analysis_circle_to_dict(self):
         if not self.analysis_circle:
             return None
@@ -1781,45 +1714,6 @@ class MainWindow(QMainWindow):
                 params,
                 cancel_event=cancel_event,
             )
-        elif selected_scenario == "RAFT (with LK fallback)":
-            params = {
-                "model_path": self.raft_model_combo.currentData(),
-                "device": "cuda" if torch.cuda.is_available() else "cpu",
-                "raft_resize_short_side": self.raft_resize_spinbox.value(),
-                "fwd_bwd_tau": self.raft_tau_spinbox.value(),
-                "max_step_px": self.raft_max_step_spinbox.value() if self.raft_max_step_spinbox.value() > 0 else None,
-                "roi_size": self.roi_size_spinbox.value(),
-                "lk_win_size": self.lk_win_size_spinbox.value(),
-                "lk_max_level": self.lk_max_level_spinbox.value(),
-                "lk_max_iterations": self.lk_iterations_spinbox.value(),
-                "lk_epsilon": self.lk_epsilon_spinbox.value(),
-                "lk_min_eigen_threshold": self.lk_min_eig_spinbox.value(),
-            }
-            if not params["model_path"]:
-                QMessageBox.warning(self, "No RAFT model", "Select RAFT checkpoint path before running.")
-                return
-            if not self._ensure_raft_on_path():
-                QMessageBox.critical(
-                    self,
-                    "RAFT not available",
-                    "RAFT code not found on PYTHONPATH. Clone https://github.com/princeton-vl/RAFT and add its 'core' folder to PYTHONPATH.",
-                )
-                return
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            if not sorted_ids:
-                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
-                return
-            if all((not lf.spots) for lf in file_map.values()):
-                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before tracking with RAFT.")
-                return
-            worker = GenericWorker(
-                track_spots_raft_fallback,
-                file_map,
-                sorted_ids,
-                params,
-                cancel_event=cancel_event,
-            )
 
         else:
             QMessageBox.information(self, "Not Implemented", "This scenario is not implemented yet.")
@@ -1866,25 +1760,6 @@ class MainWindow(QMainWindow):
             except RuntimeError:
                 # Thread already deleted, nothing to cancel.
                 pass
-
-    def _ensure_raft_on_path(self) -> bool:
-        """Try to ensure RAFT code is importable by appending common paths."""
-        import importlib
-        if importlib.util.find_spec("raft") is not None:
-            return True
-        extra_paths = [
-            os.environ.get("RAFT_CORE_PATH"),
-            Path("third_party/RAFT/core"),
-            Path("RAFT/core"),
-            Path.cwd() / "third_party" / "RAFT" / "core",
-            Path.cwd() / "RAFT" / "core",
-        ]
-        for p in extra_paths:
-            if p and Path(p).exists() and str(p) not in sys.path:
-                sys.path.append(str(p))
-                if importlib.util.find_spec("raft") is not None:
-                    return True
-        return importlib.util.find_spec("raft") is not None
 
     def on_tracking_finished(self, tracks: List[Track] | None):
         """Slot to handle the successful completion of the tracking task."""

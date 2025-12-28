@@ -36,7 +36,7 @@ class DirectionalHybridTrackingParams:
 
     # Hybrid mode
     hybrid_mode: bool = False  # enable YOLO+OF hybrid pipeline
-    propagate_with_flow: bool = True  # use LK/RAFT-lite between YOLO refreshes
+    propagate_with_flow: bool = True  # use LK between YOLO refreshes
     yolo_refresh_interval: int = 5  # run YOLO every N frames in hybrid mode
 
 
