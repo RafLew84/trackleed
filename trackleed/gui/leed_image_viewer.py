@@ -53,15 +53,44 @@ class LeedImageViewer(QGraphicsView):
         self._analysis_circle_item: QGraphicsEllipseItem | None = None
 
         # --- Define Drawing Styles ---
-        # Default pen for drawing standard ROIs.
-        self.roi_pen_default = QPen(Qt.GlobalColor.cyan)
-        self.roi_pen_default.setWidth(2)
-        self.roi_pen_highlight = QPen(Qt.GlobalColor.yellow)
-        self.roi_pen_highlight.setWidth(3)
+        self._roi_transparency_pct = 0.0
+        self._roi_alpha = 255
+        self._highlighted_roi_id = None
+        self._update_roi_pens()
         
         self.mode = 'PAN' # Default mode
         self._item_to_move = None
         self.set_mode(self.mode) # Apply default mode settings
+
+    def _update_roi_pens(self):
+        base_color = QColor(Qt.GlobalColor.cyan)
+        base_color.setAlpha(self._roi_alpha)
+        self.roi_pen_default = QPen(base_color)
+        self.roi_pen_default.setWidth(2)
+
+        highlight_color = QColor(Qt.GlobalColor.yellow)
+        highlight_color.setAlpha(self._roi_alpha)
+        self.roi_pen_highlight = QPen(highlight_color)
+        self.roi_pen_highlight.setWidth(3)
+
+    def _roi_label_color(self) -> QColor:
+        label_color = QColor(Qt.GlobalColor.cyan)
+        label_color.setAlpha(self._roi_alpha)
+        return label_color
+
+    def set_roi_transparency_percent(self, percent: float):
+        percent = max(0.0, min(100.0, float(percent)))
+        self._roi_transparency_pct = percent
+        self._roi_alpha = int(round(255 * (1.0 - percent / 100.0)))
+        self._update_roi_pens()
+        for rect_item in self._roi_items.values():
+            rect_item.setPen(self.roi_pen_default)
+        for label_item in self._roi_label_items.values():
+            label_item.setBrush(QBrush(self._roi_label_color()))
+        self.highlight_roi(self._highlighted_roi_id)
+
+    def get_roi_transparency_percent(self) -> float:
+        return float(self._roi_transparency_pct)
 
     def draw_pattern_center(self, center_point: QPointF):
         """
@@ -268,7 +297,7 @@ class LeedImageViewer(QGraphicsView):
             rect_item.setData(0, spot.id)
             self._roi_items[spot.id] = rect_item
             label_item = QGraphicsSimpleTextItem(str(spot.id))
-            label_item.setBrush(Qt.GlobalColor.cyan)
+            label_item.setBrush(QBrush(self._roi_label_color()))
             label_item.setPos(QPointF(spot.roi_rect.topLeft()))
             self._scene.addItem(label_item)
             self._roi_label_items[spot.id] = label_item
@@ -284,6 +313,7 @@ class LeedImageViewer(QGraphicsView):
             spot_id: The ID of the spot whose ROI should be highlighted. If None,
                     all highlights are cleared.
         """
+        self._highlighted_roi_id = spot_id
         # First, reset all currently displayed ROIs to the default pen style.
         # This ensures that any previously highlighted ROI is returned to normal.
         for rect_item in self._roi_items.values(): rect_item.setPen(self.roi_pen_default)

@@ -83,6 +83,9 @@ class MainWindow(QMainWindow):
         self.segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
+        self._bbox_transparency_pct = 0.0
+        self.quick_save_dir = Path("save")
+        self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
 
         # --- Initialize UI ---
         self._init_ui()
@@ -116,6 +119,18 @@ class MainWindow(QMainWindow):
         save_session_action.triggered.connect(self.save_session_dialog)
         file_menu.addAction(save_session_action)
 
+        quick_save_action = QAction("Quick Save", self)
+        quick_save_action.setShortcut("Ctrl+S")
+        quick_save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        quick_save_action.triggered.connect(self.quick_save_session)
+        file_menu.addAction(quick_save_action)
+
+        quick_load_action = QAction("Quick Load", self)
+        quick_load_action.setShortcut("Ctrl+L")
+        quick_load_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        quick_load_action.triggered.connect(self.quick_load_session)
+        file_menu.addAction(quick_load_action)
+
         load_bg_action = QAction("&Load Background File...", self)
         load_bg_action.triggered.connect(self.load_background_file_dialog)
         file_menu.addAction(load_bg_action)
@@ -143,6 +158,36 @@ class MainWindow(QMainWindow):
         clear_analysis_circle_action.triggered.connect(self.clear_analysis_circle)
         mask_menu.addAction(clear_analysis_circle_action)
 
+        # --- View Menu ---
+        view_menu = menu_bar.addMenu("&View")
+        bbox_transparency_action = QAction("Set BBox Transparency...", self)
+        bbox_transparency_action.triggered.connect(self.prompt_bbox_transparency)
+        view_menu.addAction(bbox_transparency_action)
+
+        bbox_transparency_50_action = QAction("BBox Transparency 50%", self)
+        bbox_transparency_50_action.setShortcut("Ctrl+5")
+        bbox_transparency_50_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        bbox_transparency_50_action.triggered.connect(lambda: self.set_bbox_transparency(50.0))
+        view_menu.addAction(bbox_transparency_50_action)
+
+        bbox_transparency_20_action = QAction("BBox Transparency 20%", self)
+        bbox_transparency_20_action.setShortcut("Ctrl+2")
+        bbox_transparency_20_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        bbox_transparency_20_action.triggered.connect(lambda: self.set_bbox_transparency(20.0))
+        view_menu.addAction(bbox_transparency_20_action)
+
+        bbox_transparency_80_action = QAction("BBox Transparency 80%", self)
+        bbox_transparency_80_action.setShortcut("Ctrl+8")
+        bbox_transparency_80_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        bbox_transparency_80_action.triggered.connect(lambda: self.set_bbox_transparency(80.0))
+        view_menu.addAction(bbox_transparency_80_action)
+
+        bbox_transparency_off_action = QAction("BBox Transparency Off", self)
+        bbox_transparency_off_action.setShortcut("Ctrl+0")
+        bbox_transparency_off_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        bbox_transparency_off_action.triggered.connect(lambda: self.set_bbox_transparency(0.0))
+        view_menu.addAction(bbox_transparency_off_action)
+
     def _create_toolbar(self):
         """Creates the main toolbar for interaction modes."""
         toolbar = QToolBar("Main Toolbar")
@@ -157,6 +202,8 @@ class MainWindow(QMainWindow):
         self.pan_mode_action.setCheckable(True)
         self.pan_mode_action.setChecked(True)
         self.pan_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('PAN'))
+        self.pan_mode_action.setShortcut("P")
+        self.pan_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         toolbar.addAction(self.pan_mode_action)
         mode_group.addAction(self.pan_mode_action)
 
@@ -164,6 +211,8 @@ class MainWindow(QMainWindow):
         self.move_roi_mode_action = QAction("Move ROI", self)
         self.move_roi_mode_action.setCheckable(True)
         self.move_roi_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('MOVE_ROI'))
+        self.move_roi_mode_action.setShortcut("M")
+        self.move_roi_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         toolbar.addAction(self.move_roi_mode_action)
         mode_group.addAction(self.move_roi_mode_action)
 
@@ -171,6 +220,8 @@ class MainWindow(QMainWindow):
         self.add_roi_mode_action = QAction("Add ROI", self)
         self.add_roi_mode_action.setCheckable(True)
         self.add_roi_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('ADD_ROI'))
+        self.add_roi_mode_action.setShortcut("A")
+        self.add_roi_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         toolbar.addAction(self.add_roi_mode_action)
         mode_group.addAction(self.add_roi_mode_action)
 
@@ -178,8 +229,17 @@ class MainWindow(QMainWindow):
         self.delete_roi_mode_action = QAction("Delete ROI", self)
         self.delete_roi_mode_action.setCheckable(True)
         self.delete_roi_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('DELETE_ROI'))
+        self.delete_roi_mode_action.setShortcut("D")
+        self.delete_roi_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         toolbar.addAction(self.delete_roi_mode_action)
         mode_group.addAction(self.delete_roi_mode_action)
+
+        # Cycle Pan -> Add -> Delete
+        self.cycle_mode_action = QAction("Cycle Pan/Add/Delete", self)
+        self.cycle_mode_action.setShortcut("L")
+        self.cycle_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.cycle_mode_action.triggered.connect(self._cycle_pan_add_delete_mode)
+        self.addAction(self.cycle_mode_action)
 
     def _create_layout(self):
         """
@@ -1587,6 +1647,34 @@ class MainWindow(QMainWindow):
         except Exception:
             return None
 
+    def set_bbox_transparency(self, percent: float):
+        percent = max(0.0, min(100.0, float(percent)))
+        self._bbox_transparency_pct = percent
+        if hasattr(self, "image_viewer") and self.image_viewer:
+            self.image_viewer.set_roi_transparency_percent(percent)
+
+    def prompt_bbox_transparency(self):
+        value, ok = QInputDialog.getDouble(
+            self,
+            "BBox Transparency",
+            "Transparency (%): 0 = opaque, 100 = fully transparent",
+            float(self._bbox_transparency_pct),
+            0.0,
+            100.0,
+            1,
+        )
+        if ok:
+            self.set_bbox_transparency(value)
+
+    def _cycle_pan_add_delete_mode(self):
+        current = getattr(self.image_viewer, "mode", "PAN")
+        if current == "PAN":
+            self.add_roi_mode_action.trigger()
+        elif current == "ADD_ROI":
+            self.delete_roi_mode_action.trigger()
+        else:
+            self.pan_mode_action.trigger()
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -1870,6 +1958,18 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save session:\n{e}")
 
+    def quick_save_session(self):
+        """Quick-save session to save/quick_save.lts.json."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load a directory or session before quick-saving.")
+            return
+        try:
+            self.quick_save_dir.mkdir(parents=True, exist_ok=True)
+            self._save_session(self.quick_save_path)
+            QMessageBox.information(self, "Quick Save", f"Session saved to:\n{self.quick_save_path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Quick Save Error", f"Failed to quick-save session:\n{exc}")
+
     def _save_session(self, path: Path, tracks_override: List[Track] | None = None):
         tracks_list: List[Track] = []
         if isinstance(tracks_override, list):
@@ -1903,6 +2003,16 @@ class MainWindow(QMainWindow):
             self._load_session(Path(path_str))
         except Exception as e:
             QMessageBox.critical(self, "Load Error", f"Failed to load session:\n{e}")
+
+    def quick_load_session(self):
+        """Quick-load session from save/quick_save.lts.json."""
+        if not self.quick_save_path.exists():
+            QMessageBox.information(self, "Quick Load", "No quick-save file found.")
+            return
+        try:
+            self._load_session(self.quick_save_path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Quick Load Error", f"Failed to quick-load session:\n{exc}")
 
     def _load_session(self, path: Path):
         files, background, masks, tracks, spot_settings, analysis_circle = load_session_from_file(path)

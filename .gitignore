@@ -160,6 +160,7 @@ cython_debug/
 #.idea/
 
 data/
+save/
 context.md
 dl.md
 dl_plan.md
