@@ -241,6 +241,13 @@ class MainWindow(QMainWindow):
         self.cycle_mode_action.triggered.connect(self._cycle_pan_add_delete_mode)
         self.addAction(self.cycle_mode_action)
 
+        # Cycle bbox transparency
+        self.cycle_transparency_action = QAction("Cycle BBox Transparency", self)
+        self.cycle_transparency_action.setShortcut("O")
+        self.cycle_transparency_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.cycle_transparency_action.triggered.connect(self._cycle_bbox_transparency)
+        self.addAction(self.cycle_transparency_action)
+
     def _create_layout(self):
         """
         Creates the main layout of the application's central widget.
@@ -1674,6 +1681,16 @@ class MainWindow(QMainWindow):
             self.delete_roi_mode_action.trigger()
         else:
             self.pan_mode_action.trigger()
+
+    def _cycle_bbox_transparency(self):
+        steps = [0.0, 20.0, 50.0, 80.0]
+        current = float(self._bbox_transparency_pct)
+        for idx, value in enumerate(steps):
+            if abs(current - value) < 0.5:
+                next_value = steps[(idx + 1) % len(steps)]
+                self.set_bbox_transparency(next_value)
+                return
+        self.set_bbox_transparency(0.0)
 
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
