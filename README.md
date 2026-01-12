@@ -24,6 +24,7 @@ Trackleed is a PyQt6 desktop application for loading LEED image stacks, detectin
 
 **Analysis**
 - 2D Gaussian fitting per ROI and pattern center estimation using a robust symmetry-based method (RANSAC-style).
+- Per-frame radii and errors are computed from the fitted spot centers relative to the pattern center.
 
 Note: a U-Net segmentation backend exists in code and can be re-enabled later if needed.
 
@@ -56,10 +57,13 @@ python -m trackleed
 6) Review and edit:
 - Visualize Tracking -> edit, delete, add, or merge tracks
 
-7) Export:
+7) Analyze:
+- Analyze Tracks -> choose Pattern Center Mode (per-frame RANSAC or global median) and run analysis.
+
+8) Export:
 - File -> Export Spots to YOLO Labels... or Export All (images + YOLO labels)
 
-8) Save sessions:
+9) Save sessions:
 - File -> Save Session... / Load Session...
 
 ## UI Tips and Shortcuts
@@ -72,6 +76,55 @@ python -m trackleed
 - Quick Save/Load:
   - `Ctrl+S` Quick Save to `save/quick_save.lts.json`
   - `Ctrl+L` Quick Load from `save/quick_save.lts.json`
+
+## Analysis Details
+
+### What is computed
+
+For each tracked spot on each frame:
+- A 2D **elliptical Gaussian** is fitted to the ROI.
+- The fitted **global center** is stored (ROI position + fit center).
+- Derived metrics are computed: **volume**, **FWHM X/Y**, **asymmetry**, **R-squared**, and parameter errors.
+
+Pattern center:
+- **Per-frame** mode: RANSAC is run on the fitted spot centers of that frame.
+- **Global median** mode: per-frame centers are computed, then a single median center is applied to all frames.
+
+Radius:
+- For each spot and frame, `radius = distance(global_center, pattern_center)`.
+- Error propagation uses spot center errors and pattern center errors.
+
+Frame-level summary:
+- **Average radius per frame** and its standard error are computed across tracks.
+
+### Analysis UI: plots and tables
+
+**ROI 3D Preview**
+- Left: 3D surface of the raw ROI data.
+- Right: 3D surface of the fitted Gaussian model.
+
+**Dependency Plots**
+- Plots any chosen metric (e.g., Radius, Global Center X/Y, Volume, Amplitude, FWHM X/Y, Asymmetry, R-squared)
+  against Frame ID, Temperature, or Energy.
+
+**Position Plot**
+- 2D plot of spot positions (global centers) over time.
+- Optional overlay of the pattern center and track traces.
+
+**Comparative Plots**
+- Compare multiple tracks on the same axes for a selected metric.
+
+**Results Table**
+- Tabular view of per-frame/per-track metrics with filters (frame and parameter selections).
+
+### Exported analysis outputs
+
+When you click **Export Results**, the following are written:
+- `full_analysis_per_spot.csv`: per-track, per-frame fit results and derived metrics.
+- `pattern_center_data.csv`: pattern center per frame.
+- `average_radius_per_frame.csv`: average radius per frame with error.
+- `track_legend.csv`: track IDs with their starting positions.
+- `track_visualizations/`: PNG overlays with track traces (every 5th frame).
 
 ## Notes
 

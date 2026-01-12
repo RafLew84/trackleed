@@ -188,6 +188,14 @@ class MainWindow(QMainWindow):
         bbox_transparency_off_action.triggered.connect(lambda: self.set_bbox_transparency(0.0))
         view_menu.addAction(bbox_transparency_off_action)
 
+        # --- Analysis Menu ---
+        analysis_menu = menu_bar.addMenu("&Analysis")
+        analysis_action = QAction("Final Analysis...", self)
+        analysis_action.setShortcut("Ctrl+Shift+A")
+        analysis_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        analysis_action.triggered.connect(self.show_analysis_dialog)
+        analysis_menu.addAction(analysis_action)
+
     def _create_toolbar(self):
         """Creates the main toolbar for interaction modes."""
         toolbar = QToolBar("Main Toolbar")
@@ -1065,6 +1073,11 @@ class MainWindow(QMainWindow):
         # layout.addWidget(self.visualize_button)
         form_layout.addRow(self.visualize_button)
 
+        self.analysis_button = QPushButton("Analyze Tracks")
+        self.analysis_button.setEnabled(False)
+        self.analysis_button.clicked.connect(self.show_analysis_dialog)
+        form_layout.addRow(self.analysis_button)
+
         layout.addWidget(tracking_group)
 
         # --- Preview Checkbox ---
@@ -1692,6 +1705,28 @@ class MainWindow(QMainWindow):
                 return
         self.set_bbox_transparency(0.0)
 
+    def show_analysis_dialog(self):
+        if not self.tracking_results:
+            QMessageBox.information(self, "No Tracking Data", "Please run tracking before analysis.")
+            return
+        try:
+            from trackleed.gui.analysis_dialog import AnalysisResultsDialog
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Analysis Unavailable",
+                "Failed to load the analysis dialog.\n"
+                f"{exc}\n\n"
+                "Install requirements: pip install pyqtgraph PyOpenGL",
+            )
+            return
+
+        file_map = {f.id: f for f in self.data_files if f.id is not None}
+        dialog = AnalysisResultsDialog(self.tracking_results, file_map, self.background_file, parent=self)
+        result = dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            self.tracking_results = dialog.tracks
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -1875,6 +1910,8 @@ class MainWindow(QMainWindow):
         print("Tracking task finished successfully.")
         self.tracking_results = tracks
         self.visualize_button.setEnabled(True)
+        if hasattr(self, "analysis_button"):
+            self.analysis_button.setEnabled(True)
         self._apply_tracks_to_files(tracks)
         current_item = self.file_list_widget.currentItem()
         if current_item:
@@ -2061,6 +2098,9 @@ class MainWindow(QMainWindow):
         self.tracking_results = filtered_tracks
         if filtered_tracks:
             self._apply_tracks_to_files(filtered_tracks)
+            self.visualize_button.setEnabled(True)
+            if hasattr(self, "analysis_button"):
+                self.analysis_button.setEnabled(True)
 
         self.populate_file_list()
         if spot_settings:

@@ -217,6 +217,15 @@ class AnalysisResultsDialog(QDialog):
         self.sub_bg_all_checkbox.toggled.connect(self.toggle_all_sub_bg)
         layout.addWidget(self.sub_bg_all_checkbox)
 
+        center_group = QGroupBox("Pattern Center Mode")
+        center_layout = QHBoxLayout(center_group)
+        center_layout.addWidget(QLabel("Center:"))
+        self.center_mode_combo = QComboBox()
+        self.center_mode_combo.addItem("Per-frame (RANSAC)", "per_frame")
+        self.center_mode_combo.addItem("Global median (all frames)", "global_median")
+        center_layout.addWidget(self.center_mode_combo)
+        layout.addWidget(center_group)
+
         # Create the main table for configuration.
         self.config_table = QTableWidget()
         self.config_table.setColumnCount(3)
@@ -1423,12 +1432,14 @@ class AnalysisResultsDialog(QDialog):
 
         # Create a GenericWorker instance, passing the target function (`run_full_analysis`)
         # and all the necessary data as arguments.
+        center_mode = self.center_mode_combo.currentData() if hasattr(self, "center_mode_combo") else "per_frame"
         worker = GenericWorker(
             run_full_analysis,
             tracks_to_analyze,
             analysis_config,
             self.all_files_map,
-            self.background_file
+            self.background_file,
+            center_mode=center_mode,
         )
         # The launch_analysis_worker method will handle thread management and the progress dialog.
         self.launch_analysis_worker(worker)

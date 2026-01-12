@@ -15,7 +15,8 @@ def run_full_analysis(
     analysis_config: Dict[int, Dict],
     all_files_map: Dict[int, LeedFile],
     background_file: Optional[LeedFile],
-    progress_callback: Callable[[int], None]
+    progress_callback: Callable[[int], None],
+    center_mode: str = "per_frame",
 ) -> List[Track]:
     """
     Coordinates the entire quantitative analysis pipeline within a single main loop.
@@ -31,8 +32,12 @@ def run_full_analysis(
             else:
                 bg_image_data = img_as_float(temp_bg_data)
 
+    center_mode = (center_mode or "per_frame").lower()
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
+
+    per_frame_centers: Dict[int, Dict] = {}
+    centers_for_median: List[Dict[str, float]] = []
 
     for i, frame_id in enumerate(all_frame_ids):
         full_image = load_tiff(all_files_map[frame_id].filepath)
@@ -74,43 +79,86 @@ def run_full_analysis(
         if spot_positions_on_this_frame:
             center_info = find_pattern_center(spot_positions_on_this_frame)
             if center_info:
+                per_frame_centers[frame_id] = center_info
+                centers_for_median.append(center_info)
+                if center_mode == "per_frame":
+                    all_files_map[frame_id].pattern_center = center_info
+
+        if center_mode == "per_frame" and center_info:
+            _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
+
+        if center_mode == "per_frame":
+            _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
+            progress_callback(int((i + 1) * 100 / len(all_frame_ids)))
+        elif center_mode == "global_median":
+            progress_callback(int((i + 1) * 50 / len(all_frame_ids)))
+
+    if center_mode == "global_median":
+        if centers_for_median:
+            center_info = {
+                "center_x": float(np.median([c["center_x"] for c in centers_for_median])),
+                "center_y": float(np.median([c["center_y"] for c in centers_for_median])),
+                "error_x": float(np.median([c.get("error_x", 0.0) for c in centers_for_median])),
+                "error_y": float(np.median([c.get("error_y", 0.0) for c in centers_for_median])),
+            }
+        else:
+            center_info = None
+
+        for i, frame_id in enumerate(all_frame_ids):
+            if center_info:
                 all_files_map[frame_id].pattern_center = center_info
-        
-        if center_info:
-            for track in tracks_to_analyze:
-                results = track.analysis_results.get(frame_id)
-                if not results: continue
-
-                dx = results['global_center_x'] - center_info['center_x']
-                dy = results['global_center_y'] - center_info['center_y']
-                results['radius'] = np.sqrt(dx**2 + dy**2)
-                
-                err_x_spot = results.get('center_x_error', 0)
-                err_y_spot = results.get('center_y_error', 0)
-                err_x_center = center_info.get('error_x', 0)
-                err_y_center = center_info.get('error_y', 0)
-                
-                var_dx = err_x_spot**2 + err_x_center**2
-                var_dy = err_y_spot**2 + err_y_center**2
-                
-                if results['radius'] > 1e-6:
-                    results['radius_error'] = (1/results['radius']) * np.sqrt(dx**2 * var_dx + dy**2 * var_dy)
-
-        radii_on_this_frame = [t.analysis_results[frame_id]['radius'] 
-                               for t in tracks_to_analyze 
-                               if frame_id in t.analysis_results and t.analysis_results[frame_id] and 'radius' in t.analysis_results[frame_id]]
-        
-        if len(radii_on_this_frame) > 1:
-            avg_radius = np.mean(radii_on_this_frame)
-            avg_radius_error = np.std(radii_on_this_frame) / np.sqrt(len(radii_on_this_frame))
-            if not hasattr(all_files_map[frame_id], 'post_analysis_results'):
-                all_files_map[frame_id].post_analysis_results = {}
-            all_files_map[frame_id].post_analysis_results['avg_radius'] = avg_radius
-            all_files_map[frame_id].post_analysis_results['avg_radius_error'] = avg_radius_error
-        
-        progress_callback(int((i + 1) * 100 / len(all_frame_ids)))
+                _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
+            _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
+            progress_callback(50 + int((i + 1) * 50 / len(all_frame_ids)))
 
     return tracks_to_analyze
+
+
+def _apply_center_to_frame(
+    tracks_to_analyze: List[Track],
+    all_files_map: Dict[int, LeedFile],
+    frame_id: int,
+    center_info: Dict[str, float],
+) -> None:
+    for track in tracks_to_analyze:
+        results = track.analysis_results.get(frame_id)
+        if not results:
+            continue
+
+        dx = results['global_center_x'] - center_info['center_x']
+        dy = results['global_center_y'] - center_info['center_y']
+        results['radius'] = np.sqrt(dx**2 + dy**2)
+
+        err_x_spot = results.get('center_x_error', 0)
+        err_y_spot = results.get('center_y_error', 0)
+        err_x_center = center_info.get('error_x', 0)
+        err_y_center = center_info.get('error_y', 0)
+
+        var_dx = err_x_spot**2 + err_x_center**2
+        var_dy = err_y_spot**2 + err_y_center**2
+
+        if results['radius'] > 1e-6:
+            results['radius_error'] = (1/results['radius']) * np.sqrt(dx**2 * var_dx + dy**2 * var_dy)
+
+
+def _update_average_radius(
+    all_files_map: Dict[int, LeedFile],
+    tracks_to_analyze: List[Track],
+    frame_id: int,
+) -> None:
+    radii_on_this_frame = [
+        t.analysis_results[frame_id]['radius']
+        for t in tracks_to_analyze
+        if frame_id in t.analysis_results and t.analysis_results[frame_id] and 'radius' in t.analysis_results[frame_id]
+    ]
+
+    if len(radii_on_this_frame) > 1:
+        avg_radius = np.mean(radii_on_this_frame)
+        avg_radius_error = np.std(radii_on_this_frame) / np.sqrt(len(radii_on_this_frame))
+        if not hasattr(all_files_map[frame_id], 'post_analysis_results'):
+            all_files_map[frame_id].post_analysis_results = {}
+        all_files_map[frame_id].post_analysis_results['avg_radius'] = avg_radius
+        all_files_map[frame_id].post_analysis_results['avg_radius_error'] = avg_radius_error
 
 def _is_fit_valid(fit_results: Optional[Dict], roi_shape: Tuple) -> bool:
     """Checks if the Gaussian fit results are physically plausible."""

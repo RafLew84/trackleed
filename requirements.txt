@@ -7,6 +7,8 @@ pandas
 Pillow
 tifffile
 PyQt6
+pyqtgraph
+PyOpenGL
 ultralytics
 torch
 torchvision
