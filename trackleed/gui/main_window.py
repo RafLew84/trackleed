@@ -143,6 +143,12 @@ class MainWindow(QMainWindow):
         export_all_yolo_action.triggered.connect(self.export_all_to_yolo)
         file_menu.addAction(export_all_yolo_action)
 
+        clear_list_action = QAction("Clear File List", self)
+        clear_list_action.setShortcut("Ctrl+Shift+C")
+        clear_list_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        clear_list_action.triggered.connect(self.clear_file_list)
+        file_menu.addAction(clear_list_action)
+
         # --- Mask Menu ---
         mask_menu = menu_bar.addMenu("&Mask")
         set_mask_action = QAction("&Set Metadata Mask...", self)
@@ -282,6 +288,10 @@ class MainWindow(QMainWindow):
         self.file_list_widget = QListWidget()
         self.file_list_widget.currentItemChanged.connect(self.display_selected_image)
         left_panel_layout.addWidget(self.file_list_widget)
+
+        self.remove_file_button = QPushButton("Remove Selected File")
+        self.remove_file_button.clicked.connect(self.remove_selected_file)
+        left_panel_layout.addWidget(self.remove_file_button)
 
         # Background preview group box
         bg_preview_group = QGroupBox("Background Preview")
@@ -711,6 +721,40 @@ class MainWindow(QMainWindow):
             out = image_data.copy()
             out[~mask, ...] = 0
             return out
+
+    def clear_file_list(self):
+        """Clear the file list and associated state."""
+        self.data_files = []
+        self.tracking_results = []
+        self.file_list_widget.clear()
+        if hasattr(self, "analysis_button"):
+            self.analysis_button.setEnabled(False)
+        if hasattr(self, "visualize_button"):
+            self.visualize_button.setEnabled(False)
+        self.refresh_current_view()
+
+    def remove_selected_file(self):
+        """Remove the currently selected file from the list."""
+        row = self.file_list_widget.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "No Selection", "Select a file to remove.")
+            return
+        item = self.file_list_widget.takeItem(row)
+        if item is None:
+            return
+        lf = item.data(Qt.ItemDataRole.UserRole)
+        if lf in self.data_files:
+            self.data_files.remove(lf)
+        if lf and lf.id is not None and self.tracking_results:
+            for track in self.tracking_results:
+                track.spots_by_image_id.pop(lf.id, None)
+            self.tracking_results = [t for t in self.tracking_results if t.spots_by_image_id]
+        if not self.tracking_results:
+            if hasattr(self, "analysis_button"):
+                self.analysis_button.setEnabled(False)
+            if hasattr(self, "visualize_button"):
+                self.visualize_button.setEnabled(False)
+        self.refresh_current_view()
     
     def _create_analysis_panel(self):
         """Creates a dockable widget with analysis controls."""
