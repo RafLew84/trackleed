@@ -13,7 +13,9 @@ END_DIGIT_PATTERN = re.compile(r'(0*\d+)$')
 
 # The pattern now only needs to match the data files.
 DATA_FILE_PATTERN = re.compile(
-    r"^([a-zA-Z]+)(\d+)([a-zA-Z])_"  # Element, Surface, Mode (e.g., Ru0001G)
+    r"^([a-zA-Z]+)"                 # Element (e.g., Ru, Cu)
+    r"(?:\((\d+)\)|(\d+))"          # Surface: digits in parentheses or plain digits
+    r"([a-zA-Z])_"                  # Mode (e.g., G)
     r"(\d+)_"                       # Time (e.g., 0195)
     r"T(\d+)_"                      # Temperature (e.g., T0700)
     r"E(\d+)_"                      # Energy (e.g., E0077)
@@ -47,7 +49,8 @@ def parse_directory(directory: Path) -> List[LeedFile]:
         # Try to match the data file pattern. Background files will be ignored.
         data_match = DATA_FILE_PATTERN.match(filename)
         if data_match:
-            element, surface, mode, id_str, temp, energy, coverage = data_match.groups()
+            element, surface_paren, surface_plain, mode, id_str, temp, energy, coverage = data_match.groups()
+            surface = surface_paren or surface_plain
             data_files.append(
                 LeedFile(
                     filepath=filepath,
