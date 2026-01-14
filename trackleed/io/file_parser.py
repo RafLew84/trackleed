@@ -61,7 +61,7 @@ def parse_directory(directory: Path) -> List[LeedFile]:
                     mode=mode,
                     id=int(id_str),
                     temperature=float(temp),
-                    energy=float(energy),
+                    energy=float(energy) / 10.0,
                     coverage=float(coverage) / 100.0
                 )
             )
