@@ -58,13 +58,14 @@ python -m trackleed
 - Visualize Tracking -> edit, delete, add, or merge tracks
 
 7) Analyze:
-- Analyze Tracks -> choose Pattern Center Mode (per-frame RANSAC or global median) and run analysis.
+- Analyze Tracks -> choose Pattern Center Mode (per-frame RANSAC, per-frame circle fit, or global median) and run analysis.
+- Use **Save Session** in the analysis window to store results without leaving the dialog.
 
 8) Export:
 - File -> Export Spots to YOLO Labels... or Export All (images + YOLO labels)
 
 9) Save sessions:
-- File -> Save Session... / Load Session...
+- File -> Save Session... / Load Session... (full sessions, including analysis results).
 
 ## UI Tips and Shortcuts
 
