@@ -803,6 +803,15 @@ class MainWindow(QMainWindow):
         self.find_all_spots_button.clicked.connect(self.run_spot_finding_all)
         find_spots_layout.addWidget(self.find_all_spots_button)
 
+        self.copy_spots_button = QPushButton("Copy Spots to All Frames")
+        self.copy_spots_button.setToolTip("Duplicate spots from the current frame to all other frames.")
+        self.copy_spots_button.clicked.connect(self.copy_spots_to_all_frames)
+        find_spots_layout.addWidget(self.copy_spots_button)
+
+        self.copy_spots_skip_existing_checkbox = QCheckBox("Nie nadpisuj istniejacych")
+        self.copy_spots_skip_existing_checkbox.setToolTip("If enabled, frames that already have spots will be skipped.")
+        find_spots_layout.addWidget(self.copy_spots_skip_existing_checkbox)
+
         layout.addWidget(find_spots_group)
         self.spot_backend_combo.currentTextChanged.connect(self._on_spot_backend_changed)
 
@@ -1599,6 +1608,67 @@ class MainWindow(QMainWindow):
             self.display_selected_image(current_item, None)
         QMessageBox.information(self, "Find All Spots", f"Processed {processed} frame(s).")
 
+    def copy_spots_to_all_frames(self):
+        """Copy spots from the currently selected frame to all other frames."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load images before copying spots.")
+            return
+        current_item = self.file_list_widget.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Frame Selected", "Select a frame to copy spots from.")
+            return
+        source_file: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
+        if not source_file or not source_file.spots:
+            QMessageBox.warning(self, "No Spots", "The selected frame has no spots to copy.")
+            return
+
+        skip_existing = self.copy_spots_skip_existing_checkbox.isChecked()
+        other_files_with_spots = [
+            lf for lf in self.data_files
+            if lf is not source_file and lf.spots
+        ]
+        if other_files_with_spots and not skip_existing:
+            reply = QMessageBox.question(
+                self,
+                "Overwrite Spots",
+                "Some frames already contain spots. Overwrite them with the current frame's spots?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        copied = 0
+        skipped = 0
+        for lf in self.data_files:
+            if lf is source_file:
+                continue
+            if skip_existing and lf.spots:
+                skipped += 1
+                continue
+            new_spots = []
+            for spot in source_file.spots:
+                rect = QRect(spot.roi_rect)
+                new_spots.append(
+                    SpotROI(
+                        id=spot.id,
+                        roi_rect=rect,
+                        center_x=spot.center_x,
+                        center_y=spot.center_y,
+                        intensity=spot.intensity,
+                        source="manual_copy",
+                    )
+                )
+            lf.spots = new_spots
+            copied += 1
+
+        self.populate_spot_list(source_file.spots)
+        self.refresh_current_view()
+        msg = f"Copied spots to {copied} frame(s)."
+        if skipped:
+            msg += f" Skipped {skipped} frame(s) with existing spots."
+        QMessageBox.information(self, "Copy Spots", msg)
+
     def _collect_spot_settings(self) -> dict:
         """Serialize the current spot-finding UI state for persistence or reuse."""
         classic_settings = {
@@ -1766,7 +1836,13 @@ class MainWindow(QMainWindow):
             return
 
         file_map = {f.id: f for f in self.data_files if f.id is not None}
-        dialog = AnalysisResultsDialog(self.tracking_results, file_map, self.background_file, parent=self)
+        dialog = AnalysisResultsDialog(
+            self.tracking_results,
+            file_map,
+            self.background_file,
+            parent=self,
+            save_session_callback=lambda tracks: self.save_session_dialog(tracks),
+        )
         result = dialog.exec()
         if result == QDialog.DialogCode.Accepted:
             self.tracking_results = dialog.tracks

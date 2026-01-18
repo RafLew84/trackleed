@@ -87,8 +87,9 @@ For each tracked spot on each frame:
 - Derived metrics are computed: **volume**, **FWHM X/Y**, **asymmetry**, **R-squared**, and parameter errors.
 
 Pattern center:
-- **Per-frame** mode: RANSAC is run on the fitted spot centers of that frame.
-- **Global median** mode: per-frame centers are computed, then a single median center is applied to all frames.
+- **Per-frame (RANSAC)**: RANSAC is run on the fitted spot centers of that frame.
+- **Per-frame (circle fit)**: least-squares circle fit to spot centers (stable for symmetric rings).
+- **Global median**: per-frame centers are computed, then a single median center is applied to all frames.
 
 Radius:
 - For each spot and frame, `radius = distance(global_center, pattern_center)`.

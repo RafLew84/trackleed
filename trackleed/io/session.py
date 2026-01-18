@@ -40,17 +40,30 @@ def _spot_from_dict(data: Dict) -> SpotROI:
 
 
 def _track_to_dict(track: Track) -> Dict:
-    return {
+    payload = {
         "track_id": track.track_id,
         "spots_by_image_id": {str(fid): _spot_to_dict(s) for fid, s in track.spots_by_image_id.items()},
     }
+    if hasattr(track, "analysis_results"):
+        payload["analysis_results"] = {
+            str(fid): _analysis_result_to_dict(res)
+            for fid, res in track.analysis_results.items()
+        }
+    return payload
 
 
 def _track_from_dict(data: Dict) -> Track:
-    return Track(
+    track = Track(
         track_id=int(data["track_id"]),
         spots_by_image_id={int(fid): _spot_from_dict(s) for fid, s in data.get("spots_by_image_id", {}).items()},
     )
+    analysis_results = data.get("analysis_results")
+    if isinstance(analysis_results, dict):
+        track.analysis_results = {
+            int(fid): _analysis_result_from_dict(res)
+            for fid, res in analysis_results.items()
+        }
+    return track
 
 
 def _clean_number(val):
@@ -68,6 +81,38 @@ def _clean_dict_numbers(d: Dict | None) -> Dict | None:
     return {k: _clean_number(v) for k, v in d.items()}
 
 
+def _clean_value(val):
+    if val is None:
+        return None
+    if isinstance(val, dict):
+        return {k: _clean_value(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple)):
+        return [_clean_value(v) for v in val]
+    if hasattr(val, "tolist"):
+        try:
+            return val.tolist()
+        except Exception:
+            pass
+    return _clean_number(val)
+
+
+def _analysis_result_to_dict(result: Dict | None) -> Dict | None:
+    if result is None:
+        return None
+    cleaned = {}
+    for key, value in result.items():
+        if key == "covariance_matrix":
+            continue
+        cleaned[key] = _clean_value(value)
+    return cleaned
+
+
+def _analysis_result_from_dict(result: Dict | None) -> Dict | None:
+    if result is None:
+        return None
+    return _clean_value(result)
+
+
 def _leedfile_to_dict(lf: LeedFile) -> Dict:
     return {
         "filepath": str(lf.filepath),
@@ -81,6 +126,7 @@ def _leedfile_to_dict(lf: LeedFile) -> Dict:
         "id": lf.id,
         "coverage": _clean_number(lf.coverage),
         "pattern_center": _clean_dict_numbers(lf.pattern_center),
+        "post_analysis_results": _clean_dict_numbers(getattr(lf, "post_analysis_results", None)),
         "spots": [_spot_to_dict(s) for s in lf.spots],
     }
 
@@ -100,6 +146,9 @@ def _leedfile_from_dict(data: Dict) -> LeedFile:
         pattern_center=data.get("pattern_center"),
     )
     lf.spots = [_spot_from_dict(s) for s in data.get("spots", [])]
+    post_results = data.get("post_analysis_results")
+    if post_results is not None:
+        lf.post_analysis_results = _clean_dict_numbers(post_results)
     return lf
 
 

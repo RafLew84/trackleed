@@ -8,7 +8,7 @@ from skimage.util import img_as_float
 
 from trackleed.core.data_models import LeedFile, Track
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, find_pattern_center
+from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, find_pattern_center, fit_circle_center
 
 def run_full_analysis(
     tracks_to_analyze: List[Track],
@@ -33,6 +33,7 @@ def run_full_analysis(
                 bg_image_data = img_as_float(temp_bg_data)
 
     center_mode = (center_mode or "per_frame").lower()
+    per_frame_mode = center_mode in {"per_frame", "circle_fit"}
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
 
@@ -77,17 +78,20 @@ def run_full_analysis(
         
         center_info = None
         if spot_positions_on_this_frame:
-            center_info = find_pattern_center(spot_positions_on_this_frame)
+            if center_mode == "circle_fit":
+                center_info = fit_circle_center(spot_positions_on_this_frame)
+            else:
+                center_info = find_pattern_center(spot_positions_on_this_frame)
             if center_info:
                 per_frame_centers[frame_id] = center_info
                 centers_for_median.append(center_info)
-                if center_mode == "per_frame":
+                if per_frame_mode:
                     all_files_map[frame_id].pattern_center = center_info
 
-        if center_mode == "per_frame" and center_info:
+        if per_frame_mode and center_info:
             _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
 
-        if center_mode == "per_frame":
+        if per_frame_mode:
             _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
             progress_callback(int((i + 1) * 100 / len(all_frame_ids)))
         elif center_mode == "global_median":

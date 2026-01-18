@@ -74,7 +74,14 @@ class AnalysisResultsDialog(QDialog):
     It allows users to configure analysis parameters, run calculations in a
     background thread, and explore the results through various plots.
     """
-    def __init__(self, tracks: List[Track], all_files_map: Dict[int, LeedFile], background_file: Optional[LeedFile], parent=None):
+    def __init__(
+        self,
+        tracks: List[Track],
+        all_files_map: Dict[int, LeedFile],
+        background_file: Optional[LeedFile],
+        parent=None,
+        save_session_callback=None,
+    ):
         """
         Initializes the dialog, sets up the UI, and connects signals.
 
@@ -99,6 +106,7 @@ class AnalysisResultsDialog(QDialog):
         self.tracks = tracks
         self.all_files_map = all_files_map # Keep a local copy of the file map
         self.background_file = background_file
+        self.save_session_callback = save_session_callback
         # Placeholders for the background worker and thread.
         self.worker_thread = None
         self.worker = None
@@ -173,6 +181,13 @@ class AnalysisResultsDialog(QDialog):
 
         self._update_dialog_bg_preview()
 
+    def _on_save_session(self):
+        """Trigger saving the current session from inside the dialog."""
+        if self.save_session_callback:
+            self.save_session_callback(self.tracks)
+        else:
+            QMessageBox.information(self, "Save Session", "Save session is not available in this context.")
+
     def _update_dialog_bg_preview(self):
         """Refresh the background preview and cached data inside the dialog."""
         if self.background_file:
@@ -222,6 +237,7 @@ class AnalysisResultsDialog(QDialog):
         center_layout.addWidget(QLabel("Center:"))
         self.center_mode_combo = QComboBox()
         self.center_mode_combo.addItem("Per-frame (RANSAC)", "per_frame")
+        self.center_mode_combo.addItem("Per-frame (circle fit)", "circle_fit")
         self.center_mode_combo.addItem("Global median (all frames)", "global_median")
         center_layout.addWidget(self.center_mode_combo)
         layout.addWidget(center_group)
@@ -706,22 +722,31 @@ class AnalysisResultsDialog(QDialog):
                 #             color=colors[i % len(colors)], label=f'Track {track.track_id}', 
                 #             capsize=3, linewidth=linewidth, alpha=alpha)
 
-        # Build the average series respecting the chosen X axis
+        # Build the average series using only selected tracks
         avg_x_data, avg_y_data, avg_y_error = [], [], []
-        for frame_id, leed_file in sorted(self.all_files_map.items()):
-            if hasattr(leed_file, 'post_analysis_results') and leed_file.post_analysis_results:
-                
-                # Figure out the X coordinate based on combo-box selection
-                x_val = frame_id if x_data_key == 'id' else getattr(leed_file, x_data_key, None)
-                if x_val is None: continue
-                
-                avg_x_data.append(x_val)
-                avg_y_data.append(leed_file.post_analysis_results.get('avg_radius'))
-                avg_y_error.append(leed_file.post_analysis_results.get('avg_radius_error', 0))
+        for frame_id in sorted(self.all_files_map.keys()):
+            radii = []
+            for track in self.tracks:
+                if track.track_id not in track_ids_to_show:
+                    continue
+                res = track.analysis_results.get(frame_id)
+                if not res or 'radius' not in res:
+                    continue
+                radii.append(res['radius'])
+
+            if len(radii) < 2:
+                continue
+
+            x_val = frame_id if x_data_key == 'id' else getattr(self.all_files_map[frame_id], x_data_key, None)
+            if x_val is None:
+                continue
+
+            avg_x_data.append(x_val)
+            avg_y_data.append(float(np.mean(radii)))
+            avg_y_error.append(float(np.std(radii) / np.sqrt(len(radii))))
 
         # Plot the average radius with the correct X axis
         if avg_x_data and avg_y_data:
-            # Sort by X so the average line stays monotonic
             sorted_indices = np.argsort(avg_x_data)
             sorted_avg_x = np.array(avg_x_data)[sorted_indices]
             sorted_avg_y = np.array(avg_y_data)[sorted_indices]
@@ -1362,6 +1387,10 @@ class AnalysisResultsDialog(QDialog):
         # successful analysis.
         self.export_button.clicked.connect(self.export_results) 
         self.export_button.setEnabled(False) 
+
+        # --- "Save Session" Button ---
+        self.save_session_button = QPushButton("Save Session")
+        self.save_session_button.clicked.connect(self._on_save_session)
         
         # --- Standard "OK" and "Cancel" Buttons ---
         # QDialogButtonBox provides a standard way to present dialog buttons.
@@ -1371,6 +1400,7 @@ class AnalysisResultsDialog(QDialog):
         
         layout.addWidget(self.perform_analysis_button)
         layout.addWidget(self.export_button)
+        layout.addWidget(self.save_session_button)
         layout.addStretch()
         layout.addWidget(self.button_box)
         
