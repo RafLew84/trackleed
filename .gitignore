@@ -170,3 +170,6 @@ faza5.md
 tests/
 papers/
 third_party/
+notebooks/
+notebooks
+runs/
