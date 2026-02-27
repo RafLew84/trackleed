@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from typing import List, Dict, Optional
+from threading import Event
 import pyqtgraph.opengl as gl
 from skimage.util import img_as_float
 from skimage.color import rgb2gray
@@ -110,6 +111,7 @@ class AnalysisResultsDialog(QDialog):
         # Placeholders for the background worker and thread.
         self.worker_thread = None
         self.worker = None
+        self.analysis_cancel_event: Optional[Event] = None
         self.param_checkboxes = {} 
 
         # --- Pre-load and Process Background Image ---
@@ -162,11 +164,13 @@ class AnalysisResultsDialog(QDialog):
         self.track_checklist.itemChanged.connect(self.on_position_plot_config_changed)
         self.show_center_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
         self.show_trace_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
+        self.show_center_trace_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
 
         # Changes in the "Comparative Plots" tab trigger a full refresh.
         self.compare_track_checklist.itemChanged.connect(self.on_selection_changed)
         self.compare_y_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
         self.compare_x_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
+        self.center_x_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
 
         self.frame_filter_combo.currentIndexChanged.connect(self.on_table_filter_changed)
         # self.param_checklist.itemChanged.connect(self.on_table_filter_changed)
@@ -238,6 +242,7 @@ class AnalysisResultsDialog(QDialog):
         self.center_mode_combo = QComboBox()
         self.center_mode_combo.addItem("Per-frame (RANSAC)", "per_frame")
         self.center_mode_combo.addItem("Per-frame (circle fit)", "circle_fit")
+        self.center_mode_combo.addItem("Per-frame (circle fit + temporal smoothing)", "circle_fit_temporal")
         self.center_mode_combo.addItem("Global median (all frames)", "global_median")
         center_layout.addWidget(self.center_mode_combo)
         layout.addWidget(center_group)
@@ -440,11 +445,16 @@ class AnalysisResultsDialog(QDialog):
         self.show_trace_checkbox = QCheckBox("Show Trace")
         self.show_trace_checkbox.setChecked(True)
 
+        self.show_center_trace_checkbox = QCheckBox("Show Center Trace")
+        self.show_center_trace_checkbox.setChecked(True)
+
         self.track_checklist = QListWidget()
         
         controls_layout.addWidget(QLabel("Display Tracks:"))
         controls_layout.addWidget(self.track_checklist)
         controls_layout.addWidget(self.show_center_checkbox)
+        controls_layout.addWidget(self.show_trace_checkbox)
+        controls_layout.addWidget(self.show_center_trace_checkbox)
         
         # Canvas for the position plot.
         position_plot_layout = QVBoxLayout()
@@ -458,11 +468,15 @@ class AnalysisResultsDialog(QDialog):
         
         self.tab_widget.addTab(tab_positions, "Position Plot")
 
-        # --- Tab 4: Comparative Plots ---
+        # --- Tab 4: Pattern Center ---
+        tab_center = self._create_pattern_center_tab()
+        self.tab_widget.addTab(tab_center, "Pattern Center")
+
+        # --- Tab 5: Comparative Plots ---
         tab_compare = self._create_comparison_plot_tab()
         self.tab_widget.addTab(tab_compare, "Comparative Plots")
 
-        # --- Tab 5: Results table ---
+        # --- Tab 6: Results table ---
         tab_table = QWidget()
         tab_table_layout = QVBoxLayout(tab_table)
 
@@ -511,6 +525,42 @@ class AnalysisResultsDialog(QDialog):
         vis_splitter.addWidget(bottom_container)
         vis_splitter.setSizes([500, 400])
         layout.addWidget(vis_splitter)
+        return container
+
+    def _create_pattern_center_tab(self) -> QWidget:
+        """Create a dedicated tab for pattern center trajectory analysis."""
+        container = QWidget()
+        layout = QHBoxLayout(container)
+
+        controls_container = QWidget()
+        controls_container.setMaximumWidth(240)
+        controls_layout = QVBoxLayout(controls_container)
+        controls_layout.addWidget(QLabel("X-Axis:"))
+        self.center_x_axis_combo = QComboBox()
+        self.center_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy"])
+        controls_layout.addWidget(self.center_x_axis_combo)
+
+        self.center_current_label = QLabel("Current center: N/A")
+        self.center_current_label.setWordWrap(True)
+        controls_layout.addSpacing(8)
+        controls_layout.addWidget(self.center_current_label)
+        controls_layout.addStretch()
+
+        plots_container = QWidget()
+        plots_layout = QVBoxLayout(plots_container)
+
+        self.center_xy_over_time_canvas = MplCanvas(self, projection='2d')
+        center_time_toolbar = NavigationToolbar(self.center_xy_over_time_canvas, self)
+        plots_layout.addWidget(center_time_toolbar)
+        plots_layout.addWidget(self.center_xy_over_time_canvas)
+
+        self.center_path_canvas = MplCanvas(self, projection='2d')
+        center_path_toolbar = NavigationToolbar(self.center_path_canvas, self)
+        plots_layout.addWidget(center_path_toolbar)
+        plots_layout.addWidget(self.center_path_canvas)
+
+        layout.addWidget(plots_container, 1)
+        layout.addWidget(controls_container)
         return container
     
     def _create_radius_plot_tab(self) -> QWidget:
@@ -659,6 +709,7 @@ class AnalysisResultsDialog(QDialog):
             self.update_3d_plots(track, current_frame_id)
             self.update_2d_plot(track, current_frame_id) # Invoke the new helper
             self.update_position_plot(current_frame_id)
+            self.update_pattern_center_plots(current_frame_id)
             self.update_comparison_plot(current_frame_id)
             self.update_results_table(track)
 
@@ -948,6 +999,7 @@ class AnalysisResultsDialog(QDialog):
         
         # Check if the "Show Trace" option is enabled.
         show_trace = self.show_trace_checkbox.isChecked()
+        show_center_trace = self.show_center_trace_checkbox.isChecked()
 
         # --- 2. Set Stable Axis Limits ---
         # To prevent the plot from resizing/jumping as the slider moves, we first
@@ -996,6 +1048,25 @@ class AnalysisResultsDialog(QDialog):
         # --- 4. Plot the Pattern Center ---
         # Optionally, plot the calculated pattern center for the current frame.
         if self.show_center_checkbox.isChecked():
+            if show_center_trace:
+                center_trace_points = []
+                for frame_id in sorted(self.all_files_map.keys()):
+                    center_data = getattr(self.all_files_map[frame_id], "pattern_center", None)
+                    if not center_data:
+                        continue
+                    center_trace_points.append((center_data['center_x'], center_data['center_y']))
+                if len(center_trace_points) > 1:
+                    ax.plot(
+                        [p[0] for p in center_trace_points],
+                        [p[1] for p in center_trace_points],
+                        color='black',
+                        linestyle='--',
+                        linewidth=1.5,
+                        alpha=0.7,
+                        label='Center trace',
+                        zorder=4,
+                    )
+
             center_info = self.all_files_map[current_frame_id].pattern_center
             if center_info:
                 ax.scatter(center_info['center_x'], center_info['center_y'], 
@@ -1016,6 +1087,89 @@ class AnalysisResultsDialog(QDialog):
         # Ensure a 1:1 aspect ratio to prevent spatial distortion.
         ax.set_aspect('equal', adjustable='box')
         self.position_plot_canvas.draw()
+
+    def update_pattern_center_plots(self, current_frame_id: int):
+        """Update dedicated plots that visualize the estimated pattern center trajectory."""
+        ax_time = self.center_xy_over_time_canvas.axes
+        ax_path = self.center_path_canvas.axes
+        ax_time.clear()
+        ax_path.clear()
+
+        x_key = self.center_x_axis_combo.currentText()
+        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}
+        x_data_key = x_axis_map.get(x_key)
+        if not x_data_key:
+            self.center_xy_over_time_canvas.draw()
+            self.center_path_canvas.draw()
+            return
+
+        records = []
+        for frame_id in sorted(self.all_files_map.keys()):
+            lf = self.all_files_map[frame_id]
+            center_info = getattr(lf, "pattern_center", None)
+            if not center_info:
+                continue
+            x_val = frame_id if x_data_key == 'id' else getattr(lf, x_data_key, None)
+            if x_val is None:
+                continue
+            records.append((frame_id, x_val, center_info['center_x'], center_info['center_y']))
+
+        if not records:
+            ax_time.text(0.5, 0.5, "No pattern center data", ha='center', va='center', transform=ax_time.transAxes)
+            ax_path.text(0.5, 0.5, "No pattern center data", ha='center', va='center', transform=ax_path.transAxes)
+            self.center_current_label.setText("Current center: N/A")
+            self.center_xy_over_time_canvas.draw()
+            self.center_path_canvas.draw()
+            return
+
+        # --- Plot 1: center_x and center_y versus selected x-axis ---
+        records_sorted_x = sorted(records, key=lambda row: row[1])
+        x_values = [row[1] for row in records_sorted_x]
+        center_x_values = [row[2] for row in records_sorted_x]
+        center_y_values = [row[3] for row in records_sorted_x]
+
+        ax_time.plot(x_values, center_x_values, color='tab:blue', linewidth=1.8, label='Center X')
+        ax_time.plot(x_values, center_y_values, color='tab:orange', linewidth=1.8, label='Center Y')
+
+        current_center_info = getattr(self.all_files_map[current_frame_id], "pattern_center", None)
+        if current_center_info:
+            current_x_val = current_frame_id if x_data_key == 'id' else getattr(self.all_files_map[current_frame_id], x_data_key, None)
+            if current_x_val is not None:
+                ax_time.axvline(x=current_x_val, color='red', linestyle='--', linewidth=1, alpha=0.6)
+                ax_time.scatter([current_x_val], [current_center_info['center_x']], color='tab:blue', s=60, zorder=5)
+                ax_time.scatter([current_x_val], [current_center_info['center_y']], color='tab:orange', s=60, zorder=5)
+
+        ax_time.set_xlabel(x_key)
+        ax_time.set_ylabel("Center position (pixels)")
+        ax_time.set_title("Pattern Center X/Y vs " + x_key)
+        ax_time.grid(True)
+        ax_time.legend(loc='best')
+
+        # --- Plot 2: center path in image coordinates (X-Y) ---
+        records_sorted_frame = sorted(records, key=lambda row: row[0])
+        path_x = [row[2] for row in records_sorted_frame]
+        path_y = [row[3] for row in records_sorted_frame]
+        ax_path.plot(path_x, path_y, color='black', linestyle='-', linewidth=1.5, alpha=0.8, label='Center path')
+        ax_path.scatter(path_x, path_y, color='black', s=12, alpha=0.5)
+
+        if current_center_info:
+            cx = current_center_info['center_x']
+            cy = current_center_info['center_y']
+            ax_path.scatter([cx], [cy], color='red', marker='x', s=90, linewidths=2, zorder=6, label='Current frame')
+            self.center_current_label.setText(f"Current center: X={cx:.2f}, Y={cy:.2f}")
+        else:
+            self.center_current_label.setText("Current center: N/A")
+
+        ax_path.set_xlabel("X Position (pixels)")
+        ax_path.set_ylabel("Y Position (pixels)")
+        ax_path.set_title("Pattern Center Trajectory (X-Y)")
+        ax_path.grid(True)
+        ax_path.invert_yaxis()
+        ax_path.set_aspect('equal', adjustable='box')
+        ax_path.legend(loc='best')
+
+        self.center_xy_over_time_canvas.draw()
+        self.center_path_canvas.draw()
 
     def update_2d_preview(self, selected_track: Track, current_frame_id: int):
         """
@@ -1099,6 +1253,16 @@ class AnalysisResultsDialog(QDialog):
             color = QColor("cyan") if is_selected else QColor(128, 128, 128, 100)
             width = 2 if is_selected else 1
             self.image_viewer_2d.draw_track_path(points, color, width)
+
+        if self.show_center_trace_checkbox.isChecked():
+            center_points = []
+            for frame_id in sorted(self.all_files_map.keys()):
+                center_info = getattr(self.all_files_map[frame_id], "pattern_center", None)
+                if center_info:
+                    center_points.append(QPointF(center_info['center_x'], center_info['center_y']))
+            if len(center_points) > 1:
+                center_path_color = QColor(255, 255, 0, 180)
+                self.image_viewer_2d.draw_track_path(center_points, center_path_color, 2)
 
         self.image_viewer_2d.update_rois([active_spot])
         self.image_viewer_2d.highlight_roi(active_spot.id)
@@ -1459,10 +1623,16 @@ class AnalysisResultsDialog(QDialog):
         # --- 2. Launch the Background Worker ---
         # Disable the button to prevent the user from starting multiple analyses at once.
         self.perform_analysis_button.setEnabled(False)
+        total_frames = len({fid for t in tracks_to_analyze for fid in t.spots_by_image_id})
 
         # Create a GenericWorker instance, passing the target function (`run_full_analysis`)
         # and all the necessary data as arguments.
         center_mode = self.center_mode_combo.currentData() if hasattr(self, "center_mode_combo") else "per_frame"
+        print(
+            f"[AnalysisDialog] Launching analysis | tracks={len(tracks_to_analyze)} | "
+            f"frames={total_frames} | center_mode={center_mode}"
+        )
+        self.analysis_cancel_event = Event()
         worker = GenericWorker(
             run_full_analysis,
             tracks_to_analyze,
@@ -1470,6 +1640,7 @@ class AnalysisResultsDialog(QDialog):
             self.all_files_map,
             self.background_file,
             center_mode=center_mode,
+            cancel_event=self.analysis_cancel_event,
         )
         # The launch_analysis_worker method will handle thread management and the progress dialog.
         self.launch_analysis_worker(worker)
@@ -1502,7 +1673,7 @@ class AnalysisResultsDialog(QDialog):
 
         # 3. Connect signals from the worker and dialog to the appropriate slots.
         # Allow the user to cancel the task via the progress dialog's cancel button.
-        self.progress_dialog.canceled.connect(self.worker_thread.requestInterruption)
+        self.progress_dialog.canceled.connect(self._handle_analysis_cancel)
         # Update the progress bar value when the worker emits progress.
         self.worker.progress.connect(self.progress_dialog.setValue)
         # Handle the results when the worker successfully finishes.
@@ -1516,14 +1687,34 @@ class AnalysisResultsDialog(QDialog):
         self.worker.finished.connect(self.progress_dialog.accept)
         self.worker.finished.connect(self.worker_thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.error.connect(self.progress_dialog.reject)
+        self.worker.error.connect(self.worker_thread.quit)
+        self.worker.error.connect(self.worker.deleteLater)
         self.worker_thread.finished.connect(self.worker_thread.deleteLater)
+        self.worker_thread.finished.connect(lambda: setattr(self, "worker_thread", None))
+        self.worker_thread.finished.connect(lambda: setattr(self, "worker", None))
 
         # 5. Start the worker.
         # Connect the thread's started signal to the worker's run method.
         self.worker_thread.started.connect(self.worker.run)
         self.worker_thread.start()
 
-    def on_analysis_finished(self, updated_tracks: List[Track]):
+    def _handle_analysis_cancel(self):
+        """Handle Cancel click from analysis progress dialog."""
+        print("[AnalysisDialog] Cancel requested by user.")
+        if self.analysis_cancel_event:
+            self.analysis_cancel_event.set()
+        if self.progress_dialog:
+            self.progress_dialog.setLabelText("Cancelling, please wait...")
+            self.progress_dialog.setEnabled(False)
+        if self.worker_thread:
+            try:
+                self.worker_thread.requestInterruption()
+            except RuntimeError:
+                # Thread already deleted, nothing to cancel.
+                pass
+
+    def on_analysis_finished(self, updated_tracks: Optional[List[Track]]):
         """
         Handles the successful completion of the background analysis task.
 
@@ -1536,6 +1727,18 @@ class AnalysisResultsDialog(QDialog):
             updated_tracks: A list of Track objects, now populated with the
                             'analysis_results' dictionaries from the worker.
         """
+        self.analysis_cancel_event = None
+
+        if updated_tracks is None:
+            print("Analysis cancelled by user.")
+            self.perform_analysis_button.setEnabled(True)
+            for row in range(self.config_table.rowCount()):
+                status_item = self.config_table.item(row, 2)
+                if status_item and status_item.text() == "Processing...":
+                    status_item.setText("Cancelled")
+            QMessageBox.information(self, "Analysis Cancelled", "Analysis was cancelled.")
+            return
+
         print("Analysis finished successfully.")
 
         # 1. Update the dialog's internal data with the new results.
@@ -1670,6 +1873,7 @@ class AnalysisResultsDialog(QDialog):
             error_message: A string containing the exception message from the
                         worker thread.
         """
+        self.analysis_cancel_event = None
         # Display a critical error dialog to inform the user of the problem.
         QMessageBox.critical(self, "Analysis Error", f"An error occurred:\n{error_message}")
 
