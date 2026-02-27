@@ -572,14 +572,52 @@ class TrackingDialog(QDialog):
 
     def _convert_numpy_to_pixmap(self, image_data):
         """Helper to convert a NumPy array to a QPixmap."""
-        if image_data is None or image_data.size == 0: return QPixmap()
-        if image_data.dtype != np.uint8:
-             min_val, max_val = image_data.min(), image_data.max()
-             if max_val > min_val: image_data = (255 * (image_data - min_val) / (max_val - min_val)).astype(np.uint8)
-             else: image_data = np.zeros_like(image_data, dtype=np.uint8)
-        height, width = image_data.shape[:2]; bytes_per_line = width
-        q_image = QImage(image_data.data, width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
-        return QPixmap.fromImage(q_image)
+        if image_data is None or image_data.size == 0:
+            return QPixmap()
+
+        arr = np.asarray(image_data)
+
+        # Handle channel-first TIFFs (C, H, W) by converting to (H, W, C).
+        if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[-1] not in (3, 4):
+            arr = np.transpose(arr, (1, 2, 0))
+
+        # Normalize to uint8 for display.
+        if arr.dtype != np.uint8:
+            arr_float = arr.astype(np.float32)
+            min_val = float(np.nanmin(arr_float))
+            max_val = float(np.nanmax(arr_float))
+            if max_val > min_val:
+                arr = (255.0 * (arr_float - min_val) / (max_val - min_val)).clip(0, 255).astype(np.uint8)
+            else:
+                arr = np.zeros(arr.shape, dtype=np.uint8)
+
+        if arr.ndim == 2:
+            height, width = arr.shape
+            arr = np.ascontiguousarray(arr)
+            q_image = QImage(arr.data, width, height, width, QImage.Format.Format_Grayscale8).copy()
+            return QPixmap.fromImage(q_image)
+
+        if arr.ndim == 3 and arr.shape[2] == 3:
+            height, width, _ = arr.shape
+            arr = np.ascontiguousarray(arr)
+            q_image = QImage(arr.data, width, height, 3 * width, QImage.Format.Format_RGB888).copy()
+            return QPixmap.fromImage(q_image)
+
+        if arr.ndim == 3 and arr.shape[2] == 4:
+            height, width, _ = arr.shape
+            arr = np.ascontiguousarray(arr)
+            q_image = QImage(arr.data, width, height, 4 * width, QImage.Format.Format_RGBA8888).copy()
+            return QPixmap.fromImage(q_image)
+
+        # Fallback for uncommon layouts: reduce to grayscale.
+        if arr.ndim == 3:
+            arr = np.mean(arr, axis=2).astype(np.uint8)
+            height, width = arr.shape
+            arr = np.ascontiguousarray(arr)
+            q_image = QImage(arr.data, width, height, width, QImage.Format.Format_Grayscale8).copy()
+            return QPixmap.fromImage(q_image)
+
+        return QPixmap()
 
     def get_updated_tracks(self) -> List[Track]:
         """Returns the final, possibly edited, list of tracks."""
