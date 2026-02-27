@@ -13,7 +13,7 @@ END_DIGIT_PATTERN = re.compile(r'(0*\d+)$')
 
 # The pattern now only needs to match the data files.
 DATA_FILE_PATTERN = re.compile(
-    r"^([a-zA-Z]+)"                 # Element (e.g., Ru, Cu)
+    r"^([a-zA-Z][a-zA-Z0-9]*)"      # Element (e.g., Ru, Cu, Cu3Au)
     r"(?:\((\d+)\)|(\d+))"          # Surface: digits in parentheses or plain digits
     r"([a-zA-Z])_"                  # Mode (e.g., G)
     r"(\d+)_"                       # Time (e.g., 0195)
