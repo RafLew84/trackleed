@@ -2,6 +2,7 @@
 
 import numpy as np
 from typing import List, Dict, Callable, Optional, Tuple
+from threading import Event
 
 from skimage.color import rgb2gray
 from skimage.util import img_as_float
@@ -17,38 +18,73 @@ def run_full_analysis(
     background_file: Optional[LeedFile],
     progress_callback: Callable[[int], None],
     center_mode: str = "per_frame",
-) -> List[Track]:
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
     """
     Coordinates the entire quantitative analysis pipeline within a single main loop.
     """
+    print(f"[Analysis] Starting run_full_analysis | center_mode={center_mode} | tracks={len(tracks_to_analyze)}")
+
+    def is_cancelled() -> bool:
+        return bool(cancel_event and cancel_event.is_set())
+
+    cancel_notice_emitted = False
+
+    def cancelled(stage: str) -> Optional[List[Track]]:
+        nonlocal cancel_notice_emitted
+        if not cancel_notice_emitted:
+            print(f"[Analysis] Cancel detected at: {stage}. Stopping analysis.")
+            cancel_notice_emitted = True
+        return None
+
+    if is_cancelled():
+        return cancelled("initialization")
+
     for track in tracks_to_analyze:
+        if is_cancelled():
+            return cancelled(f"track init (track_id={track.track_id})")
         track.analysis_results = {}
     bg_image_data = None
     if background_file:
+        if is_cancelled():
+            return cancelled("before background load")
         temp_bg_data = load_tiff(background_file.filepath)
         if temp_bg_data is not None:
             if temp_bg_data.ndim == 3:
                 bg_image_data = rgb2gray(temp_bg_data)
             else:
                 bg_image_data = img_as_float(temp_bg_data)
+        print("[Analysis] Background loaded for subtraction.")
 
     center_mode = (center_mode or "per_frame").lower()
     per_frame_mode = center_mode in {"per_frame", "circle_fit"}
+    temporal_circle_mode = center_mode == "circle_fit_temporal"
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
 
     per_frame_centers: Dict[int, Dict] = {}
     centers_for_median: List[Dict[str, float]] = []
+    total_frames = len(all_frame_ids)
+    log_every = max(1, total_frames // 10)
 
     for i, frame_id in enumerate(all_frame_ids):
+        if is_cancelled():
+            return cancelled(f"pass1 frame loop start (frame_id={frame_id})")
         full_image = load_tiff(all_files_map[frame_id].filepath)
-        if full_image is None or full_image.size == 0: continue
+        if is_cancelled():
+            return cancelled(f"after image load (frame_id={frame_id})")
+        if full_image is None or full_image.size == 0:
+            continue
         
         spot_positions_on_this_frame = []
 
         for track in tracks_to_analyze:
-            if frame_id not in track.spots_by_image_id: continue
-            if not hasattr(track, 'analysis_results'): track.analysis_results = {}
+            if is_cancelled():
+                return cancelled(f"pass1 track loop (frame_id={frame_id})")
+            if frame_id not in track.spots_by_image_id:
+                continue
+            if not hasattr(track, 'analysis_results'):
+                track.analysis_results = {}
             
             spot = track.spots_by_image_id[frame_id]
             rect = spot.roi_rect
@@ -65,6 +101,8 @@ def run_full_analysis(
                     final_roi_to_fit[final_roi_to_fit < 0] = 0
             
             fit_results = fit_spot_to_gaussian(final_roi_to_fit)
+            if is_cancelled():
+                return cancelled(f"after gaussian fit (frame_id={frame_id}, track_id={track.track_id})")
             if not _is_fit_valid(fit_results, final_roi_to_fit.shape):
                 fit_results = None # Uznaj dopasowanie za nieudane
             track.analysis_results[frame_id] = fit_results
@@ -76,17 +114,12 @@ def run_full_analysis(
                 fit_results['global_center_y'] = global_y
                 spot_positions_on_this_frame.append({'center_x': global_x, 'center_y': global_y})
         
-        center_info = None
-        if spot_positions_on_this_frame:
-            if center_mode == "circle_fit":
-                center_info = fit_circle_center(spot_positions_on_this_frame)
-            else:
-                center_info = find_pattern_center(spot_positions_on_this_frame)
-            if center_info:
-                per_frame_centers[frame_id] = center_info
-                centers_for_median.append(center_info)
-                if per_frame_mode:
-                    all_files_map[frame_id].pattern_center = center_info
+        center_info = _estimate_center_for_frame(spot_positions_on_this_frame, center_mode)
+        if center_info:
+            per_frame_centers[frame_id] = center_info
+            centers_for_median.append(center_info)
+            if per_frame_mode:
+                all_files_map[frame_id].pattern_center = center_info
 
         if per_frame_mode and center_info:
             _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
@@ -94,8 +127,11 @@ def run_full_analysis(
         if per_frame_mode:
             _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
             progress_callback(int((i + 1) * 100 / len(all_frame_ids)))
-        elif center_mode == "global_median":
+        elif center_mode in {"global_median", "circle_fit_temporal"}:
             progress_callback(int((i + 1) * 50 / len(all_frame_ids)))
+
+        if i == 0 or (i + 1) % log_every == 0 or i == total_frames - 1:
+            print(f"[Analysis] Pass1 progress: {i + 1}/{total_frames} frames (frame_id={frame_id})")
 
     if center_mode == "global_median":
         if centers_for_median:
@@ -109,13 +145,171 @@ def run_full_analysis(
             center_info = None
 
         for i, frame_id in enumerate(all_frame_ids):
+            if is_cancelled():
+                return cancelled(f"pass2 global_median loop (frame_id={frame_id})")
             if center_info:
                 all_files_map[frame_id].pattern_center = center_info
                 _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
             _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
             progress_callback(50 + int((i + 1) * 50 / len(all_frame_ids)))
+            if i == 0 or (i + 1) % log_every == 0 or i == total_frames - 1:
+                print(f"[Analysis] Pass2 (global median) progress: {i + 1}/{total_frames} frames (frame_id={frame_id})")
+    elif temporal_circle_mode:
+        smoothed_centers = _smooth_centers_temporally(all_frame_ids, per_frame_centers)
+        for i, frame_id in enumerate(all_frame_ids):
+            if is_cancelled():
+                return cancelled(f"pass2 temporal smoothing loop (frame_id={frame_id})")
+            center_info = smoothed_centers.get(frame_id)
+            if center_info:
+                all_files_map[frame_id].pattern_center = center_info
+                _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
+            _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
+            progress_callback(50 + int((i + 1) * 50 / len(all_frame_ids)))
+            if i == 0 or (i + 1) % log_every == 0 or i == total_frames - 1:
+                print(f"[Analysis] Pass2 (temporal center) progress: {i + 1}/{total_frames} frames (frame_id={frame_id})")
 
+    print("[Analysis] Analysis completed successfully.")
     return tracks_to_analyze
+
+
+def _estimate_center_for_frame(spot_positions_on_this_frame: List[Dict[str, float]], center_mode: str) -> Optional[Dict[str, float]]:
+    """Estimate per-frame center using the selected center mode."""
+    if not spot_positions_on_this_frame:
+        return None
+    if center_mode in {"circle_fit", "circle_fit_temporal"}:
+        return fit_circle_center(spot_positions_on_this_frame)
+    return find_pattern_center(spot_positions_on_this_frame)
+
+
+def _interpolate_nans(values: np.ndarray) -> np.ndarray:
+    """Linearly interpolate NaNs and keep endpoints clamped to nearest valid value."""
+    if values.size == 0:
+        return values.copy()
+    mask = np.isfinite(values)
+    if not np.any(mask):
+        return values.copy()
+    if np.sum(mask) == 1:
+        return np.full_like(values, values[mask][0], dtype=np.float64)
+
+    idx = np.arange(values.size, dtype=np.float64)
+    out = values.astype(np.float64, copy=True)
+    out[~mask] = np.interp(idx[~mask], idx[mask], out[mask])
+    return out
+
+
+def _rolling_median(values: np.ndarray, window: int = 5) -> np.ndarray:
+    """Small-window median smoother to reject local outliers."""
+    if values.size == 0:
+        return values.copy()
+    w = max(1, int(window))
+    if w % 2 == 0:
+        w += 1
+    half = w // 2
+
+    out = np.empty_like(values, dtype=np.float64)
+    for i in range(values.size):
+        lo = max(0, i - half)
+        hi = min(values.size, i + half + 1)
+        out[i] = float(np.median(values[lo:hi]))
+    return out
+
+
+def _ema(values: np.ndarray, alpha: float = 0.25) -> np.ndarray:
+    """Exponential moving average for temporal center stabilization."""
+    if values.size == 0:
+        return values.copy()
+    a = float(min(max(alpha, 0.01), 1.0))
+    out = np.empty_like(values, dtype=np.float64)
+    out[0] = values[0]
+    for i in range(1, values.size):
+        out[i] = a * values[i] + (1.0 - a) * out[i - 1]
+    return out
+
+
+def _nan_median_or_default(values: np.ndarray, default: float) -> float:
+    """Return median of finite values or fallback default."""
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return float(default)
+    return float(np.median(finite))
+
+
+def _smooth_centers_temporally(all_frame_ids: List[int], raw_centers: Dict[int, Dict]) -> Dict[int, Dict[str, float]]:
+    """
+    Stabilize per-frame circle-fit centers over time.
+
+    Pipeline:
+    1) interpolate missing center estimates,
+    2) rolling median filter,
+    3) EMA smoothing,
+    4) clamp frame-to-frame jumps to robustly reject residual outliers.
+    """
+    if not all_frame_ids or not raw_centers:
+        return {}
+
+    n_frames = len(all_frame_ids)
+    center_x = np.full(n_frames, np.nan, dtype=np.float64)
+    center_y = np.full(n_frames, np.nan, dtype=np.float64)
+    error_x = np.full(n_frames, np.nan, dtype=np.float64)
+    error_y = np.full(n_frames, np.nan, dtype=np.float64)
+
+    fid_to_idx = {fid: i for i, fid in enumerate(all_frame_ids)}
+    for fid, info in raw_centers.items():
+        idx = fid_to_idx.get(fid)
+        if idx is None:
+            continue
+        center_x[idx] = float(info.get("center_x", np.nan))
+        center_y[idx] = float(info.get("center_y", np.nan))
+        error_x[idx] = float(info.get("error_x", np.nan))
+        error_y[idx] = float(info.get("error_y", np.nan))
+
+    valid = np.isfinite(center_x) & np.isfinite(center_y)
+    if not np.any(valid):
+        return {}
+
+    cx = _interpolate_nans(center_x)
+    cy = _interpolate_nans(center_y)
+
+    # Keep center drift smooth but responsive.
+    cx = _ema(_rolling_median(cx, window=5), alpha=0.25)
+    cy = _ema(_rolling_median(cy, window=5), alpha=0.25)
+
+    # Robust step clamp based on raw (interpolated) trajectory statistics.
+    step = np.sqrt(np.diff(_interpolate_nans(center_x)) ** 2 + np.diff(_interpolate_nans(center_y)) ** 2)
+    step_med = _nan_median_or_default(step, default=2.0)
+    step_mad = _nan_median_or_default(np.abs(step - step_med), default=0.5)
+    max_step = float(min(25.0, max(1.5, step_med + 4.0 * step_mad + 2.0)))
+
+    for i in range(1, n_frames):
+        dx = cx[i] - cx[i - 1]
+        dy = cy[i] - cy[i - 1]
+        dist = float(np.hypot(dx, dy))
+        if dist > max_step and dist > 1e-9:
+            scale = max_step / dist
+            cx[i] = cx[i - 1] + dx * scale
+            cy[i] = cy[i - 1] + dy * scale
+
+    default_err_x = _nan_median_or_default(error_x, default=1.0)
+    default_err_y = _nan_median_or_default(error_y, default=1.0)
+
+    smoothed: Dict[int, Dict[str, float]] = {}
+    for i, fid in enumerate(all_frame_ids):
+        ex = float(error_x[i]) if np.isfinite(error_x[i]) else default_err_x
+        ey = float(error_y[i]) if np.isfinite(error_y[i]) else default_err_y
+
+        # If raw center exists, include raw-vs-smoothed discrepancy in uncertainty.
+        if np.isfinite(center_x[i]) and np.isfinite(center_y[i]):
+            ex = max(ex, abs(float(center_x[i] - cx[i])))
+            ey = max(ey, abs(float(center_y[i] - cy[i])))
+
+        smoothed[fid] = {
+            "center_x": float(cx[i]),
+            "center_y": float(cy[i]),
+            "error_x": float(ex),
+            "error_y": float(ey),
+        }
+
+    return smoothed
 
 
 def _apply_center_to_frame(
