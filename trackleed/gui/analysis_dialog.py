@@ -416,7 +416,7 @@ class AnalysisResultsDialog(QDialog):
         controls_layout.addStretch()
         controls_layout.addWidget(QLabel("X-Axis:"))
         self.x_axis_combo = QComboBox()
-        self.x_axis_combo.addItems(["Frame ID", "Temperature", "Energy"])
+        self.x_axis_combo.addItems(["Frame ID", "Temperature", "Energy", "Coverage"])
         controls_layout.addWidget(self.x_axis_combo)
         
         # Canvas for the 2D plot.
@@ -537,7 +537,7 @@ class AnalysisResultsDialog(QDialog):
         controls_layout = QVBoxLayout(controls_container)
         controls_layout.addWidget(QLabel("X-Axis:"))
         self.center_x_axis_combo = QComboBox()
-        self.center_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy"])
+        self.center_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy", "Coverage"])
         controls_layout.addWidget(self.center_x_axis_combo)
 
         self.center_current_label = QLabel("Current center: N/A")
@@ -579,7 +579,7 @@ class AnalysisResultsDialog(QDialog):
         axis_layout = QHBoxLayout()
         axis_layout.addWidget(QLabel("X-Axis:"))
         self.radius_x_axis_combo = QComboBox()
-        self.radius_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy"])
+        self.radius_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy", "Coverage"])
         axis_layout.addWidget(self.radius_x_axis_combo)
         self.show_errors_checkbox = QCheckBox("Show Error Bars")
         self.show_errors_checkbox.setChecked(True)
@@ -621,7 +621,7 @@ class AnalysisResultsDialog(QDialog):
         axis_layout.addWidget(self.compare_y_axis_combo)
         axis_layout.addWidget(QLabel("X:"))
         self.compare_x_axis_combo = QComboBox()
-        self.compare_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy"])
+        self.compare_x_axis_combo.addItems(["Frame ID", "Temperature", "Energy", "Coverage"])
         axis_layout.addWidget(self.compare_x_axis_combo)
         
         # A checklist to toggle the visibility of each track on the plot.
@@ -739,7 +739,12 @@ class AnalysisResultsDialog(QDialog):
                 highlighted_track_id = int(track_id_item.text())
         # Read the combo-box selection safely
         x_key = self.radius_x_axis_combo.currentText()
-        x_data_key = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}.get(x_key)
+        x_data_key = {
+            "Frame ID": "id",
+            "Temperature": "temperature",
+            "Energy": "energy",
+            "Coverage": "coverage",
+        }.get(x_key)
         if not x_data_key: return
 
         colors = plt.get_cmap('tab10').colors
@@ -920,7 +925,7 @@ class AnalysisResultsDialog(QDialog):
             "Volume": "volume", "Amplitude": "amplitude", "FWHM X": "fwhm_x",
             "FWHM Y": "fwhm_y", "Asymmetry": "asymmetry", "R-Squared": "r_squared"
         }
-        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}
+        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy", "Coverage": "coverage"}
         y_data_key = y_axis_map.get(y_key)
         x_data_key = x_axis_map.get(x_key)
         if not (y_data_key and x_data_key): return
@@ -1096,7 +1101,7 @@ class AnalysisResultsDialog(QDialog):
         ax_path.clear()
 
         x_key = self.center_x_axis_combo.currentText()
-        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}
+        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy", "Coverage": "coverage"}
         x_data_key = x_axis_map.get(x_key)
         if not x_data_key:
             self.center_xy_over_time_canvas.draw()
@@ -1474,7 +1479,7 @@ class AnalysisResultsDialog(QDialog):
             "Volume": "volume", "Amplitude": "amplitude", "FWHM X": "fwhm_x",
             "FWHM Y": "fwhm_y", "Asymmetry": "asymmetry", "R-Squared": "r_squared"
         }
-        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy"}
+        x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy", "Coverage": "coverage"}
         
         # Get the current selections from the combo boxes.
         y_key = y_axis_map[self.y_axis_combo.currentText()]

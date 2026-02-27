@@ -18,14 +18,21 @@ def _save_full_data_csv(tracks: List[Track], all_files_map: Dict[int, LeedFile],
             if not fit_results: continue
             leed_file = all_files_map.get(frame_id)
             if not leed_file: continue
-            row = {'track_id': track.track_id, 'frame_id': frame_id, 'temperature': leed_file.temperature, 'energy': leed_file.energy, **fit_results}
+            row = {
+                'track_id': track.track_id,
+                'frame_id': frame_id,
+                'temperature': leed_file.temperature,
+                'energy': leed_file.energy,
+                'coverage': leed_file.coverage,
+                **fit_results
+            }
             row.pop('covariance_matrix', None)
             all_results.append(row)
 
     if not all_results: return
     df = pd.DataFrame(all_results)
     preferred_order = [
-        'track_id', 'frame_id', 'temperature', 'energy',
+        'track_id', 'frame_id', 'temperature', 'energy', 'coverage',
         'global_center_x', 'center_x_error', 
         'global_center_y', 'center_y_error',
         'radius', 'radius_error',
@@ -45,7 +52,15 @@ def _save_center_data_csv(all_files_map: Dict[int, LeedFile], directory_path: st
     center_data = []
     for frame_id, leed_file in sorted(all_files_map.items()):
         if leed_file.pattern_center:
-            center_data.append({'frame_id': frame_id, **leed_file.pattern_center})
+            center_data.append(
+                {
+                    'frame_id': frame_id,
+                    'temperature': leed_file.temperature,
+                    'energy': leed_file.energy,
+                    'coverage': leed_file.coverage,
+                    **leed_file.pattern_center
+                }
+            )
     if not center_data: return
     df = pd.DataFrame(center_data)
     output_path = os.path.join(directory_path, 'pattern_center_data.csv')
@@ -60,6 +75,7 @@ def _save_average_radius_csv(all_files_map: Dict[int, LeedFile], directory_path:
                 'frame_id': frame_id,
                 'temperature': leed_file.temperature,
                 'energy': leed_file.energy,
+                'coverage': leed_file.coverage,
                 **leed_file.post_analysis_results
             }
             avg_data.append(row)

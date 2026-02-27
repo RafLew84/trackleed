@@ -13,13 +13,14 @@ END_DIGIT_PATTERN = re.compile(r'(0*\d+)$')
 
 # The pattern now only needs to match the data files.
 DATA_FILE_PATTERN = re.compile(
-    r"^([a-zA-Z][a-zA-Z0-9]*)"      # Element (e.g., Ru, Cu, Cu3Au)
+    r"^([a-zA-Z][a-zA-Z0-9]*?)"     # Element (e.g., Ru, Cu, Cu3Au), non-greedy before surface
     r"(?:\((\d+)\)|(\d+))"          # Surface: digits in parentheses or plain digits
     r"([a-zA-Z])_"                  # Mode (e.g., G)
     r"(\d+)_"                       # Time (e.g., 0195)
     r"T(\d+)_"                      # Temperature (e.g., T0700)
     r"E(\d+)_"                      # Energy (e.g., E0077)
     r"C(\d+)"                       # Coverage (e.g., C0000)
+    r"(?:_[A-Za-z][A-Za-z0-9+-]*)*" # Optional suffix tags, e.g., _R-33
     r"\.tiff?$", re.IGNORECASE      # Extension .tif or .tiff
 )
 
