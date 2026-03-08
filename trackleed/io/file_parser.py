@@ -24,6 +24,31 @@ DATA_FILE_PATTERN = re.compile(
     r"\.tiff?$", re.IGNORECASE      # Extension .tif or .tiff
 )
 
+
+def _parse_coverage_code(raw_code: str) -> float:
+    """
+    Parse coverage token from filename.
+
+    Current datasets use 4-digit fixed-point encoding:
+    - C1000 -> 1.000
+    - C0920 -> 0.920
+    so the divisor is 1000.
+
+    Backward compatibility:
+    - For 3-digit codes use divisor 100.
+    - For shorter codes, return plain numeric value.
+    """
+    code = (raw_code or "").strip()
+    if not code:
+        return 0.0
+    value = float(code)
+    n_digits = len(code)
+    if n_digits >= 4:
+        return value / 1000.0
+    if n_digits == 3:
+        return value / 100.0
+    return value
+
 def parse_directory(directory: Path) -> List[LeedFile]:
     """
     Parses a directory for LEED data files based on a specific filename convention.
@@ -63,7 +88,7 @@ def parse_directory(directory: Path) -> List[LeedFile]:
                     id=int(id_str),
                     temperature=float(temp),
                     energy=float(energy) / 10.0,
-                    coverage=float(coverage) / 100.0
+                    coverage=_parse_coverage_code(coverage),
                 )
             )
             continue

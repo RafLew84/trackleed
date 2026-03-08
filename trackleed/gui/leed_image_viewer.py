@@ -1,6 +1,7 @@
 # stal/gui/leed_image_viewer.py
 
-from typing import List, Dict
+from typing import Any, List, Dict
+import numpy as np
 from PyQt6.QtCore import Qt, QRect, QRectF, QPointF, pyqtSignal, QPoint
 from PyQt6.QtGui import QPixmap, QWheelEvent, QColor, QBrush, QPen, QMouseEvent, QPainterPath, QContextMenuEvent 
 from PyQt6.QtWidgets import (QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QWidget, QMenu,
@@ -51,6 +52,7 @@ class LeedImageViewer(QGraphicsView):
         self._track_path_items = []
         self._pattern_center_item = None
         self._analysis_circle_item: QGraphicsEllipseItem | None = None
+        self._analysis_ellipse_item: QGraphicsEllipseItem | None = None
 
         # --- Define Drawing Styles ---
         self._roi_transparency_pct = 0.0
@@ -349,6 +351,9 @@ class LeedImageViewer(QGraphicsView):
         if self._analysis_circle_item:
             self._scene.removeItem(self._analysis_circle_item)
             self._analysis_circle_item = None
+        if self._analysis_ellipse_item:
+            self._scene.removeItem(self._analysis_ellipse_item)
+            self._analysis_ellipse_item = None
 
     def set_image(self, pixmap: QPixmap | None, fit: bool = False):
         """
@@ -403,6 +408,76 @@ class LeedImageViewer(QGraphicsView):
         ellipse.setPen(pen)
         self._analysis_circle_item = ellipse
         self._scene.addItem(ellipse)
+
+    def update_analysis_ellipse(self, ellipse: tuple[int, int, int, int, float] | None):
+        """Draw a single analysis ellipse (cx, cy, rx, ry, angle_deg) if provided."""
+        if self._analysis_ellipse_item:
+            self._scene.removeItem(self._analysis_ellipse_item)
+            self._analysis_ellipse_item = None
+        normalized = self._normalize_analysis_ellipse(ellipse)
+        if normalized is None:
+            return
+        cx, cy, rx, ry, angle_deg = normalized
+        if rx <= 0 or ry <= 0:
+            return
+        pen = QPen(QColor(255, 165, 0, 220))
+        pen.setWidth(2)
+        pen.setCosmetic(True)
+        item = QGraphicsEllipseItem(cx - rx, cy - ry, 2 * rx, 2 * ry)
+        item.setPen(pen)
+        item.setTransformOriginPoint(float(cx), float(cy))
+        item.setRotation(float(angle_deg))
+        self._analysis_ellipse_item = item
+        self._scene.addItem(item)
+
+    @staticmethod
+    def _normalize_analysis_ellipse(data: Any) -> tuple[int, int, int, int, float] | None:
+        """Coerce ellipse payload to (cx, cy, rx, ry, angle_deg)."""
+        if data is None:
+            return None
+
+        def _to_float(value: Any) -> float | None:
+            try:
+                out = float(value)
+            except Exception:
+                return None
+            if not np.isfinite(out):
+                return None
+            return out
+
+        if isinstance(data, dict):
+            cx_raw = data.get("cx", data.get("center_x"))
+            cy_raw = data.get("cy", data.get("center_y"))
+            rx_raw = data.get("rx", data.get("radius_x"))
+            ry_raw = data.get("ry", data.get("radius_y"))
+            angle_raw = data.get("angle_deg", data.get("angle", 0.0))
+        elif isinstance(data, np.ndarray):
+            return LeedImageViewer._normalize_analysis_ellipse(data.tolist())
+        elif isinstance(data, (tuple, list)):
+            if len(data) < 5:
+                return None
+            cx_raw, cy_raw, rx_raw, ry_raw, angle_raw = data[:5]
+        else:
+            return None
+
+        cx = _to_float(cx_raw)
+        cy = _to_float(cy_raw)
+        rx = _to_float(rx_raw)
+        ry = _to_float(ry_raw)
+        angle = _to_float(angle_raw)
+        if cx is None or cy is None or rx is None or ry is None:
+            return None
+        if rx <= 0 or ry <= 0:
+            return None
+        if angle is None:
+            angle = 0.0
+        return (
+            int(round(cx)),
+            int(round(cy)),
+            int(round(rx)),
+            int(round(ry)),
+            float(angle),
+        )
 
     def wheelEvent(self, event: QWheelEvent):
         """

@@ -3,7 +3,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 
-from typing import List
+from typing import Any, List
 from threading import Event
 import numpy as np
 import shutil
@@ -24,6 +24,7 @@ from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDet
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
+from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
 from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
@@ -76,6 +77,7 @@ class MainWindow(QMainWindow):
         self.background_file: LeedFile | None = None
         self.metadata_mask_list: list[QRect] = []
         self.analysis_circle: tuple[int, int, int] | None = None  # (cx, cy, r)
+        self.analysis_ellipse: tuple[int, int, int, int, float] | None = None  # (cx, cy, rx, ry, angle_deg)
         self.tracking_results: List[Track] = []
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
@@ -163,6 +165,12 @@ class MainWindow(QMainWindow):
         clear_analysis_circle_action = QAction("Clear Analysis Circle", self)
         clear_analysis_circle_action.triggered.connect(self.clear_analysis_circle)
         mask_menu.addAction(clear_analysis_circle_action)
+        set_analysis_ellipse_action = QAction("Set Analysis Ellipse...", self)
+        set_analysis_ellipse_action.triggered.connect(self.open_analysis_ellipse_dialog)
+        mask_menu.addAction(set_analysis_ellipse_action)
+        clear_analysis_ellipse_action = QAction("Clear Analysis Ellipse", self)
+        clear_analysis_ellipse_action.triggered.connect(self.clear_analysis_ellipse)
+        mask_menu.addAction(clear_analysis_ellipse_action)
 
         # --- View Menu ---
         view_menu = menu_bar.addMenu("&View")
@@ -617,6 +625,7 @@ class MainWindow(QMainWindow):
             center, radius = dialog.get_circle()
             if center and radius > 0:
                 self.analysis_circle = (int(center.x()), int(center.y()), int(radius))
+                self.analysis_ellipse = None
                 print(f"Analysis circle set: center=({center.x()}, {center.y()}), r={radius}")
             else:
                 self.analysis_circle = None
@@ -629,6 +638,77 @@ class MainWindow(QMainWindow):
             return
         self.analysis_circle = None
         print("Analysis circle has been cleared.")
+        current_item = self.file_list_widget.currentItem()
+        if current_item:
+            self.display_selected_image(current_item, None)
+
+    def open_analysis_ellipse_dialog(self):
+        """Opens a dialog to set a global analysis ellipse (applied to all images)."""
+        current_item = self.file_list_widget.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "No Image Selected", "Please select an image from the list before setting an analysis ellipse.")
+            return
+
+        leed_file: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
+        original_image_data = load_tiff(leed_file.filepath)
+        if original_image_data is None or original_image_data.size == 0:
+            QMessageBox.critical(self, "Error", "Could not load the image to set an analysis ellipse.")
+            return
+
+        height, width = original_image_data.shape[:2]
+        if original_image_data.ndim == 2:
+            q_image = QImage(original_image_data.data, width, height, width, QImage.Format.Format_Grayscale8)
+        else:
+            q_image = QImage(original_image_data.data, width, height, 3 * width, QImage.Format.Format_RGB888)
+        full_res_pixmap = QPixmap.fromImage(q_image)
+
+        existing_center = None
+        existing_radius_x = 0
+        existing_radius_y = 0
+        existing_angle_deg = 0.0
+        existing_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        if existing_ellipse:
+            cx, cy, rx, ry, angle_deg = existing_ellipse
+            existing_center = QPoint(cx, cy)
+            existing_radius_x = rx
+            existing_radius_y = ry
+            existing_angle_deg = angle_deg
+
+        dialog = EllipseMaskDialog(
+            full_res_pixmap,
+            existing_center,
+            existing_radius_x,
+            existing_radius_y,
+            existing_angle_deg,
+            self,
+        )
+        result = dialog.exec()
+        if result == QDialog.DialogCode.Accepted:
+            center, radius_x, radius_y, angle_deg = dialog.get_ellipse()
+            if center and radius_x > 0 and radius_y > 0:
+                self.analysis_ellipse = (
+                    int(center.x()),
+                    int(center.y()),
+                    int(radius_x),
+                    int(radius_y),
+                    float(angle_deg),
+                )
+                self.analysis_circle = None
+                print(
+                    "Analysis ellipse set: "
+                    f"center=({center.x()}, {center.y()}), rx={radius_x}, ry={radius_y}, angle={angle_deg:.1f}deg"
+                )
+            else:
+                self.analysis_ellipse = None
+                print("Analysis ellipse cleared (empty selection).")
+            self.refresh_current_view()
+
+    def clear_analysis_ellipse(self):
+        """Clears the analysis ellipse overlay and mask."""
+        if self.analysis_ellipse is None:
+            return
+        self.analysis_ellipse = None
+        print("Analysis ellipse has been cleared.")
         current_item = self.file_list_widget.currentItem()
         if current_item:
             self.display_selected_image(current_item, None)
@@ -663,6 +743,9 @@ class MainWindow(QMainWindow):
         # 3. Tell the viewer to draw overlays
         self.image_viewer.update_masks(self.metadata_mask_list)
         self.image_viewer.update_analysis_circle(self.analysis_circle)
+        normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        self.analysis_ellipse = normalized_ellipse
+        self.image_viewer.update_analysis_ellipse(normalized_ellipse)
         self.image_viewer.update_rois(leed_file.spots)
 
     def _get_base_image_for_display(self, leed_file, original_image_data):
@@ -705,22 +788,41 @@ class MainWindow(QMainWindow):
             q_image = QImage(image_data.data, width, height, width, QImage.Format.Format_Grayscale8)
         return QPixmap.fromImage(q_image)
 
-    def _apply_analysis_circle_mask(self, image_data: np.ndarray) -> np.ndarray:
-        """Zero out pixels outside the analysis circle, if defined."""
-        if self.analysis_circle is None or image_data is None or image_data.size == 0:
+    def _apply_analysis_region_mask(self, image_data: np.ndarray) -> np.ndarray:
+        """Zero out pixels outside the configured analysis circle/ellipse region."""
+        if image_data is None or image_data.size == 0:
             return image_data
-        cx, cy, r = self.analysis_circle
-        h, w = image_data.shape[:2]
+
+        out = image_data.copy()
+        h, w = out.shape[:2]
         yy, xx = np.ogrid[:h, :w]
-        mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
-        if image_data.ndim == 2:
-            out = image_data.copy()
-            out[~mask] = 0
-            return out
-        else:
-            out = image_data.copy()
-            out[~mask, ...] = 0
-            return out
+
+        if self.analysis_circle is not None:
+            cx, cy, r = self.analysis_circle
+            circle_mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+            if out.ndim == 2:
+                out[~circle_mask] = 0
+            else:
+                out[~circle_mask, ...] = 0
+
+        normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        if normalized_ellipse is not None:
+            cx, cy, rx, ry, angle_deg = normalized_ellipse
+            if rx > 0 and ry > 0:
+                theta = np.deg2rad(float(angle_deg))
+                cos_t = np.cos(theta)
+                sin_t = np.sin(theta)
+                dx = xx - cx
+                dy = yy - cy
+                xr = cos_t * dx + sin_t * dy
+                yr = -sin_t * dx + cos_t * dy
+                ellipse_mask = (xr * xr) / (rx * rx) + (yr * yr) / (ry * ry) <= 1.0
+                if out.ndim == 2:
+                    out[~ellipse_mask] = 0
+                else:
+                    out[~ellipse_mask, ...] = 0
+
+        return out
 
     def clear_file_list(self):
         """Clear the file list and associated state."""
@@ -807,6 +909,13 @@ class MainWindow(QMainWindow):
         self.copy_spots_button.setToolTip("Duplicate spots from the current frame to all other frames.")
         self.copy_spots_button.clicked.connect(self.copy_spots_to_all_frames)
         find_spots_layout.addWidget(self.copy_spots_button)
+
+        self.normalize_rois_button = QPushButton("Normalize ROIs (All Frames)")
+        self.normalize_rois_button.setToolTip(
+            "Set every spot ROI to the current ROI Size while keeping each spot center."
+        )
+        self.normalize_rois_button.clicked.connect(self.normalize_rois_all_frames)
+        find_spots_layout.addWidget(self.normalize_rois_button)
 
         self.copy_spots_skip_existing_checkbox = QCheckBox("Nie nadpisuj istniejacych")
         self.copy_spots_skip_existing_checkbox.setToolTip("If enabled, frames that already have spots will be skipped.")
@@ -1312,9 +1421,12 @@ class MainWindow(QMainWindow):
         form_layout.addRow("Max detections:", self.yolo_max_det_spinbox)
 
         self.yolo_bbox_margin_spinbox = QSpinBox()
-        self.yolo_bbox_margin_spinbox.setRange(0, 50)
+        self.yolo_bbox_margin_spinbox.setRange(-50, 50)
         self.yolo_bbox_margin_spinbox.setValue(self.yolo_settings.bbox_margin_px)
-        self.yolo_bbox_margin_spinbox.setToolTip("Extra padding (px) around YOLO boxes when creating SpotROI.")
+        self.yolo_bbox_margin_spinbox.setToolTip(
+            "Padding around YOLO boxes when creating SpotROI. "
+            "Positive expands, negative shrinks."
+        )
         self.yolo_bbox_margin_spinbox.valueChanged.connect(
             lambda v: setattr(self.yolo_settings, "bbox_margin_px", int(v))
         )
@@ -1516,9 +1628,9 @@ class MainWindow(QMainWindow):
         background_image = load_tiff(self.background_file.filepath) if self.background_file else None
         if main_image is None or main_image.size == 0:
             raise ValueError(f"Could not load image: {leed_file.filepath}")
-        main_image = self._apply_analysis_circle_mask(main_image)
+        main_image = self._apply_analysis_region_mask(main_image)
         if background_image is not None and background_image.size > 0:
-            background_image = self._apply_analysis_circle_mask(background_image)
+            background_image = self._apply_analysis_region_mask(background_image)
         subtract_bg = False
         if backend in ("Deep Learning", "YOLO"):
             subtract_bg = bool(spot_settings.get(backend.lower(), {}).get("subtract_bg")) or bool(
@@ -1669,6 +1781,93 @@ class MainWindow(QMainWindow):
             msg += f" Skipped {skipped} frame(s) with existing spots."
         QMessageBox.information(self, "Copy Spots", msg)
 
+    @staticmethod
+    def _square_roi_from_center(
+        center_x: float,
+        center_y: float,
+        target_size: int,
+        image_w: int,
+        image_h: int,
+    ) -> QRect:
+        """Create a square ROI centered at (center_x, center_y), clamped to image bounds."""
+        if image_w <= 0 or image_h <= 0:
+            return QRect(0, 0, 1, 1)
+
+        size = int(max(1, target_size))
+        size = min(size, image_w, image_h)
+        half = size / 2.0
+
+        x = int(round(float(center_x) - half))
+        y = int(round(float(center_y) - half))
+        x = max(0, min(max(0, image_w - size), x))
+        y = max(0, min(max(0, image_h - size), y))
+        return QRect(int(x), int(y), int(size), int(size))
+
+    def normalize_rois_all_frames(self):
+        """Normalize all spot ROIs to the current ROI Size while preserving per-spot centers."""
+        if not self.data_files:
+            QMessageBox.information(self, "No Data", "Load images before normalizing ROIs.")
+            return
+
+        target_size = int(self.roi_size_spinbox.value())
+        if target_size <= 0:
+            QMessageBox.warning(self, "Invalid ROI Size", "ROI Size must be greater than 0.")
+            return
+
+        updated_frames = 0
+        updated_spots = 0
+        skipped_frames = 0
+
+        for lf in self.data_files:
+            if lf.is_background or not lf.spots:
+                continue
+
+            image_data = load_tiff(lf.filepath)
+            if image_data is None or image_data.size == 0:
+                skipped_frames += 1
+                continue
+
+            image_h, image_w = image_data.shape[:2]
+            frame_changed = False
+
+            for spot in lf.spots:
+                rect_center = spot.roi_rect.center()
+                try:
+                    cx_raw = float(spot.center_x)
+                except Exception:
+                    cx_raw = float("nan")
+                try:
+                    cy_raw = float(spot.center_y)
+                except Exception:
+                    cy_raw = float("nan")
+                cx = cx_raw if np.isfinite(cx_raw) else float(rect_center.x())
+                cy = cy_raw if np.isfinite(cy_raw) else float(rect_center.y())
+
+                new_rect = self._square_roi_from_center(cx, cy, target_size, image_w, image_h)
+                if spot.roi_rect != new_rect:
+                    frame_changed = True
+                spot.roi_rect = new_rect
+                updated_spots += 1
+
+            if frame_changed:
+                updated_frames += 1
+
+        self.populate_file_list()
+        current_item = self.file_list_widget.currentItem()
+        if current_item is None and self.file_list_widget.count() > 0:
+            self.file_list_widget.setCurrentRow(0)
+            current_item = self.file_list_widget.currentItem()
+        if current_item:
+            self.display_selected_image(current_item, None)
+
+        msg = (
+            f"Normalized {updated_spots} spot ROI(s) to size {target_size}px "
+            f"across {updated_frames} frame(s)."
+        )
+        if skipped_frames:
+            msg += f" Skipped {skipped_frames} frame(s) due to unreadable images."
+        QMessageBox.information(self, "Normalize ROIs", msg)
+
     def _collect_spot_settings(self) -> dict:
         """Serialize the current spot-finding UI state for persistence or reuse."""
         classic_settings = {
@@ -1781,6 +1980,100 @@ class MainWindow(QMainWindow):
         except Exception:
             return None
 
+    def _normalize_analysis_ellipse(
+        self, data: Any
+    ) -> tuple[int, int, int, int, float] | None:
+        """Coerce ellipse payload to (cx, cy, rx, ry, angle_deg)."""
+        if data is None:
+            return None
+
+        def _to_float(value: Any) -> float | None:
+            try:
+                out = float(value)
+            except Exception:
+                return None
+            if not np.isfinite(out):
+                return None
+            return out
+
+        def _xy_from_any(value: Any) -> tuple[Any, Any]:
+            if value is None:
+                return None, None
+            if hasattr(value, "x") and hasattr(value, "y"):
+                try:
+                    return value.x(), value.y()
+                except Exception:
+                    pass
+            if isinstance(value, (tuple, list)) and len(value) >= 2:
+                return value[0], value[1]
+            return None, None
+
+        cx_raw = cy_raw = rx_raw = ry_raw = angle_raw = None
+
+        if isinstance(data, dict):
+            cx_raw, cy_raw = _xy_from_any(data.get("center"))
+            if cx_raw is None:
+                cx_raw = data.get("cx", data.get("center_x"))
+            if cy_raw is None:
+                cy_raw = data.get("cy", data.get("center_y"))
+            rx_raw = data.get("rx", data.get("radius_x", data.get("a")))
+            ry_raw = data.get("ry", data.get("radius_y", data.get("b")))
+            angle_raw = data.get(
+                "angle_deg",
+                data.get("angle", data.get("theta_deg", data.get("theta", 0.0))),
+            )
+        elif isinstance(data, np.ndarray):
+            return self._normalize_analysis_ellipse(data.tolist())
+        elif isinstance(data, (tuple, list)):
+            if len(data) >= 5:
+                cx_raw, cy_raw, rx_raw, ry_raw, angle_raw = data[:5]
+            elif len(data) >= 4:
+                cx_raw, cy_raw = _xy_from_any(data[0])
+                rx_raw, ry_raw, angle_raw = data[1], data[2], data[3]
+                if cx_raw is None or cy_raw is None:
+                    return None
+            else:
+                return None
+        else:
+            return None
+
+        cx = _to_float(cx_raw)
+        cy = _to_float(cy_raw)
+        rx = _to_float(rx_raw)
+        ry = _to_float(ry_raw)
+        angle = _to_float(angle_raw)
+
+        if cx is None or cy is None or rx is None or ry is None:
+            return None
+        if rx <= 0 or ry <= 0:
+            return None
+        if angle is None:
+            angle = 0.0
+
+        return (
+            int(round(cx)),
+            int(round(cy)),
+            int(round(rx)),
+            int(round(ry)),
+            float(angle),
+        )
+
+    def _analysis_ellipse_to_dict(self):
+        ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        if not ellipse:
+            return None
+        cx, cy, rx, ry, angle_deg = ellipse
+        return {
+            "cx": int(cx),
+            "cy": int(cy),
+            "rx": int(rx),
+            "ry": int(ry),
+            "angle_deg": float(angle_deg),
+        }
+
+    def _analysis_ellipse_from_dict(self, data):
+        return self._normalize_analysis_ellipse(data)
+
     def set_bbox_transparency(self, percent: float):
         percent = max(0.0, min(100.0, float(percent)))
         self._bbox_transparency_pct = percent
@@ -1836,10 +2129,13 @@ class MainWindow(QMainWindow):
             return
 
         file_map = {f.id: f for f in self.data_files if f.id is not None}
+        normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        self.analysis_ellipse = normalized_ellipse
         dialog = AnalysisResultsDialog(
             self.tracking_results,
             file_map,
             self.background_file,
+            analysis_ellipse=normalized_ellipse,
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
@@ -2161,6 +2457,7 @@ class MainWindow(QMainWindow):
             tracks_list,
             spot_settings,
             self._analysis_circle_to_dict(),
+            self._analysis_ellipse_to_dict(),
         )
 
     def load_session_dialog(self):
@@ -2189,7 +2486,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Quick Load Error", f"Failed to quick-load session:\n{exc}")
 
     def _load_session(self, path: Path):
-        files, background, masks, tracks, spot_settings, analysis_circle = load_session_from_file(path)
+        files, background, masks, tracks, spot_settings, analysis_circle, analysis_ellipse = load_session_from_file(path)
 
         missing_files = [str(f.filepath) for f in files if not f.filepath.exists()]
         if missing_files:
@@ -2208,6 +2505,7 @@ class MainWindow(QMainWindow):
 
         self.metadata_mask_list = masks
         self.analysis_circle = self._analysis_circle_from_dict(analysis_circle)
+        self.analysis_ellipse = self._analysis_ellipse_from_dict(analysis_ellipse)
 
         valid_ids = {f.id for f in self.data_files if f.id is not None}
         filtered_tracks: List[Track] = []

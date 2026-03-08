@@ -75,7 +75,9 @@ def detect_spots_with_yolo(
     if boxes is None or len(boxes) == 0:
         return []
 
-    margin = max(0, int(settings.bbox_margin_px))
+    margin = int(settings.bbox_margin_px)
+    img_h, img_w = img_rgb.shape[:2]
+    min_roi_size = 4
     rois: List[SpotROI] = []
     for idx, box in enumerate(boxes):
         try:
@@ -95,7 +97,16 @@ def detect_spots_with_yolo(
                     break
             if skip:
                 continue
-        rect = QRect(int(x0 - margin), int(y0 - margin), int((x1 - x0) + 2 * margin), int((y1 - y0) + 2 * margin))
+        rect = _rect_from_xyxy_with_margin(
+            x0=float(x0),
+            y0=float(y0),
+            x1=float(x1),
+            y1=float(y1),
+            margin_px=margin,
+            image_w=img_w,
+            image_h=img_h,
+            min_size=min_roi_size,
+        )
         cx = (x0 + x1) / 2.0
         cy = (y0 + y1) / 2.0
         rois.append(
@@ -109,6 +120,51 @@ def detect_spots_with_yolo(
             )
         )
     return rois
+
+
+def _rect_from_xyxy_with_margin(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    margin_px: int,
+    image_w: int,
+    image_h: int,
+    min_size: int = 4,
+) -> QRect:
+    """
+    Build QRect from xyxy with positive (expand) or negative (shrink) margin.
+
+    The rectangle is clamped to image bounds and never smaller than min_size
+    (unless the image itself is smaller).
+    """
+    base_w = max(1.0, float(x1 - x0))
+    base_h = max(1.0, float(y1 - y0))
+    target_w = base_w + 2.0 * float(margin_px)
+    target_h = base_h + 2.0 * float(margin_px)
+
+    min_w = float(max(1, min(int(min_size), max(1, int(image_w)))))
+    min_h = float(max(1, min(int(min_size), max(1, int(image_h)))))
+    target_w = max(target_w, min_w)
+    target_h = max(target_h, min_h)
+    target_w = min(target_w, float(max(1, int(image_w))))
+    target_h = min(target_h, float(max(1, int(image_h))))
+
+    cx = (float(x0) + float(x1)) / 2.0
+    cy = (float(y0) + float(y1)) / 2.0
+    left = cx - target_w / 2.0
+    top = cy - target_h / 2.0
+
+    max_left = float(max(0, int(image_w) - int(round(target_w))))
+    max_top = float(max(0, int(image_h) - int(round(target_h))))
+    left = min(max(0.0, left), max_left)
+    top = min(max(0.0, top), max_top)
+
+    w_i = max(1, int(round(target_w)))
+    h_i = max(1, int(round(target_h)))
+    x_i = int(round(left))
+    y_i = int(round(top))
+    return QRect(x_i, y_i, w_i, h_i)
 
 
 def _load_model(path_str: str, device: str = "auto"):

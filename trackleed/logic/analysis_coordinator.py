@@ -9,7 +9,12 @@ from skimage.util import img_as_float
 
 from trackleed.core.data_models import LeedFile, Track
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, find_pattern_center, fit_circle_center
+from trackleed.analysis.peak_analyzer import (
+    fit_spot_to_gaussian,
+    find_pattern_center,
+    fit_circle_center,
+    fit_ellipse_center,
+)
 
 def run_full_analysis(
     tracks_to_analyze: List[Track],
@@ -18,6 +23,7 @@ def run_full_analysis(
     background_file: Optional[LeedFile],
     progress_callback: Callable[[int], None],
     center_mode: str = "per_frame",
+    manual_ellipse: Optional[Dict[str, float]] = None,
     cancel_event: Optional[Event] = None,
 ) -> Optional[List[Track]]:
     """
@@ -57,7 +63,13 @@ def run_full_analysis(
         print("[Analysis] Background loaded for subtraction.")
 
     center_mode = (center_mode or "per_frame").lower()
-    per_frame_mode = center_mode in {"per_frame", "circle_fit"}
+    manual_ellipse_mode = center_mode == "manual_ellipse"
+    ellipse_fit_mode = center_mode == "ellipse_fit"
+    ellipse_info = _normalize_manual_ellipse(manual_ellipse) if manual_ellipse_mode else None
+    if manual_ellipse_mode and ellipse_info is None:
+        raise ValueError("center_mode='manual_ellipse' requires a valid manual_ellipse definition.")
+
+    per_frame_mode = center_mode in {"per_frame", "circle_fit", "manual_ellipse", "ellipse_fit"}
     temporal_circle_mode = center_mode == "circle_fit_temporal"
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
@@ -115,6 +127,13 @@ def run_full_analysis(
                 spot_positions_on_this_frame.append({'center_x': global_x, 'center_y': global_y})
         
         center_info = _estimate_center_for_frame(spot_positions_on_this_frame, center_mode)
+        if manual_ellipse_mode:
+            center_info = {
+                "center_x": ellipse_info["center_x"],
+                "center_y": ellipse_info["center_y"],
+                "error_x": 0.0,
+                "error_y": 0.0,
+            }
         if center_info:
             per_frame_centers[frame_id] = center_info
             centers_for_median.append(center_info)
@@ -122,7 +141,14 @@ def run_full_analysis(
                 all_files_map[frame_id].pattern_center = center_info
 
         if per_frame_mode and center_info:
-            _apply_center_to_frame(tracks_to_analyze, all_files_map, frame_id, center_info)
+            ellipse_payload = center_info if ellipse_fit_mode else (ellipse_info if manual_ellipse_mode else None)
+            _apply_center_to_frame(
+                tracks_to_analyze,
+                all_files_map,
+                frame_id,
+                center_info,
+                manual_ellipse=ellipse_payload,
+            )
 
         if per_frame_mode:
             _update_average_radius(all_files_map, tracks_to_analyze, frame_id)
@@ -176,6 +202,10 @@ def _estimate_center_for_frame(spot_positions_on_this_frame: List[Dict[str, floa
     """Estimate per-frame center using the selected center mode."""
     if not spot_positions_on_this_frame:
         return None
+    if center_mode == "manual_ellipse":
+        return None
+    if center_mode == "ellipse_fit":
+        return fit_ellipse_center(spot_positions_on_this_frame)
     if center_mode in {"circle_fit", "circle_fit_temporal"}:
         return fit_circle_center(spot_positions_on_this_frame)
     return find_pattern_center(spot_positions_on_this_frame)
@@ -317,10 +347,17 @@ def _apply_center_to_frame(
     all_files_map: Dict[int, LeedFile],
     frame_id: int,
     center_info: Dict[str, float],
+    manual_ellipse: Optional[Dict[str, float]] = None,
 ) -> None:
     for track in tracks_to_analyze:
         results = track.analysis_results.get(frame_id)
         if not results:
+            continue
+
+        if manual_ellipse is not None:
+            radius, radius_error = _compute_ellipse_corrected_radius(results, center_info, manual_ellipse)
+            results['radius'] = radius
+            results['radius_error'] = radius_error
             continue
 
         dx = results['global_center_x'] - center_info['center_x']
@@ -337,6 +374,87 @@ def _apply_center_to_frame(
 
         if results['radius'] > 1e-6:
             results['radius_error'] = (1/results['radius']) * np.sqrt(dx**2 * var_dx + dy**2 * var_dy)
+
+
+def _normalize_manual_ellipse(manual_ellipse: Optional[Dict[str, float]]) -> Optional[Dict[str, float]]:
+    """Normalize and validate manual ellipse payload to internal analysis fields."""
+    if not manual_ellipse:
+        return None
+    try:
+        cx = float(manual_ellipse.get("cx"))
+        cy = float(manual_ellipse.get("cy"))
+        rx = float(manual_ellipse.get("rx"))
+        ry = float(manual_ellipse.get("ry"))
+        angle_deg = float(manual_ellipse.get("angle_deg", 0.0))
+    except Exception:
+        return None
+
+    if not np.isfinite(cx) or not np.isfinite(cy) or not np.isfinite(rx) or not np.isfinite(ry):
+        return None
+    if rx <= 0 or ry <= 0:
+        return None
+
+    return {
+        "center_x": cx,
+        "center_y": cy,
+        "radius_x": rx,
+        "radius_y": ry,
+        "angle_deg": angle_deg,
+        "radius_scale_px": float(np.sqrt(rx * ry)),
+    }
+
+
+def _compute_ellipse_corrected_radius(
+    fit_results: Dict[str, float],
+    center_info: Dict[str, float],
+    manual_ellipse: Dict[str, float],
+) -> Tuple[float, float]:
+    """
+    Compute radius after affine correction implied by manual ellipse.
+
+    The point is rotated into ellipse-aligned coordinates and normalized by
+    semi-axes. The normalized radius is then scaled by sqrt(rx*ry) so values
+    stay in pixel-like magnitude.
+    """
+    cx = float(center_info.get("center_x", manual_ellipse["center_x"]))
+    cy = float(center_info.get("center_y", manual_ellipse["center_y"]))
+    rx = float(manual_ellipse["radius_x"])
+    ry = float(manual_ellipse["radius_y"])
+    angle_deg = float(manual_ellipse.get("angle_deg", 0.0))
+    scale_px = float(manual_ellipse.get("radius_scale_px", np.sqrt(rx * ry)))
+
+    dx = float(fit_results["global_center_x"]) - cx
+    dy = float(fit_results["global_center_y"]) - cy
+
+    theta = np.deg2rad(angle_deg)
+    cos_t = float(np.cos(theta))
+    sin_t = float(np.sin(theta))
+    xr = cos_t * dx + sin_t * dy
+    yr = -sin_t * dx + cos_t * dy
+
+    inv_rx = 1.0 / max(rx, 1e-9)
+    inv_ry = 1.0 / max(ry, 1e-9)
+    u = xr * inv_rx
+    v = yr * inv_ry
+    q = float(np.sqrt(u * u + v * v))
+    radius = float(scale_px * q)
+
+    err_x_spot = float(fit_results.get("center_x_error", 0.0))
+    err_y_spot = float(fit_results.get("center_y_error", 0.0))
+    err_x_center = float(center_info.get("error_x", 0.0))
+    err_y_center = float(center_info.get("error_y", 0.0))
+    var_dx = err_x_spot**2 + err_x_center**2
+    var_dy = err_y_spot**2 + err_y_center**2
+
+    if q <= 1e-9:
+        return radius, 0.0
+
+    dqx_ddx = (u * (cos_t * inv_rx) + v * (-sin_t * inv_ry)) / q
+    dqy_ddy = (u * (sin_t * inv_rx) + v * (cos_t * inv_ry)) / q
+    dr_ddx = scale_px * dqx_ddx
+    dr_ddy = scale_px * dqy_ddy
+    radius_error = float(np.sqrt((dr_ddx**2) * var_dx + (dr_ddy**2) * var_dy))
+    return radius, radius_error
 
 
 def _update_average_radius(
@@ -362,8 +480,10 @@ def _is_fit_valid(fit_results: Optional[Dict], roi_shape: Tuple) -> bool:
     """Checks if the Gaussian fit results are physically plausible."""
     if not fit_results:
         return False
-    
-    height, width = roi_shape
+
+    if roi_shape is None or len(roi_shape) < 2:
+        return False
+    height, width = roi_shape[:2]
     
     # 1. Validate goodness of fit (R-squared threshold)
     if fit_results.get('r_squared', 0) < 0.85: # Threshold can be tuned

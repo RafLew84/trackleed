@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from threading import Event
+import traceback
 import pyqtgraph.opengl as gl
 from skimage.util import img_as_float
 from skimage.color import rgb2gray
@@ -80,6 +81,7 @@ class AnalysisResultsDialog(QDialog):
         tracks: List[Track],
         all_files_map: Dict[int, LeedFile],
         background_file: Optional[LeedFile],
+        analysis_ellipse: Optional[tuple[int, int, int, int, float]] = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -107,6 +109,7 @@ class AnalysisResultsDialog(QDialog):
         self.tracks = tracks
         self.all_files_map = all_files_map # Keep a local copy of the file map
         self.background_file = background_file
+        self.analysis_ellipse = self._normalize_analysis_ellipse(analysis_ellipse)
         self.save_session_callback = save_session_callback
         # Placeholders for the background worker and thread.
         self.worker_thread = None
@@ -213,6 +216,85 @@ class AnalysisResultsDialog(QDialog):
             self.dialog_bg_filename_label.setText("Filename: N/A")
             self.bg_image_data_gray = None
 
+    @staticmethod
+    def _normalize_analysis_ellipse(
+        data: Any,
+    ) -> Optional[tuple[int, int, int, int, float]]:
+        """Normalize ellipse payload to (cx, cy, rx, ry, angle_deg)."""
+        if data is None:
+            return None
+
+        def _to_float(value: Any) -> Optional[float]:
+            try:
+                out = float(value)
+            except Exception:
+                return None
+            if not np.isfinite(out):
+                return None
+            return out
+
+        def _xy_from_any(value: Any) -> tuple[Any, Any]:
+            if value is None:
+                return None, None
+            if hasattr(value, "x") and hasattr(value, "y"):
+                try:
+                    return value.x(), value.y()
+                except Exception:
+                    pass
+            if isinstance(value, (tuple, list)) and len(value) >= 2:
+                return value[0], value[1]
+            return None, None
+
+        cx_raw = cy_raw = rx_raw = ry_raw = angle_raw = None
+
+        if isinstance(data, dict):
+            cx_raw, cy_raw = _xy_from_any(data.get("center"))
+            if cx_raw is None:
+                cx_raw = data.get("cx", data.get("center_x"))
+            if cy_raw is None:
+                cy_raw = data.get("cy", data.get("center_y"))
+            rx_raw = data.get("rx", data.get("radius_x", data.get("a")))
+            ry_raw = data.get("ry", data.get("radius_y", data.get("b")))
+            angle_raw = data.get(
+                "angle_deg",
+                data.get("angle", data.get("theta_deg", data.get("theta", 0.0))),
+            )
+        elif isinstance(data, np.ndarray):
+            return AnalysisResultsDialog._normalize_analysis_ellipse(data.tolist())
+        elif isinstance(data, (tuple, list)):
+            if len(data) >= 5:
+                cx_raw, cy_raw, rx_raw, ry_raw, angle_raw = data[:5]
+            elif len(data) >= 4:
+                cx_raw, cy_raw = _xy_from_any(data[0])
+                rx_raw, ry_raw, angle_raw = data[1], data[2], data[3]
+                if cx_raw is None or cy_raw is None:
+                    return None
+            else:
+                return None
+        else:
+            return None
+
+        cx = _to_float(cx_raw)
+        cy = _to_float(cy_raw)
+        rx = _to_float(rx_raw)
+        ry = _to_float(ry_raw)
+        angle = _to_float(angle_raw)
+
+        if cx is None or cy is None or rx is None or ry is None:
+            return None
+        if rx <= 0 or ry <= 0:
+            return None
+        if angle is None:
+            angle = 0.0
+
+        return (
+            int(round(cx)),
+            int(round(cy)),
+            int(round(rx)),
+            int(round(ry)),
+            float(angle),
+        )
+
     def _create_config_panel(self) -> QWidget:
         """
         Creates the left-hand panel containing the analysis configuration table.
@@ -242,8 +324,10 @@ class AnalysisResultsDialog(QDialog):
         self.center_mode_combo = QComboBox()
         self.center_mode_combo.addItem("Per-frame (RANSAC)", "per_frame")
         self.center_mode_combo.addItem("Per-frame (circle fit)", "circle_fit")
+        self.center_mode_combo.addItem("Per-frame (ellipse fit)", "ellipse_fit")
         self.center_mode_combo.addItem("Per-frame (circle fit + temporal smoothing)", "circle_fit_temporal")
         self.center_mode_combo.addItem("Global median (all frames)", "global_median")
+        self.center_mode_combo.addItem("Manual ellipse (global center, corrected radius)", "manual_ellipse")
         center_layout.addWidget(self.center_mode_combo)
         layout.addWidget(center_group)
 
@@ -715,6 +799,7 @@ class AnalysisResultsDialog(QDialog):
 
         except (AttributeError, StopIteration, ValueError, TypeError) as e:
             print(f"Could not update plots: {e}")
+            traceback.print_exc()
     
     def update_radius_plot(self, current_frame_id: int):
         """Update the radius plot, optionally showing error bars."""
@@ -1208,6 +1293,10 @@ class AnalysisResultsDialog(QDialog):
         self.image_viewer_2d.clear_rois()
         self.image_viewer_2d.clear_paths()
         self.image_viewer_2d.clear_pattern_center()
+        normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+        self.analysis_ellipse = normalized_ellipse
+        if normalized_ellipse:
+            self.image_viewer_2d.update_analysis_ellipse(normalized_ellipse)
         
         # Get the specific spot object for the current frame from the selected track.
         active_spot = selected_track.spots_by_image_id.get(current_frame_id)
@@ -1398,7 +1487,19 @@ class AnalysisResultsDialog(QDialog):
         # Extract the specific Region of Interest (ROI) from the full image.
         rect = spot.roi_rect
         roi_data = full_image[rect.y():rect.y()+rect.height(), rect.x():rect.x()+rect.width()]
-        height, width = roi_data.shape
+        if roi_data is None or roi_data.size == 0:
+            return
+        if roi_data.ndim >= 3:
+            if roi_data.shape[-1] >= 3:
+                roi_data_2d = rgb2gray(roi_data[..., :3])
+            else:
+                roi_data_2d = roi_data[..., 0]
+        else:
+            roi_data_2d = roi_data
+        if roi_data_2d.ndim != 2:
+            return
+
+        height, width = roi_data_2d.shape
         
         x = np.arange(width)
         y = np.arange(height)
@@ -1413,7 +1514,7 @@ class AnalysisResultsDialog(QDialog):
         should_subtract_bg = track_config.get('subtract_bg', False)
         
         # By default, use the original (but normalized to float) ROI data.
-        data_for_plot = img_as_float(roi_data)
+        data_for_plot = img_as_float(roi_data_2d)
         plot_title = "Raw ROI Data"
 
         if should_subtract_bg and self.bg_image_data_gray is not None:
@@ -1633,6 +1734,31 @@ class AnalysisResultsDialog(QDialog):
         # Create a GenericWorker instance, passing the target function (`run_full_analysis`)
         # and all the necessary data as arguments.
         center_mode = self.center_mode_combo.currentData() if hasattr(self, "center_mode_combo") else "per_frame"
+        manual_ellipse_payload = None
+        if center_mode == "manual_ellipse":
+            normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
+            self.analysis_ellipse = normalized_ellipse
+            if not normalized_ellipse:
+                QMessageBox.warning(
+                    self,
+                    "Missing Analysis Ellipse",
+                    "Center mode 'Manual ellipse' requires setting an analysis ellipse first "
+                    "(Mask -> Set Analysis Ellipse... in the main window).",
+                )
+                self.perform_analysis_button.setEnabled(True)
+                for row in range(self.config_table.rowCount()):
+                    status_item = self.config_table.item(row, 2)
+                    if status_item and status_item.text() == "Processing...":
+                        status_item.setText("Pending")
+                return
+            cx, cy, rx, ry, angle_deg = normalized_ellipse
+            manual_ellipse_payload = {
+                "cx": float(cx),
+                "cy": float(cy),
+                "rx": float(rx),
+                "ry": float(ry),
+                "angle_deg": float(angle_deg),
+            }
         print(
             f"[AnalysisDialog] Launching analysis | tracks={len(tracks_to_analyze)} | "
             f"frames={total_frames} | center_mode={center_mode}"
@@ -1645,6 +1771,7 @@ class AnalysisResultsDialog(QDialog):
             self.all_files_map,
             self.background_file,
             center_mode=center_mode,
+            manual_ellipse=manual_ellipse_payload,
             cancel_event=self.analysis_cancel_event,
         )
         # The launch_analysis_worker method will handle thread management and the progress dialog.

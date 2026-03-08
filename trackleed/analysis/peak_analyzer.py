@@ -4,6 +4,8 @@ import numpy as np
 from scipy.optimize import curve_fit
 from typing import Dict, Optional, Tuple, List
 import random
+from skimage.measure import EllipseModel
+from skimage.color import rgb2gray
 
 from scipy.ndimage import center_of_mass
 
@@ -163,6 +165,17 @@ def fit_spot_to_gaussian(roi_data: np.ndarray) -> Optional[Dict[str, float]]:
     if roi_data is None or roi_data.size == 0:
         return None
 
+    roi_data = np.asarray(roi_data)
+    # Gaussian fit is 2D; collapse multi-channel ROI to grayscale first.
+    if roi_data.ndim >= 3:
+        if roi_data.shape[-1] >= 3:
+            roi_data = rgb2gray(roi_data[..., :3])
+        else:
+            roi_data = roi_data[..., 0]
+    if roi_data.ndim != 2:
+        return None
+    roi_data = roi_data.astype(np.float64, copy=False)
+
     # Get the dimensions of the ROI.
     height, width = roi_data.shape
     # Create X and Y coordinate grids corresponding to the pixel positions.
@@ -267,6 +280,133 @@ def fit_circle_center(spot_positions: List[Dict[str, float]]) -> Optional[Dict[s
         "center_y": float(center_y),
         "error_x": float(error_x),
         "error_y": float(error_y),
+    }
+
+
+def _ellipse_residuals_px(
+    pts: np.ndarray,
+    center_x: float,
+    center_y: float,
+    radius_x: float,
+    radius_y: float,
+    theta_rad: float,
+) -> np.ndarray:
+    """Compute ellipse residual in pixel-like units."""
+    dx = pts[:, 0] - center_x
+    dy = pts[:, 1] - center_y
+    cos_t = np.cos(theta_rad)
+    sin_t = np.sin(theta_rad)
+    xr = cos_t * dx + sin_t * dy
+    yr = -sin_t * dx + cos_t * dy
+    inv_rx = 1.0 / max(radius_x, 1e-9)
+    inv_ry = 1.0 / max(radius_y, 1e-9)
+    q = np.sqrt((xr * inv_rx) ** 2 + (yr * inv_ry) ** 2)
+    return np.abs(q - 1.0) * np.sqrt(max(radius_x * radius_y, 1e-9))
+
+
+def _fit_ellipse_by_moments(pts: np.ndarray) -> Optional[Tuple[float, float, float, float, float, np.ndarray]]:
+    """Fallback ellipse estimation from 2nd moments."""
+    if pts.shape[0] < 3:
+        return None
+    center = np.mean(pts, axis=0)
+    centered = pts - center
+    cov = np.cov(centered.T)
+    if cov.shape != (2, 2) or not np.all(np.isfinite(cov)):
+        return None
+    evals, evecs = np.linalg.eigh(cov)
+    order = np.argsort(evals)[::-1]
+    evals = evals[order]
+    evecs = evecs[:, order]
+    if evals[0] <= 0 or evals[1] <= 0:
+        return None
+
+    radius_x = float(np.sqrt(max(2.0 * evals[0], 1e-9)))
+    radius_y = float(np.sqrt(max(2.0 * evals[1], 1e-9)))
+    theta = float(np.arctan2(evecs[1, 0], evecs[0, 0]))
+    residuals = _ellipse_residuals_px(pts, float(center[0]), float(center[1]), radius_x, radius_y, theta)
+    return float(center[0]), float(center[1]), radius_x, radius_y, theta, residuals
+
+
+def fit_ellipse_center(spot_positions: List[Dict[str, float]]) -> Optional[Dict[str, float]]:
+    """
+    Estimate pattern center by fitting an ellipse to detected spot positions.
+
+    Returns center, approximate errors, ellipse axes and angle for downstream
+    corrected-radius computation.
+    """
+    if len(spot_positions) < 3:
+        return None
+
+    pts = np.array([[p["center_x"], p["center_y"]] for p in spot_positions], dtype=np.float64)
+    pts = pts[np.all(np.isfinite(pts), axis=1)]
+    if pts.shape[0] < 3:
+        return None
+
+    center_x = center_y = radius_x = radius_y = theta = None
+    residuals = None
+
+    # Primary method: direct geometric ellipse model.
+    if pts.shape[0] >= 5:
+        model = EllipseModel()
+        ok = model.estimate(pts)
+        if ok and model.params is not None:
+            xc, yc, a, b, theta0 = model.params
+            if np.isfinite(xc) and np.isfinite(yc) and np.isfinite(a) and np.isfinite(b) and a > 0 and b > 0:
+                center_x = float(xc)
+                center_y = float(yc)
+                radius_x = float(a)
+                radius_y = float(b)
+                theta = float(theta0)
+                residuals = _ellipse_residuals_px(pts, center_x, center_y, radius_x, radius_y, theta)
+
+                # Robust refinement on inliers.
+                if residuals.size >= 5:
+                    med = float(np.median(residuals))
+                    mad = float(np.median(np.abs(residuals - med)))
+                    thr = med + max(1.5, 2.5 * mad)
+                    inliers = residuals <= thr
+                    if np.count_nonzero(inliers) >= 5 and np.count_nonzero(inliers) < pts.shape[0]:
+                        refined = EllipseModel()
+                        if refined.estimate(pts[inliers]) and refined.params is not None:
+                            xc, yc, a, b, theta0 = refined.params
+                            if np.isfinite(xc) and np.isfinite(yc) and np.isfinite(a) and np.isfinite(b) and a > 0 and b > 0:
+                                center_x = float(xc)
+                                center_y = float(yc)
+                                radius_x = float(a)
+                                radius_y = float(b)
+                                theta = float(theta0)
+                                residuals = _ellipse_residuals_px(pts[inliers], center_x, center_y, radius_x, radius_y, theta)
+
+    # Fallback for degenerate/insufficient geometric fit.
+    if center_x is None or center_y is None or radius_x is None or radius_y is None or theta is None:
+        fallback = _fit_ellipse_by_moments(pts)
+        if fallback is None:
+            return None
+        center_x, center_y, radius_x, radius_y, theta, residuals = fallback
+
+    # Ensure major/minor axis ordering.
+    if radius_y > radius_x:
+        radius_x, radius_y = radius_y, radius_x
+        theta += np.pi / 2.0
+
+    # Normalize angle to [-pi, pi].
+    theta = (theta + np.pi) % (2.0 * np.pi) - np.pi
+
+    # Approximate center uncertainty from residual scatter.
+    if residuals is None or residuals.size == 0:
+        center_err = 0.0
+    else:
+        center_err = float(np.std(residuals) / np.sqrt(max(residuals.size, 1)))
+
+    return {
+        "center_x": float(center_x),
+        "center_y": float(center_y),
+        "error_x": float(center_err),
+        "error_y": float(center_err),
+        "radius_x": float(radius_x),
+        "radius_y": float(radius_y),
+        "angle_deg": float(np.degrees(theta)),
+        "radius_scale_px": float(np.sqrt(max(radius_x * radius_y, 1e-9))),
     }
     
 def find_pattern_center(spot_positions: List[Dict[str, float]], num_iterations: int = 100, threshold: float = 15.0) -> Optional[Dict[str, float]]:

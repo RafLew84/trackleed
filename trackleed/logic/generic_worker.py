@@ -1,5 +1,6 @@
 # stal/logic/generic_worker.py
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
+import traceback
 
 class GenericWorker(QObject):
     """A generic worker to run any function in a background thread."""
@@ -21,4 +22,5 @@ class GenericWorker(QObject):
             result = self.function(*self.args, **self.kwargs)
             self.finished.emit(result)
         except Exception as e:
-            self.error.emit(str(e))
+            tb = traceback.format_exc()
+            self.error.emit(f"{e}\n\n{tb}")
