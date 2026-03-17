@@ -6,7 +6,8 @@ from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRect, QThread
 from PyQt6.QtGui import QImage, QPixmap, QActionGroup, QAction
 from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QSplitter,
                              QLabel, QTableWidget, QAbstractItemView, QTableWidgetItem, QDialogButtonBox,
-                             QHeaderView, QPushButton, QMessageBox, QToolBar, QMenu, QMessageBox, QProgressDialog)
+                             QHeaderView, QPushButton, QMessageBox, QToolBar, QMenu, QMessageBox, QProgressDialog,
+                             QComboBox)
 
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
@@ -76,6 +77,9 @@ class TrackingDialog(QDialog):
         self.tracks_table = QTableWidget()
         self.plot_widget = QLabel("Plot Area Placeholder")
         self.plot_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.roi_transparency_combo = QComboBox()
+        self.show_selected_track_only_button = QPushButton("Hide Other BBoxes")
+        self.show_selected_track_only_button.setCheckable(True)
 
         self.add_track_button = QPushButton("Add New Track")
         self.add_track_button.clicked.connect(self.enter_add_new_track_mode)
@@ -85,8 +89,15 @@ class TrackingDialog(QDialog):
         self.merge_tracks_button = QPushButton("Merge Selected Tracks")
         self.merge_tracks_button.setToolTip("Select two tracks to merge them into one timeline.")
         self.merge_tracks_button.clicked.connect(self.merge_selected_tracks)
+        self._init_visual_controls()
+        view_controls_layout = QHBoxLayout()
+        view_controls_layout.addWidget(QLabel("BBox transparency:"))
+        view_controls_layout.addWidget(self.roi_transparency_combo)
+        view_controls_layout.addStretch(1)
+        right_layout.addLayout(view_controls_layout)
         right_layout.addWidget(QLabel("Found Tracks:"))
         right_layout.addWidget(self.tracks_table)
+        right_layout.addWidget(self.show_selected_track_only_button)
         right_layout.addWidget(self.delete_track_button)
         right_layout.insertWidget(3, self.merge_tracks_button)
         right_layout.insertWidget(3, self.add_track_button)
@@ -180,9 +191,79 @@ class TrackingDialog(QDialog):
         self.play_button.clicked.connect(self.toggle_animation)
         self.controls_layout.insertWidget(0, self.play_button) 
 
+    def _init_visual_controls(self):
+        """Initialize controls related to ROI visibility in the tracking viewer."""
+        for percent in range(0, 101, 10):
+            self.roi_transparency_combo.addItem(f"{percent}%", percent)
+        self.roi_transparency_combo.setCurrentIndex(0)
+        self.roi_transparency_combo.currentIndexChanged.connect(self.on_roi_transparency_changed)
+        self.roi_transparency_combo.setToolTip(
+            "Adjust ROI/bbox transparency in the tracking viewer."
+        )
+
+        self.show_selected_track_only_button.clicked.connect(self.toggle_selected_track_only)
+        self.show_selected_track_only_button.setShortcut("H")
+        self.show_selected_track_only_button.setToolTip(
+            "When enabled, show only the ROI belonging to the currently selected track. Shortcut: H"
+        )
+        self._update_track_filter_button_text()
+
     def enter_add_new_track_mode(self):
         """Switches the viewer to the mode for adding a new track."""
         self.image_viewer.set_mode('ADD_NEW_TRACK')
+
+    def on_roi_transparency_changed(self, index: int):
+        """Apply ROI transparency selected in the dropdown."""
+        percent = self.roi_transparency_combo.itemData(index)
+        if percent is None:
+            percent = 0
+        self.image_viewer.set_roi_transparency_percent(float(percent))
+
+    def toggle_selected_track_only(self, checked: bool):
+        """Toggle ROI visibility between all tracks and only the selected track."""
+        self._update_track_filter_button_text()
+        self.refresh_current_frame()
+
+    def _update_track_filter_button_text(self):
+        if self.show_selected_track_only_button.isChecked():
+            self.show_selected_track_only_button.setText("Show All BBoxes")
+        else:
+            self.show_selected_track_only_button.setText("Hide Other BBoxes")
+
+    def refresh_current_frame(self):
+        """Re-render the currently displayed frame using the active view settings."""
+        if not self.sorted_frame_ids:
+            return
+        slider_index = self.frame_slider.value()
+        if not (0 <= slider_index < len(self.sorted_frame_ids)):
+            return
+        self.show_frame(self.sorted_frame_ids[slider_index])
+
+    def get_selected_track(self) -> Track | None:
+        """Return the track associated with the current table row."""
+        current_row = self.tracks_table.currentRow()
+        if current_row < 0:
+            return None
+
+        id_item = self.tracks_table.item(current_row, 0)
+        if not id_item:
+            return None
+
+        track_id = int(id_item.text())
+        return next((t for t in self.tracks if t.track_id == track_id), None)
+
+    def _get_spots_to_display_for_frame(self, frame_id: int) -> List[SpotROI]:
+        """Build the ROI list for the current frame, honoring the selected-track filter."""
+        selected_track = self.get_selected_track()
+        if self.show_selected_track_only_button.isChecked() and selected_track is not None:
+            spot = selected_track.spots_by_image_id.get(frame_id)
+            return [spot] if spot is not None else []
+
+        spots_in_frame = []
+        for track in self.tracks:
+            if frame_id in track.spots_by_image_id:
+                spots_in_frame.append(track.spots_by_image_id[frame_id])
+        return spots_in_frame
 
     def handle_add_new_track(self, scene_pos: QPointF):
         """Creates a new track and initiates tracking from the user's click."""
@@ -512,6 +593,8 @@ class TrackingDialog(QDialog):
 
     def on_track_selected(self):
         """Handles the table selection change by updating all highlights."""
+        if self.show_selected_track_only_button.isChecked():
+            self.refresh_current_frame()
         self._update_highlights()
 
     def _update_highlights(self):
@@ -519,35 +602,24 @@ class TrackingDialog(QDialog):
         Helper method to apply highlights to the viewer based on the current table selection.
         This should be called whenever the view or selection changes.
         """
-        current_row = self.tracks_table.currentRow()
-        if current_row < 0:
+        selected_track = self.get_selected_track()
+        if selected_track is None:
             self.image_viewer.highlight_roi(None)
             self.image_viewer.show_track_path(None)
             return
-
-        id_item = self.tracks_table.item(current_row, 0)
-        if not id_item: return
-        track_id = int(id_item.text())
-        
-        selected_track = next((t for t in self.tracks if t.track_id == track_id), None)
-        
         self.image_viewer.show_track_path(selected_track)
         
-        if selected_track:
-            # 1. Get the current SLIDER INDEX
-            slider_index = self.frame_slider.value()
-
-            # 2. Translate the INDEX to the actual FRAME ID
-            if not (0 <= slider_index < len(self.sorted_frame_ids)):
-                return
-            current_frame_id = self.sorted_frame_ids[slider_index]
-            
-            # 3. Now use the correct frame_id to find the spot
-            if current_frame_id in selected_track.spots_by_image_id:
-                spot_id_to_highlight = selected_track.spots_by_image_id[current_frame_id].id
-                self.image_viewer.highlight_roi(spot_id_to_highlight)
-            else:
-                self.image_viewer.highlight_roi(None)
+        # 1. Get the current SLIDER INDEX
+        slider_index = self.frame_slider.value()
+        # 2. Translate the INDEX to the actual FRAME ID
+        if not (0 <= slider_index < len(self.sorted_frame_ids)):
+            return
+        current_frame_id = self.sorted_frame_ids[slider_index]
+        
+        # 3. Now use the correct frame_id to find the spot
+        if current_frame_id in selected_track.spots_by_image_id:
+            spot_id_to_highlight = selected_track.spots_by_image_id[current_frame_id].id
+            self.image_viewer.highlight_roi(spot_id_to_highlight)
         else:
             self.image_viewer.highlight_roi(None)
 
@@ -560,13 +632,8 @@ class TrackingDialog(QDialog):
         pixmap = self._convert_numpy_to_pixmap(image_data)
         self.image_viewer.set_image(pixmap, fit=fit)
 
-        spots_in_frame = []
-        for track in self.tracks:
-            if frame_id in track.spots_by_image_id:
-                spots_in_frame.append(track.spots_by_image_id[frame_id])
-
         self.image_viewer.update_masks(self.masks)
-        self.image_viewer.update_rois(spots_in_frame)
+        self.image_viewer.update_rois(self._get_spots_to_display_for_frame(frame_id))
 
         self._update_highlights()
 
