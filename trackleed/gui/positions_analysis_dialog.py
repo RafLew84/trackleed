@@ -1,6 +1,8 @@
 # stal/gui/positions_analysis_dialog.py
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import Event
 from typing import Dict, List
 
@@ -14,6 +16,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -53,6 +56,10 @@ import matplotlib
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+
+
+POSITIONS_SESSION_TYPE = "trackleed_positions_analysis_session"
+POSITIONS_SESSION_VERSION = 1
 
 
 @dataclass
@@ -223,6 +230,8 @@ class PositionsAnalysisDialog(QDialog):
         self.validation_config: dict = normalize_validation_config(DEFAULT_VALIDATION_CONFIG)
         self.manual_bbox_corrections: dict[tuple[int, int], dict] = {}
         self.pending_manual_recompute: set[tuple[int, int]] = set()
+        self.original_roi_rects: dict[tuple[int, int], QRect] = self._capture_original_roi_rects()
+        self.positions_session_path: Path | None = None
         self._bbox_scale_reference: dict | None = None
         self.current_frame_id: int | None = None
         self.current_frame_image_data = None
@@ -589,6 +598,20 @@ class PositionsAnalysisDialog(QDialog):
         status_layout = QFormLayout(status_group)
         status_layout.addRow("Loaded tracks:", QLabel(str(len(self.tracks))))
         status_layout.addRow("Loaded frames:", QLabel(str(len(self.sorted_frame_ids))))
+        self.positions_session_status_label = QLabel("No Analyze Positions session loaded.")
+        self.positions_session_status_label.setWordWrap(True)
+        status_layout.addRow("Session status:", self.positions_session_status_label)
+
+        session_buttons_widget = QWidget()
+        session_buttons_layout = QHBoxLayout(session_buttons_widget)
+        session_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.save_positions_session_button = QPushButton("Save Session")
+        self.save_positions_session_button.clicked.connect(self._save_positions_session)
+        self.load_positions_session_button = QPushButton("Load Session")
+        self.load_positions_session_button.clicked.connect(self._load_positions_session)
+        session_buttons_layout.addWidget(self.save_positions_session_button)
+        session_buttons_layout.addWidget(self.load_positions_session_button)
+        status_layout.addRow(session_buttons_widget)
         content_layout.addWidget(status_group)
         content_layout.addStretch(1)
 
@@ -612,7 +635,15 @@ class PositionsAnalysisDialog(QDialog):
         )
         self._sync_resize_range_controls()
         self._update_manual_correction_label()
+        self._update_positions_session_status()
         self._refresh_gauss_preview()
+
+    def _capture_original_roi_rects(self) -> dict[tuple[int, int], QRect]:
+        original_rects: dict[tuple[int, int], QRect] = {}
+        for track in self.tracks:
+            for frame_id, spot in track.spots_by_image_id.items():
+                original_rects[(frame_id, track.track_id)] = QRect(spot.roi_rect)
+        return original_rects
 
     def _toggle_move_bbox_mode(self, enabled: bool):
         if enabled and self.change_bbox_size_button.isChecked():
@@ -738,6 +769,567 @@ class PositionsAnalysisDialog(QDialog):
         self._refresh_gauss_preview()
         self._update_track_overlay()
         self._update_manual_correction_label()
+
+    def _save_positions_session(self):
+        suggested_path = (
+            str(self.positions_session_path)
+            if self.positions_session_path is not None
+            else "positions_analysis_session.positions.json"
+        )
+        filepath, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Analyze Positions Session",
+            suggested_path,
+            "Positions Session (*.positions.json *.json)",
+        )
+        if not filepath:
+            return
+
+        session_path = self._normalize_positions_session_path(filepath)
+        session_payload = self._serialize_positions_session()
+        try:
+            with session_path.open("w", encoding="utf-8") as handle:
+                json.dump(
+                    session_payload,
+                    handle,
+                    indent=2,
+                    ensure_ascii=True,
+                    allow_nan=True,
+                )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Save Session Failed",
+                f"Could not save Analyze Positions session:\n{exc}",
+            )
+            return
+
+        self.positions_session_path = session_path
+        self._update_positions_session_status()
+        QMessageBox.information(
+            self,
+            "Session Saved",
+            f"Analyze Positions session saved to:\n{session_path}",
+        )
+
+    def _load_positions_session(self):
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Analyze Positions Session",
+            str(self.positions_session_path) if self.positions_session_path is not None else "",
+            "Positions Session (*.positions.json *.json)",
+        )
+        if not filepath:
+            return
+
+        session_path = Path(filepath)
+        try:
+            with session_path.open("r", encoding="utf-8") as handle:
+                session_payload = json.load(handle)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Load Session Failed",
+                f"Could not load Analyze Positions session:\n{exc}",
+            )
+            return
+
+        try:
+            load_summary = self._apply_loaded_positions_session(session_payload, session_path)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Load Session Failed",
+                f"Could not apply Analyze Positions session:\n{exc}",
+            )
+            return
+
+        summary_lines = [
+            f"Groups restored: {load_summary['groups_loaded']}",
+            f"Manual bbox corrections restored: {load_summary['corrections_loaded']}",
+            f"Pending recomputes restored: {load_summary['pending_loaded']}",
+            "Analysis results: loaded" if load_summary["results_loaded"] else "Analysis results: not present",
+        ]
+        if load_summary["skipped_corrections"] > 0:
+            summary_lines.append(
+                f"Skipped corrections: {load_summary['skipped_corrections']}"
+            )
+        if load_summary["skipped_pending"] > 0:
+            summary_lines.append(
+                f"Skipped pending recomputes: {load_summary['skipped_pending']}"
+            )
+        QMessageBox.information(
+            self,
+            "Session Loaded",
+            "\n".join(summary_lines),
+        )
+
+    @staticmethod
+    def _normalize_positions_session_path(filepath: str | Path) -> Path:
+        path = Path(filepath)
+        if path.name.lower().endswith(".positions.json"):
+            return path
+        if path.suffix.lower() == ".json":
+            return path.with_name(f"{path.stem}.positions.json")
+        return Path(f"{path}.positions.json")
+
+    def _serialize_positions_session(self) -> dict:
+        return {
+            "type": POSITIONS_SESSION_TYPE,
+            "version": POSITIONS_SESSION_VERSION,
+            "groups": self._serialize_groups_for_analysis(),
+            "validation_config": self._json_safe_value(self.validation_config),
+            "manual_bbox_corrections": self._serialize_manual_bbox_corrections(),
+            "pending_manual_recompute": self._serialize_pending_manual_recompute(),
+            "positions_analysis_results": self._json_safe_value(self.positions_analysis_results),
+            "view_state": self._serialize_positions_view_state(),
+            "context": {
+                "frame_ids": list(self.sorted_frame_ids),
+                "track_ids": sorted(int(track_id) for track_id in self.track_map.keys()),
+            },
+        }
+
+    def _serialize_manual_bbox_corrections(self) -> list[dict]:
+        serialized: list[dict] = []
+        for (frame_id, track_id), rect_payload in sorted(self.manual_bbox_corrections.items()):
+            serialized.append(
+                {
+                    "frame_id": int(frame_id),
+                    "track_id": int(track_id),
+                    "x": int(rect_payload.get("x", 0)),
+                    "y": int(rect_payload.get("y", 0)),
+                    "width": int(rect_payload.get("width", 0)),
+                    "height": int(rect_payload.get("height", 0)),
+                }
+            )
+        return serialized
+
+    def _serialize_pending_manual_recompute(self) -> list[dict]:
+        serialized: list[dict] = []
+        for frame_id, track_id in sorted(self.pending_manual_recompute):
+            serialized.append(
+                {
+                    "frame_id": int(frame_id),
+                    "track_id": int(track_id),
+                }
+            )
+        return serialized
+
+    def _serialize_positions_view_state(self) -> dict:
+        return {
+            "current_frame_id": self._get_current_frame_id(),
+            "selected_track_id": self._get_selected_track().track_id if self._get_selected_track() else None,
+            "selected_group_id": self._get_selected_group().group_id if self._get_selected_group() else None,
+            "selected_satellite_track_id": self._get_selected_satellite_track_id(),
+            "x_axis": self.x_axis_combo.currentData(),
+            "bbox_transparency_percent": self.bbox_transparency_combo.currentData(),
+            "show_selected_pair_only": bool(self.show_selected_pair_only_checkbox.isChecked()),
+            "show_gauss_preview": bool(self.show_gauss_preview_checkbox.isChecked()),
+            "apply_size_to_end": bool(self.apply_size_to_end_checkbox.isChecked()),
+            "apply_size_until_frame": int(self.apply_size_until_spinbox.value()),
+            "move_bbox_mode": bool(self.move_bbox_button.isChecked()),
+            "change_bbox_size_mode": bool(self.change_bbox_size_button.isChecked()),
+        }
+
+    def _apply_loaded_positions_session(self, session_payload: dict, session_path: Path) -> dict:
+        if not isinstance(session_payload, dict):
+            raise ValueError("Session file does not contain a valid JSON object.")
+        session_type = session_payload.get("type")
+        if session_type not in (None, POSITIONS_SESSION_TYPE):
+            raise ValueError(f"Unsupported session type: {session_type}")
+
+        self.setUpdatesEnabled(False)
+        try:
+            self._restore_original_roi_rects()
+            self.manual_bbox_corrections.clear()
+            self.pending_manual_recompute.clear()
+            self.positions_analysis_results = None
+            self.positions_session_path = session_path
+
+            self.validation_config = normalize_validation_config(
+                session_payload.get("validation_config", DEFAULT_VALIDATION_CONFIG)
+            )
+
+            self.groups = self._deserialize_groups(
+                session_payload.get("groups", [])
+            )
+            self._group_counter = max(
+                (group.group_id for group in self.groups),
+                default=0,
+            )
+            self._populate_groups_list()
+
+            corrections_loaded, skipped_corrections = self._apply_manual_bbox_corrections_from_session(
+                session_payload.get("manual_bbox_corrections", [])
+            )
+            pending_loaded, skipped_pending = self._restore_pending_manual_recompute(
+                session_payload.get("pending_manual_recompute", [])
+            )
+
+            loaded_results = self._deserialize_positions_analysis_results(
+                session_payload.get("positions_analysis_results")
+            )
+            self.positions_analysis_results = loaded_results
+            if self.positions_analysis_results:
+                self._refresh_positions_analysis_summary()
+                self.analysis_summary_label.setText(
+                    self._format_analysis_summary(self.positions_analysis_results)
+                )
+            else:
+                self.analysis_summary_label.setText("No positions analysis results yet.")
+
+            self._restore_positions_view_state(session_payload.get("view_state", {}))
+            self._update_positions_session_status()
+            self._refresh_group_details()
+            self._refresh_results_views()
+            self._update_track_overlay()
+            self._update_manual_correction_label()
+            self._refresh_gauss_preview()
+        finally:
+            self.setUpdatesEnabled(True)
+
+        return {
+            "groups_loaded": len(self.groups),
+            "corrections_loaded": corrections_loaded,
+            "pending_loaded": pending_loaded,
+            "results_loaded": bool(self.positions_analysis_results),
+            "skipped_corrections": skipped_corrections,
+            "skipped_pending": skipped_pending,
+        }
+
+    def _deserialize_groups(self, raw_groups) -> list[PositionsAnalysisGroup]:
+        deserialized: list[PositionsAnalysisGroup] = []
+        if not isinstance(raw_groups, list):
+            return deserialized
+
+        for raw_group in raw_groups:
+            if not isinstance(raw_group, dict):
+                continue
+            try:
+                group_id = int(raw_group.get("group_id"))
+            except Exception:
+                continue
+
+            name = str(raw_group.get("name", f"Group {group_id}"))
+            reference_track_id = raw_group.get("reference_track_id")
+            try:
+                reference_track_id = (
+                    int(reference_track_id) if reference_track_id is not None else None
+                )
+            except Exception:
+                reference_track_id = None
+
+            if reference_track_id is not None and reference_track_id not in self.track_map:
+                reference_track_id = None
+
+            satellite_track_ids: list[int] = []
+            for raw_track_id in raw_group.get("satellite_track_ids", []):
+                try:
+                    track_id = int(raw_track_id)
+                except Exception:
+                    continue
+                if track_id not in self.track_map:
+                    continue
+                if reference_track_id is not None and track_id == reference_track_id:
+                    continue
+                if track_id not in satellite_track_ids:
+                    satellite_track_ids.append(track_id)
+
+            deserialized.append(
+                PositionsAnalysisGroup(
+                    group_id=group_id,
+                    name=name,
+                    reference_track_id=reference_track_id,
+                    satellite_track_ids=satellite_track_ids,
+                )
+            )
+
+        return deserialized
+
+    def _restore_original_roi_rects(self):
+        for (frame_id, track_id), rect in self.original_roi_rects.items():
+            track = self.track_map.get(track_id)
+            if track is None:
+                continue
+            spot = track.spots_by_image_id.get(frame_id)
+            if spot is None:
+                continue
+            spot.roi_rect = QRect(rect)
+
+    def _apply_manual_bbox_corrections_from_session(self, raw_entries) -> tuple[int, int]:
+        loaded_count = 0
+        skipped_count = 0
+        if not isinstance(raw_entries, list):
+            return loaded_count, skipped_count
+
+        for entry in raw_entries:
+            if not isinstance(entry, dict):
+                skipped_count += 1
+                continue
+            try:
+                frame_id = int(entry.get("frame_id"))
+                track_id = int(entry.get("track_id"))
+                x = int(entry.get("x"))
+                y = int(entry.get("y"))
+                width = int(entry.get("width"))
+                height = int(entry.get("height"))
+            except Exception:
+                skipped_count += 1
+                continue
+
+            track = self.track_map.get(track_id)
+            if track is None or frame_id not in track.spots_by_image_id:
+                skipped_count += 1
+                continue
+
+            if width <= 0 or height <= 0:
+                skipped_count += 1
+                continue
+
+            rect = QRect(x, y, width, height)
+            spot = track.spots_by_image_id[frame_id]
+            spot.roi_rect = QRect(rect)
+            self.manual_bbox_corrections[(frame_id, track_id)] = {
+                "x": int(rect.x()),
+                "y": int(rect.y()),
+                "width": int(rect.width()),
+                "height": int(rect.height()),
+            }
+            loaded_count += 1
+
+        return loaded_count, skipped_count
+
+    def _restore_pending_manual_recompute(self, raw_entries) -> tuple[int, int]:
+        loaded_count = 0
+        skipped_count = 0
+        pending: set[tuple[int, int]] = set()
+        if isinstance(raw_entries, list):
+            for entry in raw_entries:
+                if not isinstance(entry, dict):
+                    skipped_count += 1
+                    continue
+                try:
+                    frame_id = int(entry.get("frame_id"))
+                    track_id = int(entry.get("track_id"))
+                except Exception:
+                    skipped_count += 1
+                    continue
+                if (frame_id, track_id) not in self.manual_bbox_corrections:
+                    skipped_count += 1
+                    continue
+                pending.add((frame_id, track_id))
+                loaded_count += 1
+        self.pending_manual_recompute = pending
+        return loaded_count, skipped_count
+
+    def _deserialize_positions_analysis_results(self, raw_results) -> dict | None:
+        if not isinstance(raw_results, dict):
+            return None
+
+        valid_frame_ids = set(self.sorted_frame_ids)
+        valid_track_ids = set(self.track_map.keys())
+        valid_group_ids = {group.group_id for group in self.groups}
+
+        fit_points_by_frame: dict[int, dict[int, dict]] = {}
+        raw_fit_points = raw_results.get("fit_points_by_frame", {})
+        if isinstance(raw_fit_points, dict):
+            for raw_frame_id, frame_payload in raw_fit_points.items():
+                try:
+                    frame_id = int(raw_frame_id)
+                except Exception:
+                    continue
+                if frame_id not in valid_frame_ids or not isinstance(frame_payload, dict):
+                    continue
+
+                normalized_frame_payload: dict[int, dict] = {}
+                for raw_track_id, fit_payload in frame_payload.items():
+                    try:
+                        track_id = int(raw_track_id)
+                    except Exception:
+                        continue
+                    if track_id not in valid_track_ids or not isinstance(fit_payload, dict):
+                        continue
+                    normalized_frame_payload[track_id] = fit_payload
+
+                if normalized_frame_payload:
+                    fit_points_by_frame[frame_id] = normalized_frame_payload
+
+        rows: list[dict] = []
+        raw_rows = raw_results.get("rows", [])
+        if isinstance(raw_rows, list):
+            for raw_row in raw_rows:
+                if not isinstance(raw_row, dict):
+                    continue
+                try:
+                    frame_id = int(raw_row.get("frame_id"))
+                    group_id = int(raw_row.get("group_id"))
+                    reference_track_id = int(raw_row.get("reference_track_id"))
+                    satellite_track_id = int(raw_row.get("satellite_track_id"))
+                except Exception:
+                    continue
+
+                if frame_id not in valid_frame_ids:
+                    continue
+                if group_id not in valid_group_ids:
+                    continue
+                if reference_track_id not in valid_track_ids or satellite_track_id not in valid_track_ids:
+                    continue
+                rows.append(dict(raw_row))
+
+        results = {
+            "groups": self._serialize_groups_for_analysis(),
+            "rows": rows,
+            "fit_points_by_frame": fit_points_by_frame,
+            "summary": dict(raw_results.get("summary", {})),
+            "validation_config": normalize_validation_config(
+                raw_results.get("validation_config", self.validation_config)
+            ),
+        }
+        return results
+
+    def _restore_positions_view_state(self, raw_view_state):
+        if not isinstance(raw_view_state, dict):
+            raw_view_state = {}
+
+        transparency = raw_view_state.get(
+            "bbox_transparency_percent",
+            self.bbox_transparency_combo.currentData(),
+        )
+        transparency_index = self.bbox_transparency_combo.findData(transparency)
+        if transparency_index >= 0:
+            self.bbox_transparency_combo.setCurrentIndex(transparency_index)
+
+        x_axis = raw_view_state.get("x_axis", self.x_axis_combo.currentData())
+        x_axis_index = self.x_axis_combo.findData(x_axis)
+        if x_axis_index >= 0:
+            self.x_axis_combo.setCurrentIndex(x_axis_index)
+
+        self.show_selected_pair_only_checkbox.setChecked(
+            bool(raw_view_state.get("show_selected_pair_only", False))
+        )
+        self.show_gauss_preview_checkbox.setChecked(
+            bool(raw_view_state.get("show_gauss_preview", False))
+        )
+        self.apply_size_to_end_checkbox.setChecked(
+            bool(raw_view_state.get("apply_size_to_end", True))
+        )
+
+        current_frame_id = self._coerce_int(raw_view_state.get("current_frame_id"))
+        if current_frame_id is not None:
+            self._set_current_frame_by_id(current_frame_id)
+        else:
+            self._set_current_frame_by_id(self.sorted_frame_ids[0] if self.sorted_frame_ids else None)
+
+        target_frame_id = self._coerce_int(raw_view_state.get("apply_size_until_frame"))
+        if target_frame_id is not None and self.sorted_frame_ids:
+            clamped_target = int(
+                np.clip(target_frame_id, self.apply_size_until_spinbox.minimum(), self.apply_size_until_spinbox.maximum())
+            )
+            self.apply_size_until_spinbox.setValue(clamped_target)
+
+        selected_track_id = self._coerce_int(raw_view_state.get("selected_track_id"))
+        if selected_track_id is not None:
+            self._select_track_by_id(selected_track_id)
+        elif self.tracks_table.rowCount() > 0:
+            self.tracks_table.selectRow(0)
+
+        selected_group_id = self._coerce_int(raw_view_state.get("selected_group_id"))
+        if selected_group_id is not None:
+            self._select_group_by_id(selected_group_id)
+        elif self.groups_list.count() > 0:
+            self.groups_list.setCurrentRow(0)
+
+        selected_satellite_track_id = self._coerce_int(
+            raw_view_state.get("selected_satellite_track_id")
+        )
+        if selected_satellite_track_id is not None:
+            self._select_satellite_by_track_id(selected_satellite_track_id)
+
+        move_mode = bool(raw_view_state.get("move_bbox_mode", False))
+        resize_mode = bool(raw_view_state.get("change_bbox_size_mode", False))
+        if resize_mode:
+            self.change_bbox_size_button.setChecked(True)
+        elif move_mode:
+            self.move_bbox_button.setChecked(True)
+        else:
+            self.move_bbox_button.setChecked(False)
+            self.change_bbox_size_button.setChecked(False)
+
+    def _update_positions_session_status(self):
+        session_path_text = (
+            str(self.positions_session_path)
+            if self.positions_session_path is not None
+            else "No Analyze Positions session loaded."
+        )
+        if self.positions_session_path is not None:
+            status_text = (
+                f"{self.positions_session_path.name}\n"
+                f"Groups: {len(self.groups)} | "
+                f"Corrections: {len(self.manual_bbox_corrections)} | "
+                f"Results: {'yes' if self.positions_analysis_results else 'no'}"
+            )
+            self.positions_session_status_label.setToolTip(session_path_text)
+        else:
+            status_text = session_path_text
+            self.positions_session_status_label.setToolTip("")
+        self.positions_session_status_label.setText(status_text)
+
+    @staticmethod
+    def _json_safe_value(value):
+        if isinstance(value, dict):
+            return {str(key): PositionsAnalysisDialog._json_safe_value(val) for key, val in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [PositionsAnalysisDialog._json_safe_value(item) for item in value]
+        if isinstance(value, np.ndarray):
+            return PositionsAnalysisDialog._json_safe_value(value.tolist())
+        if isinstance(value, (np.integer,)):
+            return int(value)
+        if isinstance(value, (np.floating, float)):
+            return float(value)
+        if isinstance(value, (np.bool_,)):
+            return bool(value)
+        if isinstance(value, QRect):
+            return {
+                "x": int(value.x()),
+                "y": int(value.y()),
+                "width": int(value.width()),
+                "height": int(value.height()),
+            }
+        if isinstance(value, Path):
+            return str(value)
+        return value
+
+    @staticmethod
+    def _coerce_int(value) -> int | None:
+        try:
+            return int(value) if value is not None else None
+        except Exception:
+            return None
+
+    def _set_current_frame_by_id(self, frame_id: int | None):
+        if frame_id is None or frame_id not in self.sorted_frame_ids:
+            return
+        frame_index = self.sorted_frame_ids.index(frame_id)
+        self.frame_slider.setValue(frame_index)
+
+    def _select_group_by_id(self, group_id: int):
+        for row, group in enumerate(self.groups):
+            if group.group_id == group_id:
+                self.groups_list.setCurrentRow(row)
+                return
+
+    def _select_satellite_by_track_id(self, track_id: int):
+        for row in range(self.satellites_list.count()):
+            item = self.satellites_list.item(row)
+            if item is None:
+                continue
+            data = item.data(Qt.ItemDataRole.UserRole)
+            try:
+                if int(data) == int(track_id):
+                    self.satellites_list.setCurrentRow(row)
+                    return
+            except Exception:
+                continue
 
     def _sync_resize_range_controls(self, _checked=None):
         if not hasattr(self, "apply_size_until_spinbox"):
@@ -1121,6 +1713,7 @@ class PositionsAnalysisDialog(QDialog):
             self._set_bbox_scale_slider_value(100)
 
         self._update_frame_rois(frame_id)
+        self._update_positions_session_status()
         self._update_manual_correction_label()
         self._update_track_overlay()
         self._refresh_gauss_preview()
@@ -1421,6 +2014,7 @@ class PositionsAnalysisDialog(QDialog):
             self._update_frame_rois(current_frame_id)
             self._update_track_overlay()
             self._refresh_gauss_preview()
+        self._update_positions_session_status()
         self._update_manual_correction_label()
 
         QMessageBox.information(
@@ -1818,6 +2412,7 @@ class PositionsAnalysisDialog(QDialog):
         if frame_id is not None:
             self._update_frame_rois(frame_id)
         self._update_positions_overlay()
+        self._update_positions_session_status()
         self._update_manual_correction_label()
         self._refresh_gauss_preview()
 
