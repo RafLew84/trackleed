@@ -5,24 +5,29 @@ from threading import Event
 from typing import Dict, List
 
 import numpy as np
-from PyQt6.QtCore import QRectF, Qt, QThread
-from PyQt6.QtGui import QColor, QImage, QPixmap
+from PyQt6.QtCore import QRect, QRectF, Qt, QThread
+from PyQt6.QtGui import QAction, QColor, QImage, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QCheckBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
+    QMenuBar,
     QMessageBox,
     QPushButton,
     QProgressDialog,
     QComboBox,
+    QSpinBox,
     QSlider,
     QSplitter,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -36,8 +41,10 @@ from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, gaussian_2d
 from trackleed.io.image_reader import load_tiff
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.positions_analysis_coordinator import (
+    DEFAULT_VALIDATION_CONFIG,
     fit_track_position_on_frame,
     is_fit_valid,
+    normalize_validation_config,
     prepare_roi_for_fit,
     run_positions_analysis,
 )
@@ -70,6 +77,110 @@ class GaussPreviewCanvas(FigureCanvas):
         self.axes_fit = self.fig.add_subplot(132)
         self.axes_residual = self.fig.add_subplot(133)
         super().__init__(self.fig)
+
+
+class ValidationPropertiesDialog(QDialog):
+    def __init__(self, validation_config: dict, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Validation Properties")
+        self.setModal(True)
+        self.setMinimumWidth(420)
+
+        config = normalize_validation_config(validation_config)
+
+        layout = QVBoxLayout(self)
+        description = QLabel(
+            "Adjust validation thresholds used to accept or reject 2D Gaussian fits. "
+            "The new settings will be used by the next Run Positions Analysis and local recompute operations."
+        )
+        description.setWordWrap(True)
+        layout.addWidget(description)
+
+        form = QFormLayout()
+
+        self.min_r_squared_spin = QDoubleSpinBox()
+        self.min_r_squared_spin.setRange(0.0, 1.0)
+        self.min_r_squared_spin.setSingleStep(0.01)
+        self.min_r_squared_spin.setDecimals(3)
+        self.min_r_squared_spin.setValue(config["min_r_squared"])
+        form.addRow("Min R²:", self.min_r_squared_spin)
+
+        self.min_amplitude_spin = QDoubleSpinBox()
+        self.min_amplitude_spin.setRange(0.0, 1000.0)
+        self.min_amplitude_spin.setSingleStep(0.01)
+        self.min_amplitude_spin.setDecimals(3)
+        self.min_amplitude_spin.setValue(config["min_amplitude"])
+        form.addRow("Min amplitude:", self.min_amplitude_spin)
+
+        self.center_margin_spin = QDoubleSpinBox()
+        self.center_margin_spin.setRange(0.0, 100.0)
+        self.center_margin_spin.setSingleStep(0.5)
+        self.center_margin_spin.setDecimals(2)
+        self.center_margin_spin.setValue(config["center_margin_px"])
+        form.addRow("Center margin (px):", self.center_margin_spin)
+
+        self.min_sigma_spin = QDoubleSpinBox()
+        self.min_sigma_spin.setRange(0.01, 100.0)
+        self.min_sigma_spin.setSingleStep(0.1)
+        self.min_sigma_spin.setDecimals(3)
+        self.min_sigma_spin.setValue(config["min_sigma_px"])
+        form.addRow("Min sigma (px):", self.min_sigma_spin)
+
+        self.max_sigma_factor_spin = QDoubleSpinBox()
+        self.max_sigma_factor_spin.setRange(0.01, 10.0)
+        self.max_sigma_factor_spin.setSingleStep(0.05)
+        self.max_sigma_factor_spin.setDecimals(3)
+        self.max_sigma_factor_spin.setValue(config["max_sigma_factor"])
+        form.addRow("Max sigma factor:", self.max_sigma_factor_spin)
+
+        self.center_preference_factor_spin = QDoubleSpinBox()
+        self.center_preference_factor_spin.setRange(0.0, 1.5)
+        self.center_preference_factor_spin.setSingleStep(0.05)
+        self.center_preference_factor_spin.setDecimals(3)
+        self.center_preference_factor_spin.setValue(config["center_preference_factor"])
+        self.center_preference_factor_spin.setToolTip(
+            "If > 0, the fit prefers a peak near the ROI center and constrains center drift around the ROI center. "
+            "Higher values allow more drift; 0 disables this behavior."
+        )
+        form.addRow("Center preference factor:", self.center_preference_factor_spin)
+
+        layout.addLayout(form)
+
+        self.reset_defaults_button = QPushButton("Reset Defaults")
+        self.reset_defaults_button.clicked.connect(self._reset_defaults)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addWidget(self.reset_defaults_button)
+        buttons_layout.addStretch(1)
+        buttons_layout.addWidget(button_box)
+        layout.addLayout(buttons_layout)
+
+    def _reset_defaults(self):
+        defaults = normalize_validation_config(DEFAULT_VALIDATION_CONFIG)
+        self.min_r_squared_spin.setValue(defaults["min_r_squared"])
+        self.min_amplitude_spin.setValue(defaults["min_amplitude"])
+        self.center_margin_spin.setValue(defaults["center_margin_px"])
+        self.min_sigma_spin.setValue(defaults["min_sigma_px"])
+        self.max_sigma_factor_spin.setValue(defaults["max_sigma_factor"])
+        self.center_preference_factor_spin.setValue(defaults["center_preference_factor"])
+
+    def get_validation_config(self) -> dict:
+        return normalize_validation_config(
+            {
+                "min_r_squared": self.min_r_squared_spin.value(),
+                "min_amplitude": self.min_amplitude_spin.value(),
+                "center_margin_px": self.center_margin_spin.value(),
+                "min_sigma_px": self.min_sigma_spin.value(),
+                "max_sigma_factor": self.max_sigma_factor_spin.value(),
+                "center_preference_factor": self.center_preference_factor_spin.value(),
+            }
+        )
 
 
 class PositionsAnalysisDialog(QDialog):
@@ -109,10 +220,13 @@ class PositionsAnalysisDialog(QDialog):
         self.groups: list[PositionsAnalysisGroup] = []
         self._group_counter = 0
         self.positions_analysis_results: dict | None = None
+        self.validation_config: dict = normalize_validation_config(DEFAULT_VALIDATION_CONFIG)
         self.manual_bbox_corrections: dict[tuple[int, int], dict] = {}
         self.pending_manual_recompute: set[tuple[int, int]] = set()
+        self._bbox_scale_reference: dict | None = None
         self.current_frame_id: int | None = None
         self.current_frame_image_data = None
+        self.frame_image_shape_cache: dict[int, tuple[int, int]] = {}
         self.worker_thread = None
         self.worker = None
         self.positions_analysis_cancel_event: Event | None = None
@@ -125,13 +239,20 @@ class PositionsAnalysisDialog(QDialog):
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
 
+        menu_bar = QMenuBar(self)
+        settings_menu = menu_bar.addMenu("Settings")
+        validation_action = QAction("Validation Properties", self)
+        validation_action.triggered.connect(self._show_validation_properties_dialog)
+        settings_menu.addAction(validation_action)
+        main_layout.setMenuBar(menu_bar)
+
         title_label = QLabel("Positions Analysis")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("font-size: 18px; font-weight: 600;")
         main_layout.addWidget(title_label)
 
         subtitle_label = QLabel(
-            "Stage 6A: tracks list, group definition, positions analysis, overlay preview, and live Gaussian fit preview."
+            "Positions relative to reference spots with manual correction, overlay preview, and live Gaussian fit inspection."
         )
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(subtitle_label)
@@ -310,6 +431,13 @@ class PositionsAnalysisDialog(QDialog):
         panel = QWidget()
         layout = QVBoxLayout(panel)
 
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+
         group_box = QGroupBox("Groups")
         group_layout = QVBoxLayout(group_box)
 
@@ -373,8 +501,31 @@ class PositionsAnalysisDialog(QDialog):
         self.move_bbox_button.setCheckable(True)
         self.move_bbox_button.toggled.connect(self._toggle_move_bbox_mode)
         self.move_bbox_button.setToolTip(
-            "Enable ROI editing in the preview. Drag to move. Use Shift + mouse wheel over ROI to resize. Changes affect only the current frame."
+            "Enable ROI moving in the preview. Drag inside ROI to move it. Changes affect only the current frame."
         )
+
+        self.change_bbox_size_button = QPushButton("Change BBox Size Mode")
+        self.change_bbox_size_button.setCheckable(True)
+        self.change_bbox_size_button.toggled.connect(self._toggle_change_bbox_size_mode)
+        self.change_bbox_size_button.setToolTip(
+            "Enable ROI size editing in the preview. Drag an edge or corner to resize. Shift + mouse wheel over ROI also resizes it. Changes affect only the current frame."
+        )
+
+        self.bbox_scale_slider = QSlider(Qt.Orientation.Horizontal)
+        self.bbox_scale_slider.setRange(25, 300)
+        self.bbox_scale_slider.setSingleStep(5)
+        self.bbox_scale_slider.setPageStep(10)
+        self.bbox_scale_slider.setValue(100)
+        self.bbox_scale_slider.valueChanged.connect(self._on_bbox_scale_slider_changed)
+        self.bbox_scale_slider.setEnabled(False)
+        self.bbox_scale_slider.setToolTip(
+            "Rescale the current bbox around its center. 100% means unchanged size."
+        )
+        self.bbox_scale_label = QLabel("BBox scale: 100%")
+
+        bbox_scale_layout = QVBoxLayout()
+        bbox_scale_layout.addWidget(self.bbox_scale_label)
+        bbox_scale_layout.addWidget(self.bbox_scale_slider)
 
         self.recompute_fit_button = QPushButton("Recompute 2D Gauss")
         self.recompute_fit_button.clicked.connect(self._recompute_selected_fit)
@@ -382,13 +533,47 @@ class PositionsAnalysisDialog(QDialog):
             "Recompute fit only for the selected track on the current frame."
         )
 
+        range_layout = QHBoxLayout()
+        range_layout.addWidget(QLabel("Apply size until frame:"))
+        self.apply_size_until_spinbox = QSpinBox()
+        if self.sorted_frame_ids:
+            self.apply_size_until_spinbox.setRange(
+                self.sorted_frame_ids[0], self.sorted_frame_ids[-1]
+            )
+            self.apply_size_until_spinbox.setValue(self.sorted_frame_ids[-1])
+        else:
+            self.apply_size_until_spinbox.setRange(0, 0)
+            self.apply_size_until_spinbox.setValue(0)
+        self.apply_size_to_end_checkbox = QCheckBox("To end")
+        self.apply_size_to_end_checkbox.setChecked(True)
+        self.apply_size_to_end_checkbox.toggled.connect(self._sync_resize_range_controls)
+        range_layout.addWidget(self.apply_size_until_spinbox, 1)
+        range_layout.addWidget(self.apply_size_to_end_checkbox)
+
+        self.apply_size_to_range_button = QPushButton("Apply BBox Size To Range")
+        self.apply_size_to_range_button.clicked.connect(self._apply_current_bbox_size_to_range)
+        self.apply_size_to_range_button.setToolTip(
+            "Apply the current bbox width/height from the current frame to a selected range while keeping each spot centered."
+        )
+
+        self.recompute_range_button = QPushButton("Batch Recompute Range")
+        self.recompute_range_button.clicked.connect(self._recompute_selected_fit_range)
+        self.recompute_range_button.setToolTip(
+            "Recompute 2D Gaussian fits for the selected track from the current frame to the chosen end frame or the end of the set."
+        )
+
         self.manual_correction_label = QLabel(
-            "Select a track and frame. Move its bbox if needed, then recompute the local fit."
+            "Select a track and frame. Move or resize its bbox if needed, then recompute the local fit or batch-recompute the selected range."
         )
         self.manual_correction_label.setWordWrap(True)
 
         correction_layout.addWidget(self.move_bbox_button)
+        correction_layout.addWidget(self.change_bbox_size_button)
+        correction_layout.addLayout(bbox_scale_layout)
         correction_layout.addWidget(self.recompute_fit_button)
+        correction_layout.addLayout(range_layout)
+        correction_layout.addWidget(self.apply_size_to_range_button)
+        correction_layout.addWidget(self.recompute_range_button)
         correction_layout.addWidget(self.manual_correction_label)
 
         group_layout.addWidget(self.groups_list)
@@ -398,14 +583,17 @@ class PositionsAnalysisDialog(QDialog):
         group_layout.addWidget(self.analysis_summary_label)
         group_layout.addWidget(details_group)
         group_layout.addWidget(correction_group)
-        layout.addWidget(group_box)
+        content_layout.addWidget(group_box)
 
         status_group = QGroupBox("Session")
         status_layout = QFormLayout(status_group)
         status_layout.addRow("Loaded tracks:", QLabel(str(len(self.tracks))))
         status_layout.addRow("Loaded frames:", QLabel(str(len(self.sorted_frame_ids))))
-        layout.addWidget(status_group)
-        layout.addStretch(1)
+        content_layout.addWidget(status_group)
+        content_layout.addStretch(1)
+
+        scroll_area.setWidget(content_widget)
+        layout.addWidget(scroll_area)
 
         return panel
 
@@ -422,13 +610,155 @@ class PositionsAnalysisDialog(QDialog):
         self.image_viewer.set_roi_transparency_percent(
             self.bbox_transparency_combo.currentData()
         )
+        self._sync_resize_range_controls()
         self._update_manual_correction_label()
         self._refresh_gauss_preview()
 
     def _toggle_move_bbox_mode(self, enabled: bool):
-        self.image_viewer.set_mode("MOVE_ROI" if enabled else "PAN")
+        if enabled and self.change_bbox_size_button.isChecked():
+            self.change_bbox_size_button.blockSignals(True)
+            self.change_bbox_size_button.setChecked(False)
+            self.change_bbox_size_button.blockSignals(False)
         self.move_bbox_button.setText("Move BBox Mode: ON" if enabled else "Move BBox Mode")
+        self._apply_roi_edit_mode()
+
+    def _toggle_change_bbox_size_mode(self, enabled: bool):
+        if enabled and self.move_bbox_button.isChecked():
+            self.move_bbox_button.blockSignals(True)
+            self.move_bbox_button.setChecked(False)
+            self.move_bbox_button.blockSignals(False)
+        self.change_bbox_size_button.setText(
+            "Change BBox Size Mode: ON" if enabled else "Change BBox Size Mode"
+        )
+        self._apply_roi_edit_mode()
+
+    def _apply_roi_edit_mode(self):
+        if self.move_bbox_button.isChecked():
+            self.image_viewer.set_mode("MOVE_ROI")
+        elif self.change_bbox_size_button.isChecked():
+            self.image_viewer.set_mode("RESIZE_ROI")
+        else:
+            self.image_viewer.set_mode("PAN")
+        self.bbox_scale_slider.setEnabled(self.change_bbox_size_button.isChecked())
+        if self.change_bbox_size_button.isChecked():
+            self._reset_bbox_scale_reference()
+        else:
+            self._bbox_scale_reference = None
+            self._set_bbox_scale_slider_value(100)
         self._update_manual_correction_label()
+
+    def _set_bbox_scale_slider_value(self, value: int):
+        self.bbox_scale_slider.blockSignals(True)
+        self.bbox_scale_slider.setValue(int(value))
+        self.bbox_scale_slider.blockSignals(False)
+        self.bbox_scale_label.setText(f"BBox scale: {int(value)}%")
+
+    def _reset_bbox_scale_reference(self):
+        track = self._get_selected_track()
+        frame_id = self._get_current_frame_id()
+        if track is None or frame_id is None:
+            self._bbox_scale_reference = None
+            self._set_bbox_scale_slider_value(100)
+            return
+
+        spot = track.spots_by_image_id.get(frame_id)
+        if spot is None:
+            self._bbox_scale_reference = None
+            self._set_bbox_scale_slider_value(100)
+            return
+
+        rect = QRect(spot.roi_rect)
+        self._bbox_scale_reference = {
+            "frame_id": frame_id,
+            "track_id": track.track_id,
+            "rect": rect,
+        }
+        self._set_bbox_scale_slider_value(100)
+
+    def _on_bbox_scale_slider_changed(self, value: int):
+        self.bbox_scale_label.setText(f"BBox scale: {int(value)}%")
+        if not self.change_bbox_size_button.isChecked():
+            return
+
+        track = self._get_selected_track()
+        frame_id = self._get_current_frame_id()
+        if track is None or frame_id is None:
+            return
+
+        spot = track.spots_by_image_id.get(frame_id)
+        if spot is None:
+            return
+
+        ref = self._bbox_scale_reference
+        if (
+            ref is None
+            or ref.get("frame_id") != frame_id
+            or ref.get("track_id") != track.track_id
+        ):
+            self._reset_bbox_scale_reference()
+            ref = self._bbox_scale_reference
+            if ref is None:
+                return
+
+        base_rect = QRect(ref["rect"])
+        scale = max(0.01, float(value) / 100.0)
+        desired_width = max(1, int(round(base_rect.width() * scale)))
+        desired_height = max(1, int(round(base_rect.height() * scale)))
+        center_point = base_rect.center()
+        new_rect = self._build_centered_rect_for_frame(
+            frame_id,
+            float(center_point.x()),
+            float(center_point.y()),
+            desired_width,
+            desired_height,
+        )
+        self._apply_manual_bbox_rect(
+            track,
+            frame_id,
+            spot,
+            new_rect,
+            refresh_scale_reference=False,
+        )
+
+    def _show_validation_properties_dialog(self):
+        dialog = ValidationPropertiesDialog(self.validation_config, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        self.validation_config = dialog.get_validation_config()
+        QMessageBox.information(
+            self,
+            "Validation Updated",
+            (
+                "Validation properties were updated.\n\n"
+                "Use Run Positions Analysis to recalculate all frames with the new settings. "
+                "Local recompute actions will also use the updated thresholds."
+            ),
+        )
+        self._refresh_gauss_preview()
+        self._update_track_overlay()
+        self._update_manual_correction_label()
+
+    def _sync_resize_range_controls(self, _checked=None):
+        if not hasattr(self, "apply_size_until_spinbox"):
+            return
+        if not self.sorted_frame_ids:
+            self.apply_size_until_spinbox.setEnabled(False)
+            return
+
+        current_frame_id = self._get_current_frame_id()
+        if current_frame_id is None:
+            current_frame_id = self.sorted_frame_ids[0]
+        last_frame_id = self.sorted_frame_ids[-1]
+
+        self.apply_size_until_spinbox.setRange(current_frame_id, last_frame_id)
+        if self.apply_size_to_end_checkbox.isChecked():
+            self.apply_size_until_spinbox.setValue(last_frame_id)
+            self.apply_size_until_spinbox.setEnabled(False)
+        else:
+            if self.apply_size_until_spinbox.value() < current_frame_id:
+                self.apply_size_until_spinbox.setValue(current_frame_id)
+            self.apply_size_until_spinbox.setEnabled(True)
 
     def _toggle_gauss_preview(self, enabled: bool):
         self.gauss_preview_group.setVisible(bool(enabled))
@@ -516,6 +846,8 @@ class PositionsAnalysisDialog(QDialog):
         return self.groups[row]
 
     def _on_track_selection_changed(self):
+        if self.change_bbox_size_button.isChecked():
+            self._reset_bbox_scale_reference()
         self._refresh_selected_track_label()
         self._update_track_overlay()
         self._refresh_gauss_preview()
@@ -528,6 +860,9 @@ class PositionsAnalysisDialog(QDialog):
         self.frame_label.setText(
             f"Frame {index + 1}/{len(self.sorted_frame_ids)} (ID: {frame_id})"
         )
+        if self.change_bbox_size_button.isChecked():
+            self._reset_bbox_scale_reference()
+        self._sync_resize_range_controls()
         self._update_manual_correction_label()
 
     def _show_frame(self, frame_id: int, fit: bool = False):
@@ -612,6 +947,7 @@ class PositionsAnalysisDialog(QDialog):
             self.tracks,
             valid_groups,
             self.all_files_map,
+            validation_config=self.validation_config,
             cancel_event=self.positions_analysis_cancel_event,
         )
         self._launch_positions_analysis_worker(worker)
@@ -676,6 +1012,9 @@ class PositionsAnalysisDialog(QDialog):
             return
 
         self.positions_analysis_results = results
+        self.validation_config = normalize_validation_config(
+            results.get("validation_config", self.validation_config)
+        )
         self.pending_manual_recompute.clear()
         self.analysis_summary_label.setText(self._format_analysis_summary(results))
         self._refresh_results_views()
@@ -747,9 +1086,22 @@ class PositionsAnalysisDialog(QDialog):
         if new_rect.width() <= 0 or new_rect.height() <= 0:
             return
 
-        spot.roi_rect = new_rect
-        spot.center_x = float(new_rect.center().x())
-        spot.center_y = float(new_rect.center().y())
+        self._apply_manual_bbox_rect(track, frame_id, spot, new_rect)
+        self._select_track_by_id(track.track_id)
+
+    def _apply_manual_bbox_rect(
+        self,
+        track: Track,
+        frame_id: int,
+        spot: SpotROI,
+        new_rect: QRect,
+        *,
+        refresh_scale_reference: bool = True,
+    ):
+        if new_rect.width() <= 0 or new_rect.height() <= 0:
+            return
+
+        spot.roi_rect = QRect(new_rect)
 
         correction_key = (frame_id, track.track_id)
         self.manual_bbox_corrections[correction_key] = {
@@ -760,7 +1112,15 @@ class PositionsAnalysisDialog(QDialog):
         }
         self.pending_manual_recompute.add(correction_key)
 
-        self._select_track_by_id(track.track_id)
+        if self.change_bbox_size_button.isChecked() and refresh_scale_reference:
+            self._bbox_scale_reference = {
+                "frame_id": frame_id,
+                "track_id": track.track_id,
+                "rect": QRect(new_rect),
+            }
+            self._set_bbox_scale_slider_value(100)
+
+        self._update_frame_rois(frame_id)
         self._update_manual_correction_label()
         self._update_track_overlay()
         self._refresh_gauss_preview()
@@ -818,7 +1178,12 @@ class PositionsAnalysisDialog(QDialog):
             )
             return
 
-        fit_payload = fit_track_position_on_frame(track, frame_id, image_data)
+        fit_payload = fit_track_position_on_frame(
+            track,
+            frame_id,
+            image_data,
+            validation_config=self.validation_config,
+        )
         fit_points_by_frame = self.positions_analysis_results.setdefault("fit_points_by_frame", {})
         frame_fits = fit_points_by_frame.setdefault(frame_id, {})
         frame_fits[track.track_id] = fit_payload
@@ -834,6 +1199,300 @@ class PositionsAnalysisDialog(QDialog):
         self._update_track_overlay()
         self._update_manual_correction_label()
         self._refresh_gauss_preview()
+
+    def _resolve_selected_range_target_frame_id(self, current_frame_id: int) -> int | None:
+        if not self.sorted_frame_ids:
+            return None
+
+        if self.apply_size_to_end_checkbox.isChecked():
+            return self.sorted_frame_ids[-1]
+
+        target_frame_id = int(self.apply_size_until_spinbox.value())
+        if target_frame_id < current_frame_id:
+            QMessageBox.information(
+                self,
+                "Invalid Range",
+                "The end frame must be greater than or equal to the current frame.",
+            )
+            return None
+        return target_frame_id
+
+    def _get_track_frame_ids_in_selected_range(
+        self,
+        track: Track,
+        current_frame_id: int,
+    ) -> list[int]:
+        target_frame_id = self._resolve_selected_range_target_frame_id(current_frame_id)
+        if target_frame_id is None:
+            return []
+
+        return [
+            frame_id
+            for frame_id in self.sorted_frame_ids
+            if current_frame_id <= frame_id <= target_frame_id
+            and frame_id in track.spots_by_image_id
+        ]
+
+    def _recompute_selected_fit_range(self):
+        if not self.positions_analysis_results:
+            QMessageBox.information(
+                self,
+                "No Analysis Results",
+                "Run positions analysis first before batch recomputing fits.",
+            )
+            return
+
+        frame_id = self._get_current_frame_id()
+        track = self._get_selected_track()
+        if frame_id is None or track is None:
+            QMessageBox.information(
+                self,
+                "No Selection",
+                "Select a track and a valid frame first.",
+            )
+            return
+
+        if frame_id not in track.spots_by_image_id:
+            QMessageBox.information(
+                self,
+                "Track Missing On Frame",
+                "The selected track does not exist on the current frame.",
+            )
+            return
+
+        if not self._track_participates_in_positions_analysis(track.track_id):
+            QMessageBox.information(
+                self,
+                "Track Not In Analysis",
+                "The selected track is not part of any configured positions-analysis group.",
+            )
+            return
+
+        affected_frame_ids = self._get_track_frame_ids_in_selected_range(track, frame_id)
+        if not affected_frame_ids:
+            QMessageBox.information(
+                self,
+                "No Matching Frames",
+                "No track instances were found in the selected range.",
+            )
+            return
+
+        fit_points_by_frame = self.positions_analysis_results.setdefault("fit_points_by_frame", {})
+        processed_frame_ids: list[int] = []
+        cancelled = False
+
+        progress_dialog = QProgressDialog(
+            f"Recomputing 2D Gauss for T{track.track_id}...",
+            "Cancel",
+            0,
+            len(affected_frame_ids),
+            self,
+        )
+        progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setValue(0)
+        progress_dialog.show()
+
+        for index, target_frame_id in enumerate(affected_frame_ids, start=1):
+            if progress_dialog.wasCanceled():
+                cancelled = True
+                break
+
+            leed_file = self.all_files_map.get(target_frame_id)
+            if leed_file is None:
+                progress_dialog.setValue(index)
+                QApplication.processEvents()
+                continue
+
+            image_data = load_tiff(leed_file.filepath)
+            if image_data is None or np.asarray(image_data).size == 0:
+                progress_dialog.setValue(index)
+                QApplication.processEvents()
+                continue
+
+            fit_payload = fit_track_position_on_frame(
+                track,
+                target_frame_id,
+                image_data,
+                validation_config=self.validation_config,
+            )
+            frame_fits = fit_points_by_frame.setdefault(target_frame_id, {})
+            frame_fits[track.track_id] = fit_payload
+            self.pending_manual_recompute.discard((target_frame_id, track.track_id))
+            processed_frame_ids.append(target_frame_id)
+
+            progress_dialog.setValue(index)
+            QApplication.processEvents()
+
+        progress_dialog.close()
+
+        if processed_frame_ids:
+            for processed_frame_id in processed_frame_ids:
+                self._refresh_rows_for_frame(processed_frame_id)
+            self._refresh_positions_analysis_summary()
+            self.analysis_summary_label.setText(
+                self._format_analysis_summary(self.positions_analysis_results)
+            )
+            self._refresh_results_views()
+            self._update_track_overlay()
+            self._update_manual_correction_label()
+            self._refresh_gauss_preview()
+
+        if cancelled:
+            QMessageBox.information(
+                self,
+                "Batch Recompute Cancelled",
+                (
+                    f"Recomputed {len(processed_frame_ids)} frame(s) for track T{track.track_id} "
+                    "before cancellation."
+                ),
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Batch Recompute Finished",
+            (
+                f"Recomputed 2D Gauss for {len(processed_frame_ids)} frame(s) "
+                f"for track T{track.track_id}, from frame {affected_frame_ids[0]} "
+                f"to frame {affected_frame_ids[-1]}."
+            ),
+        )
+
+    def _apply_current_bbox_size_to_range(self):
+        track = self._get_selected_track()
+        current_frame_id = self._get_current_frame_id()
+        if track is None or current_frame_id is None:
+            QMessageBox.information(
+                self,
+                "No Selection",
+                "Select a track and a current frame first.",
+            )
+            return
+
+        current_spot = track.spots_by_image_id.get(current_frame_id)
+        if current_spot is None:
+            QMessageBox.information(
+                self,
+                "Track Missing On Frame",
+                "The selected track is not present on the current frame.",
+            )
+            return
+
+        desired_width = max(1, int(current_spot.roi_rect.width()))
+        desired_height = max(1, int(current_spot.roi_rect.height()))
+
+        affected_frame_ids = self._get_track_frame_ids_in_selected_range(track, current_frame_id)
+        if not affected_frame_ids:
+            QMessageBox.information(
+                self,
+                "No Matching Frames",
+                "No track instances were found in the selected range.",
+            )
+            return
+
+        updated_count = 0
+        for frame_id in affected_frame_ids:
+            spot = track.spots_by_image_id[frame_id]
+            center_point = spot.roi_rect.center()
+            center_x = float(center_point.x())
+            center_y = float(center_point.y())
+
+            new_rect = self._build_centered_rect_for_frame(
+                frame_id,
+                center_x,
+                center_y,
+                desired_width,
+                desired_height,
+            )
+            spot.roi_rect = new_rect
+
+            correction_key = (frame_id, track.track_id)
+            self.manual_bbox_corrections[correction_key] = {
+                "x": int(new_rect.x()),
+                "y": int(new_rect.y()),
+                "width": int(new_rect.width()),
+                "height": int(new_rect.height()),
+            }
+            self.pending_manual_recompute.add(correction_key)
+            updated_count += 1
+
+        if current_frame_id in affected_frame_ids:
+            self._update_frame_rois(current_frame_id)
+            self._update_track_overlay()
+            self._refresh_gauss_preview()
+        self._update_manual_correction_label()
+
+        QMessageBox.information(
+            self,
+            "BBox Size Applied",
+            (
+                f"Applied bbox size {desired_width}x{desired_height} to {updated_count} frame(s) "
+                f"for track T{track.track_id}, from frame {current_frame_id} "
+                f"to frame {affected_frame_ids[-1]}.\n\n"
+                "The center of each bbox was preserved. The affected frames are marked for recompute."
+            ),
+        )
+
+    def _build_centered_rect_for_frame(
+        self,
+        frame_id: int,
+        center_x: float,
+        center_y: float,
+        desired_width: int,
+        desired_height: int,
+    ) -> QRect:
+        frame_shape = self._get_frame_image_shape(frame_id)
+        width = max(1, int(desired_width))
+        height = max(1, int(desired_height))
+
+        if frame_shape is not None:
+            image_height, image_width = frame_shape
+            max_width = max(1, int(np.floor(2.0 * min(center_x, image_width - center_x))))
+            max_height = max(1, int(np.floor(2.0 * min(center_y, image_height - center_y))))
+            width = min(width, max_width if max_width > 0 else width)
+            height = min(height, max_height if max_height > 0 else height)
+
+        left = int(round(center_x - width / 2.0))
+        top = int(round(center_y - height / 2.0))
+        rect = QRect(left, top, width, height)
+
+        if frame_shape is None:
+            return rect
+
+        image_height, image_width = frame_shape
+        if rect.left() < 0:
+            rect.moveLeft(0)
+        if rect.top() < 0:
+            rect.moveTop(0)
+        if rect.right() >= image_width:
+            rect.moveRight(image_width - 1)
+        if rect.bottom() >= image_height:
+            rect.moveBottom(image_height - 1)
+        return rect
+
+    def _get_frame_image_shape(self, frame_id: int) -> tuple[int, int] | None:
+        cached = self.frame_image_shape_cache.get(frame_id)
+        if cached is not None:
+            return cached
+
+        image_data = None
+        if self.current_frame_id == frame_id and self.current_frame_image_data is not None:
+            image_data = self.current_frame_image_data
+        else:
+            leed_file = self.all_files_map.get(frame_id)
+            if leed_file is None:
+                return None
+            image_data = load_tiff(leed_file.filepath)
+        if image_data is None or np.asarray(image_data).size == 0:
+            return None
+
+        arr = np.asarray(image_data)
+        if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[-1] not in (3, 4):
+            arr = np.transpose(arr, (1, 2, 0))
+        shape = (int(arr.shape[0]), int(arr.shape[1]))
+        self.frame_image_shape_cache[frame_id] = shape
+        return shape
 
     def _refresh_rows_for_frame(self, frame_id: int):
         if not self.positions_analysis_results:
@@ -940,7 +1599,7 @@ class PositionsAnalysisDialog(QDialog):
         frame_id = self._get_current_frame_id()
         if track is None or frame_id is None:
             self.manual_correction_label.setText(
-                "Select a track and frame. Move its bbox if needed, use Shift + mouse wheel to resize it, then recompute the local fit."
+                "Select a track and frame. Use Move BBox Mode to shift ROI or Change BBox Size Mode to resize it with the slider, edge drag, or Shift + mouse wheel, then recompute the local fit or batch-recompute the selected range."
             )
             return
 
@@ -973,7 +1632,11 @@ class PositionsAnalysisDialog(QDialog):
             parts.append("Run positions analysis first to populate fit results.")
 
         if self.move_bbox_button.isChecked():
-            parts.append("Move BBox Mode is ON. Drag ROI to move; Shift + mouse wheel resizes it.")
+            parts.append("Move BBox Mode is ON. Drag inside ROI to move it.")
+        if self.change_bbox_size_button.isChecked():
+            parts.append("Change BBox Size Mode is ON. Use the BBox scale slider to rescale around the center, or drag an edge/corner; Shift + mouse wheel over ROI also resizes it.")
+
+        parts.append("Use Batch Recompute Range to update the selected track over the chosen frame range.")
 
         self.manual_correction_label.setText(" ".join(parts))
 
@@ -1332,8 +1995,11 @@ class PositionsAnalysisDialog(QDialog):
             self._clear_gauss_preview("Current ROI could not be converted to 2D fit data.")
             return
 
-        fit_results = fit_spot_to_gaussian(roi_to_fit)
-        fit_ok = is_fit_valid(fit_results, roi_to_fit.shape)
+        fit_results = fit_spot_to_gaussian(
+            roi_to_fit,
+            center_preference_factor=self.validation_config.get("center_preference_factor", 0.0),
+        )
+        fit_ok = is_fit_valid(fit_results, roi_to_fit.shape, self.validation_config)
         self._draw_gauss_preview(track.track_id, frame_id, roi_to_fit, fit_results, fit_ok)
 
     def _draw_gauss_preview(
@@ -1491,11 +2157,26 @@ class PositionsAnalysisDialog(QDialog):
     def _finalize_gauss_preview_draw(self):
         canvas_width = self.gauss_preview_canvas.width()
         canvas_height = self.gauss_preview_canvas.height()
-        if canvas_width > 1 and canvas_height > 1:
+        if canvas_width <= 1 or canvas_height <= 1:
+            return
+
+        try:
+            self.gauss_preview_canvas.fig.tight_layout()
+        except (np.linalg.LinAlgError, RuntimeError, ValueError) as exc:
+            print(f"[PositionsAnalysis] gauss preview tight_layout skipped: {exc}")
+            self.gauss_preview_canvas.fig.subplots_adjust(
+                left=0.06,
+                right=0.98,
+                bottom=0.18,
+                top=0.88,
+                wspace=0.28,
+            )
+
+        try:
+            self.gauss_preview_canvas.draw()
+        except (np.linalg.LinAlgError, RuntimeError, ValueError) as exc:
+            print(f"[PositionsAnalysis] gauss preview draw skipped: {exc}")
             try:
-                self.gauss_preview_canvas.fig.tight_layout()
-            except (np.linalg.LinAlgError, RuntimeError, ValueError) as exc:
-                print(f"[PositionsAnalysis] gauss preview tight_layout skipped: {exc}")
                 self.gauss_preview_canvas.fig.subplots_adjust(
                     left=0.06,
                     right=0.98,
@@ -1503,16 +2184,19 @@ class PositionsAnalysisDialog(QDialog):
                     top=0.88,
                     wspace=0.28,
                 )
-        self.gauss_preview_canvas.draw()
+                self.gauss_preview_canvas.draw_idle()
+            except (np.linalg.LinAlgError, RuntimeError, ValueError) as redraw_exc:
+                print(f"[PositionsAnalysis] gauss preview redraw skipped: {redraw_exc}")
 
     def _update_positions_overlay(self):
         frame_id = self._get_current_frame_id()
         if frame_id is None:
-            self.image_viewer.update_positions_overlay([])
+            self.image_viewer.update_positions_overlay([], [])
             return
 
         overlay_groups = self._build_positions_overlay_payload(frame_id)
-        self.image_viewer.update_positions_overlay(overlay_groups)
+        focus_points = self._build_focus_points_overlay_payload(frame_id)
+        self.image_viewer.update_positions_overlay(overlay_groups, focus_points)
 
     def _get_current_frame_id(self) -> int | None:
         if not self.sorted_frame_ids:
@@ -1582,6 +2266,41 @@ class PositionsAnalysisDialog(QDialog):
             )
 
         return overlay_groups
+
+    def _build_focus_points_overlay_payload(self, frame_id: int) -> list[dict]:
+        if not self.positions_analysis_results:
+            return []
+
+        selected_satellite_track_id = self._get_selected_satellite_track_id()
+        if selected_satellite_track_id is None:
+            return []
+
+        track = self.track_map.get(selected_satellite_track_id)
+        if track is None:
+            return []
+
+        fit_points_by_frame = self.positions_analysis_results.get("fit_points_by_frame", {})
+        frame_fits = fit_points_by_frame.get(frame_id, {})
+        correction_key = (frame_id, track.track_id)
+        fit_payload = (
+            {}
+            if correction_key in self.pending_manual_recompute
+            else (frame_fits.get(track.track_id) or {})
+        )
+
+        fit_x = fit_payload.get("global_center_x")
+        fit_y = fit_payload.get("global_center_y")
+        if not self._is_finite_pair(fit_x, fit_y):
+            return []
+
+        fit_ok = bool(fit_payload.get("fit_ok", False))
+        return [
+            {
+                "x": float(fit_x),
+                "y": float(fit_y),
+                "label": f"T{track.track_id}" if fit_ok else f"T{track.track_id}?",
+            }
+        ]
 
     def _build_overlay_point(
         self,

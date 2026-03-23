@@ -13,12 +13,46 @@ from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian
 from trackleed.core.data_models import LeedFile, Track
 from trackleed.io.image_reader import load_tiff
 
+DEFAULT_VALIDATION_CONFIG: Dict[str, float] = {
+    "min_r_squared": 0.85,
+    "min_amplitude": 0.05,
+    "center_margin_px": 2.0,
+    "min_sigma_px": 0.5,
+    "max_sigma_factor": 1.0,
+    "center_preference_factor": 0.35,
+}
+
+
+def normalize_validation_config(config: Optional[Dict] = None) -> Dict[str, float]:
+    normalized = dict(DEFAULT_VALIDATION_CONFIG)
+    if not config:
+        return normalized
+
+    for key, default_value in DEFAULT_VALIDATION_CONFIG.items():
+        raw_value = config.get(key, default_value)
+        try:
+            value = float(raw_value)
+        except Exception:
+            value = float(default_value)
+        if not np.isfinite(value):
+            value = float(default_value)
+        normalized[key] = value
+
+    normalized["min_r_squared"] = float(np.clip(normalized["min_r_squared"], 0.0, 1.0))
+    normalized["min_amplitude"] = max(0.0, normalized["min_amplitude"])
+    normalized["center_margin_px"] = max(0.0, normalized["center_margin_px"])
+    normalized["min_sigma_px"] = max(0.01, normalized["min_sigma_px"])
+    normalized["max_sigma_factor"] = max(0.01, normalized["max_sigma_factor"])
+    normalized["center_preference_factor"] = max(0.0, normalized["center_preference_factor"])
+    return normalized
+
 
 def run_positions_analysis(
     tracks: List[Track],
     groups_config: List[Dict],
     all_files_map: Dict[int, LeedFile],
     progress_callback: Callable[[int], None],
+    validation_config: Optional[Dict] = None,
     cancel_event: Optional[Event] = None,
 ) -> Optional[Dict]:
     """
@@ -34,6 +68,7 @@ def run_positions_analysis(
     track_map = {track.track_id: track for track in tracks}
     frame_ids = sorted(all_files_map.keys())
     groups = _normalize_groups(groups_config, track_map)
+    validation_config = normalize_validation_config(validation_config)
     if not groups:
         raise ValueError(
             "No valid groups configured. Each group must have one reference track and at least one satellite track."
@@ -79,7 +114,12 @@ def run_positions_analysis(
                 return None
 
             track = track_map[track_id]
-            payload = fit_track_position_on_frame(track, frame_id, full_image)
+            payload = fit_track_position_on_frame(
+                track,
+                frame_id,
+                full_image,
+                validation_config=validation_config,
+            )
             frame_fits[track_id] = payload
 
             if payload["track_present"]:
@@ -163,6 +203,7 @@ def run_positions_analysis(
         "rows": rows,
         "fit_points_by_frame": fit_points_by_frame,
         "summary": summary,
+        "validation_config": validation_config,
     }
 
 
@@ -211,9 +252,15 @@ def _normalize_groups(groups_config: List[Dict], track_map: Dict[int, Track]) ->
     return normalized
 
 
-def fit_track_position_on_frame(track: Track, frame_id: int, full_image: np.ndarray) -> Dict:
+def fit_track_position_on_frame(
+    track: Track,
+    frame_id: int,
+    full_image: np.ndarray,
+    validation_config: Optional[Dict] = None,
+) -> Dict:
     """Fit a single tracked ROI on a single frame and return fit payload."""
     full_image = _normalize_image_layout(full_image)
+    validation_config = normalize_validation_config(validation_config)
     if frame_id not in track.spots_by_image_id:
         return _empty_fit_payload(frame_id, track.track_id)
 
@@ -232,10 +279,11 @@ def fit_track_position_on_frame(track: Track, frame_id: int, full_image: np.ndar
         return payload
 
     roi_to_fit = prepare_roi_for_fit(roi_data)
-    fit_results = fit_spot_to_gaussian(roi_to_fit)
-    fit_ok = is_fit_valid(fit_results, roi_to_fit.shape)
-    if not fit_ok:
-        fit_results = None
+    fit_results = fit_spot_to_gaussian(
+        roi_to_fit,
+        center_preference_factor=validation_config.get("center_preference_factor", 0.0),
+    )
+    fit_ok = is_fit_valid(fit_results, roi_to_fit.shape, validation_config)
 
     payload = {
         "frame_id": frame_id,
@@ -296,23 +344,32 @@ def _empty_fit_payload(frame_id: int, track_id: int) -> Dict:
     }
 
 
-def is_fit_valid(fit_results: Optional[Dict], roi_shape: tuple) -> bool:
+def is_fit_valid(
+    fit_results: Optional[Dict],
+    roi_shape: tuple,
+    validation_config: Optional[Dict] = None,
+) -> bool:
     if not fit_results:
         return False
     if roi_shape is None or len(roi_shape) < 2:
         return False
 
+    validation_config = normalize_validation_config(validation_config)
     height, width = roi_shape[:2]
-    if fit_results.get("r_squared", 0) < 0.85:
+    center_margin = validation_config["center_margin_px"]
+    max_sigma_x = max(validation_config["min_sigma_px"], validation_config["max_sigma_factor"] * width)
+    max_sigma_y = max(validation_config["min_sigma_px"], validation_config["max_sigma_factor"] * height)
+
+    if fit_results.get("r_squared", 0) < validation_config["min_r_squared"]:
         return False
-    if fit_results.get("amplitude", 0) < 0.05:
+    if fit_results.get("amplitude", 0) < validation_config["min_amplitude"]:
         return False
-    if not (-2 < fit_results.get("center_x", 0) < width + 2):
+    if not (-center_margin < fit_results.get("center_x", 0) < width + center_margin):
         return False
-    if not (-2 < fit_results.get("center_y", 0) < height + 2):
+    if not (-center_margin < fit_results.get("center_y", 0) < height + center_margin):
         return False
-    if not (0.5 < fit_results.get("sigma_x", 0) < width):
+    if not (validation_config["min_sigma_px"] < fit_results.get("sigma_x", 0) < max_sigma_x):
         return False
-    if not (0.5 < fit_results.get("sigma_y", 0) < height):
+    if not (validation_config["min_sigma_px"] < fit_results.get("sigma_y", 0) < max_sigma_y):
         return False
     return True

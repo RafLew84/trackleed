@@ -63,6 +63,10 @@ class LeedImageViewer(QGraphicsView):
         
         self.mode = 'PAN' # Default mode
         self._item_to_move = None
+        self._drag_start_pos = None
+        self._resize_spot_id: int | None = None
+        self._resize_edges: Dict[str, bool] | None = None
+        self._resize_start_rect: QRectF | None = None
         self.set_mode(self.mode) # Apply default mode settings
 
     def _update_roi_pens(self):
@@ -149,6 +153,11 @@ class LeedImageViewer(QGraphicsView):
         """
         # Store the new mode as an instance attribute for use in other event handlers.
         self.mode = mode
+        self._item_to_move = None
+        self._drag_start_pos = None
+        self._resize_spot_id = None
+        self._resize_edges = None
+        self._resize_start_rect = None
 
         # Set the drag mode based on the selected interaction mode. 
         if self.mode == 'PAN':
@@ -214,11 +223,31 @@ class LeedImageViewer(QGraphicsView):
             return
 
         elif self.mode == 'MOVE_ROI' and event.button() == Qt.MouseButton.LeftButton:
-            item = self.itemAt(event.pos())
-            if item in self._roi_items.values():
-                self._item_to_move = item
-                self._drag_start_pos = scene_pos
-                return # Consume the event
+            spot_id = self._get_roi_id_at_view_pos(event.pos())
+            if spot_id is not None:
+                rect_item = self._roi_items.get(spot_id)
+                if rect_item is not None:
+                    self.highlight_roi(spot_id)
+                    if rect_item.sceneBoundingRect().contains(scene_pos):
+                        self._item_to_move = rect_item
+                        self._drag_start_pos = scene_pos
+                        return # Consume the event
+
+        elif self.mode == 'RESIZE_ROI' and event.button() == Qt.MouseButton.LeftButton:
+            spot_id = self._get_roi_id_at_view_pos(event.pos())
+            if spot_id is not None:
+                rect_item = self._roi_items.get(spot_id)
+                if rect_item is not None:
+                    self.highlight_roi(spot_id)
+                    resize_edges = self._detect_resize_edges(
+                        rect_item.sceneBoundingRect(),
+                        scene_pos,
+                    )
+                    if any(resize_edges.values()):
+                        self._resize_spot_id = spot_id
+                        self._resize_edges = resize_edges
+                        self._resize_start_rect = QRectF(rect_item.sceneBoundingRect())
+                        return
 
         elif self.mode == 'ADD_ROI' and event.button() == Qt.MouseButton.LeftButton:
             self.roi_added_at.emit(scene_pos)
@@ -243,6 +272,10 @@ class LeedImageViewer(QGraphicsView):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """Handles moving an item during a drag operation."""
+        if self.mode == 'RESIZE_ROI' and self._resize_spot_id is not None:
+            new_scene_pos = self.mapToScene(event.pos())
+            self._resize_roi_from_drag(new_scene_pos)
+            return
         if self.mode == 'MOVE_ROI' and self._item_to_move is not None:
             new_scene_pos = self.mapToScene(event.pos())
             delta = new_scene_pos - self._drag_start_pos
@@ -261,6 +294,15 @@ class LeedImageViewer(QGraphicsView):
     
     def mouseReleaseEvent(self, event: QMouseEvent):
         """Finalizes the move operation."""
+        if self.mode == 'RESIZE_ROI' and self._resize_spot_id is not None:
+            spot_id = self._resize_spot_id
+            rect_item = self._roi_items.get(spot_id)
+            if rect_item is not None:
+                self.roi_moved.emit(spot_id, rect_item.sceneBoundingRect())
+            self._resize_spot_id = None
+            self._resize_edges = None
+            self._resize_start_rect = None
+            return
         if self.mode == 'MOVE_ROI' and self._item_to_move is not None:
             spot_id = self._item_to_move.data(0)
             new_rect = self._item_to_move.sceneBoundingRect()
@@ -488,7 +530,11 @@ class LeedImageViewer(QGraphicsView):
             self._scene.removeItem(item)
         self._positions_overlay_items.clear()
 
-    def update_positions_overlay(self, overlay_groups: list[dict] | None):
+    def update_positions_overlay(
+        self,
+        overlay_groups: list[dict] | None,
+        focus_points: list[dict] | None = None,
+    ):
         """
         Draw custom overlays for the positions-analysis preview.
 
@@ -526,6 +572,9 @@ class LeedImageViewer(QGraphicsView):
                     emphasized or bool(satellite.get("selected", False)),
                     is_reference=False,
                 )
+
+        for point in focus_points or []:
+            self._add_focus_point(point)
 
     @staticmethod
     def _coerce_overlay_color(color: Any) -> QColor:
@@ -627,6 +676,35 @@ class LeedImageViewer(QGraphicsView):
             self._scene.addItem(label)
             self._positions_overlay_items.append(label)
 
+    def _add_focus_point(self, payload: dict | None):
+        if not self._has_overlay_point(payload):
+            return
+
+        x = float(payload["x"])
+        y = float(payload["y"])
+        label_text = str(payload.get("label", "")).strip()
+
+        pen = QPen(QColor(255, 255, 255))
+        pen.setWidth(2)
+        pen.setCosmetic(True)
+        brush = QBrush(QColor(255, 0, 0, 230))
+
+        radius = 1.5
+        marker = QGraphicsEllipseItem(x - radius, y - radius, 2 * radius, 2 * radius)
+        marker.setPen(pen)
+        marker.setBrush(brush)
+        marker.setZValue(24)
+        self._scene.addItem(marker)
+        self._positions_overlay_items.append(marker)
+
+        if label_text:
+            label = QGraphicsSimpleTextItem(label_text)
+            label.setBrush(QBrush(QColor(255, 0, 0)))
+            label.setPos(QPointF(x + radius + 4.0, y + radius + 2.0))
+            label.setZValue(25)
+            self._scene.addItem(label)
+            self._positions_overlay_items.append(label)
+
     def wheelEvent(self, event: QWheelEvent):
         """
         Handles the mouse wheel scroll event to implement view zooming.
@@ -639,7 +717,7 @@ class LeedImageViewer(QGraphicsView):
             event: The QWheelEvent object containing details about the scroll,
                 such as the angle and direction.
         """
-        if self.mode == 'MOVE_ROI' and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+        if self.mode == 'RESIZE_ROI' and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
             spot_id = self._get_roi_id_at_view_pos(event.position().toPoint())
             if spot_id is not None:
                 size_delta = 4.0 if event.angleDelta().y() > 0 else -4.0
@@ -656,6 +734,13 @@ class LeedImageViewer(QGraphicsView):
     def _get_roi_id_at_view_pos(self, view_pos: QPoint) -> int | None:
         item = self.itemAt(view_pos)
         if item is None:
+            scene_pos = self.mapToScene(view_pos)
+            tolerance = self._scene_hit_tolerance()
+            for spot_id, rect_item in self._roi_items.items():
+                if rect_item.sceneBoundingRect().adjusted(
+                    -tolerance, -tolerance, tolerance, tolerance
+                ).contains(scene_pos):
+                    return spot_id
             return None
         if item in self._roi_items.values() or item in self._roi_label_items.values():
             try:
@@ -663,6 +748,69 @@ class LeedImageViewer(QGraphicsView):
             except (TypeError, ValueError):
                 return None
         return None
+
+    def _scene_hit_tolerance(self) -> float:
+        scale_x = abs(self.transform().m11())
+        scale_y = abs(self.transform().m22())
+        scale = max(scale_x, scale_y, 1e-6)
+        return max(3.0, 8.0 / scale)
+
+    def _detect_resize_edges(self, rect: QRectF, scene_pos: QPointF) -> Dict[str, bool]:
+        tolerance = self._scene_hit_tolerance()
+        within_x = rect.left() - tolerance <= scene_pos.x() <= rect.right() + tolerance
+        within_y = rect.top() - tolerance <= scene_pos.y() <= rect.bottom() + tolerance
+        return {
+            "left": within_y and abs(scene_pos.x() - rect.left()) <= tolerance,
+            "right": within_y and abs(scene_pos.x() - rect.right()) <= tolerance,
+            "top": within_x and abs(scene_pos.y() - rect.top()) <= tolerance,
+            "bottom": within_x and abs(scene_pos.y() - rect.bottom()) <= tolerance,
+        }
+
+    def _set_roi_scene_rect(self, spot_id: int, scene_rect: QRectF):
+        rect_item = self._roi_items.get(spot_id)
+        if rect_item is None:
+            return
+
+        local_rect = QRectF(scene_rect)
+        local_rect.translate(-rect_item.pos())
+        rect_item.setRect(local_rect)
+
+        label_item = self._roi_label_items.get(spot_id)
+        if label_item is not None:
+            label_item.setPos(scene_rect.topLeft())
+
+        self.highlight_roi(self._highlighted_roi_id)
+
+    def _resize_roi_from_drag(self, scene_pos: QPointF):
+        if self._resize_spot_id is None or self._resize_edges is None or self._resize_start_rect is None:
+            return
+
+        new_rect = QRectF(self._resize_start_rect)
+        image_bounds = self._image_item.sceneBoundingRect() if self._image_item else None
+        min_size = max(6.0, 2.0 * self._scene_hit_tolerance())
+
+        if self._resize_edges.get("left"):
+            proposed = scene_pos.x()
+            if image_bounds is not None:
+                proposed = max(image_bounds.left(), proposed)
+            new_rect.setLeft(min(proposed, new_rect.right() - min_size))
+        if self._resize_edges.get("right"):
+            proposed = scene_pos.x()
+            if image_bounds is not None:
+                proposed = min(image_bounds.right(), proposed)
+            new_rect.setRight(max(proposed, new_rect.left() + min_size))
+        if self._resize_edges.get("top"):
+            proposed = scene_pos.y()
+            if image_bounds is not None:
+                proposed = max(image_bounds.top(), proposed)
+            new_rect.setTop(min(proposed, new_rect.bottom() - min_size))
+        if self._resize_edges.get("bottom"):
+            proposed = scene_pos.y()
+            if image_bounds is not None:
+                proposed = min(image_bounds.bottom(), proposed)
+            new_rect.setBottom(max(proposed, new_rect.top() + min_size))
+
+        self._set_roi_scene_rect(self._resize_spot_id, new_rect)
 
     def _resize_roi_item(self, spot_id: int, size_delta: float) -> bool:
         rect_item = self._roi_items.get(spot_id)
@@ -697,15 +845,7 @@ class LeedImageViewer(QGraphicsView):
             if new_rect.bottom() > image_bounds.bottom():
                 new_rect.moveBottom(image_bounds.bottom())
 
-        local_rect = QRectF(new_rect)
-        local_rect.translate(-rect_item.pos())
-        rect_item.setRect(local_rect)
-
-        label_item = self._roi_label_items.get(spot_id)
-        if label_item is not None:
-            label_item.setPos(new_rect.topLeft())
-
-        self.highlight_roi(self._highlighted_roi_id)
+        self._set_roi_scene_rect(spot_id, new_rect)
         self.roi_moved.emit(spot_id, new_rect)
         return True
     

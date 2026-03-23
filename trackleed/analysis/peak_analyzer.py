@@ -7,7 +7,7 @@ import random
 from skimage.measure import EllipseModel
 from skimage.color import rgb2gray
 
-from scipy.ndimage import center_of_mass
+from scipy.ndimage import center_of_mass, gaussian_filter
 
 def gaussian_2d(
     xy_data: Tuple[np.ndarray, np.ndarray],
@@ -145,7 +145,46 @@ def calculate_spot_properties(
         'volume_error': volume_error
     }
 
-def fit_spot_to_gaussian(roi_data: np.ndarray) -> Optional[Dict[str, float]]:
+def _estimate_preferred_center_seed(
+    roi_data: np.ndarray,
+    center_preference_factor: float | None,
+) -> tuple[float, float, float | None]:
+    height, width = roi_data.shape
+    roi_center_x = (width - 1) / 2.0
+    roi_center_y = (height - 1) / 2.0
+
+    try:
+        y0_com, x0_com = center_of_mass(roi_data)
+        if not np.isfinite(x0_com) or not np.isfinite(y0_com):
+            raise ValueError("center_of_mass returned non-finite values")
+    except ValueError:
+        y0_com, x0_com = roi_center_y, roi_center_x
+
+    if center_preference_factor is None or center_preference_factor <= 0:
+        return float(x0_com), float(y0_com), None
+
+    radius_px = max(1.0, float(center_preference_factor) * float(min(width, height)))
+    smoothed = gaussian_filter(roi_data.astype(np.float64, copy=False), sigma=1.0)
+    yy, xx = np.indices(smoothed.shape, dtype=np.float64)
+    mask = (xx - roi_center_x) ** 2 + (yy - roi_center_y) ** 2 <= radius_px ** 2
+
+    if np.any(mask):
+        masked = np.where(mask, smoothed, -np.inf)
+        try:
+            peak_index = int(np.nanargmax(masked))
+            peak_y, peak_x = np.unravel_index(peak_index, masked.shape)
+            if np.isfinite(masked[peak_y, peak_x]):
+                return float(peak_x), float(peak_y), radius_px
+        except ValueError:
+            pass
+
+    return float(x0_com), float(y0_com), radius_px
+
+
+def fit_spot_to_gaussian(
+    roi_data: np.ndarray,
+    center_preference_factor: float | None = None,
+) -> Optional[Dict[str, float]]:
     """
     Performs a full analysis pipeline for a single spot's ROI.
 
@@ -181,10 +220,12 @@ def fit_spot_to_gaussian(roi_data: np.ndarray) -> Optional[Dict[str, float]]:
     # Create X and Y coordinate grids corresponding to the pixel positions.
     x, y = np.meshgrid(np.arange(width), np.arange(height))
 
-    try:
-        y0_init, x0_init = center_of_mass(roi_data)
-    except ValueError:
-        y0_init, x0_init = height / 2, width / 2
+    x0_init, y0_init, center_prior_radius_px = _estimate_preferred_center_seed(
+        roi_data,
+        center_preference_factor,
+    )
+    roi_center_x = (width - 1) / 2.0
+    roi_center_y = (height - 1) / 2.0
 
     initial_guess = [
         np.max(roi_data) - np.min(roi_data),  # amplitude: peak height over background
@@ -196,8 +237,19 @@ def fit_spot_to_gaussian(roi_data: np.ndarray) -> Optional[Dict[str, float]]:
         np.min(roi_data)                     # offset: the dimmest pixel value as background
     ]
 
-    lower_bounds = [0,       -width,   -height,   0.5,   0.5,   -np.pi, 0]
-    upper_bounds = [np.inf,  2*width,  2*height,  width, height, np.pi, np.inf]
+    if center_prior_radius_px is not None:
+        lower_center_x = max(-width, roi_center_x - center_prior_radius_px)
+        upper_center_x = min(2 * width, roi_center_x + center_prior_radius_px)
+        lower_center_y = max(-height, roi_center_y - center_prior_radius_px)
+        upper_center_y = min(2 * height, roi_center_y + center_prior_radius_px)
+    else:
+        lower_center_x = -width
+        upper_center_x = 2 * width
+        lower_center_y = -height
+        upper_center_y = 2 * height
+
+    lower_bounds = [0,       lower_center_x, lower_center_y, 0.5,   0.5,   -np.pi, 0]
+    upper_bounds = [np.inf,  upper_center_x, upper_center_y, width, height, np.pi, np.inf]
     bounds = (lower_bounds, upper_bounds)
     
     # Names of the parameters corresponding to the initial_guess list.
