@@ -831,6 +831,8 @@ class MainWindow(QMainWindow):
         self.file_list_widget.clear()
         if hasattr(self, "analysis_button"):
             self.analysis_button.setEnabled(False)
+        if hasattr(self, "positions_analysis_button"):
+            self.positions_analysis_button.setEnabled(False)
         if hasattr(self, "visualize_button"):
             self.visualize_button.setEnabled(False)
         self.refresh_current_view()
@@ -854,6 +856,8 @@ class MainWindow(QMainWindow):
         if not self.tracking_results:
             if hasattr(self, "analysis_button"):
                 self.analysis_button.setEnabled(False)
+            if hasattr(self, "positions_analysis_button"):
+                self.positions_analysis_button.setEnabled(False)
             if hasattr(self, "visualize_button"):
                 self.visualize_button.setEnabled(False)
         self.refresh_current_view()
@@ -1239,6 +1243,11 @@ class MainWindow(QMainWindow):
         self.analysis_button.setEnabled(False)
         self.analysis_button.clicked.connect(self.show_analysis_dialog)
         form_layout.addRow(self.analysis_button)
+
+        self.positions_analysis_button = QPushButton("Analyze Positions")
+        self.positions_analysis_button.setEnabled(False)
+        self.positions_analysis_button.clicked.connect(self.show_positions_analysis_dialog)
+        form_layout.addRow(self.positions_analysis_button)
 
         layout.addWidget(tracking_group)
 
@@ -2143,6 +2152,29 @@ class MainWindow(QMainWindow):
         if result == QDialog.DialogCode.Accepted:
             self.tracking_results = dialog.tracks
 
+    def show_positions_analysis_dialog(self):
+        if not self.tracking_results:
+            QMessageBox.information(self, "No Tracking Data", "Please run tracking before analysis.")
+            return
+        try:
+            from trackleed.gui.positions_analysis_dialog import PositionsAnalysisDialog
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Positions Analysis Unavailable",
+                "Failed to load the positions analysis dialog.\n"
+                f"{exc}",
+            )
+            return
+
+        file_map = {f.id: f for f in self.data_files if f.id is not None}
+        dialog = PositionsAnalysisDialog(
+            self.tracking_results,
+            file_map,
+            parent=self,
+        )
+        dialog.exec()
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -2328,6 +2360,8 @@ class MainWindow(QMainWindow):
         self.visualize_button.setEnabled(True)
         if hasattr(self, "analysis_button"):
             self.analysis_button.setEnabled(True)
+        if hasattr(self, "positions_analysis_button"):
+            self.positions_analysis_button.setEnabled(True)
         self._apply_tracks_to_files(tracks)
         current_item = self.file_list_widget.currentItem()
         if current_item:
@@ -2519,6 +2553,8 @@ class MainWindow(QMainWindow):
             self.visualize_button.setEnabled(True)
             if hasattr(self, "analysis_button"):
                 self.analysis_button.setEnabled(True)
+            if hasattr(self, "positions_analysis_button"):
+                self.positions_analysis_button.setEnabled(True)
 
         self.populate_file_list()
         if spot_settings:
