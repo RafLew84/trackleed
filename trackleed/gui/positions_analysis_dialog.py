@@ -209,11 +209,22 @@ class PositionsAnalysisDialog(QDialog):
         self.x_axis_combo.currentIndexChanged.connect(self._refresh_results_views)
         controls_layout.addWidget(QLabel("X axis:"))
         controls_layout.addWidget(self.x_axis_combo)
+        controls_layout.addWidget(QLabel("BBox transparency:"))
+        self.bbox_transparency_combo = QComboBox()
+        for pct in range(0, 101, 10):
+            self.bbox_transparency_combo.addItem(f"{pct}%", pct)
+        self.bbox_transparency_combo.currentIndexChanged.connect(
+            self._on_bbox_transparency_changed
+        )
+        self.bbox_transparency_combo.setCurrentIndex(0)
+        controls_layout.addWidget(self.bbox_transparency_combo)
         self.show_selected_pair_only_checkbox = QCheckBox("Only selected pair")
         self.show_selected_pair_only_checkbox.setToolTip(
-            "Show only the active group's reference point and the currently selected satellite."
+            "Show only the active group's reference point, selected satellite, and their bboxes."
         )
-        self.show_selected_pair_only_checkbox.toggled.connect(self._update_positions_overlay)
+        self.show_selected_pair_only_checkbox.toggled.connect(
+            self._on_selected_pair_filter_toggled
+        )
         controls_layout.addWidget(self.show_selected_pair_only_checkbox)
         controls_layout.addStretch(1)
 
@@ -369,12 +380,26 @@ class PositionsAnalysisDialog(QDialog):
         else:
             self.frame_label.setText("Frame: no frames")
             self.frame_meta_label.setText("No image data available.")
+        self.image_viewer.set_roi_transparency_percent(
+            self.bbox_transparency_combo.currentData()
+        )
         self._update_manual_correction_label()
 
     def _toggle_move_bbox_mode(self, enabled: bool):
         self.image_viewer.set_mode("MOVE_ROI" if enabled else "PAN")
         self.move_bbox_button.setText("Move BBox Mode: ON" if enabled else "Move BBox Mode")
         self._update_manual_correction_label()
+
+    def _on_bbox_transparency_changed(self, _index=None):
+        self.image_viewer.set_roi_transparency_percent(
+            self.bbox_transparency_combo.currentData()
+        )
+
+    def _on_selected_pair_filter_toggled(self, _checked=None):
+        frame_id = self._get_current_frame_id()
+        if frame_id is not None:
+            self._update_frame_rois(frame_id)
+        self._update_track_overlay()
 
     def _populate_tracks_table(self):
         self.tracks_table.setRowCount(len(self.tracks))
@@ -468,20 +493,39 @@ class PositionsAnalysisDialog(QDialog):
         image_data = load_tiff(leed_file.filepath)
         pixmap = self._convert_numpy_to_pixmap(image_data)
         self.image_viewer.set_image(pixmap, fit=fit)
-
-        spots_in_frame: List[SpotROI] = []
-        for track in self.tracks:
-            spot = track.spots_by_image_id.get(frame_id)
-            if spot is not None:
-                spots_in_frame.append(spot)
-
-        self.image_viewer.update_rois(spots_in_frame)
+        self.image_viewer.set_roi_transparency_percent(
+            self.bbox_transparency_combo.currentData()
+        )
+        self._update_frame_rois(frame_id)
         self.frame_meta_label.setText(
             f"Temperature: {leed_file.temperature} | "
             f"Coverage: {leed_file.coverage if leed_file.coverage is not None else '-'} | "
             f"Energy: {leed_file.energy}"
         )
         self._update_track_overlay()
+
+    def _update_frame_rois(self, frame_id: int):
+        visible_track_ids = self._get_visible_track_ids_for_frame(frame_id)
+        spots_in_frame: List[SpotROI] = []
+        for track in self.tracks:
+            if visible_track_ids is not None and track.track_id not in visible_track_ids:
+                continue
+            spot = track.spots_by_image_id.get(frame_id)
+            if spot is not None:
+                spots_in_frame.append(spot)
+        self.image_viewer.update_rois(spots_in_frame)
+
+    def _get_visible_track_ids_for_frame(self, frame_id: int) -> set[int] | None:
+        if not self.show_selected_pair_only_checkbox.isChecked():
+            return None
+
+        group = self._get_selected_group()
+        sat_track_id = self._get_selected_satellite_track_id()
+        if group is None or group.reference_track_id is None or sat_track_id is None:
+            return None
+
+        visible_track_ids = {group.reference_track_id, sat_track_id}
+        return visible_track_ids
 
     def _on_group_selection_changed(self):
         self._refresh_group_details()
@@ -1057,6 +1101,9 @@ class PositionsAnalysisDialog(QDialog):
         rows = self._get_rows_for_current_selection()
         self._update_results_table(rows)
         self._update_results_plot(rows)
+        frame_id = self._get_current_frame_id()
+        if frame_id is not None:
+            self._update_frame_rois(frame_id)
         self._update_positions_overlay()
         self._update_manual_correction_label()
 
