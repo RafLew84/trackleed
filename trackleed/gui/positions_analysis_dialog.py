@@ -1,5 +1,6 @@
 # stal/gui/positions_analysis_dialog.py
 
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 import numpy as np
@@ -30,13 +31,22 @@ from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.io.image_reader import load_tiff
 
 
+@dataclass
+class PositionsAnalysisGroup:
+    group_id: int
+    name: str
+    reference_track_id: int | None = None
+    satellite_track_ids: list[int] = field(default_factory=list)
+
+
 class PositionsAnalysisDialog(QDialog):
     """
-    Stage 1 skeleton dialog for the upcoming positions analysis workflow.
+    Stage 2 skeleton dialog for the upcoming positions analysis workflow.
 
     Current scope:
     - show list of tracks,
-    - show simple list of groups,
+    - define simple groups in memory,
+    - choose one reference and many satellites per group,
     - show basic image preview with tracked spots for the selected frame.
     """
 
@@ -61,7 +71,7 @@ class PositionsAnalysisDialog(QDialog):
         self.tracks = tracks
         self.all_files_map = all_files_map
         self.sorted_frame_ids = sorted(self.all_files_map.keys())
-        self.groups: list[str] = []
+        self.groups: list[PositionsAnalysisGroup] = []
         self._group_counter = 0
 
         self._build_ui()
@@ -78,7 +88,7 @@ class PositionsAnalysisDialog(QDialog):
         main_layout.addWidget(title_label)
 
         subtitle_label = QLabel(
-            "Stage 1: tracks list, groups list, and frame preview."
+            "Stage 2: tracks list, group definition, and frame preview."
         )
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(subtitle_label)
@@ -167,9 +177,9 @@ class PositionsAnalysisDialog(QDialog):
         group_layout = QVBoxLayout(group_box)
 
         self.groups_list = QListWidget()
+        self.groups_list.itemSelectionChanged.connect(self._on_group_selection_changed)
         self.groups_info_label = QLabel(
-            "Stage 1 placeholder.\n\nGroups can be added and removed here.\n"
-            "Reference/satellite assignment will be added in the next step."
+            "Create groups and assign one reference track and satellite tracks."
         )
         self.groups_info_label.setWordWrap(True)
 
@@ -181,9 +191,40 @@ class PositionsAnalysisDialog(QDialog):
         buttons_layout.addWidget(self.add_group_button)
         buttons_layout.addWidget(self.remove_group_button)
 
+        details_group = QGroupBox("Selected Group")
+        details_layout = QVBoxLayout(details_group)
+
+        self.selected_track_label = QLabel("Selected track: none")
+        self.reference_label = QLabel("Reference: none")
+        self.reference_label.setWordWrap(True)
+
+        self.set_reference_button = QPushButton("Set Selected Track as Reference")
+        self.set_reference_button.clicked.connect(self._set_selected_track_as_reference)
+
+        self.clear_reference_button = QPushButton("Clear Reference")
+        self.clear_reference_button.clicked.connect(self._clear_reference_from_group)
+
+        self.add_satellite_button = QPushButton("Add Selected Track as Satellite")
+        self.add_satellite_button.clicked.connect(self._add_selected_track_as_satellite)
+
+        self.remove_satellite_button = QPushButton("Remove Selected Satellite")
+        self.remove_satellite_button.clicked.connect(self._remove_selected_satellite)
+
+        self.satellites_list = QListWidget()
+
+        details_layout.addWidget(self.selected_track_label)
+        details_layout.addWidget(self.reference_label)
+        details_layout.addWidget(self.set_reference_button)
+        details_layout.addWidget(self.clear_reference_button)
+        details_layout.addWidget(QLabel("Satellites:"))
+        details_layout.addWidget(self.satellites_list)
+        details_layout.addWidget(self.add_satellite_button)
+        details_layout.addWidget(self.remove_satellite_button)
+
         group_layout.addWidget(self.groups_list)
         group_layout.addLayout(buttons_layout)
         group_layout.addWidget(self.groups_info_label)
+        group_layout.addWidget(details_group)
         layout.addWidget(group_box)
 
         status_group = QGroupBox("Session")
@@ -220,19 +261,34 @@ class PositionsAnalysisDialog(QDialog):
 
         self.track_stats_label.setText(
             f"Loaded tracks: {len(self.tracks)}\n"
-            "Selecting a track highlights its current ROI and trajectory."
+            "Selecting a track highlights its current ROI and trajectory.\n"
+            "The selected track can be assigned as a reference or satellite."
         )
 
     def _populate_groups_list(self):
         self.groups_list.clear()
-        for group_name in self.groups:
-            self.groups_list.addItem(group_name)
+        for group in self.groups:
+            reference = (
+                f"T{group.reference_track_id}"
+                if group.reference_track_id is not None
+                else "none"
+            )
+            satellites = len(group.satellite_track_ids)
+            self.groups_list.addItem(
+                f"{group.name} | Ref: {reference} | Sat: {satellites}"
+            )
 
     def _add_group(self):
         self._group_counter += 1
-        self.groups.append(f"Group {self._group_counter}")
+        self.groups.append(
+            PositionsAnalysisGroup(
+                group_id=self._group_counter,
+                name=f"Group {self._group_counter}",
+            )
+        )
         self._populate_groups_list()
         self.groups_list.setCurrentRow(self.groups_list.count() - 1)
+        self._refresh_group_details()
 
     def _remove_selected_group(self):
         row = self.groups_list.currentRow()
@@ -241,6 +297,9 @@ class PositionsAnalysisDialog(QDialog):
             return
         del self.groups[row]
         self._populate_groups_list()
+        if self.groups:
+            self.groups_list.setCurrentRow(min(row, len(self.groups) - 1))
+        self._refresh_group_details()
 
     def _get_selected_track(self) -> Track | None:
         current_row = self.tracks_table.currentRow()
@@ -252,7 +311,14 @@ class PositionsAnalysisDialog(QDialog):
         track_id = int(item.text())
         return next((t for t in self.tracks if t.track_id == track_id), None)
 
+    def _get_selected_group(self) -> PositionsAnalysisGroup | None:
+        row = self.groups_list.currentRow()
+        if row < 0 or row >= len(self.groups):
+            return None
+        return self.groups[row]
+
     def _on_track_selection_changed(self):
+        self._refresh_selected_track_label()
         self._update_track_overlay()
 
     def _on_slider_value_changed(self, index: int, fit: bool = False):
@@ -286,6 +352,118 @@ class PositionsAnalysisDialog(QDialog):
             f"Energy: {leed_file.energy}"
         )
         self._update_track_overlay()
+
+    def _on_group_selection_changed(self):
+        self._refresh_group_details()
+
+    def _refresh_selected_track_label(self):
+        selected_track = self._get_selected_track()
+        if selected_track is None:
+            self.selected_track_label.setText("Selected track: none")
+            return
+        self.selected_track_label.setText(
+            f"Selected track: T{selected_track.track_id}"
+        )
+
+    def _refresh_group_details(self):
+        self._refresh_selected_track_label()
+        group = self._get_selected_group()
+        self.satellites_list.clear()
+
+        if group is None:
+            self.reference_label.setText("Reference: none")
+            self.groups_info_label.setText(
+                "Select a group to assign the selected track as reference or satellite."
+            )
+            return
+
+        if group.reference_track_id is None:
+            self.reference_label.setText("Reference: none")
+        else:
+            self.reference_label.setText(f"Reference: T{group.reference_track_id}")
+
+        for track_id in group.satellite_track_ids:
+            self.satellites_list.addItem(f"T{track_id}")
+
+        self.groups_info_label.setText(
+            f"{group.name}: choose one reference track and add one or more satellites."
+        )
+
+    def _set_selected_track_as_reference(self):
+        group = self._get_selected_group()
+        track = self._get_selected_track()
+        if group is None:
+            QMessageBox.information(self, "No Group", "Create or select a group first.")
+            return
+        if track is None:
+            QMessageBox.information(self, "No Track", "Select a track first.")
+            return
+
+        group.reference_track_id = track.track_id
+        group.satellite_track_ids = [
+            tid for tid in group.satellite_track_ids if tid != track.track_id
+        ]
+        self._populate_groups_list()
+        self.groups_list.setCurrentRow(self.groups.index(group))
+        self._refresh_group_details()
+
+    def _clear_reference_from_group(self):
+        group = self._get_selected_group()
+        if group is None:
+            QMessageBox.information(self, "No Group", "Select a group first.")
+            return
+        group.reference_track_id = None
+        self._populate_groups_list()
+        self.groups_list.setCurrentRow(self.groups.index(group))
+        self._refresh_group_details()
+
+    def _add_selected_track_as_satellite(self):
+        group = self._get_selected_group()
+        track = self._get_selected_track()
+        if group is None:
+            QMessageBox.information(self, "No Group", "Create or select a group first.")
+            return
+        if track is None:
+            QMessageBox.information(self, "No Track", "Select a track first.")
+            return
+        if group.reference_track_id == track.track_id:
+            QMessageBox.information(
+                self,
+                "Track Already Reference",
+                "The selected track is already the reference track for this group.",
+            )
+            return
+        if track.track_id in group.satellite_track_ids:
+            QMessageBox.information(
+                self,
+                "Already Added",
+                "The selected track is already in the satellites list.",
+            )
+            return
+
+        group.satellite_track_ids.append(track.track_id)
+        self._populate_groups_list()
+        self.groups_list.setCurrentRow(self.groups.index(group))
+        self._refresh_group_details()
+
+    def _remove_selected_satellite(self):
+        group = self._get_selected_group()
+        row = self.satellites_list.currentRow()
+        if group is None:
+            QMessageBox.information(self, "No Group", "Select a group first.")
+            return
+        if row < 0 or row >= len(group.satellite_track_ids):
+            QMessageBox.information(
+                self,
+                "No Satellite",
+                "Select a satellite from the list first.",
+            )
+            return
+
+        del group.satellite_track_ids[row]
+        self._populate_groups_list()
+        self.groups_list.setCurrentRow(self.groups.index(group))
+        self._refresh_group_details()
 
     def _update_track_overlay(self):
         selected_track = self._get_selected_track()
