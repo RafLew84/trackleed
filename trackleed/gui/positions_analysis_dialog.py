@@ -9,6 +9,7 @@ from PyQt6.QtCore import QRectF, Qt, QThread
 from PyQt6.QtGui import QColor, QImage, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
@@ -208,6 +209,12 @@ class PositionsAnalysisDialog(QDialog):
         self.x_axis_combo.currentIndexChanged.connect(self._refresh_results_views)
         controls_layout.addWidget(QLabel("X axis:"))
         controls_layout.addWidget(self.x_axis_combo)
+        self.show_selected_pair_only_checkbox = QCheckBox("Only selected pair")
+        self.show_selected_pair_only_checkbox.setToolTip(
+            "Show only the active group's reference point and the currently selected satellite."
+        )
+        self.show_selected_pair_only_checkbox.toggled.connect(self._update_positions_overlay)
+        controls_layout.addWidget(self.show_selected_pair_only_checkbox)
         controls_layout.addStretch(1)
 
         self.results_status_label = QLabel(
@@ -1203,10 +1210,18 @@ class PositionsAnalysisDialog(QDialog):
         selected_group = self._get_selected_group()
         selected_group_id = selected_group.group_id if selected_group else None
         selected_satellite_track_id = self._get_selected_satellite_track_id()
+        show_selected_pair_only = self.show_selected_pair_only_checkbox.isChecked()
+
+        if show_selected_pair_only and (
+            selected_group_id is None or selected_satellite_track_id is None
+        ):
+            return []
 
         overlay_groups: list[dict] = []
         for group in results_groups:
             group_id = int(group.get("group_id"))
+            if show_selected_pair_only and group_id != selected_group_id:
+                continue
             emphasized = group_id == selected_group_id
             reference_track_id = group.get("reference_track_id")
             reference = self._build_overlay_point(
@@ -1218,6 +1233,8 @@ class PositionsAnalysisDialog(QDialog):
             )
             satellites = []
             for index, track_id in enumerate(group.get("satellite_track_ids", []), start=1):
+                if show_selected_pair_only and track_id != selected_satellite_track_id:
+                    continue
                 satellites.append(
                     self._build_overlay_point(
                         frame_id,
