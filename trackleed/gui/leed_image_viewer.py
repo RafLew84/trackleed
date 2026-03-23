@@ -300,6 +300,7 @@ class LeedImageViewer(QGraphicsView):
             rect_item.setData(0, spot.id)
             self._roi_items[spot.id] = rect_item
             label_item = QGraphicsSimpleTextItem(str(spot.id))
+            label_item.setData(0, spot.id)
             label_item.setBrush(QBrush(self._roi_label_color()))
             label_item.setPos(QPointF(spot.roi_rect.topLeft()))
             self._scene.addItem(label_item)
@@ -638,11 +639,75 @@ class LeedImageViewer(QGraphicsView):
             event: The QWheelEvent object containing details about the scroll,
                 such as the angle and direction.
         """
+        if self.mode == 'MOVE_ROI' and bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            spot_id = self._get_roi_id_at_view_pos(event.position().toPoint())
+            if spot_id is not None:
+                size_delta = 4.0 if event.angleDelta().y() > 0 else -4.0
+                if self._resize_roi_item(spot_id, size_delta):
+                    event.accept()
+                    return
+
         # Define the scaling factors for zooming in and out.
         # A value of 1.15 means each scroll step zooms in by 15%.
         zoom_in_factor, zoom_out_factor = 1.15, 1.0 / 1.15
         if event.angleDelta().y() > 0: self.scale(zoom_in_factor, zoom_in_factor)
         else: self.scale(zoom_out_factor, zoom_out_factor)
+
+    def _get_roi_id_at_view_pos(self, view_pos: QPoint) -> int | None:
+        item = self.itemAt(view_pos)
+        if item is None:
+            return None
+        if item in self._roi_items.values() or item in self._roi_label_items.values():
+            try:
+                return int(item.data(0))
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def _resize_roi_item(self, spot_id: int, size_delta: float) -> bool:
+        rect_item = self._roi_items.get(spot_id)
+        if rect_item is None:
+            return False
+
+        current_scene_rect = rect_item.sceneBoundingRect()
+        min_size = 6.0
+        new_width = max(min_size, current_scene_rect.width() + size_delta)
+        new_height = max(min_size, current_scene_rect.height() + size_delta)
+
+        image_bounds = self._image_item.sceneBoundingRect() if self._image_item else None
+        if image_bounds is not None:
+            new_width = min(new_width, image_bounds.width())
+            new_height = min(new_height, image_bounds.height())
+
+        center = current_scene_rect.center()
+        new_rect = QRectF(
+            center.x() - new_width / 2.0,
+            center.y() - new_height / 2.0,
+            new_width,
+            new_height,
+        )
+
+        if image_bounds is not None:
+            if new_rect.left() < image_bounds.left():
+                new_rect.moveLeft(image_bounds.left())
+            if new_rect.top() < image_bounds.top():
+                new_rect.moveTop(image_bounds.top())
+            if new_rect.right() > image_bounds.right():
+                new_rect.moveRight(image_bounds.right())
+            if new_rect.bottom() > image_bounds.bottom():
+                new_rect.moveBottom(image_bounds.bottom())
+
+        local_rect = QRectF(new_rect)
+        local_rect.translate(-rect_item.pos())
+        rect_item.setRect(local_rect)
+
+        label_item = self._roi_label_items.get(spot_id)
+        if label_item is not None:
+            label_item.setPos(new_rect.topLeft())
+
+        self.highlight_roi(self._highlighted_roi_id)
+        self.roi_moved.emit(spot_id, new_rect)
+        return True
     
     def show_track_path(self, track: Track | None):
         """Draws a line connecting all spots in a given track."""

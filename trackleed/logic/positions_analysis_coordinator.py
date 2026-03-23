@@ -231,9 +231,9 @@ def fit_track_position_on_frame(track: Track, frame_id: int, full_image: np.ndar
         payload["spot_id"] = spot.id
         return payload
 
-    roi_to_fit = _prepare_roi_for_fit(roi_data)
+    roi_to_fit = prepare_roi_for_fit(roi_data)
     fit_results = fit_spot_to_gaussian(roi_to_fit)
-    fit_ok = _is_fit_valid(fit_results, roi_to_fit.shape)
+    fit_ok = is_fit_valid(fit_results, roi_to_fit.shape)
     if not fit_ok:
         fit_results = None
 
@@ -261,7 +261,7 @@ def fit_track_position_on_frame(track: Track, frame_id: int, full_image: np.ndar
     return payload
 
 
-def _prepare_roi_for_fit(roi_data: np.ndarray) -> np.ndarray:
+def prepare_roi_for_fit(roi_data: np.ndarray) -> np.ndarray:
     arr = np.asarray(roi_data)
     if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[-1] not in (3, 4):
         arr = np.transpose(arr, (1, 2, 0))
@@ -296,7 +296,7 @@ def _empty_fit_payload(frame_id: int, track_id: int) -> Dict:
     }
 
 
-def _is_fit_valid(fit_results: Optional[Dict], roi_shape: tuple) -> bool:
+def is_fit_valid(fit_results: Optional[Dict], roi_shape: tuple) -> bool:
     if not fit_results:
         return False
     if roi_shape is None or len(roi_shape) < 2:

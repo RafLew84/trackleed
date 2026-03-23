@@ -32,10 +32,13 @@ from PyQt6.QtWidgets import (
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.leed_image_viewer import LeedImageViewer
+from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, gaussian_2d
 from trackleed.io.image_reader import load_tiff
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.positions_analysis_coordinator import (
     fit_track_position_on_frame,
+    is_fit_valid,
+    prepare_roi_for_fit,
     run_positions_analysis,
 )
 
@@ -57,6 +60,15 @@ class MplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=3, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
+        super().__init__(self.fig)
+
+
+class GaussPreviewCanvas(FigureCanvas):
+    def __init__(self, parent=None, width=7, height=3, dpi=100):
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes_roi = self.fig.add_subplot(131)
+        self.axes_fit = self.fig.add_subplot(132)
+        self.axes_residual = self.fig.add_subplot(133)
         super().__init__(self.fig)
 
 
@@ -99,6 +111,8 @@ class PositionsAnalysisDialog(QDialog):
         self.positions_analysis_results: dict | None = None
         self.manual_bbox_corrections: dict[tuple[int, int], dict] = {}
         self.pending_manual_recompute: set[tuple[int, int]] = set()
+        self.current_frame_id: int | None = None
+        self.current_frame_image_data = None
         self.worker_thread = None
         self.worker = None
         self.positions_analysis_cancel_event: Event | None = None
@@ -117,7 +131,7 @@ class PositionsAnalysisDialog(QDialog):
         main_layout.addWidget(title_label)
 
         subtitle_label = QLabel(
-            "Stage 5: tracks list, group definition, positions analysis, results, and overlay preview."
+            "Stage 6A: tracks list, group definition, positions analysis, overlay preview, and live Gaussian fit preview."
         )
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(subtitle_label)
@@ -193,11 +207,22 @@ class PositionsAnalysisDialog(QDialog):
 
         self.frame_meta_label = QLabel("Temperature: - | Coverage: - | Energy: -")
         self.frame_meta_label.setWordWrap(True)
+        self.show_gauss_preview_checkbox = QCheckBox("Show 2D Gauss Preview")
+        self.show_gauss_preview_checkbox.setToolTip(
+            "Show a live preview of the current ROI, fitted Gaussian model, and residuals."
+        )
+        self.show_gauss_preview_checkbox.toggled.connect(self._toggle_gauss_preview)
 
         group_layout.addWidget(self.image_viewer, 1)
         group_layout.addLayout(slider_layout)
         group_layout.addWidget(self.frame_meta_label)
+        group_layout.addWidget(self.show_gauss_preview_checkbox)
         vertical_splitter.addWidget(group_box)
+
+        lower_panel = QWidget()
+        lower_layout = QHBoxLayout(lower_panel)
+        lower_layout.setContentsMargins(0, 0, 0, 0)
+        lower_layout.setSpacing(8)
 
         results_group = QGroupBox("Results")
         results_layout = QVBoxLayout(results_group)
@@ -260,7 +285,21 @@ class PositionsAnalysisDialog(QDialog):
         results_layout.addWidget(self.results_status_label)
         results_layout.addWidget(self.results_plot, 1)
         results_layout.addWidget(self.results_table, 1)
-        vertical_splitter.addWidget(results_group)
+        lower_layout.addWidget(results_group, 2)
+
+        self.gauss_preview_group = QGroupBox("2D Gauss Preview")
+        gauss_preview_layout = QVBoxLayout(self.gauss_preview_group)
+        self.gauss_preview_status_label = QLabel(
+            "Enable the live preview and select a track to inspect the current Gaussian fit."
+        )
+        self.gauss_preview_status_label.setWordWrap(True)
+        self.gauss_preview_canvas = GaussPreviewCanvas(self, width=7, height=3, dpi=100)
+        gauss_preview_layout.addWidget(self.gauss_preview_status_label)
+        gauss_preview_layout.addWidget(self.gauss_preview_canvas, 1)
+        self.gauss_preview_group.setVisible(False)
+        lower_layout.addWidget(self.gauss_preview_group, 1)
+
+        vertical_splitter.addWidget(lower_panel)
         vertical_splitter.setSizes([520, 300])
 
         layout.addWidget(vertical_splitter)
@@ -334,7 +373,7 @@ class PositionsAnalysisDialog(QDialog):
         self.move_bbox_button.setCheckable(True)
         self.move_bbox_button.toggled.connect(self._toggle_move_bbox_mode)
         self.move_bbox_button.setToolTip(
-            "Enable ROI dragging in the preview. Changes affect only the current frame."
+            "Enable ROI editing in the preview. Drag to move. Use Shift + mouse wheel over ROI to resize. Changes affect only the current frame."
         )
 
         self.recompute_fit_button = QPushButton("Recompute 2D Gauss")
@@ -384,11 +423,16 @@ class PositionsAnalysisDialog(QDialog):
             self.bbox_transparency_combo.currentData()
         )
         self._update_manual_correction_label()
+        self._refresh_gauss_preview()
 
     def _toggle_move_bbox_mode(self, enabled: bool):
         self.image_viewer.set_mode("MOVE_ROI" if enabled else "PAN")
         self.move_bbox_button.setText("Move BBox Mode: ON" if enabled else "Move BBox Mode")
         self._update_manual_correction_label()
+
+    def _toggle_gauss_preview(self, enabled: bool):
+        self.gauss_preview_group.setVisible(bool(enabled))
+        self._refresh_gauss_preview()
 
     def _on_bbox_transparency_changed(self, _index=None):
         self.image_viewer.set_roi_transparency_percent(
@@ -474,6 +518,7 @@ class PositionsAnalysisDialog(QDialog):
     def _on_track_selection_changed(self):
         self._refresh_selected_track_label()
         self._update_track_overlay()
+        self._refresh_gauss_preview()
 
     def _on_slider_value_changed(self, index: int, fit: bool = False):
         if not self.sorted_frame_ids or not (0 <= index < len(self.sorted_frame_ids)):
@@ -491,6 +536,8 @@ class PositionsAnalysisDialog(QDialog):
             return
 
         image_data = load_tiff(leed_file.filepath)
+        self.current_frame_id = frame_id
+        self.current_frame_image_data = image_data
         pixmap = self._convert_numpy_to_pixmap(image_data)
         self.image_viewer.set_image(pixmap, fit=fit)
         self.image_viewer.set_roi_transparency_percent(
@@ -503,6 +550,7 @@ class PositionsAnalysisDialog(QDialog):
             f"Energy: {leed_file.energy}"
         )
         self._update_track_overlay()
+        self._refresh_gauss_preview()
 
     def _update_frame_rois(self, frame_id: int):
         visible_track_ids = self._get_visible_track_ids_for_frame(frame_id)
@@ -715,6 +763,7 @@ class PositionsAnalysisDialog(QDialog):
         self._select_track_by_id(track.track_id)
         self._update_manual_correction_label()
         self._update_track_overlay()
+        self._refresh_gauss_preview()
 
     def _recompute_selected_fit(self):
         if not self.positions_analysis_results:
@@ -784,6 +833,7 @@ class PositionsAnalysisDialog(QDialog):
         self._refresh_results_views()
         self._update_track_overlay()
         self._update_manual_correction_label()
+        self._refresh_gauss_preview()
 
     def _refresh_rows_for_frame(self, frame_id: int):
         if not self.positions_analysis_results:
@@ -890,7 +940,7 @@ class PositionsAnalysisDialog(QDialog):
         frame_id = self._get_current_frame_id()
         if track is None or frame_id is None:
             self.manual_correction_label.setText(
-                "Select a track and frame. Move its bbox if needed, then recompute the local fit."
+                "Select a track and frame. Move its bbox if needed, use Shift + mouse wheel to resize it, then recompute the local fit."
             )
             return
 
@@ -923,7 +973,7 @@ class PositionsAnalysisDialog(QDialog):
             parts.append("Run positions analysis first to populate fit results.")
 
         if self.move_bbox_button.isChecked():
-            parts.append("Move BBox Mode is ON.")
+            parts.append("Move BBox Mode is ON. Drag ROI to move; Shift + mouse wheel resizes it.")
 
         self.manual_correction_label.setText(" ".join(parts))
 
@@ -1106,6 +1156,7 @@ class PositionsAnalysisDialog(QDialog):
             self._update_frame_rois(frame_id)
         self._update_positions_overlay()
         self._update_manual_correction_label()
+        self._refresh_gauss_preview()
 
     def _update_results_table(self, rows: list[dict]):
         self.results_table.setRowCount(len(rows))
@@ -1226,6 +1277,233 @@ class PositionsAnalysisDialog(QDialog):
                     top=0.90,
                 )
         self.results_plot.draw()
+
+    def _refresh_gauss_preview(self):
+        if not hasattr(self, "gauss_preview_group"):
+            return
+        if not self.show_gauss_preview_checkbox.isChecked():
+            self._clear_gauss_preview(
+                "Enable the live preview and select a track to inspect the current Gaussian fit."
+            )
+            return
+
+        track = self._get_selected_track()
+        frame_id = self._get_current_frame_id()
+        if track is None or frame_id is None:
+            self._clear_gauss_preview("Select a track and a valid frame to inspect the fit.")
+            return
+
+        if frame_id not in track.spots_by_image_id:
+            self._clear_gauss_preview(
+                f"Track T{track.track_id} is not present on frame {frame_id}."
+            )
+            return
+
+        full_image = self.current_frame_image_data
+        if full_image is None or self.current_frame_id != frame_id:
+            leed_file = self.all_files_map.get(frame_id)
+            if leed_file is None:
+                self._clear_gauss_preview("Could not load image data for the current frame.")
+                return
+            full_image = load_tiff(leed_file.filepath)
+        if full_image is None or np.asarray(full_image).size == 0:
+            self._clear_gauss_preview("Current frame image is empty.")
+            return
+
+        spot = track.spots_by_image_id[frame_id]
+        rect = spot.roi_rect
+        image_arr = np.asarray(full_image)
+        if image_arr.ndim == 3 and image_arr.shape[0] in (3, 4) and image_arr.shape[-1] not in (3, 4):
+            image_arr = np.transpose(image_arr, (1, 2, 0))
+
+        height_full = image_arr.shape[0]
+        width_full = image_arr.shape[1]
+        x0 = max(0, int(rect.x()))
+        y0 = max(0, int(rect.y()))
+        x1 = min(width_full, x0 + int(rect.width()))
+        y1 = min(height_full, y0 + int(rect.height()))
+        if x1 <= x0 or y1 <= y0:
+            self._clear_gauss_preview("Current ROI is empty.")
+            return
+
+        roi_data = image_arr[y0:y1, x0:x1].copy()
+        roi_to_fit = prepare_roi_for_fit(roi_data)
+        if roi_to_fit is None or np.asarray(roi_to_fit).size == 0 or np.asarray(roi_to_fit).ndim != 2:
+            self._clear_gauss_preview("Current ROI could not be converted to 2D fit data.")
+            return
+
+        fit_results = fit_spot_to_gaussian(roi_to_fit)
+        fit_ok = is_fit_valid(fit_results, roi_to_fit.shape)
+        self._draw_gauss_preview(track.track_id, frame_id, roi_to_fit, fit_results, fit_ok)
+
+    def _draw_gauss_preview(
+        self,
+        track_id: int,
+        frame_id: int,
+        roi_to_fit: np.ndarray,
+        fit_results: dict | None,
+        fit_ok: bool,
+    ):
+        ax_roi = self.gauss_preview_canvas.axes_roi
+        ax_fit = self.gauss_preview_canvas.axes_fit
+        ax_residual = self.gauss_preview_canvas.axes_residual
+        ax_roi.clear()
+        ax_fit.clear()
+        ax_residual.clear()
+
+        ax_roi.imshow(roi_to_fit, cmap="viridis", origin="lower")
+        ax_roi.set_title("ROI")
+        ax_roi.set_xlabel("X")
+        ax_roi.set_ylabel("Y")
+
+        status_parts = [f"Track T{track_id} | Frame {frame_id}"]
+
+        if fit_results:
+            height, width = roi_to_fit.shape
+            x = np.arange(width)
+            y = np.arange(height)
+            X, Y = np.meshgrid(x, y)
+            model_param_names = [
+                "amplitude",
+                "center_x",
+                "center_y",
+                "sigma_x",
+                "sigma_y",
+                "theta",
+                "offset",
+            ]
+            model_params = {
+                key: fit_results[key]
+                for key in model_param_names
+                if key in fit_results
+            }
+            if len(model_params) == len(model_param_names):
+                fitted_z = gaussian_2d((X, Y), **model_params).reshape(height, width)
+                residual = roi_to_fit - fitted_z
+
+                center_x = float(fit_results["center_x"])
+                center_y = float(fit_results["center_y"])
+                ax_roi.scatter(
+                    [center_x],
+                    [center_y],
+                    s=48,
+                    c="white",
+                    edgecolors="black",
+                    linewidths=0.8,
+                )
+
+                ax_fit.imshow(fitted_z, cmap="plasma", origin="lower")
+                ax_fit.scatter(
+                    [center_x],
+                    [center_y],
+                    s=48,
+                    c="white",
+                    edgecolors="black",
+                    linewidths=0.8,
+                )
+                ax_fit.set_title("Fitted Gaussian")
+                ax_fit.set_xlabel("X")
+                ax_fit.set_ylabel("Y")
+
+                vmax = float(np.max(np.abs(residual))) if residual.size else 0.0
+                if not np.isfinite(vmax) or vmax <= 0:
+                    vmax = 1.0
+                ax_residual.imshow(
+                    residual,
+                    cmap="coolwarm",
+                    origin="lower",
+                    vmin=-vmax,
+                    vmax=vmax,
+                )
+                ax_residual.set_title("Residual")
+                ax_residual.set_xlabel("X")
+                ax_residual.set_ylabel("Y")
+
+                r_squared = self._safe_float(fit_results.get("r_squared"))
+                status_parts.append("fit OK" if fit_ok else "fit did not pass validation")
+                if r_squared is not None:
+                    status_parts.append(f"R²={r_squared:.4f}")
+                status_parts.append(
+                    f"center=({center_x:.2f}, {center_y:.2f})"
+                )
+            else:
+                ax_fit.text(0.5, 0.5, "Incomplete fit", ha="center", va="center", transform=ax_fit.transAxes)
+                ax_residual.text(0.5, 0.5, "No residual", ha="center", va="center", transform=ax_residual.transAxes)
+                status_parts.append("fit parameters incomplete")
+        else:
+            ax_fit.text(
+                0.5,
+                0.5,
+                "Fit failed",
+                ha="center",
+                va="center",
+                transform=ax_fit.transAxes,
+            )
+            ax_residual.text(
+                0.5,
+                0.5,
+                "No residual",
+                ha="center",
+                va="center",
+                transform=ax_residual.transAxes,
+            )
+            ax_fit.set_title("Fitted Gaussian")
+            ax_residual.set_title("Residual")
+            status_parts.append("fit failed")
+
+        for axis in (ax_fit, ax_residual):
+            if not axis.get_title():
+                axis.set_xlabel("X")
+                axis.set_ylabel("Y")
+
+        correction_key = (frame_id, track_id)
+        if correction_key in self.pending_manual_recompute:
+            status_parts.append("preview uses current bbox; stored analysis result is outdated")
+        elif correction_key in self.manual_bbox_corrections:
+            status_parts.append("manual bbox correction saved")
+
+        self.gauss_preview_status_label.setText(" | ".join(status_parts))
+        self._finalize_gauss_preview_draw()
+
+    def _clear_gauss_preview(self, message: str):
+        if not hasattr(self, "gauss_preview_canvas"):
+            return
+        for axis, title in (
+            (self.gauss_preview_canvas.axes_roi, "ROI"),
+            (self.gauss_preview_canvas.axes_fit, "Fitted Gaussian"),
+            (self.gauss_preview_canvas.axes_residual, "Residual"),
+        ):
+            axis.clear()
+            axis.set_title(title)
+            axis.text(
+                0.5,
+                0.5,
+                "No data",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
+            axis.set_xticks([])
+            axis.set_yticks([])
+        self.gauss_preview_status_label.setText(message)
+        self._finalize_gauss_preview_draw()
+
+    def _finalize_gauss_preview_draw(self):
+        canvas_width = self.gauss_preview_canvas.width()
+        canvas_height = self.gauss_preview_canvas.height()
+        if canvas_width > 1 and canvas_height > 1:
+            try:
+                self.gauss_preview_canvas.fig.tight_layout()
+            except (np.linalg.LinAlgError, RuntimeError, ValueError) as exc:
+                print(f"[PositionsAnalysis] gauss preview tight_layout skipped: {exc}")
+                self.gauss_preview_canvas.fig.subplots_adjust(
+                    left=0.06,
+                    right=0.98,
+                    bottom=0.18,
+                    top=0.88,
+                    wspace=0.28,
+                )
+        self.gauss_preview_canvas.draw()
 
     def _update_positions_overlay(self):
         frame_id = self._get_current_frame_id()
