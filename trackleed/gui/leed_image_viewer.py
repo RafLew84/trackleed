@@ -53,6 +53,7 @@ class LeedImageViewer(QGraphicsView):
         self._pattern_center_item = None
         self._analysis_circle_item: QGraphicsEllipseItem | None = None
         self._analysis_ellipse_item: QGraphicsEllipseItem | None = None
+        self._positions_overlay_items: List[Any] = []
 
         # --- Define Drawing Styles ---
         self._roi_transparency_pct = 0.0
@@ -354,6 +355,7 @@ class LeedImageViewer(QGraphicsView):
         if self._analysis_ellipse_item:
             self._scene.removeItem(self._analysis_ellipse_item)
             self._analysis_ellipse_item = None
+        self.clear_positions_overlay()
 
     def set_image(self, pixmap: QPixmap | None, fit: bool = False):
         """
@@ -478,6 +480,151 @@ class LeedImageViewer(QGraphicsView):
             int(round(ry)),
             float(angle),
         )
+
+    def clear_positions_overlay(self):
+        """Remove custom analysis-position markers, labels, and connections."""
+        for item in self._positions_overlay_items:
+            self._scene.removeItem(item)
+        self._positions_overlay_items.clear()
+
+    def update_positions_overlay(self, overlay_groups: list[dict] | None):
+        """
+        Draw custom overlays for the positions-analysis preview.
+
+        Each overlay group may include:
+        - color: QColor
+        - emphasized: bool
+        - reference: dict with x/y/label/from_fit
+        - satellites: list of dicts with x/y/label/from_fit/selected
+        """
+        self.clear_positions_overlay()
+        if not overlay_groups:
+            return
+
+        for group in overlay_groups:
+            color = self._coerce_overlay_color(group.get("color"))
+            emphasized = bool(group.get("emphasized", False))
+            reference = group.get("reference")
+            satellites = group.get("satellites", [])
+            if reference is None:
+                continue
+
+            for satellite in satellites:
+                if satellite is None:
+                    continue
+                if self._has_overlay_point(reference) and self._has_overlay_point(satellite):
+                    self._add_positions_connection(reference, satellite, color, emphasized)
+
+            self._add_positions_marker(reference, color, emphasized, is_reference=True)
+            for satellite in satellites:
+                if satellite is None:
+                    continue
+                self._add_positions_marker(
+                    satellite,
+                    color,
+                    emphasized or bool(satellite.get("selected", False)),
+                    is_reference=False,
+                )
+
+    @staticmethod
+    def _coerce_overlay_color(color: Any) -> QColor:
+        if isinstance(color, QColor):
+            return QColor(color)
+        if isinstance(color, str):
+            coerced = QColor(color)
+            if coerced.isValid():
+                return coerced
+        return QColor(0, 170, 255)
+
+    @staticmethod
+    def _has_overlay_point(payload: dict | None) -> bool:
+        if payload is None:
+            return False
+        try:
+            x = float(payload.get("x"))
+            y = float(payload.get("y"))
+        except Exception:
+            return False
+        return np.isfinite(x) and np.isfinite(y)
+
+    def _add_positions_connection(
+        self,
+        reference: dict,
+        satellite: dict,
+        color: QColor,
+        emphasized: bool,
+    ):
+        line_color = QColor(color)
+        line_color.setAlpha(240 if emphasized else 160)
+        pen = QPen(
+            line_color,
+            2.5 if emphasized or bool(satellite.get("selected", False)) else 1.5,
+        )
+        pen.setCosmetic(True)
+        if not (bool(reference.get("from_fit", False)) and bool(satellite.get("from_fit", False))):
+            pen.setStyle(Qt.PenStyle.DashLine)
+
+        line_item = self._scene.addLine(
+            float(reference["x"]),
+            float(reference["y"]),
+            float(satellite["x"]),
+            float(satellite["y"]),
+            pen,
+        )
+        line_item.setZValue(20)
+        self._positions_overlay_items.append(line_item)
+
+    def _add_positions_marker(
+        self,
+        payload: dict,
+        color: QColor,
+        emphasized: bool,
+        *,
+        is_reference: bool,
+    ):
+        if not self._has_overlay_point(payload):
+            return
+
+        x = float(payload["x"])
+        y = float(payload["y"])
+        from_fit = bool(payload.get("from_fit", False))
+        selected = bool(payload.get("selected", False))
+
+        radius = 7.0 if is_reference else 5.5
+        if emphasized or selected:
+            radius += 1.0
+
+        pen_color = QColor(color)
+        pen_color.setAlpha(255 if emphasized or selected else 185)
+        pen = QPen(pen_color)
+        pen.setWidth(3 if emphasized or selected else 2)
+        pen.setCosmetic(True)
+        if not from_fit:
+            pen.setStyle(Qt.PenStyle.DashLine)
+
+        brush = QBrush(Qt.BrushStyle.NoBrush)
+        if from_fit:
+            fill_color = QColor(color)
+            fill_color.setAlpha(155 if emphasized or selected else 110)
+            brush = QBrush(fill_color)
+
+        marker = QGraphicsEllipseItem(x - radius, y - radius, 2 * radius, 2 * radius)
+        marker.setPen(pen)
+        marker.setBrush(brush)
+        marker.setZValue(21 if is_reference else 20.5)
+        self._scene.addItem(marker)
+        self._positions_overlay_items.append(marker)
+
+        label_text = str(payload.get("label", "")).strip()
+        if label_text:
+            label = QGraphicsSimpleTextItem(label_text)
+            label_color = QColor(color)
+            label_color.setAlpha(255 if emphasized or selected else 210)
+            label.setBrush(QBrush(label_color))
+            label.setPos(QPointF(x + radius + 4.0, y - radius - 12.0))
+            label.setZValue(22)
+            self._scene.addItem(label)
+            self._positions_overlay_items.append(label)
 
     def wheelEvent(self, event: QWheelEvent):
         """
