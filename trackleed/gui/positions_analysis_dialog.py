@@ -1,6 +1,7 @@
 # stal/gui/positions_analysis_dialog.py
 
 import json
+import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event
@@ -8,7 +9,7 @@ from typing import Dict, List
 
 import numpy as np
 from PyQt6.QtCore import QRect, QRectF, Qt, QThread
-from PyQt6.QtGui import QAction, QColor, QImage, QPixmap
+from PyQt6.QtGui import QAction, QColor, QImage, QPixmap, QBrush
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -45,7 +46,9 @@ from trackleed.io.image_reader import load_tiff
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.positions_analysis_coordinator import (
     DEFAULT_VALIDATION_CONFIG,
+    evaluate_fit_quality,
     fit_track_position_on_frame,
+    format_quality_flags,
     is_fit_valid,
     normalize_validation_config,
     prepare_roi_for_fit,
@@ -56,6 +59,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from PIL import Image, ImageDraw, ImageFont
 
 
 POSITIONS_SESSION_TYPE = "trackleed_positions_analysis_session"
@@ -390,7 +394,7 @@ class PositionsAnalysisDialog(QDialog):
 
         self.results_plot = MplCanvas(self, width=5, height=3, dpi=100)
         self.results_table = QTableWidget()
-        self.results_table.setColumnCount(8)
+        self.results_table.setColumnCount(9)
         self.results_table.setHorizontalHeaderLabels(
             [
                 "Frame ID",
@@ -399,8 +403,9 @@ class PositionsAnalysisDialog(QDialog):
                 "dx",
                 "dy",
                 "r",
-                "Ref OK",
-                "Sat OK",
+                "Ref Status",
+                "Sat Status",
+                "Flags",
             ]
         )
         self.results_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -470,7 +475,11 @@ class PositionsAnalysisDialog(QDialog):
         analysis_buttons_layout = QHBoxLayout()
         self.run_analysis_button = QPushButton("Run Positions Analysis")
         self.run_analysis_button.clicked.connect(self.start_positions_analysis)
+        self.export_results_button = QPushButton("Export Results")
+        self.export_results_button.clicked.connect(self._export_positions_results)
+        self.export_results_button.setEnabled(False)
         analysis_buttons_layout.addWidget(self.run_analysis_button)
+        analysis_buttons_layout.addWidget(self.export_results_button)
 
         details_group = QGroupBox("Selected Group")
         details_layout = QVBoxLayout(details_group)
@@ -1595,6 +1604,7 @@ class PositionsAnalysisDialog(QDialog):
 
         if results is None:
             self.analysis_summary_label.setText("Positions analysis was cancelled.")
+            self._update_export_button_state()
             self._refresh_results_views()
             QMessageBox.information(
                 self,
@@ -1609,6 +1619,7 @@ class PositionsAnalysisDialog(QDialog):
         )
         self.pending_manual_recompute.clear()
         self.analysis_summary_label.setText(self._format_analysis_summary(results))
+        self._update_export_button_state()
         self._refresh_results_views()
         self._update_track_overlay()
         QMessageBox.information(
@@ -1621,6 +1632,7 @@ class PositionsAnalysisDialog(QDialog):
         self.positions_analysis_cancel_event = None
         self.run_analysis_button.setEnabled(True)
         self.analysis_summary_label.setText("Positions analysis failed.")
+        self._update_export_button_state()
         self._refresh_results_views()
         self._update_track_overlay()
         self._update_manual_correction_label()
@@ -1629,6 +1641,195 @@ class PositionsAnalysisDialog(QDialog):
             "Positions Analysis Error",
             f"An error occurred:\n{error_message}",
         )
+
+    def _update_export_button_state(self):
+        if not hasattr(self, "export_results_button"):
+            return
+        has_results = bool(
+            self.positions_analysis_results
+            and self.positions_analysis_results.get("rows")
+        )
+        self.export_results_button.setEnabled(has_results)
+
+    def _export_positions_results(self):
+        if not self.positions_analysis_results or not self.positions_analysis_results.get("rows"):
+            QMessageBox.information(
+                self,
+                "No Results",
+                "Run Positions Analysis first or load a session with results before exporting.",
+            )
+            return
+
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Select Export Directory",
+            "",
+        )
+        if not directory:
+            return
+
+        export_dir = Path(directory)
+        try:
+            export_dir.mkdir(parents=True, exist_ok=True)
+            csv_path = self._export_positions_results_csv(export_dir)
+            images_dir = self._export_positions_overlay_images(export_dir)
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Could not export Analyze Positions results:\n{exc}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Export Finished",
+            (
+                "Analyze Positions export completed.\n\n"
+                f"CSV: {csv_path}\n"
+                f"Images: {images_dir}"
+            ),
+        )
+
+    def _export_positions_results_csv(self, export_dir: Path) -> Path:
+        output_path = export_dir / "positions_analysis_results.csv"
+        rows = list(self.positions_analysis_results.get("rows", []))
+
+        preferred_order = [
+            "frame_id",
+            "temperature",
+            "coverage",
+            "energy",
+            "group_id",
+            "group_name",
+            "reference_track_id",
+            "satellite_track_id",
+            "reference_spot_present",
+            "satellite_spot_present",
+            "reference_fit_ok",
+            "satellite_fit_ok",
+            "reference_quality_status",
+            "satellite_quality_status",
+            "reference_quality_flags",
+            "satellite_quality_flags",
+            "reference_validation_failures",
+            "satellite_validation_failures",
+            "reference_warning_flags",
+            "satellite_warning_flags",
+            "reference_suspicious",
+            "satellite_suspicious",
+            "suspicious",
+            "row_quality_status",
+            "reference_spot_id",
+            "satellite_spot_id",
+            "x_fit_ref",
+            "y_fit_ref",
+            "x_fit_sat",
+            "y_fit_sat",
+            "dx",
+            "dy",
+            "r",
+            "reference_r_squared",
+            "satellite_r_squared",
+            "reference_manually_corrected",
+            "satellite_manually_corrected",
+            "manually_corrected",
+        ]
+        existing_columns = [
+            column_name
+            for column_name in preferred_order
+            if any(column_name in row for row in rows)
+        ]
+        extra_columns = sorted(
+            {
+                key
+                for row in rows
+                for key in row.keys()
+                if key not in existing_columns
+            }
+        )
+        fieldnames = existing_columns + extra_columns
+
+        with output_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in sorted(
+                rows,
+                key=lambda current: (
+                    current.get("group_id", -1),
+                    current.get("satellite_track_id", -1),
+                    current.get("frame_id", -1),
+                ),
+            ):
+                writer.writerow(
+                    {
+                        fieldname: self._csv_safe_value(row.get(fieldname))
+                        for fieldname in fieldnames
+                    }
+                )
+
+        return output_path
+
+    def _export_positions_overlay_images(self, export_dir: Path) -> Path:
+        images_dir = export_dir / "positions_overlay_images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+
+        frame_ids = list(self.sorted_frame_ids)
+        progress_dialog = QProgressDialog(
+            "Exporting positions overlay images...",
+            "Cancel",
+            0,
+            len(frame_ids),
+            self,
+        )
+        progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setValue(0)
+        progress_dialog.show()
+
+        for index, frame_id in enumerate(frame_ids, start=1):
+            if progress_dialog.wasCanceled():
+                break
+
+            leed_file = self.all_files_map.get(frame_id)
+            if leed_file is None:
+                progress_dialog.setValue(index)
+                QApplication.processEvents()
+                continue
+
+            image_data = load_tiff(leed_file.filepath)
+            if image_data is None or np.asarray(image_data).size == 0:
+                progress_dialog.setValue(index)
+                QApplication.processEvents()
+                continue
+
+            overlay_image = self._build_positions_overlay_export_image(frame_id, image_data)
+            output_name = f"positions_{frame_id:04d}_{Path(leed_file.filename).stem}.png"
+            overlay_image.save(images_dir / output_name)
+
+            progress_dialog.setValue(index)
+            QApplication.processEvents()
+
+        progress_dialog.close()
+        return images_dir
+
+    def _build_positions_overlay_export_image(self, frame_id: int, image_data) -> Image.Image:
+        export_image = self._convert_numpy_to_export_image(image_data)
+        draw = ImageDraw.Draw(export_image)
+        try:
+            font = ImageFont.truetype("arial.ttf", 14)
+        except IOError:
+            font = ImageFont.load_default()
+
+        for roi_payload in self._build_export_roi_payloads(frame_id):
+            self._draw_export_roi(draw, roi_payload, font)
+
+        overlay_groups = self._build_positions_overlay_payload(
+            frame_id,
+            respect_selection_filter=False,
+        )
+        self._draw_export_overlay_groups(draw, overlay_groups, font)
+        return export_image
 
     def _format_analysis_summary(self, results: dict | None) -> str:
         if not results:
@@ -1641,7 +1842,9 @@ class PositionsAnalysisDialog(QDialog):
             f"Frames: {summary.get('frames_processed', 0)}\n"
             f"Rows: {summary.get('rows_generated', 0)}\n"
             f"Successful fits: {summary.get('successful_fits', 0)}\n"
-            f"Failed fits: {summary.get('failed_fits', 0)}"
+            f"Failed fits: {summary.get('failed_fits', 0)}\n"
+            f"Suspicious fits: {summary.get('suspicious_fits', 0)}\n"
+            f"Suspicious rows: {summary.get('suspicious_rows', 0)}"
         )
 
     def _select_track_by_id(self, track_id: int):
@@ -2115,6 +2318,20 @@ class PositionsAnalysisDialog(QDialog):
         row["satellite_spot_present"] = bool(sat_fit and sat_fit.get("track_present"))
         row["reference_fit_ok"] = bool(ref_fit and ref_fit.get("fit_ok"))
         row["satellite_fit_ok"] = bool(sat_fit and sat_fit.get("fit_ok"))
+        row["reference_quality_status"] = (
+            ref_fit.get("quality_status", "failed") if ref_fit else "failed"
+        )
+        row["satellite_quality_status"] = (
+            sat_fit.get("quality_status", "failed") if sat_fit else "failed"
+        )
+        row["reference_quality_flags"] = list(ref_fit.get("quality_flags", [])) if ref_fit else ["fit_missing"]
+        row["satellite_quality_flags"] = list(sat_fit.get("quality_flags", [])) if sat_fit else ["fit_missing"]
+        row["reference_validation_failures"] = list(ref_fit.get("validation_failures", [])) if ref_fit else ["fit_missing"]
+        row["satellite_validation_failures"] = list(sat_fit.get("validation_failures", [])) if sat_fit else ["fit_missing"]
+        row["reference_warning_flags"] = list(ref_fit.get("warning_flags", [])) if ref_fit else []
+        row["satellite_warning_flags"] = list(sat_fit.get("warning_flags", [])) if sat_fit else []
+        row["reference_suspicious"] = bool(ref_fit and ref_fit.get("is_suspicious", False))
+        row["satellite_suspicious"] = bool(sat_fit and sat_fit.get("is_suspicious", False))
         row["reference_spot_id"] = ref_fit.get("spot_id") if ref_fit else None
         row["satellite_spot_id"] = sat_fit.get("spot_id") if sat_fit else None
         row["x_fit_ref"] = self._payload_numeric(ref_fit, "global_center_x")
@@ -2139,6 +2356,13 @@ class PositionsAnalysisDialog(QDialog):
             row["dx"] = np.nan
             row["dy"] = np.nan
             row["r"] = np.nan
+        row["suspicious"] = bool(
+            row["reference_suspicious"] or row["satellite_suspicious"]
+        )
+        row["row_quality_status"] = self._combine_quality_statuses(
+            row["reference_quality_status"],
+            row["satellite_quality_status"],
+        )
 
     @staticmethod
     def _payload_numeric(payload: dict | None, key: str):
@@ -2158,6 +2382,7 @@ class PositionsAnalysisDialog(QDialog):
         fit_points_by_frame = self.positions_analysis_results.get("fit_points_by_frame", {})
         successful_fits = 0
         failed_fits = 0
+        suspicious_fits = 0
         tracks_in_analysis: set[int] = set()
 
         for frame_fits in fit_points_by_frame.values():
@@ -2169,6 +2394,8 @@ class PositionsAnalysisDialog(QDialog):
                     successful_fits += 1
                 else:
                     failed_fits += 1
+                if payload.get("is_suspicious"):
+                    suspicious_fits += 1
 
         summary = self.positions_analysis_results.setdefault("summary", {})
         summary["groups_configured"] = len(self.positions_analysis_results.get("groups", []))
@@ -2177,6 +2404,10 @@ class PositionsAnalysisDialog(QDialog):
         summary["rows_generated"] = len(self.positions_analysis_results.get("rows", []))
         summary["successful_fits"] = successful_fits
         summary["failed_fits"] = failed_fits
+        summary["suspicious_fits"] = suspicious_fits
+        summary["suspicious_rows"] = int(
+            sum(1 for row in self.positions_analysis_results.get("rows", []) if row.get("suspicious"))
+        )
 
     def _track_participates_in_positions_analysis(self, track_id: int) -> bool:
         if not self.positions_analysis_results:
@@ -2214,12 +2445,24 @@ class PositionsAnalysisDialog(QDialog):
             if fit_payload and fit_payload.get("track_present"):
                 if fit_payload.get("fit_ok"):
                     r_squared = fit_payload.get("r_squared")
+                    quality_status = self._format_quality_status_text(
+                        fit_payload.get("quality_status")
+                    )
                     if self._safe_float(r_squared) is not None:
-                        parts.append(f"Current fit OK (R²={float(r_squared):.4f}).")
+                        parts.append(
+                            f"Current fit {quality_status} (R²={float(r_squared):.4f})."
+                        )
                     else:
-                        parts.append("Current fit OK.")
+                        parts.append(f"Current fit {quality_status}.")
                 else:
-                    parts.append("Current fit failed or is missing.")
+                    parts.append(
+                        f"Current fit {self._format_quality_status_text(fit_payload.get('quality_status'))}."
+                    )
+                quality_flags_text = format_quality_flags(
+                    fit_payload.get("quality_flags", [])
+                )
+                if quality_flags_text:
+                    parts.append(f"Flags: {quality_flags_text}.")
             else:
                 parts.append("No fit stored yet for this track/frame.")
         else:
@@ -2408,6 +2651,7 @@ class PositionsAnalysisDialog(QDialog):
         rows = self._get_rows_for_current_selection()
         self._update_results_table(rows)
         self._update_results_plot(rows)
+        self._update_export_button_state()
         frame_id = self._get_current_frame_id()
         if frame_id is not None:
             self._update_frame_rois(frame_id)
@@ -2427,11 +2671,14 @@ class PositionsAnalysisDialog(QDialog):
             return
 
         x_axis_name = self.x_axis_combo.currentText()
+        suspicious_rows = sum(1 for row in rows if row.get("suspicious"))
         self.results_status_label.setText(
-            f"Showing {len(rows)} row(s) for selected group/satellite. X axis: {x_axis_name}."
+            f"Showing {len(rows)} row(s) for selected group/satellite. "
+            f"X axis: {x_axis_name}. Suspicious rows: {suspicious_rows}."
         )
 
         for row_idx, row in enumerate(rows):
+            flags_text = self._format_row_quality_flags(row)
             values = [
                 row.get("frame_id"),
                 row.get("temperature"),
@@ -2439,8 +2686,9 @@ class PositionsAnalysisDialog(QDialog):
                 row.get("dx"),
                 row.get("dy"),
                 row.get("r"),
-                "Yes" if row.get("reference_fit_ok") else "No",
-                "Yes" if row.get("satellite_fit_ok") else "No",
+                self._format_quality_status_text(row.get("reference_quality_status")),
+                self._format_quality_status_text(row.get("satellite_quality_status")),
+                flags_text,
             ]
             for col_idx, value in enumerate(values):
                 if isinstance(value, (float, np.floating)):
@@ -2449,7 +2697,10 @@ class PositionsAnalysisDialog(QDialog):
                     text = str(value)
                 item = QTableWidgetItem(text)
                 item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if col_idx == 8 and flags_text:
+                    item.setToolTip(flags_text)
                 self.results_table.setItem(row_idx, col_idx, item)
+            self._style_results_table_row(row_idx, row)
 
     def _update_results_plot(self, rows: list[dict]):
         axes = self.results_plot.axes
@@ -2504,12 +2755,34 @@ class PositionsAnalysisDialog(QDialog):
         valid_rows.sort(key=lambda item: (item[1], item[0].get("frame_id", -1)))
         x_values = [item[1] for item in valid_rows]
         y_values = [item[2] for item in valid_rows]
+        suspicious_rows = [item for item in valid_rows if item[0].get("suspicious")]
+        normal_rows = [item for item in valid_rows if not item[0].get("suspicious")]
 
         group = self._get_selected_group()
         sat_track_id = self._get_selected_satellite_track_id()
         ref_track_id = group.reference_track_id if group else None
 
-        axes.plot(x_values, y_values, marker="o", linewidth=1.5)
+        axes.plot(x_values, y_values, linewidth=1.3, color="#2f6db3", alpha=0.75)
+        if normal_rows:
+            axes.scatter(
+                [item[1] for item in normal_rows],
+                [item[2] for item in normal_rows],
+                s=28,
+                color="#2f6db3",
+                label="OK",
+                zorder=3,
+            )
+        if suspicious_rows:
+            axes.scatter(
+                [item[1] for item in suspicious_rows],
+                [item[2] for item in suspicious_rows],
+                s=42,
+                color="#f59e0b",
+                edgecolors="black",
+                linewidths=0.6,
+                label="Suspicious",
+                zorder=4,
+            )
         axes.set_xlabel("Coverage" if x_key == "coverage" else "Temperature")
         axes.set_ylabel("Distance r")
         axes.set_title(
@@ -2518,6 +2791,19 @@ class PositionsAnalysisDialog(QDialog):
             f"Sat T{sat_track_id if sat_track_id is not None else '-'}"
         )
         axes.grid(True, alpha=0.3)
+        if suspicious_rows:
+            axes.legend(loc="best")
+        if len(valid_rows) > 1 and len({round(value, 9) for value in x_values}) == 1:
+            axes.text(
+                0.02,
+                0.98,
+                "Selected X axis is constant in this subset",
+                transform=axes.transAxes,
+                ha="left",
+                va="top",
+                fontsize=9,
+                bbox={"boxstyle": "round,pad=0.3", "facecolor": "#fff4cc", "edgecolor": "#d4a72c", "alpha": 0.9},
+            )
         self._finalize_results_plot_draw()
 
     def _finalize_results_plot_draw(self):
@@ -2594,8 +2880,8 @@ class PositionsAnalysisDialog(QDialog):
             roi_to_fit,
             center_preference_factor=self.validation_config.get("center_preference_factor", 0.0),
         )
-        fit_ok = is_fit_valid(fit_results, roi_to_fit.shape, self.validation_config)
-        self._draw_gauss_preview(track.track_id, frame_id, roi_to_fit, fit_results, fit_ok)
+        quality_info = evaluate_fit_quality(fit_results, roi_to_fit.shape, self.validation_config)
+        self._draw_gauss_preview(track.track_id, frame_id, roi_to_fit, fit_results, quality_info)
 
     def _draw_gauss_preview(
         self,
@@ -2603,7 +2889,7 @@ class PositionsAnalysisDialog(QDialog):
         frame_id: int,
         roi_to_fit: np.ndarray,
         fit_results: dict | None,
-        fit_ok: bool,
+        quality_info: dict,
     ):
         ax_roi = self.gauss_preview_canvas.axes_roi
         ax_fit = self.gauss_preview_canvas.axes_fit
@@ -2618,6 +2904,7 @@ class PositionsAnalysisDialog(QDialog):
         ax_roi.set_ylabel("Y")
 
         status_parts = [f"Track T{track_id} | Frame {frame_id}"]
+        fit_ok = bool(quality_info.get("fit_ok"))
 
         if fit_results:
             height, width = roi_to_fit.shape
@@ -2681,7 +2968,9 @@ class PositionsAnalysisDialog(QDialog):
                 ax_residual.set_ylabel("Y")
 
                 r_squared = self._safe_float(fit_results.get("r_squared"))
-                status_parts.append("fit OK" if fit_ok else "fit did not pass validation")
+                status_parts.append(
+                    self._format_quality_status_text(quality_info.get("quality_status"))
+                )
                 if r_squared is not None:
                     status_parts.append(f"R²={r_squared:.4f}")
                 status_parts.append(
@@ -2711,6 +3000,17 @@ class PositionsAnalysisDialog(QDialog):
             ax_fit.set_title("Fitted Gaussian")
             ax_residual.set_title("Residual")
             status_parts.append("fit failed")
+
+        validation_failures_text = format_quality_flags(
+            quality_info.get("validation_failures", [])
+        )
+        warning_flags_text = format_quality_flags(
+            quality_info.get("warning_flags", [])
+        )
+        if validation_failures_text:
+            status_parts.append(f"failures: {validation_failures_text}")
+        if warning_flags_text:
+            status_parts.append(f"warnings: {warning_flags_text}")
 
         for axis in (ax_fit, ax_residual):
             if not axis.get_title():
@@ -2801,7 +3101,12 @@ class PositionsAnalysisDialog(QDialog):
             return None
         return self.sorted_frame_ids[slider_index]
 
-    def _build_positions_overlay_payload(self, frame_id: int) -> list[dict]:
+    def _build_positions_overlay_payload(
+        self,
+        frame_id: int,
+        *,
+        respect_selection_filter: bool = True,
+    ) -> list[dict]:
         if not self.positions_analysis_results:
             return []
 
@@ -2814,7 +3119,11 @@ class PositionsAnalysisDialog(QDialog):
         selected_group = self._get_selected_group()
         selected_group_id = selected_group.group_id if selected_group else None
         selected_satellite_track_id = self._get_selected_satellite_track_id()
-        show_selected_pair_only = self.show_selected_pair_only_checkbox.isChecked()
+        show_selected_pair_only = (
+            self.show_selected_pair_only_checkbox.isChecked()
+            if respect_selection_filter
+            else False
+        )
 
         if show_selected_pair_only and (
             selected_group_id is None or selected_satellite_track_id is None
@@ -2889,11 +3198,16 @@ class PositionsAnalysisDialog(QDialog):
             return []
 
         fit_ok = bool(fit_payload.get("fit_ok", False))
+        suspicious = bool(fit_payload.get("is_suspicious", False))
+        if fit_ok:
+            label = f"T{track.track_id}{'!' if suspicious else ''}"
+        else:
+            label = f"T{track.track_id}?"
         return [
             {
                 "x": float(fit_x),
                 "y": float(fit_y),
-                "label": f"T{track.track_id}" if fit_ok else f"T{track.track_id}?",
+                "label": label,
             }
         ]
 
@@ -2919,7 +3233,7 @@ class PositionsAnalysisDialog(QDialog):
                 "track_id": track_id,
                 "x": float(fit_x),
                 "y": float(fit_y),
-                "label": label,
+                "label": f"{label}{'!' if fit_payload.get('is_suspicious') else ''}",
                 "from_fit": True,
                 "selected": selected,
             }
@@ -2944,6 +3258,223 @@ class PositionsAnalysisDialog(QDialog):
             "from_fit": False,
             "selected": selected,
         }
+
+    def _build_export_roi_payloads(self, frame_id: int) -> list[dict]:
+        if not self.positions_analysis_results:
+            return []
+
+        payloads: list[dict] = []
+        for group in self.positions_analysis_results.get("groups", []):
+            group_id = int(group.get("group_id", 0))
+            color = self._group_color(group_id, emphasized=False)
+            reference_track_id = group.get("reference_track_id")
+
+            if reference_track_id is not None:
+                roi_payload = self._build_export_roi_payload(
+                    frame_id,
+                    int(reference_track_id),
+                    color,
+                    f"G{group_id}-R:T{reference_track_id}",
+                )
+                if roi_payload is not None:
+                    payloads.append(roi_payload)
+
+            for satellite_index, track_id in enumerate(group.get("satellite_track_ids", []), start=1):
+                roi_payload = self._build_export_roi_payload(
+                    frame_id,
+                    int(track_id),
+                    color,
+                    f"G{group_id}-S{satellite_index}:T{track_id}",
+                )
+                if roi_payload is not None:
+                    payloads.append(roi_payload)
+
+        return payloads
+
+    def _build_export_roi_payload(
+        self,
+        frame_id: int,
+        track_id: int,
+        color: QColor,
+        label: str,
+    ) -> dict | None:
+        track = self.track_map.get(track_id)
+        if track is None:
+            return None
+        spot = track.spots_by_image_id.get(frame_id)
+        if spot is None:
+            return None
+        return {
+            "rect": QRect(spot.roi_rect),
+            "color": QColor(color),
+            "label": label,
+        }
+
+    def _draw_export_roi(self, draw: ImageDraw.ImageDraw, payload: dict, font):
+        rect = payload.get("rect")
+        if not isinstance(rect, QRect):
+            return
+
+        color = self._qcolor_to_rgb(payload.get("color"))
+        left = int(rect.x())
+        top = int(rect.y())
+        right = int(rect.x() + rect.width())
+        bottom = int(rect.y() + rect.height())
+        draw.rectangle([left, top, right, bottom], outline=color, width=2)
+
+        label_text = str(payload.get("label", "")).strip()
+        if label_text:
+            text_position = (left + 3, max(0, top - 16))
+            draw.text(text_position, label_text, fill=color, font=font)
+
+    def _draw_export_overlay_groups(self, draw: ImageDraw.ImageDraw, overlay_groups: list[dict], font):
+        for group in overlay_groups:
+            color = self._qcolor_to_rgb(group.get("color"))
+            reference = group.get("reference")
+            satellites = group.get("satellites", [])
+
+            if reference is None:
+                continue
+
+            for satellite in satellites:
+                if satellite is None:
+                    continue
+                if self._has_overlay_point(reference) and self._has_overlay_point(satellite):
+                    self._draw_export_connection(draw, reference, satellite, color)
+
+            self._draw_export_marker(draw, reference, color, font, is_reference=True)
+            for satellite in satellites:
+                self._draw_export_marker(draw, satellite, color, font, is_reference=False)
+
+    def _draw_export_connection(
+        self,
+        draw: ImageDraw.ImageDraw,
+        reference: dict,
+        satellite: dict,
+        color: tuple[int, int, int],
+    ):
+        draw.line(
+            [
+                (float(reference["x"]), float(reference["y"])),
+                (float(satellite["x"]), float(satellite["y"])),
+            ],
+            fill=color,
+            width=2,
+        )
+
+    def _draw_export_marker(
+        self,
+        draw: ImageDraw.ImageDraw,
+        payload: dict | None,
+        color: tuple[int, int, int],
+        font,
+        *,
+        is_reference: bool,
+    ):
+        if not self._has_overlay_point(payload):
+            return
+
+        x = float(payload["x"])
+        y = float(payload["y"])
+        radius = 7 if is_reference else 5
+        fill_color = color if bool(payload.get("from_fit", False)) else None
+        draw.ellipse(
+            [x - radius, y - radius, x + radius, y + radius],
+            outline=color,
+            fill=fill_color,
+            width=2,
+        )
+
+        label_text = str(payload.get("label", "")).strip()
+        if label_text:
+            draw.text((x + radius + 4, y - radius - 10), label_text, fill=color, font=font)
+
+    @staticmethod
+    def _convert_numpy_to_export_image(image_data) -> Image.Image:
+        arr = np.asarray(image_data)
+        if arr.ndim == 3 and arr.shape[0] in (3, 4) and arr.shape[-1] not in (3, 4):
+            arr = np.transpose(arr, (1, 2, 0))
+
+        if arr.dtype != np.uint8:
+            arr_float = arr.astype(np.float32, copy=False)
+            min_val = float(np.nanmin(arr_float))
+            max_val = float(np.nanmax(arr_float))
+            if np.isfinite(min_val) and np.isfinite(max_val) and max_val > min_val:
+                arr = (
+                    255.0 * (arr_float - min_val) / (max_val - min_val)
+                ).clip(0, 255).astype(np.uint8)
+            else:
+                arr = np.zeros(arr.shape, dtype=np.uint8)
+
+        if arr.ndim == 2:
+            arr = np.stack((arr,) * 3, axis=-1)
+        elif arr.ndim == 3 and arr.shape[2] == 4:
+            arr = arr[:, :, :3]
+        elif arr.ndim == 3 and arr.shape[2] not in (3, 4):
+            arr = np.stack((arr[:, :, 0],) * 3, axis=-1)
+
+        return Image.fromarray(np.ascontiguousarray(arr)).convert("RGB")
+
+    @staticmethod
+    def _qcolor_to_rgb(color: QColor | None) -> tuple[int, int, int]:
+        if not isinstance(color, QColor):
+            color = QColor(0, 170, 255)
+        return (int(color.red()), int(color.green()), int(color.blue()))
+
+    @staticmethod
+    def _csv_safe_value(value):
+        if isinstance(value, (list, tuple)):
+            return "; ".join(str(item) for item in value)
+        if isinstance(value, (np.integer,)):
+            return int(value)
+        if isinstance(value, (np.bool_,)):
+            return bool(value)
+        if isinstance(value, (np.floating, float)):
+            numeric = float(value)
+            return numeric
+        return value
+
+    @staticmethod
+    def _combine_quality_statuses(reference_status: str | None, satellite_status: str | None) -> str:
+        statuses = {reference_status or "failed", satellite_status or "failed"}
+        if "failed" in statuses:
+            return "failed"
+        if "warning" in statuses:
+            return "warning"
+        return "ok"
+
+    @staticmethod
+    def _format_quality_status_text(status: str | None) -> str:
+        normalized = str(status or "failed").strip().lower()
+        if normalized == "ok":
+            return "OK"
+        if normalized == "warning":
+            return "Warn"
+        return "Fail"
+
+    def _format_row_quality_flags(self, row: dict) -> str:
+        parts: list[str] = []
+        ref_text = format_quality_flags(row.get("reference_quality_flags", []))
+        sat_text = format_quality_flags(row.get("satellite_quality_flags", []))
+        if ref_text:
+            parts.append(f"Ref: {ref_text}")
+        if sat_text:
+            parts.append(f"Sat: {sat_text}")
+        return " | ".join(parts)
+
+    def _style_results_table_row(self, row_idx: int, row: dict):
+        if row.get("row_quality_status") == "failed":
+            background = QColor(255, 232, 232)
+        elif row.get("suspicious"):
+            background = QColor(255, 245, 224)
+        else:
+            background = QColor(240, 255, 240)
+
+        for col_idx in range(self.results_table.columnCount()):
+            item = self.results_table.item(row_idx, col_idx)
+            if item is None:
+                continue
+            item.setBackground(QBrush(background))
 
     @staticmethod
     def _safe_float(value) -> float | None:
