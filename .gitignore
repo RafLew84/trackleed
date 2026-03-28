@@ -175,3 +175,4 @@ third_party/
 notebooks/
 notebooks
 runs/
+tracking_models/tapir/bootstapir_checkpoint_v2.pt
