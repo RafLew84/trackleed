@@ -14,22 +14,22 @@ Trackleed is a PyQt6 desktop application for loading LEED image stacks, detectin
 
 **Spot detection**
 - **Classic**: white-top-hat + peak finding with tunable blur, WTH radius, and ROI size.
-- **YOLO**: Ultralytics YOLO detector using `.pt` checkpoints in `segmentation_models/`.
+- **YOLO**: Ultralytics YOLO detector using `.pt` checkpoints in `tracking_models/yolo/`.
 
 ### Current YOLO Checkpoints (Training History)
 
-- `segmentation_models/yolo11s_pro_v1.pt`  
+- `tracking_models/yolo/yolo11s_pro_v1.pt`  
   Base YOLO model trained on synthetic LEED-like data only.
 
-- `segmentation_models/yolo11s_pro_v1_fine_tuning.pt`  
+- `tracking_models/yolo/yolo11s_pro_v1_fine_tuning.pt`  
   First fine-tuning stage on real experimental data (starting from `yolo11s_pro_v1.pt`).
 
-- `segmentation_models/yolo11s_dimmed_full_from_smoke_20260225_154251_best.pt`  
+- `tracking_models/yolo/yolo11s_dimmed_full_from_smoke_20260225_154251_best.pt`  
   Second fine-tuning stage for difficult dimmed/blurred spots and mixed backgrounds (starting from the first fine-tuned model).
 
 Notes:
 - The latest dimmed model training config is stored in:  
-  `segmentation_models/yolo11s_dimmed_full_from_smoke_20260225_154251_train_config.json`
+  `tracking_models/yolo/yolo11s_dimmed_full_from_smoke_20260225_154251_train_config.json`
 - In the app, choose the checkpoint in the YOLO model dropdown (Find Spots panel).
 
 **Tracking**
@@ -146,5 +146,6 @@ When you click **Export Results**, the following are written:
 
 ## Notes
 
-- YOLO models: place `.pt` checkpoints in `segmentation_models/` and click **Refresh**.
+- YOLO models: place `.pt` checkpoints in `tracking_models/yolo/` and click **Refresh**.
+- Legacy fallback: the app also scans `segmentation_models/` for backwards compatibility.
 - The quick-save file is independent from standard session save/load dialogs.

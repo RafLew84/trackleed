@@ -82,7 +82,11 @@ class MainWindow(QMainWindow):
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
         self.current_spot_backend = "Classic"
-        self.segmentation_models_dir = Path("segmentation_models")
+        self.tracking_models_dir = Path("tracking_models")
+        self.dl_models_dir = self.tracking_models_dir
+        self.yolo_models_dir = self.tracking_models_dir / "yolo"
+        self.tapir_models_dir = self.tracking_models_dir / "tapir"
+        self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
         self._bbox_transparency_pct = 0.0
@@ -881,7 +885,8 @@ class MainWindow(QMainWindow):
         self.spot_backend_combo.addItems(["Classic", "YOLO"])
         self.spot_backend_combo.setToolTip(
             "Select the spot detection backend. Classic uses the existing WTH/peak pipeline; "
-            "YOLO uses a detector from the segmentation_models folder."
+            "YOLO uses checkpoints from tracking_models/yolo "
+            "(legacy fallback: segmentation_models/)."
         )
         backend_form.addRow("Spot detector:", self.spot_backend_combo)
         find_spots_layout.addLayout(backend_form)
@@ -1312,11 +1317,14 @@ class MainWindow(QMainWindow):
         self.dl_model_combo = QComboBox()
         self.dl_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.dl_model_combo.setToolTip(
-            "Select a trained segmentation model (.pt) placed in the segmentation_models folder."
+            "Select a trained segmentation model (.pt) placed in tracking_models/ "
+            "(legacy fallback: segmentation_models/)."
         )
         self.dl_model_combo.currentIndexChanged.connect(self._on_dl_model_selected)
         self.dl_refresh_models_button = QPushButton("Refresh")
-        self.dl_refresh_models_button.setToolTip("Re-scan the segmentation_models directory for new checkpoints.")
+        self.dl_refresh_models_button.setToolTip(
+            "Re-scan tracking_models/ and the legacy segmentation_models/ directory."
+        )
         self.dl_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
         model_row_layout.addWidget(self.dl_model_combo)
         model_row_layout.addWidget(self.dl_refresh_models_button)
@@ -1373,7 +1381,8 @@ class MainWindow(QMainWindow):
         form_layout.addRow("Dilate radius (px):", self.dl_dilate_spinbox)
 
         info_label = QLabel(
-            "Drop your trained checkpoints into <code>segmentation_models/</code>.\n"
+            "Drop your trained checkpoints into <code>tracking_models/</code>.\n"
+            "Legacy fallback: <code>segmentation_models/</code>.\n"
             "The model produces a probability mask that we threshold, clean up, and convert to ROIs based on the settings above."
         )
         info_label.setWordWrap(True)
@@ -1396,11 +1405,14 @@ class MainWindow(QMainWindow):
         self.yolo_model_combo = QComboBox()
         self.yolo_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.yolo_model_combo.setToolTip(
-            "Select a YOLO checkpoint (.pt) placed in the segmentation_models folder."
+            "Select a YOLO checkpoint (.pt) placed in tracking_models/yolo "
+            "(legacy fallback: segmentation_models/)."
         )
         self.yolo_model_combo.currentIndexChanged.connect(self._on_yolo_model_selected)
         self.yolo_refresh_models_button = QPushButton("Refresh")
-        self.yolo_refresh_models_button.setToolTip("Re-scan the segmentation_models directory for YOLO checkpoints.")
+        self.yolo_refresh_models_button.setToolTip(
+            "Re-scan tracking_models/yolo and the legacy segmentation_models/ directory."
+        )
         self.yolo_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
         model_row_layout.addWidget(self.yolo_model_combo)
         model_row_layout.addWidget(self.yolo_refresh_models_button)
@@ -1455,26 +1467,31 @@ class MainWindow(QMainWindow):
         return widget
 
     def _refresh_segmentation_models(self):
-        model_paths: list[Path] = []
-        models_dir = self.segmentation_models_dir
-        if models_dir.exists():
-            model_paths = sorted(models_dir.glob("*.pt"))
+        dl_model_paths = self._collect_model_paths(
+            self.dl_models_dir,
+            self.legacy_segmentation_models_dir,
+        )
+        yolo_model_paths = self._collect_model_paths(
+            self.yolo_models_dir,
+            self.legacy_segmentation_models_dir,
+        )
 
         # DL models
         self.dl_model_combo.blockSignals(True)
         self.dl_model_combo.clear()
-        if not model_paths:
+        if not dl_model_paths:
             self.dl_model_combo.addItem("No models found", userData=None)
             self.dl_model_combo.setEnabled(False)
             self._dl_models_available = False
             self.dl_settings.model_path = None
             if hasattr(self, "dl_warning_label"):
                 self.dl_warning_label.setText(
-                    "No models detected. Copy .pt checkpoints into the segmentation_models folder and press Refresh."
+                    "No models detected. Copy .pt checkpoints into tracking_models/ "
+                    "(legacy fallback: segmentation_models/) and press Refresh."
                 )
         else:
             self.dl_model_combo.setEnabled(True)
-            for path in model_paths:
+            for path in dl_model_paths:
                 self.dl_model_combo.addItem(path.name, userData=str(path.resolve()))
             self._dl_models_available = True
             if self.dl_settings.model_path:
@@ -1491,18 +1508,19 @@ class MainWindow(QMainWindow):
         # YOLO models
         self.yolo_model_combo.blockSignals(True)
         self.yolo_model_combo.clear()
-        if not model_paths:
+        if not yolo_model_paths:
             self.yolo_model_combo.addItem("No models found", userData=None)
             self.yolo_model_combo.setEnabled(False)
             self._yolo_models_available = False
             self.yolo_settings.model_path = None
             if hasattr(self, "yolo_warning_label"):
                 self.yolo_warning_label.setText(
-                    "No YOLO models detected. Copy .pt checkpoints into segmentation_models and press Refresh."
+                    "No YOLO models detected. Copy .pt checkpoints into tracking_models/yolo "
+                    "(legacy fallback: segmentation_models/) and press Refresh."
                 )
         else:
             self.yolo_model_combo.setEnabled(True)
-            for path in model_paths:
+            for path in yolo_model_paths:
                 self.yolo_model_combo.addItem(path.name, userData=str(path.resolve()))
             self._yolo_models_available = True
             if self.yolo_settings.model_path:
@@ -1517,6 +1535,18 @@ class MainWindow(QMainWindow):
         self.yolo_model_combo.blockSignals(False)
 
         self._update_find_spots_button_state()
+
+    def _collect_model_paths(self, *directories: Path) -> list[Path]:
+        resolved_paths: dict[str, Path] = {}
+        for directory in directories:
+            if not directory.exists():
+                continue
+            for path in sorted(directory.glob("*.pt")):
+                resolved_paths[str(path.resolve())] = path.resolve()
+        return sorted(
+            resolved_paths.values(),
+            key=lambda path: (path.name.lower(), str(path).lower()),
+        )
 
     def _on_spot_backend_changed(self, backend: str):
         self.current_spot_backend = backend
@@ -1545,7 +1575,8 @@ class MainWindow(QMainWindow):
                     btn.setEnabled(enabled)
                     if not enabled:
                         btn.setToolTip(
-                            "Add a .pt model to segmentation_models/ and click Refresh, then pick it from the list."
+                            "Add a .pt model to tracking_models/ "
+                            "(legacy fallback: segmentation_models/) and click Refresh, then pick it from the list."
                         )
                     else:
                         btn.setToolTip("")
@@ -1556,7 +1587,8 @@ class MainWindow(QMainWindow):
                     btn.setEnabled(enabled)
                     if not enabled:
                         btn.setToolTip(
-                            "Add a YOLO .pt checkpoint to segmentation_models and click Refresh."
+                            "Add a YOLO .pt checkpoint to tracking_models/yolo "
+                            "(legacy fallback: segmentation_models/) and click Refresh."
                         )
                     else:
                         btn.setToolTip("")
