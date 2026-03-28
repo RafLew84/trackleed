@@ -22,6 +22,10 @@ from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
+from trackleed.analysis.tapir_backend import (
+    format_tapir_environment_report,
+    probe_tapir_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -34,6 +38,7 @@ from trackleed.analysis.tracking import (
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
     track_spots_hungarian_directional,
+    track_spots_tapir_offline,
 )
 
 from skimage.util import img_as_float
@@ -62,6 +67,34 @@ class YOLOSpotSettings:
     bbox_margin_px: int = 2
 
 
+@dataclass
+class TapirTrackingSettings:
+    checkpoint_path: str | None = None
+    device: str = "auto"
+    inference_resolution: int = 256
+    query_chunk_size: int = 64
+    window_size: int = 64
+    window_overlap: int = 8
+    use_visibility_gating: bool = True
+    visibility_threshold: float = 0.5
+    use_uncertainty_gating: bool = True
+    expected_dist_threshold: float = 0.5
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -81,6 +114,7 @@ class MainWindow(QMainWindow):
         self.tracking_results: List[Track] = []
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
+        self.tapir_settings = TapirTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -89,6 +123,7 @@ class MainWindow(QMainWindow):
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
+        self._tapir_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -248,8 +283,23 @@ class MainWindow(QMainWindow):
         self.add_roi_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('ADD_ROI'))
         self.add_roi_mode_action.setShortcut("A")
         self.add_roi_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.add_roi_mode_action.setToolTip(
+            "Create a manual ROI using the current ROI Size."
+        )
         toolbar.addAction(self.add_roi_mode_action)
         mode_group.addAction(self.add_roi_mode_action)
+
+        # Add Point Mode
+        self.add_point_mode_action = QAction("Add Point", self)
+        self.add_point_mode_action.setCheckable(True)
+        self.add_point_mode_action.triggered.connect(lambda: self.image_viewer.set_mode('ADD_POINT'))
+        self.add_point_mode_action.setShortcut("T")
+        self.add_point_mode_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        self.add_point_mode_action.setToolTip(
+            "Click a point to create a tracking seed. A bbox with the current ROI Size is drawn automatically around the clicked point."
+        )
+        toolbar.addAction(self.add_point_mode_action)
+        mode_group.addAction(self.add_point_mode_action)
 
         # Delete ROI Mode
         self.delete_roi_mode_action = QAction("Delete ROI", self)
@@ -406,7 +456,7 @@ class MainWindow(QMainWindow):
         self.on_spot_selection_changed(self.spot_list_widget.currentItem(), None)
 
     def handle_add_roi(self, scene_pos: QPointF):
-        """Slot to handle the creation of a new manual ROI."""
+        """Create a new spot from a clicked center point using the current ROI size."""
         current_list_item = self.file_list_widget.currentItem()
         if not current_list_item: return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
@@ -428,7 +478,7 @@ class MainWindow(QMainWindow):
             center_x=scene_pos.x(),
             center_y=scene_pos.y(),
             intensity=0, # Manual spot has no intensity initially
-            source='manual'
+            source='manual_point' if self.image_viewer.mode == 'ADD_POINT' else 'manual'
         )
         leed_file.spots.append(new_spot)
         self.image_viewer.update_rois(leed_file.spots)
@@ -943,6 +993,7 @@ class MainWindow(QMainWindow):
         self.tracking_scenario_combo.addItems([
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
+            "Offline TAPIR",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -1118,6 +1169,243 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.optical_skip_group)
 
+        # --- Offline TAPIR parameters ---
+        self.tapir_group = QGroupBox("Offline TAPIR")
+        tapir_layout = QFormLayout(self.tapir_group)
+
+        tapir_model_row_widget = QWidget()
+        tapir_model_row_layout = QHBoxLayout(tapir_model_row_widget)
+        tapir_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tapir_checkpoint_combo = QComboBox()
+        self.tapir_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.tapir_checkpoint_combo.setToolTip(
+            "Select a TAPIR checkpoint (.pt) from tracking_models/tapir."
+        )
+        self.tapir_checkpoint_combo.currentIndexChanged.connect(self._on_tapir_checkpoint_selected)
+        self.tapir_refresh_button = QPushButton("Refresh")
+        self.tapir_refresh_button.setToolTip(
+            "Re-scan tracking_models/tapir and re-run TAPIR environment diagnostics."
+        )
+        self.tapir_refresh_button.clicked.connect(self._refresh_tapir_checkpoints)
+        tapir_model_row_layout.addWidget(self.tapir_checkpoint_combo)
+        tapir_model_row_layout.addWidget(self.tapir_refresh_button)
+        tapir_layout.addRow("Checkpoint:", tapir_model_row_widget)
+
+        self.tapir_device_combo = QComboBox()
+        self.tapir_device_combo.addItem("Auto", "auto")
+        self.tapir_device_combo.addItem("GPU", "gpu")
+        self.tapir_device_combo.addItem("CPU", "cpu")
+        self.tapir_device_combo.setCurrentIndex(0)
+        self.tapir_device_combo.setToolTip("Device used for TAPIR inference.")
+        tapir_layout.addRow("Device:", self.tapir_device_combo)
+
+        self.tapir_inference_resolution_combo = QComboBox()
+        for value in (256, 384, 512):
+            self.tapir_inference_resolution_combo.addItem(f"{value}", value)
+        self.tapir_inference_resolution_combo.setCurrentIndex(0)
+        self.tapir_inference_resolution_combo.setToolTip(
+            "Square resolution used before TAPIR inference. Higher values may help on LEED but cost more VRAM."
+        )
+        tapir_layout.addRow("Inference resolution:", self.tapir_inference_resolution_combo)
+
+        self.tapir_query_chunk_spinbox = QSpinBox()
+        self.tapir_query_chunk_spinbox.setRange(1, 512)
+        self.tapir_query_chunk_spinbox.setValue(self.tapir_settings.query_chunk_size)
+        self.tapir_query_chunk_spinbox.setToolTip(
+            "Split queries into chunks to reduce memory usage."
+        )
+        tapir_layout.addRow("Query chunk size:", self.tapir_query_chunk_spinbox)
+
+        self.tapir_window_size_spinbox = QSpinBox()
+        self.tapir_window_size_spinbox.setRange(2, 4096)
+        self.tapir_window_size_spinbox.setValue(self.tapir_settings.window_size)
+        self.tapir_window_size_spinbox.setToolTip(
+            "Number of frames processed by one offline TAPIR window. Smaller values reduce VRAM and can reduce long-range drift."
+        )
+        tapir_layout.addRow("Window size:", self.tapir_window_size_spinbox)
+
+        self.tapir_window_overlap_spinbox = QSpinBox()
+        self.tapir_window_overlap_spinbox.setRange(0, 1024)
+        self.tapir_window_overlap_spinbox.setValue(self.tapir_settings.window_overlap)
+        self.tapir_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive TAPIR windows."
+        )
+        tapir_layout.addRow("Window overlap:", self.tapir_window_overlap_spinbox)
+
+        self.tapir_visibility_checkbox = QCheckBox("Use visibility gating")
+        self.tapir_visibility_checkbox.setChecked(self.tapir_settings.use_visibility_gating)
+        self.tapir_visibility_checkbox.setToolTip(
+            "Drop points whose TAPIR visibility score falls below the threshold."
+        )
+        tapir_layout.addRow(self.tapir_visibility_checkbox)
+
+        self.tapir_visibility_threshold_spinbox = QDoubleSpinBox()
+        self.tapir_visibility_threshold_spinbox.setDecimals(2)
+        self.tapir_visibility_threshold_spinbox.setRange(0.01, 0.99)
+        self.tapir_visibility_threshold_spinbox.setSingleStep(0.05)
+        self.tapir_visibility_threshold_spinbox.setValue(self.tapir_settings.visibility_threshold)
+        self.tapir_visibility_threshold_spinbox.setToolTip("Minimum visibility score to keep a point.")
+        tapir_layout.addRow("Visibility threshold:", self.tapir_visibility_threshold_spinbox)
+
+        self.tapir_uncertainty_checkbox = QCheckBox("Use uncertainty gating")
+        self.tapir_uncertainty_checkbox.setChecked(self.tapir_settings.use_uncertainty_gating)
+        self.tapir_uncertainty_checkbox.setToolTip(
+            "Use TAPIR expected-distance logits to suppress uncertain predictions."
+        )
+        tapir_layout.addRow(self.tapir_uncertainty_checkbox)
+
+        self.tapir_expected_dist_threshold_spinbox = QDoubleSpinBox()
+        self.tapir_expected_dist_threshold_spinbox.setDecimals(2)
+        self.tapir_expected_dist_threshold_spinbox.setRange(0.01, 0.99)
+        self.tapir_expected_dist_threshold_spinbox.setSingleStep(0.05)
+        self.tapir_expected_dist_threshold_spinbox.setValue(self.tapir_settings.expected_dist_threshold)
+        self.tapir_expected_dist_threshold_spinbox.setToolTip(
+            "Minimum uncertainty confidence to keep a point."
+        )
+        tapir_layout.addRow("Uncertainty threshold:", self.tapir_expected_dist_threshold_spinbox)
+
+        self.tapir_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.tapir_keep_gaps_checkbox.setChecked(self.tapir_settings.keep_invisible_points_as_gaps)
+        self.tapir_keep_gaps_checkbox.setToolTip(
+            "If enabled, invisible TAPIR predictions create gaps instead of forced points."
+        )
+        tapir_layout.addRow(self.tapir_keep_gaps_checkbox)
+
+        self.tapir_max_step_spinbox = QDoubleSpinBox()
+        self.tapir_max_step_spinbox.setDecimals(1)
+        self.tapir_max_step_spinbox.setRange(0.0, 500.0)
+        self.tapir_max_step_spinbox.setSingleStep(1.0)
+        self.tapir_max_step_spinbox.setValue(self.tapir_settings.max_step_distance_px)
+        self.tapir_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        tapir_layout.addRow("Max jump (px):", self.tapir_max_step_spinbox)
+
+        self.tapir_max_reacquisition_gap_spinbox = QSpinBox()
+        self.tapir_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.tapir_max_reacquisition_gap_spinbox.setValue(self.tapir_settings.max_reacquisition_gap)
+        self.tapir_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        tapir_layout.addRow("Max reacquisition gap:", self.tapir_max_reacquisition_gap_spinbox)
+
+        self.tapir_terminate_after_invisible_spinbox = QSpinBox()
+        self.tapir_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.tapir_terminate_after_invisible_spinbox.setValue(
+            self.tapir_settings.terminate_after_invisible_frames
+        )
+        self.tapir_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        tapir_layout.addRow("Terminate after gap:", self.tapir_terminate_after_invisible_spinbox)
+
+        self.tapir_center_mode_combo = QComboBox()
+        self.tapir_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.tapir_center_mode_combo.addItem("Manual", "manual")
+        tapir_center_mode_idx = self.tapir_center_mode_combo.findData(self.tapir_settings.center_mode)
+        self.tapir_center_mode_combo.setCurrentIndex(tapir_center_mode_idx if tapir_center_mode_idx >= 0 else 0)
+        self.tapir_center_mode_combo.setToolTip(
+            "Center used for radial TAPIR direction gating. Auto tries detections/pattern center and falls back to image center."
+        )
+        self.tapir_center_mode_combo.currentIndexChanged.connect(self._on_tapir_center_mode_changed)
+        tapir_layout.addRow("Direction center:", self.tapir_center_mode_combo)
+
+        tapir_center_row_widget = QWidget()
+        tapir_center_row_layout = QHBoxLayout(tapir_center_row_widget)
+        tapir_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tapir_center_x_spinbox = QDoubleSpinBox()
+        self.tapir_center_x_spinbox.setRange(0.0, 10000.0)
+        self.tapir_center_x_spinbox.setDecimals(1)
+        self.tapir_center_x_spinbox.setValue(self.tapir_settings.manual_center_x)
+        self.tapir_center_y_spinbox = QDoubleSpinBox()
+        self.tapir_center_y_spinbox.setRange(0.0, 10000.0)
+        self.tapir_center_y_spinbox.setDecimals(1)
+        self.tapir_center_y_spinbox.setValue(self.tapir_settings.manual_center_y)
+        tapir_center_row_layout.addWidget(self.tapir_center_x_spinbox)
+        tapir_center_row_layout.addWidget(QLabel(","))
+        tapir_center_row_layout.addWidget(self.tapir_center_y_spinbox)
+        tapir_layout.addRow("Manual center (x, y):", tapir_center_row_widget)
+
+        self.tapir_direction_mode_combo = QComboBox()
+        self.tapir_direction_mode_combo.addItem("None", "none")
+        self.tapir_direction_mode_combo.addItem("Auto", "auto")
+        self.tapir_direction_mode_combo.addItem("Inward", "inward")
+        self.tapir_direction_mode_combo.addItem("Outward", "outward")
+        tapir_direction_idx = self.tapir_direction_mode_combo.findData(self.tapir_settings.direction_mode)
+        self.tapir_direction_mode_combo.setCurrentIndex(tapir_direction_idx if tapir_direction_idx >= 0 else 0)
+        self.tapir_direction_mode_combo.setToolTip(
+            "Apply radial direction constraints to TAPIR trajectories."
+        )
+        tapir_layout.addRow("Direction mode:", self.tapir_direction_mode_combo)
+
+        self.tapir_lateral_tol_spinbox = QDoubleSpinBox()
+        self.tapir_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.tapir_lateral_tol_spinbox.setSingleStep(1.0)
+        self.tapir_lateral_tol_spinbox.setValue(self.tapir_settings.lateral_angle_tolerance_deg)
+        self.tapir_lateral_tol_spinbox.setToolTip(
+            "Allowed angular deviation from the expected radial direction."
+        )
+        tapir_layout.addRow("Angular tol (deg):", self.tapir_lateral_tol_spinbox)
+
+        self.tapir_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.tapir_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.tapir_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.tapir_max_radial_jump_spinbox.setValue(self.tapir_settings.max_radial_jump_px)
+        self.tapir_max_radial_jump_spinbox.setToolTip(
+            "Maximum accepted radial change between two accepted points. Set 0 to disable."
+        )
+        tapir_layout.addRow("Max radial jump (px):", self.tapir_max_radial_jump_spinbox)
+
+        self.tapir_recenter_mode_combo = QComboBox()
+        self.tapir_recenter_mode_combo.addItem("None", "none")
+        self.tapir_recenter_mode_combo.addItem("Peak", "peak")
+        self.tapir_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.tapir_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        recenter_mode_idx = self.tapir_recenter_mode_combo.findData(self.tapir_settings.recenter_mode)
+        self.tapir_recenter_mode_combo.setCurrentIndex(recenter_mode_idx if recenter_mode_idx >= 0 else 2)
+        self.tapir_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each TAPIR prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        tapir_layout.addRow("Recenter mode:", self.tapir_recenter_mode_combo)
+
+        self.tapir_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.tapir_centroid_multiplier_spinbox.setDecimals(2)
+        self.tapir_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.tapir_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.tapir_centroid_multiplier_spinbox.setValue(self.tapir_settings.recenter_patch_multiplier)
+        self.tapir_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        tapir_layout.addRow("Recenter radius x ROI:", self.tapir_centroid_multiplier_spinbox)
+
+        self.tapir_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.tapir_centroid_rel_thr_spinbox.setDecimals(2)
+        self.tapir_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.tapir_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.tapir_centroid_rel_thr_spinbox.setValue(self.tapir_settings.centroid_rel_threshold)
+        self.tapir_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        tapir_layout.addRow("Recenter threshold:", self.tapir_centroid_rel_thr_spinbox)
+
+        self.tapir_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.tapir_centroid_max_shift_spinbox.setDecimals(2)
+        self.tapir_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.tapir_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.tapir_centroid_max_shift_spinbox.setValue(self.tapir_settings.centroid_max_shift_ratio)
+        self.tapir_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        tapir_layout.addRow("Max recenter shift:", self.tapir_centroid_max_shift_spinbox)
+
+        self.tapir_warning_label = QLabel()
+        self.tapir_warning_label.setStyleSheet("color: #d9534f;")
+        self.tapir_warning_label.setWordWrap(True)
+        tapir_layout.addRow(self.tapir_warning_label)
+        self._on_tapir_center_mode_changed(self.tapir_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.tapir_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -1271,6 +1559,7 @@ class MainWindow(QMainWindow):
         self.analysis_dock.setWidget(scroll_area)
 
         self._refresh_segmentation_models()
+        self._refresh_tapir_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -1536,6 +1825,71 @@ class MainWindow(QMainWindow):
 
         self._update_find_spots_button_state()
 
+    def _refresh_tapir_checkpoints(self):
+        status = probe_tapir_environment(
+            models_dir=self.tapir_models_dir,
+            checkpoint_path=self.tapir_settings.checkpoint_path,
+        )
+
+        self.tapir_checkpoint_combo.blockSignals(True)
+        self.tapir_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.tapir_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.tapir_checkpoint_combo.setEnabled(False)
+            self._tapir_checkpoint_available = False
+            self.tapir_settings.checkpoint_path = None
+        else:
+            self.tapir_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.tapir_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._tapir_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.tapir_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.tapir_checkpoint_combo.setCurrentIndex(idx)
+                    self.tapir_settings.checkpoint_path = selected_checkpoint
+            if not self.tapir_settings.checkpoint_path and self.tapir_checkpoint_combo.count() > 0:
+                self.tapir_checkpoint_combo.setCurrentIndex(0)
+                self.tapir_settings.checkpoint_path = self.tapir_checkpoint_combo.currentData()
+
+        self.tapir_checkpoint_combo.blockSignals(False)
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            self.tapir_warning_label.setStyleSheet("color: #5cb85c;")
+            self.tapir_warning_label.setText(
+                "TAPIR ready. " + ", ".join(details)
+            )
+            self.tapir_warning_label.setToolTip(format_tapir_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.tapir_warning_label.setStyleSheet("color: #d9534f;")
+            self.tapir_warning_label.setText("\n".join(summary))
+            self.tapir_warning_label.setToolTip(format_tapir_environment_report(status))
+
+    def _on_tapir_checkpoint_selected(self, index: int):
+        checkpoint_path = self.tapir_checkpoint_combo.itemData(index)
+        self.tapir_settings.checkpoint_path = checkpoint_path
+        self._refresh_tapir_checkpoints()
+
+    def _on_tapir_center_mode_changed(self, idx: int):
+        manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
+        self.tapir_center_x_spinbox.setEnabled(manual)
+        self.tapir_center_y_spinbox.setEnabled(manual)
+
     def _collect_model_paths(self, *directories: Path) -> list[Path]:
         resolved_paths: dict[str, Path] = {}
         for directory in directories:
@@ -1605,6 +1959,7 @@ class MainWindow(QMainWindow):
 
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
+        show_tapir = scenario == "Offline TAPIR"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -1612,6 +1967,8 @@ class MainWindow(QMainWindow):
             self.optical_basic_group.setVisible(show_optical_basic)
         if hasattr(self, "optical_skip_group"):
             self.optical_skip_group.setVisible(show_optical_skip)
+        if hasattr(self, "tapir_group"):
+            self.tapir_group.setVisible(show_tapir)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -2137,8 +2494,8 @@ class MainWindow(QMainWindow):
     def _cycle_pan_add_delete_mode(self):
         current = getattr(self.image_viewer, "mode", "PAN")
         if current == "PAN":
-            self.add_roi_mode_action.trigger()
-        elif current == "ADD_ROI":
+            self.add_point_mode_action.trigger()
+        elif current in {"ADD_ROI", "ADD_POINT"}:
             self.delete_roi_mode_action.trigger()
         else:
             self.pan_mode_action.trigger()
@@ -2206,6 +2563,39 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         dialog.exec()
+
+    def _collect_tapir_tracking_params(self) -> dict:
+        """Collect the current TAPIR tracking settings from the UI."""
+        return {
+            "tapir_models_dir": str(self.tapir_models_dir.resolve()),
+            "checkpoint_path": self.tapir_settings.checkpoint_path,
+            "device": self.tapir_device_combo.currentData(),
+            "inference_resolution": int(self.tapir_inference_resolution_combo.currentData()),
+            "query_chunk_size": self.tapir_query_chunk_spinbox.value(),
+            "window_size": self.tapir_window_size_spinbox.value(),
+            "window_overlap": self.tapir_window_overlap_spinbox.value(),
+            "use_visibility_gating": self.tapir_visibility_checkbox.isChecked(),
+            "visibility_threshold": self.tapir_visibility_threshold_spinbox.value(),
+            "use_uncertainty_gating": self.tapir_uncertainty_checkbox.isChecked(),
+            "expected_dist_threshold": self.tapir_expected_dist_threshold_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.tapir_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.tapir_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.tapir_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.tapir_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.tapir_center_mode_combo.currentData(),
+            "manual_center": (
+                self.tapir_center_x_spinbox.value(),
+                self.tapir_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.tapir_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.tapir_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.tapir_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.tapir_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.tapir_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.tapir_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.tapir_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
 
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
@@ -2280,6 +2670,41 @@ class MainWindow(QMainWindow):
                     optical_params,
                     cancel_event=cancel_event,
                 )
+
+        elif selected_scenario == "Offline TAPIR":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline TAPIR requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            status = probe_tapir_environment(
+                models_dir=self.tapir_models_dir,
+                checkpoint_path=self.tapir_settings.checkpoint_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "TAPIR Unavailable",
+                    format_tapir_environment_report(status),
+                )
+                return
+
+            tapir_params = self._collect_tapir_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_tapir_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                tapir_params,
+                cancel_event=cancel_event,
+            )
 
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
@@ -2428,6 +2853,7 @@ class MainWindow(QMainWindow):
             roi_size=current_roi_size,
             lk_win_size=lk_win_size,  
             lk_max_level=lk_max_level,
+            tapir_params=self._collect_tapir_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )

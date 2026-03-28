@@ -17,7 +17,7 @@ class LeedImageViewer(QGraphicsView):
     Emits signals to notify the main window of user actions.
     """
     # --- Signals ---
-    # Signal emitted when user left-clicks in 'ADD_ROI' mode
+    # Signal emitted when user left-clicks in point/ROI creation mode
     roi_added_at = pyqtSignal(QPointF) 
     # Signal emitted when user right-clicks on an ROI in 'DELETE_ROI' mode
     roi_deleted = pyqtSignal(int)
@@ -149,7 +149,7 @@ class LeedImageViewer(QGraphicsView):
         panning the scene or for other custom actions.
 
         Args:
-            mode: A string identifier for the desired mode (e.g., 'PAN', 'ADD_ROI').
+            mode: A string identifier for the desired mode (e.g., 'PAN', 'ADD_ROI', 'ADD_POINT').
         """
         # Store the new mode as an instance attribute for use in other event handlers.
         self.mode = mode
@@ -249,7 +249,7 @@ class LeedImageViewer(QGraphicsView):
                         self._resize_start_rect = QRectF(rect_item.sceneBoundingRect())
                         return
 
-        elif self.mode == 'ADD_ROI' and event.button() == Qt.MouseButton.LeftButton:
+        elif self.mode in {'ADD_ROI', 'ADD_POINT'} and event.button() == Qt.MouseButton.LeftButton:
             self.roi_added_at.emit(scene_pos)
         
         elif self.mode == 'ADD_CORRECT_POINT' and event.button() == Qt.MouseButton.LeftButton:

@@ -1,6 +1,7 @@
 # stal/gui/tracking_dialog.py
 
 from typing import List
+from threading import Event
 import numpy as np
 from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRect, QThread
 from PyQt6.QtGui import QImage, QPixmap, QActionGroup, QAction
@@ -12,7 +13,14 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.tracking import retrack_single_spot_optical_flow
+from trackleed.analysis.tapir_backend import (
+    format_tapir_environment_report,
+    probe_tapir_environment,
+)
+from trackleed.analysis.tracking import (
+    retrack_single_spot_optical_flow,
+    retrack_single_spot_tapir_offline,
+)
 from trackleed.logic.generic_worker import GenericWorker
 
 
@@ -28,6 +36,7 @@ class TrackingDialog(QDialog):
         roi_size: int,
         lk_win_size: int,
         lk_max_level: int,
+        tapir_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -47,7 +56,9 @@ class TrackingDialog(QDialog):
         self.roi_size = roi_size
         self.lk_win_size = lk_win_size  
         self.lk_max_level = lk_max_level
+        self.tapir_params = dict(tapir_params or {})
         self.save_session_callback = save_session_callback
+        self._active_retrack_label = "Re-tracking"
 
         self.sorted_frame_ids = sorted(list(self.file_map.keys()))
         
@@ -75,8 +86,11 @@ class TrackingDialog(QDialog):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         self.tracks_table = QTableWidget()
-        self.plot_widget = QLabel("Plot Area Placeholder")
+        self.plot_widget = QLabel("Select a track to view details.")
         self.plot_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.plot_widget.setWordWrap(True)
+        self.plot_widget.setTextFormat(Qt.TextFormat.RichText)
+        self.plot_widget.setMinimumHeight(160)
         self.roi_transparency_combo = QComboBox()
         self.show_selected_track_only_button = QPushButton("Hide Other BBoxes")
         self.show_selected_track_only_button.setCheckable(True)
@@ -178,8 +192,8 @@ class TrackingDialog(QDialog):
             self.frame_slider.setMaximum(len(self.sorted_frame_ids) - 1)
         self.frame_slider.valueChanged.connect(self.on_slider_value_changed)
 
-        self.tracks_table.setColumnCount(4)
-        self.tracks_table.setHorizontalHeaderLabels(["Track ID", "Start Frame", "End Frame", "Length"])
+        self.tracks_table.setColumnCount(6)
+        self.tracks_table.setHorizontalHeaderLabels(["Track ID", "Method", "Start Frame", "End Frame", "Length", "Gaps"])
         self.tracks_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.tracks_table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.tracks_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -252,6 +266,114 @@ class TrackingDialog(QDialog):
         track_id = int(id_item.text())
         return next((t for t in self.tracks if t.track_id == track_id), None)
 
+    def _classify_track_method(self, track: Track) -> str:
+        """Return a short human-readable label for the dominant source in a track."""
+        sources = {
+            str(getattr(spot, "source", "")).strip().lower()
+            for spot in track.spots_by_image_id.values()
+            if getattr(spot, "source", None)
+        }
+        if not sources:
+            return "Unknown"
+
+        manual_sources = {"manual", "manual_new", "manual_corr", "manual_point"}
+        if sources == {"tapir_offline"}:
+            return "TAPIR"
+        if sources.issubset(manual_sources):
+            return "Manual"
+        if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
+            return "TAPIR+Manual"
+        if any("optical" in src or "flow" in src for src in sources):
+            return "OptFlow"
+        if any("yolo" in src for src in sources):
+            return "YOLO"
+        if sources == {"auto"}:
+            return "Auto"
+        return "Mixed"
+
+    def _count_track_gaps(self, track: Track) -> int:
+        """Count missing frames inside the track span."""
+        frame_ids = sorted(track.spots_by_image_id.keys())
+        if len(frame_ids) < 2:
+            return 0
+        frame_index_map = {frame_id: idx for idx, frame_id in enumerate(self.sorted_frame_ids)}
+        indexed = [frame_index_map[fid] for fid in frame_ids if fid in frame_index_map]
+        if len(indexed) < 2:
+            return 0
+        start_idx = min(indexed)
+        end_idx = max(indexed)
+        return max(0, (end_idx - start_idx + 1) - len(indexed))
+
+    def _update_track_details(self):
+        """Refresh the right-side summary panel for the selected track and frame."""
+        selected_track = self.get_selected_track()
+        if selected_track is None:
+            self.plot_widget.setText("Select a track to view details.")
+            return
+
+        slider_index = self.frame_slider.value()
+        current_frame_id = None
+        if 0 <= slider_index < len(self.sorted_frame_ids):
+            current_frame_id = self.sorted_frame_ids[slider_index]
+
+        frame_ids = sorted(selected_track.spots_by_image_id.keys())
+        start_frame = frame_ids[0] if frame_ids else "-"
+        end_frame = frame_ids[-1] if frame_ids else "-"
+        gaps = self._count_track_gaps(selected_track)
+        method = self._classify_track_method(selected_track)
+
+        lines = [
+            f"<b>Track {selected_track.track_id}</b>",
+            f"Method: {method}",
+            f"Span: {start_frame} -> {end_frame}",
+            f"Frames: {len(frame_ids)} | Gaps: {gaps}",
+        ]
+
+        if current_frame_id is None:
+            self.plot_widget.setText("<br>".join(lines))
+            return
+
+        spot = selected_track.spots_by_image_id.get(current_frame_id)
+        if spot is None:
+            lines.extend(
+                [
+                    "",
+                    f"<b>Frame {current_frame_id}</b>",
+                    "No spot on this frame.",
+                ]
+            )
+            self.plot_widget.setText("<br>".join(lines))
+            return
+
+        rect = spot.roi_rect
+        lines.extend(
+            [
+                "",
+                f"<b>Frame {current_frame_id}</b>",
+                f"Source: {getattr(spot, 'source', 'unknown')}",
+                f"Center: ({float(spot.center_x):.2f}, {float(spot.center_y):.2f})",
+                f"ROI: x={rect.x()}, y={rect.y()}, w={rect.width()}, h={rect.height()}",
+            ]
+        )
+
+        if str(getattr(spot, "source", "")).lower() == "tapir_offline":
+            raw_x = getattr(spot, "tapir_raw_x", None)
+            raw_y = getattr(spot, "tapir_raw_y", None)
+            refined_x = getattr(spot, "tapir_refined_x", None)
+            refined_y = getattr(spot, "tapir_refined_y", None)
+            visibility = getattr(spot, "tapir_visibility", None)
+            rejected_reason = getattr(spot, "tapir_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw TAPIR: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
+
+        self.plot_widget.setText("<br>".join(lines))
+
     def _get_spots_to_display_for_frame(self, frame_id: int) -> List[SpotROI]:
         """Build the ROI list for the current frame, honoring the selected-track filter."""
         selected_track = self.get_selected_track()
@@ -264,6 +386,33 @@ class TrackingDialog(QDialog):
             if frame_id in track.spots_by_image_id:
                 spots_in_frame.append(track.spots_by_image_id[frame_id])
         return spots_in_frame
+
+    def _build_tapir_focus_points_for_frame(self, frame_id: int) -> list[dict]:
+        """
+        Build overlay payloads for TAPIR-tracked points on the current frame.
+
+        We show the raw TAPIR point for the currently selected track so the user
+        can compare the model's actual trajectory against the refined ROI center.
+        """
+        selected_track = self.get_selected_track()
+        if selected_track is None:
+            return []
+        spot = selected_track.spots_by_image_id.get(frame_id)
+        if spot is None:
+            return []
+        if str(getattr(spot, "source", "")).lower() != "tapir_offline":
+            return []
+
+        raw_x = getattr(spot, "tapir_raw_x", None)
+        raw_y = getattr(spot, "tapir_raw_y", None)
+        if raw_x is None or raw_y is None:
+            raw_x = spot.center_x
+            raw_y = spot.center_y
+
+        label = f"TAPIR T{selected_track.track_id}"
+        if np.isfinite(float(raw_x)) and np.isfinite(float(raw_y)):
+            return [{"x": float(raw_x), "y": float(raw_y), "label": label}]
+        return []
 
     def handle_add_new_track(self, scene_pos: QPointF):
         """Creates a new track and initiates tracking from the user's click."""
@@ -311,27 +460,41 @@ class TrackingDialog(QDialog):
         delete_action = menu.addAction("Delete this point from track")
         
         menu.addSeparator()
-        retrack_action = menu.addAction("Re-track from this point")
+        retrack_action = menu.addAction("Re-track from this point (Optical Flow)")
+        retrack_tapir_action = menu.addAction("Re-track from this point (TAPIR)")
         
         action = menu.exec(global_pos)
         
         if action == delete_action:
             self.delete_point_from_track(spot_id)
         elif action == retrack_action:
-            self.initiate_retrack(spot_id)
+            self.initiate_retrack_optical_flow(spot_id)
+        elif action == retrack_tapir_action:
+            self.initiate_retrack_tapir(spot_id)
 
-    def initiate_retrack(self, spot_id: int):
-        """Prepares and launches the re-tracking worker."""
+    def _get_retrack_target(self) -> tuple[Track, int] | None:
+        """Return the currently selected track and frame for a local retrack."""
         current_row = self.tracks_table.currentRow()
+        if current_row < 0:
+            return None
         track_id_item = self.tracks_table.item(current_row, 0)
+        if track_id_item is None:
+            return None
         selected_track_id = int(track_id_item.text())
         track_to_retrack = next((t for t in self.tracks if t.track_id == selected_track_id), None)
-        
         current_frame_id = self.sorted_frame_ids[self.frame_slider.value()]
-        
+
         if not track_to_retrack or current_frame_id not in track_to_retrack.spots_by_image_id:
             QMessageBox.warning(self, "Error", "Cannot start re-tracking. The selected track does not exist on the current frame.")
+            return None
+        return track_to_retrack, current_frame_id
+
+    def initiate_retrack_optical_flow(self, spot_id: int):
+        """Prepares and launches optical-flow re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
             return
+        track_to_retrack, current_frame_id = target
 
         params = {
             'lk_win_size': self.lk_win_size,
@@ -339,19 +502,80 @@ class TrackingDialog(QDialog):
             'roi_size': self.roi_size 
         }
 
+        cancel_event = Event()
         worker = GenericWorker(
             retrack_single_spot_optical_flow,
             track_to_retrack,
             current_frame_id,
             self.file_map,
             self.sorted_frame_ids,
-            params
+            params,
+            cancel_event=cancel_event,
         )
-        self.launch_retrack_worker(worker)
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with Optical Flow...",
+            cancel_event=cancel_event,
+            method_label="Optical Flow re-tracking",
+        )
 
-    def launch_retrack_worker(self, worker: GenericWorker):
+    def initiate_retrack_tapir(self, spot_id: int):
+        """Prepares and launches TAPIR re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.tapir_params:
+            QMessageBox.warning(
+                self,
+                "TAPIR Settings Missing",
+                "TAPIR parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_tapir_environment(
+            models_dir=self.tapir_params.get("tapir_models_dir"),
+            checkpoint_path=self.tapir_params.get("checkpoint_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "TAPIR Unavailable",
+                format_tapir_environment_report(status),
+            )
+            return
+
+        tapir_params = dict(self.tapir_params)
+        tapir_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_tapir_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            tapir_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with TAPIR...",
+            cancel_event=cancel_event,
+            method_label="TAPIR re-tracking",
+        )
+
+    def launch_retrack_worker(
+        self,
+        worker: GenericWorker,
+        title: str,
+        cancel_event: Event | None = None,
+        method_label: str = "Re-tracking",
+    ):
         """Runs the re-tracking worker with a progress dialog."""
-        self.progress_dialog = QProgressDialog("Re-tracking spot...", "Cancel", 0, 100, self)
+        self._active_retrack_label = method_label
+        self.progress_dialog = QProgressDialog(title, "Cancel", 0, 100, self)
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.show()
 
@@ -359,6 +583,8 @@ class TrackingDialog(QDialog):
         self.worker = worker
         self.worker.moveToThread(self.worker_thread)
 
+        if cancel_event is not None:
+            self.progress_dialog.canceled.connect(cancel_event.set)
         self.progress_dialog.canceled.connect(self.worker_thread.requestInterruption)
         self.worker.progress.connect(self.progress_dialog.setValue)
         self.worker.finished.connect(self.on_retrack_finished)
@@ -374,6 +600,10 @@ class TrackingDialog(QDialog):
 
     def on_retrack_finished(self, updated_track: Track):
         """Handles the successful completion of the re-tracking task."""
+        if updated_track is None:
+            QMessageBox.information(self, "Cancelled", f"{self._active_retrack_label} was cancelled.")
+            return
+
         print(f"Re-tracking for track {updated_track.track_id} finished.")
         
         for i, track in enumerate(self.tracks):
@@ -385,11 +615,11 @@ class TrackingDialog(QDialog):
         current_frame_id = self.sorted_frame_ids[self.frame_slider.value()]
         self.show_frame(current_frame_id)
         
-        QMessageBox.information(self, "Success", "Re-tracking completed successfully.")
+        QMessageBox.information(self, "Success", f"{self._active_retrack_label} completed successfully.")
 
     def on_retrack_error(self, error_message: str):
         """Handles errors from the re-tracking worker."""
-        QMessageBox.critical(self, "Re-tracking Error", f"An error occurred:\n{error_message}")
+        QMessageBox.critical(self, f"{self._active_retrack_label} Error", f"An error occurred:\n{error_message}")
     
     def handle_add_or_correct_point(self, scene_pos: QPointF):
         """Slot to handle adding a new point to or correcting an existing point in a track."""
@@ -572,10 +802,14 @@ class TrackingDialog(QDialog):
             frame_ids = track.spots_by_image_id.keys()
             start_frame = min(frame_ids) if frame_ids else -1
             end_frame = max(frame_ids) if frame_ids else -1
+            method = self._classify_track_method(track)
+            gaps = self._count_track_gaps(track)
             self.tracks_table.setItem(row, 0, QTableWidgetItem(str(track.track_id)))
-            self.tracks_table.setItem(row, 1, QTableWidgetItem(str(start_frame)))
-            self.tracks_table.setItem(row, 2, QTableWidgetItem(str(end_frame)))
-            self.tracks_table.setItem(row, 3, QTableWidgetItem(str(len(frame_ids))))
+            self.tracks_table.setItem(row, 1, QTableWidgetItem(method))
+            self.tracks_table.setItem(row, 2, QTableWidgetItem(str(start_frame)))
+            self.tracks_table.setItem(row, 3, QTableWidgetItem(str(end_frame)))
+            self.tracks_table.setItem(row, 4, QTableWidgetItem(str(len(frame_ids))))
+            self.tracks_table.setItem(row, 5, QTableWidgetItem(str(gaps)))
 
     def on_slider_value_changed(self, index: int):
         """
@@ -606,6 +840,7 @@ class TrackingDialog(QDialog):
         if selected_track is None:
             self.image_viewer.highlight_roi(None)
             self.image_viewer.show_track_path(None)
+            self._update_track_details()
             return
         self.image_viewer.show_track_path(selected_track)
         
@@ -622,6 +857,7 @@ class TrackingDialog(QDialog):
             self.image_viewer.highlight_roi(spot_id_to_highlight)
         else:
             self.image_viewer.highlight_roi(None)
+        self._update_track_details()
 
     def show_frame(self, frame_id: int, fit: bool = False):
         """Loads and displays the image and overlays for a given frame ID."""
@@ -634,6 +870,10 @@ class TrackingDialog(QDialog):
 
         self.image_viewer.update_masks(self.masks)
         self.image_viewer.update_rois(self._get_spots_to_display_for_frame(frame_id))
+        self.image_viewer.update_positions_overlay(
+            overlay_groups=[],
+            focus_points=self._build_tapir_focus_points_for_frame(frame_id),
+        )
 
         self._update_highlights()
 
