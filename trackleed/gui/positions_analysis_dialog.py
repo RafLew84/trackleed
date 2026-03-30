@@ -481,6 +481,27 @@ class PositionsAnalysisDialog(QDialog):
         analysis_buttons_layout.addWidget(self.run_analysis_button)
         analysis_buttons_layout.addWidget(self.export_results_button)
 
+        export_layout_group = QGroupBox("Export Overlay")
+        export_layout_form = QFormLayout(export_layout_group)
+
+        self.export_label_distance_spin = QSpinBox()
+        self.export_label_distance_spin.setRange(10, 300)
+        self.export_label_distance_spin.setSingleStep(5)
+        self.export_label_distance_spin.setValue(46)
+        self.export_label_distance_spin.setToolTip(
+            "Base distance of export labels from the detected point."
+        )
+        export_layout_form.addRow("Label distance:", self.export_label_distance_spin)
+
+        self.export_label_spread_spin = QSpinBox()
+        self.export_label_spread_spin.setRange(0, 200)
+        self.export_label_spread_spin.setSingleStep(5)
+        self.export_label_spread_spin.setValue(18)
+        self.export_label_spread_spin.setToolTip(
+            "Base lateral spread used to separate export labels from each other."
+        )
+        export_layout_form.addRow("Label spread:", self.export_label_spread_spin)
+
         details_group = QGroupBox("Selected Group")
         details_layout = QVBoxLayout(details_group)
 
@@ -598,6 +619,7 @@ class PositionsAnalysisDialog(QDialog):
         group_layout.addLayout(buttons_layout)
         group_layout.addWidget(self.groups_info_label)
         group_layout.addLayout(analysis_buttons_layout)
+        group_layout.addWidget(export_layout_group)
         group_layout.addWidget(self.analysis_summary_label)
         group_layout.addWidget(details_group)
         group_layout.addWidget(correction_group)
@@ -938,6 +960,8 @@ class PositionsAnalysisDialog(QDialog):
             "apply_size_until_frame": int(self.apply_size_until_spinbox.value()),
             "move_bbox_mode": bool(self.move_bbox_button.isChecked()),
             "change_bbox_size_mode": bool(self.change_bbox_size_button.isChecked()),
+            "export_label_distance": int(self.export_label_distance_spin.value()),
+            "export_label_spread": int(self.export_label_spread_spin.value()),
         }
 
     def _apply_loaded_positions_session(self, session_payload: dict, session_path: Path) -> dict:
@@ -1235,6 +1259,28 @@ class PositionsAnalysisDialog(QDialog):
                 np.clip(target_frame_id, self.apply_size_until_spinbox.minimum(), self.apply_size_until_spinbox.maximum())
             )
             self.apply_size_until_spinbox.setValue(clamped_target)
+
+        export_label_distance = self._coerce_int(raw_view_state.get("export_label_distance"))
+        if export_label_distance is not None:
+            clamped_distance = int(
+                np.clip(
+                    export_label_distance,
+                    self.export_label_distance_spin.minimum(),
+                    self.export_label_distance_spin.maximum(),
+                )
+            )
+            self.export_label_distance_spin.setValue(clamped_distance)
+
+        export_label_spread = self._coerce_int(raw_view_state.get("export_label_spread"))
+        if export_label_spread is not None:
+            clamped_spread = int(
+                np.clip(
+                    export_label_spread,
+                    self.export_label_spread_spin.minimum(),
+                    self.export_label_spread_spin.maximum(),
+                )
+            )
+            self.export_label_spread_spin.setValue(clamped_spread)
 
         selected_track_id = self._coerce_int(raw_view_state.get("selected_track_id"))
         if selected_track_id is not None:
@@ -1693,62 +1739,15 @@ class PositionsAnalysisDialog(QDialog):
 
     def _export_positions_results_csv(self, export_dir: Path) -> Path:
         output_path = export_dir / "positions_analysis_results.csv"
-        rows = list(self.positions_analysis_results.get("rows", []))
-
-        preferred_order = [
+        rows = self._build_export_point_rows()
+        fieldnames = [
             "frame_id",
-            "temperature",
-            "coverage",
-            "energy",
             "group_id",
-            "group_name",
-            "reference_track_id",
-            "satellite_track_id",
-            "reference_spot_present",
-            "satellite_spot_present",
-            "reference_fit_ok",
-            "satellite_fit_ok",
-            "reference_quality_status",
-            "satellite_quality_status",
-            "reference_quality_flags",
-            "satellite_quality_flags",
-            "reference_validation_failures",
-            "satellite_validation_failures",
-            "reference_warning_flags",
-            "satellite_warning_flags",
-            "reference_suspicious",
-            "satellite_suspicious",
-            "suspicious",
-            "row_quality_status",
-            "reference_spot_id",
-            "satellite_spot_id",
-            "x_fit_ref",
-            "y_fit_ref",
-            "x_fit_sat",
-            "y_fit_sat",
-            "dx",
-            "dy",
-            "r",
-            "reference_r_squared",
-            "satellite_r_squared",
-            "reference_manually_corrected",
-            "satellite_manually_corrected",
-            "manually_corrected",
+            "track_id",
+            "distance_from_reference",
+            "x",
+            "y",
         ]
-        existing_columns = [
-            column_name
-            for column_name in preferred_order
-            if any(column_name in row for row in rows)
-        ]
-        extra_columns = sorted(
-            {
-                key
-                for row in rows
-                for key in row.keys()
-                if key not in existing_columns
-            }
-        )
-        fieldnames = existing_columns + extra_columns
 
         with output_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -1756,9 +1755,9 @@ class PositionsAnalysisDialog(QDialog):
             for row in sorted(
                 rows,
                 key=lambda current: (
-                    current.get("group_id", -1),
-                    current.get("satellite_track_id", -1),
                     current.get("frame_id", -1),
+                    current.get("group_id", -1),
+                    current.get("track_id", -1),
                 ),
             ):
                 writer.writerow(
@@ -1775,6 +1774,9 @@ class PositionsAnalysisDialog(QDialog):
         images_dir.mkdir(parents=True, exist_ok=True)
 
         frame_ids = list(self.sorted_frame_ids)
+        saved_count = 0
+        skipped_missing_meta = 0
+        skipped_missing_image = 0
         progress_dialog = QProgressDialog(
             "Exporting positions overlay images...",
             "Cancel",
@@ -1786,6 +1788,7 @@ class PositionsAnalysisDialog(QDialog):
         progress_dialog.setMinimumDuration(0)
         progress_dialog.setValue(0)
         progress_dialog.show()
+        QApplication.processEvents()
 
         for index, frame_id in enumerate(frame_ids, start=1):
             if progress_dialog.wasCanceled():
@@ -1793,24 +1796,38 @@ class PositionsAnalysisDialog(QDialog):
 
             leed_file = self.all_files_map.get(frame_id)
             if leed_file is None:
+                skipped_missing_meta += 1
                 progress_dialog.setValue(index)
                 QApplication.processEvents()
                 continue
 
             image_data = load_tiff(leed_file.filepath)
             if image_data is None or np.asarray(image_data).size == 0:
+                skipped_missing_image += 1
                 progress_dialog.setValue(index)
                 QApplication.processEvents()
                 continue
 
             overlay_image = self._build_positions_overlay_export_image(frame_id, image_data)
             output_name = f"positions_{frame_id:04d}_{Path(leed_file.filename).stem}.png"
-            overlay_image.save(images_dir / output_name)
+            output_path = images_dir / output_name
+            overlay_image.save(str(output_path), format="PNG")
+            if not output_path.exists():
+                raise RuntimeError(f"Image export failed for frame {frame_id}: {output_path}")
+            saved_count += 1
 
             progress_dialog.setValue(index)
             QApplication.processEvents()
 
         progress_dialog.close()
+
+        if saved_count == 0:
+            raise RuntimeError(
+                "No overlay images were exported. "
+                f"Skipped missing metadata: {skipped_missing_meta}, "
+                f"skipped missing images: {skipped_missing_image}, "
+                f"cancelled: {'yes' if progress_dialog.wasCanceled() else 'no'}."
+            )
         return images_dir
 
     def _build_positions_overlay_export_image(self, frame_id: int, image_data) -> Image.Image:
@@ -1821,14 +1838,11 @@ class PositionsAnalysisDialog(QDialog):
         except IOError:
             font = ImageFont.load_default()
 
-        for roi_payload in self._build_export_roi_payloads(frame_id):
-            self._draw_export_roi(draw, roi_payload, font)
-
         overlay_groups = self._build_positions_overlay_payload(
             frame_id,
             respect_selection_filter=False,
         )
-        self._draw_export_overlay_groups(draw, overlay_groups, font)
+        self._draw_export_overlay_groups(draw, overlay_groups, font, export_image.size)
         return export_image
 
     def _format_analysis_summary(self, results: dict | None) -> str:
@@ -3259,6 +3273,17 @@ class PositionsAnalysisDialog(QDialog):
             "selected": selected,
         }
 
+    @staticmethod
+    def _has_overlay_point(payload: dict | None) -> bool:
+        if payload is None:
+            return False
+        try:
+            x = float(payload.get("x"))
+            y = float(payload.get("y"))
+        except Exception:
+            return False
+        return np.isfinite(x) and np.isfinite(y)
+
     def _build_export_roi_payloads(self, frame_id: int) -> list[dict]:
         if not self.positions_analysis_results:
             return []
@@ -3310,6 +3335,78 @@ class PositionsAnalysisDialog(QDialog):
             "label": label,
         }
 
+    def _build_export_point_rows(self) -> list[dict]:
+        if not self.positions_analysis_results:
+            return []
+
+        export_rows: list[dict] = []
+        seen_reference_keys: set[tuple[int, int, int]] = set()
+        fit_points_by_frame = self.positions_analysis_results.get("fit_points_by_frame", {})
+        groups = self.positions_analysis_results.get("groups", [])
+
+        for frame_id in self.sorted_frame_ids:
+            frame_fits = fit_points_by_frame.get(frame_id, {})
+            for group in groups:
+                group_id = int(group.get("group_id", 0))
+                reference_track_id = group.get("reference_track_id")
+                if reference_track_id is None:
+                    continue
+
+                reference_point = self._build_overlay_point(
+                    frame_id,
+                    int(reference_track_id),
+                    frame_fits,
+                    label="",
+                    selected=False,
+                )
+                if self._has_overlay_point(reference_point):
+                    reference_key = (frame_id, group_id, int(reference_track_id))
+                    if reference_key not in seen_reference_keys:
+                        export_rows.append(
+                            {
+                                "frame_id": int(frame_id),
+                                "group_id": group_id,
+                                "track_id": int(reference_track_id),
+                                "distance_from_reference": 0.0,
+                                "x": float(reference_point["x"]),
+                                "y": float(reference_point["y"]),
+                            }
+                        )
+                        seen_reference_keys.add(reference_key)
+
+                for track_id in group.get("satellite_track_ids", []):
+                    satellite_point = self._build_overlay_point(
+                        frame_id,
+                        int(track_id),
+                        frame_fits,
+                        label="",
+                        selected=False,
+                    )
+                    if not self._has_overlay_point(satellite_point):
+                        continue
+
+                    distance = np.nan
+                    if self._has_overlay_point(reference_point):
+                        distance = float(
+                            np.hypot(
+                                float(satellite_point["x"]) - float(reference_point["x"]),
+                                float(satellite_point["y"]) - float(reference_point["y"]),
+                            )
+                        )
+
+                    export_rows.append(
+                        {
+                            "frame_id": int(frame_id),
+                            "group_id": group_id,
+                            "track_id": int(track_id),
+                            "distance_from_reference": distance,
+                            "x": float(satellite_point["x"]),
+                            "y": float(satellite_point["y"]),
+                        }
+                    )
+
+        return export_rows
+
     def _draw_export_roi(self, draw: ImageDraw.ImageDraw, payload: dict, font):
         rect = payload.get("rect")
         if not isinstance(rect, QRect):
@@ -3327,7 +3424,14 @@ class PositionsAnalysisDialog(QDialog):
             text_position = (left + 3, max(0, top - 16))
             draw.text(text_position, label_text, fill=color, font=font)
 
-    def _draw_export_overlay_groups(self, draw: ImageDraw.ImageDraw, overlay_groups: list[dict], font):
+    def _draw_export_overlay_groups(
+        self,
+        draw: ImageDraw.ImageDraw,
+        overlay_groups: list[dict],
+        font,
+        image_size: tuple[int, int],
+    ):
+        label_rank = 0
         for group in overlay_groups:
             color = self._qcolor_to_rgb(group.get("color"))
             reference = group.get("reference")
@@ -3336,15 +3440,27 @@ class PositionsAnalysisDialog(QDialog):
             if reference is None:
                 continue
 
+            self._draw_export_marker(
+                draw,
+                reference,
+                color,
+                font,
+                image_size=image_size,
+                is_reference=True,
+                label_rank=label_rank,
+            )
+            label_rank += 1
             for satellite in satellites:
-                if satellite is None:
-                    continue
-                if self._has_overlay_point(reference) and self._has_overlay_point(satellite):
-                    self._draw_export_connection(draw, reference, satellite, color)
-
-            self._draw_export_marker(draw, reference, color, font, is_reference=True)
-            for satellite in satellites:
-                self._draw_export_marker(draw, satellite, color, font, is_reference=False)
+                self._draw_export_marker(
+                    draw,
+                    satellite,
+                    color,
+                    font,
+                    image_size=image_size,
+                    is_reference=False,
+                    label_rank=label_rank,
+                )
+                label_rank += 1
 
     def _draw_export_connection(
         self,
@@ -3369,25 +3485,129 @@ class PositionsAnalysisDialog(QDialog):
         color: tuple[int, int, int],
         font,
         *,
+        image_size: tuple[int, int],
         is_reference: bool,
+        label_rank: int = 0,
     ):
         if not self._has_overlay_point(payload):
             return
 
         x = float(payload["x"])
         y = float(payload["y"])
-        radius = 7 if is_reference else 5
-        fill_color = color if bool(payload.get("from_fit", False)) else None
+        radius = 3 if is_reference else 2
+        fill_color = color
         draw.ellipse(
             [x - radius, y - radius, x + radius, y + radius],
-            outline=color,
+            outline=(255, 255, 255),
             fill=fill_color,
-            width=2,
+            width=1,
         )
 
         label_text = str(payload.get("label", "")).strip()
         if label_text:
-            draw.text((x + radius + 4, y - radius - 10), label_text, fill=color, font=font)
+            self._draw_export_label_with_arrow(
+                draw,
+                x,
+                y,
+                label_text,
+                color,
+                font,
+                image_size=image_size,
+                label_rank=label_rank,
+            )
+
+    def _draw_export_label_with_arrow(
+        self,
+        draw: ImageDraw.ImageDraw,
+        point_x: float,
+        point_y: float,
+        label_text: str,
+        color: tuple[int, int, int],
+        font,
+        *,
+        image_size: tuple[int, int],
+        label_rank: int,
+    ):
+        image_width, image_height = image_size
+        center_x = image_width / 2.0
+        center_y = image_height / 2.0
+        dx = float(point_x - center_x)
+        dy = float(point_y - center_y)
+        norm = float(np.hypot(dx, dy))
+        if norm < 1e-6:
+            direction = np.array([1.0, -1.0], dtype=np.float64)
+        else:
+            direction = np.array([dx / norm, dy / norm], dtype=np.float64)
+        perpendicular = np.array([-direction[1], direction[0]], dtype=np.float64)
+        side = -1.0 if (label_rank % 2) else 1.0
+        base_distance = float(self.export_label_distance_spin.value()) if hasattr(self, "export_label_distance_spin") else 46.0
+        base_spread = float(self.export_label_spread_spin.value()) if hasattr(self, "export_label_spread_spin") else 18.0
+        distance = base_distance + (0.9 * base_spread) * (label_rank % 4)
+        side_shift = (base_spread + 0.6 * base_spread * ((label_rank // 2) % 3)) * side
+
+        anchor_x = float(point_x + direction[0] * distance + perpendicular[0] * side_shift)
+        anchor_y = float(point_y + direction[1] * distance + perpendicular[1] * side_shift)
+
+        text_bbox = draw.textbbox((0, 0), label_text, font=font)
+        text_w = float(text_bbox[2] - text_bbox[0])
+        text_h = float(text_bbox[3] - text_bbox[1])
+        text_x = min(max(4.0, anchor_x), max(4.0, image_width - text_w - 4.0))
+        text_y = min(max(4.0, anchor_y - text_h / 2.0), max(4.0, image_height - text_h - 4.0))
+
+        leader_end_x = text_x - 6.0 if text_x >= point_x else text_x + text_w + 6.0
+        leader_end_y = text_y + text_h / 2.0
+        self._draw_export_arrow(
+            draw,
+            float(leader_end_x),
+            float(leader_end_y),
+            float(point_x),
+            float(point_y),
+            color,
+        )
+
+        padding = 3
+        draw.rounded_rectangle(
+            [
+                text_x - padding,
+                text_y - padding,
+                text_x + text_w + padding,
+                text_y + text_h + padding,
+            ],
+            radius=4,
+            fill=(255, 255, 255),
+            outline=color,
+            width=1,
+        )
+        draw.text((text_x, text_y), label_text, fill=color, font=font)
+
+    @staticmethod
+    def _draw_export_arrow(
+        draw: ImageDraw.ImageDraw,
+        start_x: float,
+        start_y: float,
+        end_x: float,
+        end_y: float,
+        color: tuple[int, int, int],
+    ):
+        draw.line([(start_x, start_y), (end_x, end_y)], fill=color, width=1)
+
+        dx = float(end_x - start_x)
+        dy = float(end_y - start_y)
+        norm = float(np.hypot(dx, dy))
+        if norm < 1e-6:
+            return
+
+        ux = dx / norm
+        uy = dy / norm
+        arrow_len = 8.0
+        wing_len = 3.5
+        base_x = end_x - ux * arrow_len
+        base_y = end_y - uy * arrow_len
+        perp_x = -uy
+        perp_y = ux
+        left = (base_x + perp_x * wing_len, base_y + perp_y * wing_len)
+        right = (base_x - perp_x * wing_len, base_y - perp_y * wing_len)
+        draw.polygon([(end_x, end_y), left, right], fill=color)
 
     @staticmethod
     def _convert_numpy_to_export_image(image_data) -> Image.Image:
