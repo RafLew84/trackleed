@@ -17,8 +17,13 @@ from trackleed.analysis.tapir_backend import (
     format_tapir_environment_report,
     probe_tapir_environment,
 )
+from trackleed.analysis.locotrack_backend import (
+    format_locotrack_environment_report,
+    probe_locotrack_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_optical_flow,
+    retrack_single_spot_locotrack_offline,
     retrack_single_spot_tapir_offline,
 )
 from trackleed.logic.generic_worker import GenericWorker
@@ -37,6 +42,7 @@ class TrackingDialog(QDialog):
         lk_win_size: int,
         lk_max_level: int,
         tapir_params: dict | None = None,
+        locotrack_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -57,6 +63,7 @@ class TrackingDialog(QDialog):
         self.lk_win_size = lk_win_size  
         self.lk_max_level = lk_max_level
         self.tapir_params = dict(tapir_params or {})
+        self.locotrack_params = dict(locotrack_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -279,10 +286,14 @@ class TrackingDialog(QDialog):
         manual_sources = {"manual", "manual_new", "manual_corr", "manual_point"}
         if sources == {"tapir_offline"}:
             return "TAPIR"
+        if sources == {"locotrack_offline"}:
+            return "LocoTrack"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
             return "TAPIR+Manual"
+        if "locotrack_offline" in sources and sources.issubset({"locotrack_offline"} | manual_sources):
+            return "LocoTrack+Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -356,7 +367,8 @@ class TrackingDialog(QDialog):
             ]
         )
 
-        if str(getattr(spot, "source", "")).lower() == "tapir_offline":
+        source = str(getattr(spot, "source", "")).lower()
+        if source == "tapir_offline":
             raw_x = getattr(spot, "tapir_raw_x", None)
             raw_y = getattr(spot, "tapir_raw_y", None)
             refined_x = getattr(spot, "tapir_refined_x", None)
@@ -365,6 +377,21 @@ class TrackingDialog(QDialog):
             rejected_reason = getattr(spot, "tapir_filter_rejected_reason", None)
             if raw_x is not None and raw_y is not None:
                 lines.append(f"Raw TAPIR: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "locotrack_offline":
+            raw_x = getattr(spot, "locotrack_raw_x", None)
+            raw_y = getattr(spot, "locotrack_raw_y", None)
+            refined_x = getattr(spot, "locotrack_refined_x", None)
+            refined_y = getattr(spot, "locotrack_refined_y", None)
+            visibility = getattr(spot, "locotrack_visibility", None)
+            rejected_reason = getattr(spot, "locotrack_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw LocoTrack: ({float(raw_x):.2f}, {float(raw_y):.2f})")
             if refined_x is not None and refined_y is not None:
                 lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
             if visibility is not None:
@@ -387,11 +414,11 @@ class TrackingDialog(QDialog):
                 spots_in_frame.append(track.spots_by_image_id[frame_id])
         return spots_in_frame
 
-    def _build_tapir_focus_points_for_frame(self, frame_id: int) -> list[dict]:
+    def _build_point_tracker_focus_points_for_frame(self, frame_id: int) -> list[dict]:
         """
-        Build overlay payloads for TAPIR-tracked points on the current frame.
+        Build overlay payloads for point-tracker raw points on the current frame.
 
-        We show the raw TAPIR point for the currently selected track so the user
+        We show the raw model point for the currently selected track so the user
         can compare the model's actual trajectory against the refined ROI center.
         """
         selected_track = self.get_selected_track()
@@ -400,16 +427,22 @@ class TrackingDialog(QDialog):
         spot = selected_track.spots_by_image_id.get(frame_id)
         if spot is None:
             return []
-        if str(getattr(spot, "source", "")).lower() != "tapir_offline":
+        source = str(getattr(spot, "source", "")).lower()
+        if source == "tapir_offline":
+            raw_x = getattr(spot, "tapir_raw_x", None)
+            raw_y = getattr(spot, "tapir_raw_y", None)
+            label = f"TAPIR T{selected_track.track_id}"
+        elif source == "locotrack_offline":
+            raw_x = getattr(spot, "locotrack_raw_x", None)
+            raw_y = getattr(spot, "locotrack_raw_y", None)
+            label = f"LOCOTRACK T{selected_track.track_id}"
+        else:
             return []
 
-        raw_x = getattr(spot, "tapir_raw_x", None)
-        raw_y = getattr(spot, "tapir_raw_y", None)
         if raw_x is None or raw_y is None:
             raw_x = spot.center_x
             raw_y = spot.center_y
 
-        label = f"TAPIR T{selected_track.track_id}"
         if np.isfinite(float(raw_x)) and np.isfinite(float(raw_y)):
             return [{"x": float(raw_x), "y": float(raw_y), "label": label}]
         return []
@@ -462,6 +495,7 @@ class TrackingDialog(QDialog):
         menu.addSeparator()
         retrack_action = menu.addAction("Re-track from this point (Optical Flow)")
         retrack_tapir_action = menu.addAction("Re-track from this point (TAPIR)")
+        retrack_locotrack_action = menu.addAction("Re-track from this point (LocoTrack)")
         
         action = menu.exec(global_pos)
         
@@ -471,6 +505,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_optical_flow(spot_id)
         elif action == retrack_tapir_action:
             self.initiate_retrack_tapir(spot_id)
+        elif action == retrack_locotrack_action:
+            self.initiate_retrack_locotrack(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -564,6 +600,54 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with TAPIR...",
             cancel_event=cancel_event,
             method_label="TAPIR re-tracking",
+        )
+
+    def initiate_retrack_locotrack(self, spot_id: int):
+        """Prepares and launches LocoTrack re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.locotrack_params:
+            QMessageBox.warning(
+                self,
+                "LocoTrack Settings Missing",
+                "LocoTrack parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_locotrack_environment(
+            models_dir=self.locotrack_params.get("locotrack_models_dir"),
+            checkpoint_path=self.locotrack_params.get("checkpoint_path"),
+            repo_path=self.locotrack_params.get("repo_path") or self.locotrack_params.get("locotrack_repo_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "LocoTrack Unavailable",
+                format_locotrack_environment_report(status),
+            )
+            return
+
+        locotrack_params = dict(self.locotrack_params)
+        locotrack_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_locotrack_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            locotrack_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with LocoTrack...",
+            cancel_event=cancel_event,
+            method_label="LocoTrack re-tracking",
         )
 
     def launch_retrack_worker(
@@ -872,7 +956,7 @@ class TrackingDialog(QDialog):
         self.image_viewer.update_rois(self._get_spots_to_display_for_frame(frame_id))
         self.image_viewer.update_positions_overlay(
             overlay_groups=[],
-            focus_points=self._build_tapir_focus_points_for_frame(frame_id),
+            focus_points=self._build_point_tracker_focus_points_for_frame(frame_id),
         )
 
         self._update_highlights()

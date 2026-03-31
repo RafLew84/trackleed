@@ -26,6 +26,10 @@ from trackleed.analysis.tapir_backend import (
     format_tapir_environment_report,
     probe_tapir_environment,
 )
+from trackleed.analysis.locotrack_backend import (
+    format_locotrack_environment_report,
+    probe_locotrack_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -39,6 +43,7 @@ from trackleed.analysis.tracking import (
     track_spots_hungarian,
     track_spots_hungarian_directional,
     track_spots_tapir_offline,
+    track_spots_locotrack_offline,
 )
 
 from skimage.util import img_as_float
@@ -95,6 +100,36 @@ class TapirTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class LocotrackTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    model_size: str = "small"
+    device: str = "auto"
+    inference_resolution: int = 256
+    query_chunk_size: int = 64
+    window_size: int = 64
+    window_overlap: int = 8
+    use_visibility_gating: bool = True
+    visibility_threshold: float = 0.5
+    use_uncertainty_gating: bool = True
+    expected_dist_threshold: float = 0.5
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -115,15 +150,21 @@ class MainWindow(QMainWindow):
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
         self.tapir_settings = TapirTrackingSettings()
+        self.locotrack_settings = LocotrackTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
         self.yolo_models_dir = self.tracking_models_dir / "yolo"
         self.tapir_models_dir = self.tracking_models_dir / "tapir"
+        self.locotrack_models_dir = self.tracking_models_dir / "locotrack"
+        default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
+        if default_locotrack_repo.exists():
+            self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
         self._tapir_checkpoint_available = False
+        self._locotrack_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -994,6 +1035,7 @@ class MainWindow(QMainWindow):
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
             "Offline TAPIR",
+            "Offline LocoTrack",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -1406,6 +1448,257 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.tapir_group)
 
+        # --- Offline LocoTrack parameters ---
+        self.locotrack_group = QGroupBox("Offline LocoTrack")
+        locotrack_layout = QFormLayout(self.locotrack_group)
+
+        self.locotrack_repo_path_edit = QLineEdit(self.locotrack_settings.repo_path or "")
+        self.locotrack_repo_path_edit.setPlaceholderText("Path to local locotrack repo root")
+        self.locotrack_repo_path_edit.setToolTip(
+            "Local clone of the LocoTrack repository. Must contain locotrack_pytorch/models/locotrack_model.py."
+        )
+        self.locotrack_repo_path_edit.editingFinished.connect(self._refresh_locotrack_checkpoints)
+        locotrack_layout.addRow("Repo path:", self.locotrack_repo_path_edit)
+
+        locotrack_model_row_widget = QWidget()
+        locotrack_model_row_layout = QHBoxLayout(locotrack_model_row_widget)
+        locotrack_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.locotrack_checkpoint_combo = QComboBox()
+        self.locotrack_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.locotrack_checkpoint_combo.setToolTip(
+            "Select a LocoTrack checkpoint (.ckpt) from tracking_models/locotrack."
+        )
+        self.locotrack_checkpoint_combo.currentIndexChanged.connect(self._on_locotrack_checkpoint_selected)
+        self.locotrack_refresh_button = QPushButton("Refresh")
+        self.locotrack_refresh_button.setToolTip(
+            "Re-scan tracking_models/locotrack and re-run LocoTrack environment diagnostics."
+        )
+        self.locotrack_refresh_button.clicked.connect(self._refresh_locotrack_checkpoints)
+        locotrack_model_row_layout.addWidget(self.locotrack_checkpoint_combo)
+        locotrack_model_row_layout.addWidget(self.locotrack_refresh_button)
+        locotrack_layout.addRow("Checkpoint:", locotrack_model_row_widget)
+
+        self.locotrack_model_size_combo = QComboBox()
+        self.locotrack_model_size_combo.addItem("Small", "small")
+        self.locotrack_model_size_combo.addItem("Base", "base")
+        locotrack_size_idx = self.locotrack_model_size_combo.findData(self.locotrack_settings.model_size)
+        self.locotrack_model_size_combo.setCurrentIndex(locotrack_size_idx if locotrack_size_idx >= 0 else 0)
+        self.locotrack_model_size_combo.setToolTip("LocoTrack checkpoint architecture size.")
+        locotrack_layout.addRow("Model size:", self.locotrack_model_size_combo)
+
+        self.locotrack_device_combo = QComboBox()
+        self.locotrack_device_combo.addItem("Auto", "auto")
+        self.locotrack_device_combo.addItem("GPU", "gpu")
+        self.locotrack_device_combo.addItem("CPU", "cpu")
+        self.locotrack_device_combo.setCurrentIndex(0)
+        self.locotrack_device_combo.setToolTip("Device used for LocoTrack inference.")
+        locotrack_layout.addRow("Device:", self.locotrack_device_combo)
+
+        self.locotrack_inference_resolution_combo = QComboBox()
+        for value in (256, 384, 512):
+            self.locotrack_inference_resolution_combo.addItem(f"{value}", value)
+        self.locotrack_inference_resolution_combo.setCurrentIndex(0)
+        self.locotrack_inference_resolution_combo.setToolTip(
+            "Square resolution used before LocoTrack inference. Higher values may help on LEED but cost more VRAM."
+        )
+        locotrack_layout.addRow("Inference resolution:", self.locotrack_inference_resolution_combo)
+
+        self.locotrack_query_chunk_spinbox = QSpinBox()
+        self.locotrack_query_chunk_spinbox.setRange(1, 512)
+        self.locotrack_query_chunk_spinbox.setValue(self.locotrack_settings.query_chunk_size)
+        self.locotrack_query_chunk_spinbox.setToolTip("Split queries into chunks to reduce memory usage.")
+        locotrack_layout.addRow("Query chunk size:", self.locotrack_query_chunk_spinbox)
+
+        self.locotrack_window_size_spinbox = QSpinBox()
+        self.locotrack_window_size_spinbox.setRange(2, 4096)
+        self.locotrack_window_size_spinbox.setValue(self.locotrack_settings.window_size)
+        self.locotrack_window_size_spinbox.setToolTip(
+            "Number of frames processed by one offline LocoTrack window. Smaller values reduce VRAM and can reduce long-range drift."
+        )
+        locotrack_layout.addRow("Window size:", self.locotrack_window_size_spinbox)
+
+        self.locotrack_window_overlap_spinbox = QSpinBox()
+        self.locotrack_window_overlap_spinbox.setRange(0, 1024)
+        self.locotrack_window_overlap_spinbox.setValue(self.locotrack_settings.window_overlap)
+        self.locotrack_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive LocoTrack windows."
+        )
+        locotrack_layout.addRow("Window overlap:", self.locotrack_window_overlap_spinbox)
+
+        self.locotrack_visibility_checkbox = QCheckBox("Use visibility gating")
+        self.locotrack_visibility_checkbox.setChecked(self.locotrack_settings.use_visibility_gating)
+        self.locotrack_visibility_checkbox.setToolTip(
+            "Drop points whose LocoTrack visibility score falls below the threshold."
+        )
+        locotrack_layout.addRow(self.locotrack_visibility_checkbox)
+
+        self.locotrack_visibility_threshold_spinbox = QDoubleSpinBox()
+        self.locotrack_visibility_threshold_spinbox.setDecimals(2)
+        self.locotrack_visibility_threshold_spinbox.setRange(0.01, 0.99)
+        self.locotrack_visibility_threshold_spinbox.setSingleStep(0.05)
+        self.locotrack_visibility_threshold_spinbox.setValue(self.locotrack_settings.visibility_threshold)
+        self.locotrack_visibility_threshold_spinbox.setToolTip("Minimum visibility score to keep a point.")
+        locotrack_layout.addRow("Visibility threshold:", self.locotrack_visibility_threshold_spinbox)
+
+        self.locotrack_uncertainty_checkbox = QCheckBox("Use uncertainty gating")
+        self.locotrack_uncertainty_checkbox.setChecked(self.locotrack_settings.use_uncertainty_gating)
+        self.locotrack_uncertainty_checkbox.setToolTip(
+            "Use LocoTrack expected-distance logits to suppress uncertain predictions."
+        )
+        locotrack_layout.addRow(self.locotrack_uncertainty_checkbox)
+
+        self.locotrack_expected_dist_threshold_spinbox = QDoubleSpinBox()
+        self.locotrack_expected_dist_threshold_spinbox.setDecimals(2)
+        self.locotrack_expected_dist_threshold_spinbox.setRange(0.01, 0.99)
+        self.locotrack_expected_dist_threshold_spinbox.setSingleStep(0.05)
+        self.locotrack_expected_dist_threshold_spinbox.setValue(self.locotrack_settings.expected_dist_threshold)
+        self.locotrack_expected_dist_threshold_spinbox.setToolTip(
+            "Minimum uncertainty confidence to keep a point."
+        )
+        locotrack_layout.addRow("Uncertainty threshold:", self.locotrack_expected_dist_threshold_spinbox)
+
+        self.locotrack_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.locotrack_keep_gaps_checkbox.setChecked(self.locotrack_settings.keep_invisible_points_as_gaps)
+        self.locotrack_keep_gaps_checkbox.setToolTip(
+            "If enabled, invisible LocoTrack predictions create gaps instead of forced points."
+        )
+        locotrack_layout.addRow(self.locotrack_keep_gaps_checkbox)
+
+        self.locotrack_max_step_spinbox = QDoubleSpinBox()
+        self.locotrack_max_step_spinbox.setDecimals(1)
+        self.locotrack_max_step_spinbox.setRange(0.0, 500.0)
+        self.locotrack_max_step_spinbox.setSingleStep(1.0)
+        self.locotrack_max_step_spinbox.setValue(self.locotrack_settings.max_step_distance_px)
+        self.locotrack_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        locotrack_layout.addRow("Max jump (px):", self.locotrack_max_step_spinbox)
+
+        self.locotrack_max_reacquisition_gap_spinbox = QSpinBox()
+        self.locotrack_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.locotrack_max_reacquisition_gap_spinbox.setValue(self.locotrack_settings.max_reacquisition_gap)
+        self.locotrack_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        locotrack_layout.addRow("Max reacquisition gap:", self.locotrack_max_reacquisition_gap_spinbox)
+
+        self.locotrack_terminate_after_invisible_spinbox = QSpinBox()
+        self.locotrack_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.locotrack_terminate_after_invisible_spinbox.setValue(
+            self.locotrack_settings.terminate_after_invisible_frames
+        )
+        self.locotrack_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        locotrack_layout.addRow("Terminate after gap:", self.locotrack_terminate_after_invisible_spinbox)
+
+        self.locotrack_center_mode_combo = QComboBox()
+        self.locotrack_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.locotrack_center_mode_combo.addItem("Manual", "manual")
+        locotrack_center_mode_idx = self.locotrack_center_mode_combo.findData(self.locotrack_settings.center_mode)
+        self.locotrack_center_mode_combo.setCurrentIndex(locotrack_center_mode_idx if locotrack_center_mode_idx >= 0 else 0)
+        self.locotrack_center_mode_combo.setToolTip(
+            "Center used for radial LocoTrack direction gating. Auto tries detections/pattern center and falls back to image center."
+        )
+        self.locotrack_center_mode_combo.currentIndexChanged.connect(self._on_locotrack_center_mode_changed)
+        locotrack_layout.addRow("Direction center:", self.locotrack_center_mode_combo)
+
+        locotrack_center_row_widget = QWidget()
+        locotrack_center_row_layout = QHBoxLayout(locotrack_center_row_widget)
+        locotrack_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.locotrack_center_x_spinbox = QDoubleSpinBox()
+        self.locotrack_center_x_spinbox.setRange(0.0, 10000.0)
+        self.locotrack_center_x_spinbox.setDecimals(1)
+        self.locotrack_center_x_spinbox.setValue(self.locotrack_settings.manual_center_x)
+        self.locotrack_center_y_spinbox = QDoubleSpinBox()
+        self.locotrack_center_y_spinbox.setRange(0.0, 10000.0)
+        self.locotrack_center_y_spinbox.setDecimals(1)
+        self.locotrack_center_y_spinbox.setValue(self.locotrack_settings.manual_center_y)
+        locotrack_center_row_layout.addWidget(self.locotrack_center_x_spinbox)
+        locotrack_center_row_layout.addWidget(QLabel(","))
+        locotrack_center_row_layout.addWidget(self.locotrack_center_y_spinbox)
+        locotrack_layout.addRow("Manual center (x, y):", locotrack_center_row_widget)
+
+        self.locotrack_direction_mode_combo = QComboBox()
+        self.locotrack_direction_mode_combo.addItem("None", "none")
+        self.locotrack_direction_mode_combo.addItem("Auto", "auto")
+        self.locotrack_direction_mode_combo.addItem("Inward", "inward")
+        self.locotrack_direction_mode_combo.addItem("Outward", "outward")
+        locotrack_direction_idx = self.locotrack_direction_mode_combo.findData(self.locotrack_settings.direction_mode)
+        self.locotrack_direction_mode_combo.setCurrentIndex(locotrack_direction_idx if locotrack_direction_idx >= 0 else 0)
+        self.locotrack_direction_mode_combo.setToolTip(
+            "Apply radial direction constraints to LocoTrack trajectories."
+        )
+        locotrack_layout.addRow("Direction mode:", self.locotrack_direction_mode_combo)
+
+        self.locotrack_lateral_tol_spinbox = QDoubleSpinBox()
+        self.locotrack_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.locotrack_lateral_tol_spinbox.setSingleStep(1.0)
+        self.locotrack_lateral_tol_spinbox.setValue(self.locotrack_settings.lateral_angle_tolerance_deg)
+        self.locotrack_lateral_tol_spinbox.setToolTip(
+            "Allowed angular deviation from the expected radial direction."
+        )
+        locotrack_layout.addRow("Angular tol (deg):", self.locotrack_lateral_tol_spinbox)
+
+        self.locotrack_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.locotrack_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.locotrack_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.locotrack_max_radial_jump_spinbox.setValue(self.locotrack_settings.max_radial_jump_px)
+        self.locotrack_max_radial_jump_spinbox.setToolTip(
+            "Maximum accepted radial change between two accepted points. Set 0 to disable."
+        )
+        locotrack_layout.addRow("Max radial jump (px):", self.locotrack_max_radial_jump_spinbox)
+
+        self.locotrack_recenter_mode_combo = QComboBox()
+        self.locotrack_recenter_mode_combo.addItem("None", "none")
+        self.locotrack_recenter_mode_combo.addItem("Peak", "peak")
+        self.locotrack_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.locotrack_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        locotrack_recenter_mode_idx = self.locotrack_recenter_mode_combo.findData(self.locotrack_settings.recenter_mode)
+        self.locotrack_recenter_mode_combo.setCurrentIndex(locotrack_recenter_mode_idx if locotrack_recenter_mode_idx >= 0 else 2)
+        self.locotrack_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each LocoTrack prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        locotrack_layout.addRow("Recenter mode:", self.locotrack_recenter_mode_combo)
+
+        self.locotrack_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.locotrack_centroid_multiplier_spinbox.setDecimals(2)
+        self.locotrack_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.locotrack_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.locotrack_centroid_multiplier_spinbox.setValue(self.locotrack_settings.recenter_patch_multiplier)
+        self.locotrack_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        locotrack_layout.addRow("Recenter radius x ROI:", self.locotrack_centroid_multiplier_spinbox)
+
+        self.locotrack_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.locotrack_centroid_rel_thr_spinbox.setDecimals(2)
+        self.locotrack_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.locotrack_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.locotrack_centroid_rel_thr_spinbox.setValue(self.locotrack_settings.centroid_rel_threshold)
+        self.locotrack_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        locotrack_layout.addRow("Recenter threshold:", self.locotrack_centroid_rel_thr_spinbox)
+
+        self.locotrack_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.locotrack_centroid_max_shift_spinbox.setDecimals(2)
+        self.locotrack_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.locotrack_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.locotrack_centroid_max_shift_spinbox.setValue(self.locotrack_settings.centroid_max_shift_ratio)
+        self.locotrack_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        locotrack_layout.addRow("Max recenter shift:", self.locotrack_centroid_max_shift_spinbox)
+
+        self.locotrack_warning_label = QLabel()
+        self.locotrack_warning_label.setStyleSheet("color: #d9534f;")
+        self.locotrack_warning_label.setWordWrap(True)
+        locotrack_layout.addRow(self.locotrack_warning_label)
+        self._on_locotrack_center_mode_changed(self.locotrack_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.locotrack_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -1560,6 +1853,7 @@ class MainWindow(QMainWindow):
 
         self._refresh_segmentation_models()
         self._refresh_tapir_checkpoints()
+        self._refresh_locotrack_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -1885,6 +2179,72 @@ class MainWindow(QMainWindow):
         self.tapir_settings.checkpoint_path = checkpoint_path
         self._refresh_tapir_checkpoints()
 
+    def _refresh_locotrack_checkpoints(self):
+        repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
+        if repo_path:
+            self.locotrack_settings.repo_path = repo_path
+        status = probe_locotrack_environment(
+            models_dir=self.locotrack_models_dir,
+            checkpoint_path=self.locotrack_settings.checkpoint_path,
+            repo_path=self.locotrack_settings.repo_path,
+        )
+
+        self.locotrack_checkpoint_combo.blockSignals(True)
+        self.locotrack_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.locotrack_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.locotrack_checkpoint_combo.setEnabled(False)
+            self._locotrack_checkpoint_available = False
+            self.locotrack_settings.checkpoint_path = None
+        else:
+            self.locotrack_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.locotrack_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._locotrack_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.locotrack_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.locotrack_checkpoint_combo.setCurrentIndex(idx)
+                    self.locotrack_settings.checkpoint_path = selected_checkpoint
+            if not self.locotrack_settings.checkpoint_path and self.locotrack_checkpoint_combo.count() > 0:
+                self.locotrack_checkpoint_combo.setCurrentIndex(0)
+                self.locotrack_settings.checkpoint_path = self.locotrack_checkpoint_combo.currentData()
+
+        self.locotrack_checkpoint_combo.blockSignals(False)
+        self.locotrack_repo_path_edit.setText(str(status.repo_path) if status.repo_path else (self.locotrack_settings.repo_path or ""))
+        self.locotrack_settings.repo_path = str(status.repo_path) if status.repo_path else self.locotrack_settings.repo_path
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            self.locotrack_warning_label.setStyleSheet("color: #5cb85c;")
+            self.locotrack_warning_label.setText(
+                "LocoTrack ready. " + ", ".join(details)
+            )
+            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.locotrack_warning_label.setStyleSheet("color: #d9534f;")
+            self.locotrack_warning_label.setText("\n".join(summary))
+            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
+
+    def _on_locotrack_checkpoint_selected(self, index: int):
+        checkpoint_path = self.locotrack_checkpoint_combo.itemData(index)
+        self.locotrack_settings.checkpoint_path = checkpoint_path
+        self._refresh_locotrack_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -1960,6 +2320,7 @@ class MainWindow(QMainWindow):
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_tapir = scenario == "Offline TAPIR"
+        show_locotrack = scenario == "Offline LocoTrack"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -1969,6 +2330,8 @@ class MainWindow(QMainWindow):
             self.optical_skip_group.setVisible(show_optical_skip)
         if hasattr(self, "tapir_group"):
             self.tapir_group.setVisible(show_tapir)
+        if hasattr(self, "locotrack_group"):
+            self.locotrack_group.setVisible(show_locotrack)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -1978,6 +2341,11 @@ class MainWindow(QMainWindow):
         manual = idx == 1
         self.dir_center_x_spinbox.setEnabled(manual)
         self.dir_center_y_spinbox.setEnabled(manual)
+
+    def _on_locotrack_center_mode_changed(self, idx: int):
+        manual = self.locotrack_center_mode_combo.itemData(idx) == "manual"
+        self.locotrack_center_x_spinbox.setEnabled(manual)
+        self.locotrack_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -2597,6 +2965,43 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_locotrack_tracking_params(self) -> dict:
+        """Collect the current LocoTrack tracking settings from the UI."""
+        repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
+        return {
+            "locotrack_models_dir": str(self.locotrack_models_dir.resolve()),
+            "locotrack_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.locotrack_settings.checkpoint_path,
+            "model_size": self.locotrack_model_size_combo.currentData(),
+            "device": self.locotrack_device_combo.currentData(),
+            "inference_resolution": int(self.locotrack_inference_resolution_combo.currentData()),
+            "query_chunk_size": self.locotrack_query_chunk_spinbox.value(),
+            "window_size": self.locotrack_window_size_spinbox.value(),
+            "window_overlap": self.locotrack_window_overlap_spinbox.value(),
+            "use_visibility_gating": self.locotrack_visibility_checkbox.isChecked(),
+            "visibility_threshold": self.locotrack_visibility_threshold_spinbox.value(),
+            "use_uncertainty_gating": self.locotrack_uncertainty_checkbox.isChecked(),
+            "expected_dist_threshold": self.locotrack_expected_dist_threshold_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.locotrack_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.locotrack_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.locotrack_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.locotrack_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.locotrack_center_mode_combo.currentData(),
+            "manual_center": (
+                self.locotrack_center_x_spinbox.value(),
+                self.locotrack_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.locotrack_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.locotrack_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.locotrack_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.locotrack_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.locotrack_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.locotrack_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.locotrack_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -2703,6 +3108,44 @@ class MainWindow(QMainWindow):
                 sorted_ids,
                 ref_file.id,
                 tapir_params,
+                cancel_event=cancel_event,
+            )
+
+        elif selected_scenario == "Offline LocoTrack":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline LocoTrack requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
+            self.locotrack_settings.repo_path = repo_path
+            status = probe_locotrack_environment(
+                models_dir=self.locotrack_models_dir,
+                checkpoint_path=self.locotrack_settings.checkpoint_path,
+                repo_path=self.locotrack_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "LocoTrack Unavailable",
+                    format_locotrack_environment_report(status),
+                )
+                return
+
+            locotrack_params = self._collect_locotrack_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_locotrack_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                locotrack_params,
                 cancel_event=cancel_event,
             )
 
@@ -2854,6 +3297,7 @@ class MainWindow(QMainWindow):
             lk_win_size=lk_win_size,  
             lk_max_level=lk_max_level,
             tapir_params=self._collect_tapir_tracking_params(),
+            locotrack_params=self._collect_locotrack_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
