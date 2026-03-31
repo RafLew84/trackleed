@@ -104,7 +104,7 @@ class TapirTrackingSettings:
 class LocotrackTrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
-    model_size: str = "small"
+    model_size: str = "auto"
     device: str = "auto"
     inference_resolution: int = 256
     query_chunk_size: int = 64
@@ -1479,11 +1479,14 @@ class MainWindow(QMainWindow):
         locotrack_layout.addRow("Checkpoint:", locotrack_model_row_widget)
 
         self.locotrack_model_size_combo = QComboBox()
+        self.locotrack_model_size_combo.addItem("Auto (from checkpoint)", "auto")
         self.locotrack_model_size_combo.addItem("Small", "small")
         self.locotrack_model_size_combo.addItem("Base", "base")
         locotrack_size_idx = self.locotrack_model_size_combo.findData(self.locotrack_settings.model_size)
         self.locotrack_model_size_combo.setCurrentIndex(locotrack_size_idx if locotrack_size_idx >= 0 else 0)
-        self.locotrack_model_size_combo.setToolTip("LocoTrack checkpoint architecture size.")
+        self.locotrack_model_size_combo.setToolTip(
+            "Architecture used to instantiate the model. Auto infers small/base from the checkpoint name."
+        )
         locotrack_layout.addRow("Model size:", self.locotrack_model_size_combo)
 
         self.locotrack_device_combo = QComboBox()
@@ -2243,6 +2246,13 @@ class MainWindow(QMainWindow):
     def _on_locotrack_checkpoint_selected(self, index: int):
         checkpoint_path = self.locotrack_checkpoint_combo.itemData(index)
         self.locotrack_settings.checkpoint_path = checkpoint_path
+        checkpoint_name = str(checkpoint_path or "").lower()
+        inferred_size = "base" if "base" in checkpoint_name else "small" if "small" in checkpoint_name else None
+        if inferred_size is not None:
+            combo_index = self.locotrack_model_size_combo.findData(inferred_size)
+            if combo_index >= 0:
+                self.locotrack_model_size_combo.setCurrentIndex(combo_index)
+                self.locotrack_settings.model_size = inferred_size
         self._refresh_locotrack_checkpoints()
 
     def _on_tapir_center_mode_changed(self, idx: int):
@@ -2968,12 +2978,21 @@ class MainWindow(QMainWindow):
     def _collect_locotrack_tracking_params(self) -> dict:
         """Collect the current LocoTrack tracking settings from the UI."""
         repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
+        selected_model_size = self.locotrack_model_size_combo.currentData()
+        checkpoint_name = str(self.locotrack_settings.checkpoint_path or "").lower()
+        if selected_model_size == "auto":
+            if "base" in checkpoint_name:
+                selected_model_size = "base"
+            elif "small" in checkpoint_name:
+                selected_model_size = "small"
+            else:
+                selected_model_size = "small"
         return {
             "locotrack_models_dir": str(self.locotrack_models_dir.resolve()),
             "locotrack_repo_path": repo_path,
             "repo_path": repo_path,
             "checkpoint_path": self.locotrack_settings.checkpoint_path,
-            "model_size": self.locotrack_model_size_combo.currentData(),
+            "model_size": selected_model_size,
             "device": self.locotrack_device_combo.currentData(),
             "inference_resolution": int(self.locotrack_inference_resolution_combo.currentData()),
             "query_chunk_size": self.locotrack_query_chunk_spinbox.value(),
