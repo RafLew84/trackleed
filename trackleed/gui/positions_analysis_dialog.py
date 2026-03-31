@@ -1717,8 +1717,7 @@ class PositionsAnalysisDialog(QDialog):
         export_dir = Path(directory)
         try:
             export_dir.mkdir(parents=True, exist_ok=True)
-            csv_path = self._export_positions_results_csv(export_dir)
-            images_dir = self._export_positions_overlay_images(export_dir)
+            exported_group_dirs = self._export_positions_results_grouped(export_dir)
         except Exception as exc:
             QMessageBox.critical(
                 self,
@@ -1732,17 +1731,34 @@ class PositionsAnalysisDialog(QDialog):
             "Export Finished",
             (
                 "Analyze Positions export completed.\n\n"
-                f"CSV: {csv_path}\n"
-                f"Images: {images_dir}"
+                f"Root: {export_dir}\n"
+                f"Groups exported: {len(exported_group_dirs)}"
             ),
         )
 
-    def _export_positions_results_csv(self, export_dir: Path) -> Path:
-        output_path = export_dir / "positions_analysis_results.csv"
-        rows = self._build_export_point_rows()
+    def _export_positions_results_grouped(self, export_dir: Path) -> list[Path]:
+        if not self.positions_analysis_results:
+            return []
+
+        exported_dirs: list[Path] = []
+        for group in self.positions_analysis_results.get("groups", []):
+            group_id = int(group.get("group_id", 0))
+            group_dir = export_dir / f"group_{group_id:02d}"
+            group_dir.mkdir(parents=True, exist_ok=True)
+            self._export_positions_results_csv(group_dir, group_id=group_id)
+            self._export_positions_overlay_images(group_dir, group_id=group_id)
+            exported_dirs.append(group_dir)
+
+        return exported_dirs
+
+    def _export_positions_results_csv(self, export_dir: Path, *, group_id: int | None = None) -> Path:
+        suffix = f"_group_{group_id:02d}" if group_id is not None else ""
+        output_path = export_dir / f"positions_analysis_results{suffix}.csv"
+        rows = self._build_export_point_rows(group_id_filter=group_id)
         fieldnames = [
             "frame_id",
             "group_id",
+            "point_role",
             "track_id",
             "distance_from_reference",
             "x",
@@ -1757,6 +1773,7 @@ class PositionsAnalysisDialog(QDialog):
                 key=lambda current: (
                     current.get("frame_id", -1),
                     current.get("group_id", -1),
+                    str(current.get("point_role", "")),
                     current.get("track_id", -1),
                 ),
             ):
@@ -1769,7 +1786,7 @@ class PositionsAnalysisDialog(QDialog):
 
         return output_path
 
-    def _export_positions_overlay_images(self, export_dir: Path) -> Path:
+    def _export_positions_overlay_images(self, export_dir: Path, *, group_id: int | None = None) -> Path:
         images_dir = export_dir / "positions_overlay_images"
         images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1808,7 +1825,11 @@ class PositionsAnalysisDialog(QDialog):
                 QApplication.processEvents()
                 continue
 
-            overlay_image = self._build_positions_overlay_export_image(frame_id, image_data)
+            overlay_image = self._build_positions_overlay_export_image(
+                frame_id,
+                image_data,
+                group_id_filter=group_id,
+            )
             output_name = f"positions_{frame_id:04d}_{Path(leed_file.filename).stem}.png"
             output_path = images_dir / output_name
             overlay_image.save(str(output_path), format="PNG")
@@ -1830,7 +1851,13 @@ class PositionsAnalysisDialog(QDialog):
             )
         return images_dir
 
-    def _build_positions_overlay_export_image(self, frame_id: int, image_data) -> Image.Image:
+    def _build_positions_overlay_export_image(
+        self,
+        frame_id: int,
+        image_data,
+        *,
+        group_id_filter: int | None = None,
+    ) -> Image.Image:
         export_image = self._convert_numpy_to_export_image(image_data)
         draw = ImageDraw.Draw(export_image)
         try:
@@ -1841,6 +1868,7 @@ class PositionsAnalysisDialog(QDialog):
         overlay_groups = self._build_positions_overlay_payload(
             frame_id,
             respect_selection_filter=False,
+            group_id_filter=group_id_filter,
         )
         self._draw_export_overlay_groups(draw, overlay_groups, font, export_image.size)
         return export_image
@@ -3120,6 +3148,7 @@ class PositionsAnalysisDialog(QDialog):
         frame_id: int,
         *,
         respect_selection_filter: bool = True,
+        group_id_filter: int | None = None,
     ) -> list[dict]:
         if not self.positions_analysis_results:
             return []
@@ -3147,6 +3176,8 @@ class PositionsAnalysisDialog(QDialog):
         overlay_groups: list[dict] = []
         for group in results_groups:
             group_id = int(group.get("group_id"))
+            if group_id_filter is not None and group_id != int(group_id_filter):
+                continue
             if show_selected_pair_only and group_id != selected_group_id:
                 continue
             emphasized = group_id == selected_group_id
@@ -3335,7 +3366,7 @@ class PositionsAnalysisDialog(QDialog):
             "label": label,
         }
 
-    def _build_export_point_rows(self) -> list[dict]:
+    def _build_export_point_rows(self, *, group_id_filter: int | None = None) -> list[dict]:
         if not self.positions_analysis_results:
             return []
 
@@ -3348,6 +3379,8 @@ class PositionsAnalysisDialog(QDialog):
             frame_fits = fit_points_by_frame.get(frame_id, {})
             for group in groups:
                 group_id = int(group.get("group_id", 0))
+                if group_id_filter is not None and group_id != int(group_id_filter):
+                    continue
                 reference_track_id = group.get("reference_track_id")
                 if reference_track_id is None:
                     continue
@@ -3366,6 +3399,7 @@ class PositionsAnalysisDialog(QDialog):
                             {
                                 "frame_id": int(frame_id),
                                 "group_id": group_id,
+                                "point_role": "R",
                                 "track_id": int(reference_track_id),
                                 "distance_from_reference": 0.0,
                                 "x": float(reference_point["x"]),
@@ -3374,7 +3408,10 @@ class PositionsAnalysisDialog(QDialog):
                         )
                         seen_reference_keys.add(reference_key)
 
-                for track_id in group.get("satellite_track_ids", []):
+                for satellite_index, track_id in enumerate(
+                    group.get("satellite_track_ids", []),
+                    start=1,
+                ):
                     satellite_point = self._build_overlay_point(
                         frame_id,
                         int(track_id),
@@ -3398,6 +3435,7 @@ class PositionsAnalysisDialog(QDialog):
                         {
                             "frame_id": int(frame_id),
                             "group_id": group_id,
+                            "point_role": f"S{satellite_index}",
                             "track_id": int(track_id),
                             "distance_from_reference": distance,
                             "x": float(satellite_point["x"]),
