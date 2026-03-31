@@ -181,3 +181,5 @@ tracking_models/tapir/bootstapir_checkpoint_v2.pt
 scripts/check_locotrack_env.py
 tracking_models/locotrack/locotrack_base.ckpt
 tracking_models/locotrack/locotrack_small.ckpt
+tracking_models/tapir/causal_bootstapir_checkpoint.pt
+tracking_models/tapir/tapir_checkpoint_panning.pt
