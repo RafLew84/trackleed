@@ -25,10 +25,15 @@ from trackleed.analysis.cotracker_backend import (
     format_cotracker_environment_report,
     probe_cotracker_environment,
 )
+from trackleed.analysis.tapnext_backend import (
+    format_tapnext_environment_report,
+    probe_tapnext_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
+    retrack_single_spot_tapnext_offline,
     retrack_single_spot_tapir_offline,
 )
 from trackleed.logic.generic_worker import GenericWorker
@@ -49,6 +54,7 @@ class TrackingDialog(QDialog):
         tapir_params: dict | None = None,
         locotrack_params: dict | None = None,
         cotracker_params: dict | None = None,
+        tapnext_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -71,6 +77,7 @@ class TrackingDialog(QDialog):
         self.tapir_params = dict(tapir_params or {})
         self.locotrack_params = dict(locotrack_params or {})
         self.cotracker_params = dict(cotracker_params or {})
+        self.tapnext_params = dict(tapnext_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -297,6 +304,8 @@ class TrackingDialog(QDialog):
             return "LocoTrack"
         if sources == {"cotracker3_offline"}:
             return "CoTracker3"
+        if sources == {"tapnext_offline"}:
+            return "TAPNext"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
@@ -305,6 +314,8 @@ class TrackingDialog(QDialog):
             return "LocoTrack+Manual"
         if "cotracker3_offline" in sources and sources.issubset({"cotracker3_offline"} | manual_sources):
             return "CoTracker3+Manual"
+        if "tapnext_offline" in sources and sources.issubset({"tapnext_offline"} | manual_sources):
+            return "TAPNext+Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -424,6 +435,30 @@ class TrackingDialog(QDialog):
                 lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "tapnext_offline":
+            raw_x = getattr(spot, "tapnext_raw_x", None)
+            raw_y = getattr(spot, "tapnext_raw_y", None)
+            refined_x = getattr(spot, "tapnext_refined_x", None)
+            refined_y = getattr(spot, "tapnext_refined_y", None)
+            visibility = getattr(spot, "tapnext_visibility", None)
+            visibility_score = getattr(spot, "tapnext_visibility_score", None)
+            certainty_score = getattr(spot, "tapnext_certainty_score", None)
+            combined_score = getattr(spot, "tapnext_combined_score", None)
+            rejected_reason = getattr(spot, "tapnext_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw TAPNext: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if visibility_score is not None:
+                lines.append(f"Visibility score: {float(visibility_score):.3f}")
+            if certainty_score is not None:
+                lines.append(f"Certainty score: {float(certainty_score):.3f}")
+            if combined_score is not None:
+                lines.append(f"Combined score: {float(combined_score):.3f}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -466,6 +501,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "cotracker3_raw_x", None)
             raw_y = getattr(spot, "cotracker3_raw_y", None)
             label = f"COTRACKER3 T{selected_track.track_id}"
+        elif source == "tapnext_offline":
+            raw_x = getattr(spot, "tapnext_raw_x", None)
+            raw_y = getattr(spot, "tapnext_raw_y", None)
+            label = f"TAPNEXT T{selected_track.track_id}"
         else:
             return []
 
@@ -527,6 +566,7 @@ class TrackingDialog(QDialog):
         retrack_tapir_action = menu.addAction("Re-track from this point (TAPIR)")
         retrack_locotrack_action = menu.addAction("Re-track from this point (LocoTrack)")
         retrack_cotracker_action = menu.addAction("Re-track from this point (CoTracker3)")
+        retrack_tapnext_action = menu.addAction("Re-track from this point (TAPNext)")
         
         action = menu.exec(global_pos)
         
@@ -540,6 +580,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_locotrack(spot_id)
         elif action == retrack_cotracker_action:
             self.initiate_retrack_cotracker3(spot_id)
+        elif action == retrack_tapnext_action:
+            self.initiate_retrack_tapnext(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -731,6 +773,54 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with CoTracker3...",
             cancel_event=cancel_event,
             method_label="CoTracker3 re-tracking",
+        )
+
+    def initiate_retrack_tapnext(self, spot_id: int):
+        """Prepares and launches TAPNext re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.tapnext_params:
+            QMessageBox.warning(
+                self,
+                "TAPNext Settings Missing",
+                "TAPNext parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_tapnext_environment(
+            models_dir=self.tapnext_params.get("tapnext_models_dir"),
+            checkpoint_path=self.tapnext_params.get("checkpoint_path"),
+            repo_path=self.tapnext_params.get("repo_path") or self.tapnext_params.get("tapnext_repo_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "TAPNext Unavailable",
+                format_tapnext_environment_report(status),
+            )
+            return
+
+        tapnext_params = dict(self.tapnext_params)
+        tapnext_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_tapnext_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            tapnext_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with TAPNext...",
+            cancel_event=cancel_event,
+            method_label="TAPNext re-tracking",
         )
 
     def launch_retrack_worker(

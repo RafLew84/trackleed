@@ -34,6 +34,10 @@ from trackleed.analysis.cotracker_backend import (
     format_cotracker_environment_report,
     probe_cotracker_environment,
 )
+from trackleed.analysis.tapnext_backend import (
+    format_tapnext_environment_report,
+    probe_tapnext_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -49,6 +53,7 @@ from trackleed.analysis.tracking import (
     track_spots_tapir_offline,
     track_spots_locotrack_offline,
     track_spots_cotracker3_offline,
+    track_spots_tapnext_offline,
 )
 
 from skimage.util import img_as_float
@@ -161,6 +166,35 @@ class CotrackerTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class TapnextTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    device: str = "auto"
+    inference_resolution: int = 256
+    autocast: bool = False
+    window_size: int = 64
+    window_overlap: int = 8
+    use_visibility_gating: bool = True
+    visibility_threshold: float = 0.5
+    use_certainty_gating: bool = False
+    certainty_threshold: float = 0.5
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -183,6 +217,7 @@ class MainWindow(QMainWindow):
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
+        self.tapnext_settings = TapnextTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -190,18 +225,23 @@ class MainWindow(QMainWindow):
         self.tapir_models_dir = self.tracking_models_dir / "tapir"
         self.locotrack_models_dir = self.tracking_models_dir / "locotrack"
         self.cotracker_models_dir = self.tracking_models_dir / "cotracker3"
+        self.tapnext_models_dir = self.tracking_models_dir / "tapnext"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
         default_cotracker_repo = Path(__file__).resolve().parents[3] / "co-tracker"
         if default_cotracker_repo.exists():
             self.cotracker_settings.repo_path = str(default_cotracker_repo.resolve())
+        default_tapnet_repo = Path(__file__).resolve().parents[3] / "tapnet"
+        if default_tapnet_repo.exists():
+            self.tapnext_settings.repo_path = str(default_tapnet_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
         self._tapir_checkpoint_available = False
         self._locotrack_checkpoint_available = False
         self._cotracker_checkpoint_available = False
+        self._tapnext_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1074,6 +1114,7 @@ class MainWindow(QMainWindow):
             "Offline TAPIR",
             "Offline LocoTrack",
             "Offline CoTracker3",
+            "Offline TAPNext",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -1960,6 +2001,255 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.cotracker_group)
 
+        # --- Offline TAPNext parameters ---
+        self.tapnext_group = QGroupBox("Offline TAPNext")
+        tapnext_layout = QFormLayout(self.tapnext_group)
+
+        self.tapnext_repo_path_edit = QLineEdit(self.tapnext_settings.repo_path or "")
+        self.tapnext_repo_path_edit.setPlaceholderText("Path to local tapnet repo root")
+        self.tapnext_repo_path_edit.setToolTip(
+            "Local clone of the tapnet repository. Must contain tapnet/tapnext/tapnext_torch.py."
+        )
+        self.tapnext_repo_path_edit.editingFinished.connect(self._refresh_tapnext_checkpoints)
+        tapnext_layout.addRow("Repo path:", self.tapnext_repo_path_edit)
+
+        tapnext_model_row_widget = QWidget()
+        tapnext_model_row_layout = QHBoxLayout(tapnext_model_row_widget)
+        tapnext_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tapnext_checkpoint_combo = QComboBox()
+        self.tapnext_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.tapnext_checkpoint_combo.setToolTip(
+            "Select a TAPNext checkpoint (.pt or .npz) from tracking_models/tapnext."
+        )
+        self.tapnext_checkpoint_combo.currentIndexChanged.connect(self._on_tapnext_checkpoint_selected)
+        self.tapnext_refresh_button = QPushButton("Refresh")
+        self.tapnext_refresh_button.setToolTip(
+            "Re-scan tracking_models/tapnext and re-run TAPNext environment diagnostics."
+        )
+        self.tapnext_refresh_button.clicked.connect(self._refresh_tapnext_checkpoints)
+        tapnext_model_row_layout.addWidget(self.tapnext_checkpoint_combo)
+        tapnext_model_row_layout.addWidget(self.tapnext_refresh_button)
+        tapnext_layout.addRow("Checkpoint:", tapnext_model_row_widget)
+
+        self.tapnext_device_combo = QComboBox()
+        self.tapnext_device_combo.addItem("Auto", "auto")
+        self.tapnext_device_combo.addItem("GPU", "gpu")
+        self.tapnext_device_combo.addItem("CPU", "cpu")
+        self.tapnext_device_combo.setCurrentIndex(0)
+        self.tapnext_device_combo.setToolTip("Device used for TAPNext inference.")
+        tapnext_layout.addRow("Device:", self.tapnext_device_combo)
+
+        self.tapnext_inference_resolution_combo = QComboBox()
+        for value in (256, 384, 512):
+            self.tapnext_inference_resolution_combo.addItem(f"{value}", value)
+        self.tapnext_inference_resolution_combo.setCurrentIndex(0)
+        self.tapnext_inference_resolution_combo.setToolTip(
+            "Square resolution used before TAPNext inference. Higher values may help on LEED but cost more VRAM."
+        )
+        tapnext_layout.addRow("Inference resolution:", self.tapnext_inference_resolution_combo)
+
+        self.tapnext_autocast_checkbox = QCheckBox("Use autocast")
+        self.tapnext_autocast_checkbox.setChecked(self.tapnext_settings.autocast)
+        self.tapnext_autocast_checkbox.setToolTip(
+            "Enable torch autocast during sequential TAPNext inference to reduce VRAM usage on GPU."
+        )
+        tapnext_layout.addRow(self.tapnext_autocast_checkbox)
+
+        self.tapnext_window_size_spinbox = QSpinBox()
+        self.tapnext_window_size_spinbox.setRange(2, 4096)
+        self.tapnext_window_size_spinbox.setValue(self.tapnext_settings.window_size)
+        self.tapnext_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed TAPNext window. Smaller values reduce VRAM and can reduce long-range drift."
+        )
+        tapnext_layout.addRow("Window size:", self.tapnext_window_size_spinbox)
+
+        self.tapnext_window_overlap_spinbox = QSpinBox()
+        self.tapnext_window_overlap_spinbox.setRange(0, 1024)
+        self.tapnext_window_overlap_spinbox.setValue(self.tapnext_settings.window_overlap)
+        self.tapnext_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive TAPNext windows. "
+            "In multi-window mode TAPNext is reseeded from the overlap, so the backend clamps this to at least 1 frame."
+        )
+        tapnext_layout.addRow("Window overlap:", self.tapnext_window_overlap_spinbox)
+
+        self.tapnext_visibility_checkbox = QCheckBox("Use visibility gating")
+        self.tapnext_visibility_checkbox.setChecked(self.tapnext_settings.use_visibility_gating)
+        self.tapnext_visibility_checkbox.setToolTip(
+            "Drop points whose TAPNext visibility score falls below the threshold."
+        )
+        tapnext_layout.addRow(self.tapnext_visibility_checkbox)
+
+        self.tapnext_visibility_threshold_spinbox = QDoubleSpinBox()
+        self.tapnext_visibility_threshold_spinbox.setDecimals(2)
+        self.tapnext_visibility_threshold_spinbox.setRange(0.01, 0.99)
+        self.tapnext_visibility_threshold_spinbox.setSingleStep(0.05)
+        self.tapnext_visibility_threshold_spinbox.setValue(self.tapnext_settings.visibility_threshold)
+        self.tapnext_visibility_threshold_spinbox.setToolTip("Minimum visibility score to keep a point.")
+        tapnext_layout.addRow("Visibility threshold:", self.tapnext_visibility_threshold_spinbox)
+
+        self.tapnext_certainty_checkbox = QCheckBox("Use certainty gating")
+        self.tapnext_certainty_checkbox.setChecked(self.tapnext_settings.use_certainty_gating)
+        self.tapnext_certainty_checkbox.setToolTip(
+            "Use TAPNext tracker certainty to suppress unstable predictions."
+        )
+        tapnext_layout.addRow(self.tapnext_certainty_checkbox)
+
+        self.tapnext_certainty_threshold_spinbox = QDoubleSpinBox()
+        self.tapnext_certainty_threshold_spinbox.setDecimals(2)
+        self.tapnext_certainty_threshold_spinbox.setRange(0.01, 0.99)
+        self.tapnext_certainty_threshold_spinbox.setSingleStep(0.05)
+        self.tapnext_certainty_threshold_spinbox.setValue(self.tapnext_settings.certainty_threshold)
+        self.tapnext_certainty_threshold_spinbox.setToolTip("Minimum certainty score to keep a point.")
+        tapnext_layout.addRow("Certainty threshold:", self.tapnext_certainty_threshold_spinbox)
+
+        self.tapnext_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.tapnext_keep_gaps_checkbox.setChecked(self.tapnext_settings.keep_invisible_points_as_gaps)
+        self.tapnext_keep_gaps_checkbox.setToolTip(
+            "If enabled, invisible TAPNext predictions create gaps instead of forced points."
+        )
+        tapnext_layout.addRow(self.tapnext_keep_gaps_checkbox)
+
+        self.tapnext_max_step_spinbox = QDoubleSpinBox()
+        self.tapnext_max_step_spinbox.setDecimals(1)
+        self.tapnext_max_step_spinbox.setRange(0.0, 500.0)
+        self.tapnext_max_step_spinbox.setSingleStep(1.0)
+        self.tapnext_max_step_spinbox.setValue(self.tapnext_settings.max_step_distance_px)
+        self.tapnext_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        tapnext_layout.addRow("Max jump (px):", self.tapnext_max_step_spinbox)
+
+        self.tapnext_max_reacquisition_gap_spinbox = QSpinBox()
+        self.tapnext_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.tapnext_max_reacquisition_gap_spinbox.setValue(self.tapnext_settings.max_reacquisition_gap)
+        self.tapnext_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        tapnext_layout.addRow("Max reacquisition gap:", self.tapnext_max_reacquisition_gap_spinbox)
+
+        self.tapnext_terminate_after_invisible_spinbox = QSpinBox()
+        self.tapnext_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.tapnext_terminate_after_invisible_spinbox.setValue(
+            self.tapnext_settings.terminate_after_invisible_frames
+        )
+        self.tapnext_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        tapnext_layout.addRow("Terminate after gap:", self.tapnext_terminate_after_invisible_spinbox)
+
+        self.tapnext_center_mode_combo = QComboBox()
+        self.tapnext_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.tapnext_center_mode_combo.addItem("Manual", "manual")
+        tapnext_center_mode_idx = self.tapnext_center_mode_combo.findData(self.tapnext_settings.center_mode)
+        self.tapnext_center_mode_combo.setCurrentIndex(
+            tapnext_center_mode_idx if tapnext_center_mode_idx >= 0 else 0
+        )
+        self.tapnext_center_mode_combo.setToolTip(
+            "Center used for radial TAPNext direction gating. Auto tries detections/pattern center and falls back to image center."
+        )
+        self.tapnext_center_mode_combo.currentIndexChanged.connect(self._on_tapnext_center_mode_changed)
+        tapnext_layout.addRow("Direction center:", self.tapnext_center_mode_combo)
+
+        tapnext_center_row_widget = QWidget()
+        tapnext_center_row_layout = QHBoxLayout(tapnext_center_row_widget)
+        tapnext_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tapnext_center_x_spinbox = QDoubleSpinBox()
+        self.tapnext_center_x_spinbox.setRange(0.0, 10000.0)
+        self.tapnext_center_x_spinbox.setDecimals(1)
+        self.tapnext_center_x_spinbox.setValue(self.tapnext_settings.manual_center_x)
+        self.tapnext_center_y_spinbox = QDoubleSpinBox()
+        self.tapnext_center_y_spinbox.setRange(0.0, 10000.0)
+        self.tapnext_center_y_spinbox.setDecimals(1)
+        self.tapnext_center_y_spinbox.setValue(self.tapnext_settings.manual_center_y)
+        tapnext_center_row_layout.addWidget(self.tapnext_center_x_spinbox)
+        tapnext_center_row_layout.addWidget(QLabel(","))
+        tapnext_center_row_layout.addWidget(self.tapnext_center_y_spinbox)
+        tapnext_layout.addRow("Manual center (x, y):", tapnext_center_row_widget)
+
+        self.tapnext_direction_mode_combo = QComboBox()
+        self.tapnext_direction_mode_combo.addItem("None", "none")
+        self.tapnext_direction_mode_combo.addItem("Auto", "auto")
+        self.tapnext_direction_mode_combo.addItem("Inward", "inward")
+        self.tapnext_direction_mode_combo.addItem("Outward", "outward")
+        tapnext_direction_idx = self.tapnext_direction_mode_combo.findData(self.tapnext_settings.direction_mode)
+        self.tapnext_direction_mode_combo.setCurrentIndex(
+            tapnext_direction_idx if tapnext_direction_idx >= 0 else 0
+        )
+        self.tapnext_direction_mode_combo.setToolTip(
+            "Apply radial direction constraints to TAPNext trajectories."
+        )
+        tapnext_layout.addRow("Direction mode:", self.tapnext_direction_mode_combo)
+
+        self.tapnext_lateral_tol_spinbox = QDoubleSpinBox()
+        self.tapnext_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.tapnext_lateral_tol_spinbox.setSingleStep(1.0)
+        self.tapnext_lateral_tol_spinbox.setValue(self.tapnext_settings.lateral_angle_tolerance_deg)
+        self.tapnext_lateral_tol_spinbox.setToolTip(
+            "Allowed angular deviation from the expected radial direction."
+        )
+        tapnext_layout.addRow("Angular tol (deg):", self.tapnext_lateral_tol_spinbox)
+
+        self.tapnext_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.tapnext_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.tapnext_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.tapnext_max_radial_jump_spinbox.setValue(self.tapnext_settings.max_radial_jump_px)
+        self.tapnext_max_radial_jump_spinbox.setToolTip(
+            "Maximum accepted radial change between two accepted points. Set 0 to disable."
+        )
+        tapnext_layout.addRow("Max radial jump (px):", self.tapnext_max_radial_jump_spinbox)
+
+        self.tapnext_recenter_mode_combo = QComboBox()
+        self.tapnext_recenter_mode_combo.addItem("None", "none")
+        self.tapnext_recenter_mode_combo.addItem("Peak", "peak")
+        self.tapnext_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.tapnext_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        tapnext_recenter_mode_idx = self.tapnext_recenter_mode_combo.findData(self.tapnext_settings.recenter_mode)
+        self.tapnext_recenter_mode_combo.setCurrentIndex(
+            tapnext_recenter_mode_idx if tapnext_recenter_mode_idx >= 0 else 2
+        )
+        self.tapnext_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each TAPNext prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        tapnext_layout.addRow("Recenter mode:", self.tapnext_recenter_mode_combo)
+
+        self.tapnext_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.tapnext_centroid_multiplier_spinbox.setDecimals(2)
+        self.tapnext_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.tapnext_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.tapnext_centroid_multiplier_spinbox.setValue(self.tapnext_settings.recenter_patch_multiplier)
+        self.tapnext_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        tapnext_layout.addRow("Recenter radius x ROI:", self.tapnext_centroid_multiplier_spinbox)
+
+        self.tapnext_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.tapnext_centroid_rel_thr_spinbox.setDecimals(2)
+        self.tapnext_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.tapnext_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.tapnext_centroid_rel_thr_spinbox.setValue(self.tapnext_settings.centroid_rel_threshold)
+        self.tapnext_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        tapnext_layout.addRow("Recenter threshold:", self.tapnext_centroid_rel_thr_spinbox)
+
+        self.tapnext_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.tapnext_centroid_max_shift_spinbox.setDecimals(2)
+        self.tapnext_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.tapnext_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.tapnext_centroid_max_shift_spinbox.setValue(self.tapnext_settings.centroid_max_shift_ratio)
+        self.tapnext_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        tapnext_layout.addRow("Max recenter shift:", self.tapnext_centroid_max_shift_spinbox)
+
+        self.tapnext_warning_label = QLabel()
+        self.tapnext_warning_label.setStyleSheet("color: #d9534f;")
+        self.tapnext_warning_label.setWordWrap(True)
+        tapnext_layout.addRow(self.tapnext_warning_label)
+        self._on_tapnext_center_mode_changed(self.tapnext_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.tapnext_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -2116,6 +2406,7 @@ class MainWindow(QMainWindow):
         self._refresh_tapir_checkpoints()
         self._refresh_locotrack_checkpoints()
         self._refresh_cotracker_checkpoints()
+        self._refresh_tapnext_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -2611,6 +2902,74 @@ class MainWindow(QMainWindow):
         self.cotracker_settings.checkpoint_path = checkpoint_path
         self._refresh_cotracker_checkpoints()
 
+    def _refresh_tapnext_checkpoints(self):
+        repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
+        if repo_path:
+            self.tapnext_settings.repo_path = repo_path
+        status = probe_tapnext_environment(
+            models_dir=self.tapnext_models_dir,
+            checkpoint_path=self.tapnext_settings.checkpoint_path,
+            repo_path=self.tapnext_settings.repo_path,
+        )
+
+        self.tapnext_checkpoint_combo.blockSignals(True)
+        self.tapnext_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.tapnext_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.tapnext_checkpoint_combo.setEnabled(False)
+            self._tapnext_checkpoint_available = False
+            self.tapnext_settings.checkpoint_path = None
+        else:
+            self.tapnext_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.tapnext_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._tapnext_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.tapnext_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.tapnext_checkpoint_combo.setCurrentIndex(idx)
+                    self.tapnext_settings.checkpoint_path = selected_checkpoint
+            if not self.tapnext_settings.checkpoint_path and self.tapnext_checkpoint_combo.count() > 0:
+                self.tapnext_checkpoint_combo.setCurrentIndex(0)
+                self.tapnext_settings.checkpoint_path = self.tapnext_checkpoint_combo.currentData()
+
+        self.tapnext_checkpoint_combo.blockSignals(False)
+        self.tapnext_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.tapnext_settings.repo_path or "")
+        )
+        self.tapnext_settings.repo_path = str(status.repo_path) if status.repo_path else self.tapnext_settings.repo_path
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            self.tapnext_warning_label.setStyleSheet("color: #5cb85c;")
+            self.tapnext_warning_label.setText(
+                "TAPNext ready. " + ", ".join(details)
+            )
+            self.tapnext_warning_label.setToolTip(format_tapnext_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.tapnext_warning_label.setStyleSheet("color: #d9534f;")
+            self.tapnext_warning_label.setText("\n".join(summary))
+            self.tapnext_warning_label.setToolTip(format_tapnext_environment_report(status))
+
+    def _on_tapnext_checkpoint_selected(self, index: int):
+        checkpoint_path = self.tapnext_checkpoint_combo.itemData(index)
+        self.tapnext_settings.checkpoint_path = checkpoint_path
+        self._refresh_tapnext_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -2688,6 +3047,7 @@ class MainWindow(QMainWindow):
         show_tapir = scenario == "Offline TAPIR"
         show_locotrack = scenario == "Offline LocoTrack"
         show_cotracker = scenario == "Offline CoTracker3"
+        show_tapnext = scenario == "Offline TAPNext"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -2701,6 +3061,8 @@ class MainWindow(QMainWindow):
             self.locotrack_group.setVisible(show_locotrack)
         if hasattr(self, "cotracker_group"):
             self.cotracker_group.setVisible(show_cotracker)
+        if hasattr(self, "tapnext_group"):
+            self.tapnext_group.setVisible(show_tapnext)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -2720,6 +3082,11 @@ class MainWindow(QMainWindow):
         manual = self.cotracker_center_mode_combo.itemData(idx) == "manual"
         self.cotracker_center_x_spinbox.setEnabled(manual)
         self.cotracker_center_y_spinbox.setEnabled(manual)
+
+    def _on_tapnext_center_mode_changed(self, idx: int):
+        manual = self.tapnext_center_mode_combo.itemData(idx) == "manual"
+        self.tapnext_center_x_spinbox.setEnabled(manual)
+        self.tapnext_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -3419,6 +3786,42 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_tapnext_tracking_params(self) -> dict:
+        """Collect the current TAPNext tracking settings from the UI."""
+        repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
+        return {
+            "tapnext_models_dir": str(self.tapnext_models_dir.resolve()),
+            "tapnext_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.tapnext_settings.checkpoint_path,
+            "device": self.tapnext_device_combo.currentData(),
+            "inference_resolution": int(self.tapnext_inference_resolution_combo.currentData()),
+            "autocast": self.tapnext_autocast_checkbox.isChecked(),
+            "window_size": self.tapnext_window_size_spinbox.value(),
+            "window_overlap": self.tapnext_window_overlap_spinbox.value(),
+            "use_visibility_gating": self.tapnext_visibility_checkbox.isChecked(),
+            "visibility_threshold": self.tapnext_visibility_threshold_spinbox.value(),
+            "use_certainty_gating": self.tapnext_certainty_checkbox.isChecked(),
+            "certainty_threshold": self.tapnext_certainty_threshold_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.tapnext_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.tapnext_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.tapnext_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.tapnext_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.tapnext_center_mode_combo.currentData(),
+            "manual_center": (
+                self.tapnext_center_x_spinbox.value(),
+                self.tapnext_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.tapnext_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.tapnext_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.tapnext_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.tapnext_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.tapnext_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.tapnext_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.tapnext_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -3604,6 +4007,44 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline TAPNext":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline TAPNext requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
+            self.tapnext_settings.repo_path = repo_path
+            status = probe_tapnext_environment(
+                models_dir=self.tapnext_models_dir,
+                checkpoint_path=self.tapnext_settings.checkpoint_path,
+                repo_path=self.tapnext_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "TAPNext Unavailable",
+                    format_tapnext_environment_report(status),
+                )
+                return
+
+            tapnext_params = self._collect_tapnext_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_tapnext_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                tapnext_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -3757,6 +4198,7 @@ class MainWindow(QMainWindow):
             tapir_params=self._collect_tapir_tracking_params(),
             locotrack_params=self._collect_locotrack_tracking_params(),
             cotracker_params=self._collect_cotracker_tracking_params(),
+            tapnext_params=self._collect_tapnext_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
