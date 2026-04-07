@@ -185,3 +185,4 @@ tracking_models/locotrack/locotrack_base.ckpt
 tracking_models/locotrack/locotrack_small.ckpt
 tracking_models/tapir/causal_bootstapir_checkpoint.pt
 tracking_models/tapir/tapir_checkpoint_panning.pt
+tracking_models/tapnext/tapnextpp_ckpt.pt
