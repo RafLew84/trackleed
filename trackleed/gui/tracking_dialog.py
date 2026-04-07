@@ -21,7 +21,12 @@ from trackleed.analysis.locotrack_backend import (
     format_locotrack_environment_report,
     probe_locotrack_environment,
 )
+from trackleed.analysis.cotracker_backend import (
+    format_cotracker_environment_report,
+    probe_cotracker_environment,
+)
 from trackleed.analysis.tracking import (
+    retrack_single_spot_cotracker3_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_tapir_offline,
@@ -43,6 +48,7 @@ class TrackingDialog(QDialog):
         lk_max_level: int,
         tapir_params: dict | None = None,
         locotrack_params: dict | None = None,
+        cotracker_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -64,6 +70,7 @@ class TrackingDialog(QDialog):
         self.lk_max_level = lk_max_level
         self.tapir_params = dict(tapir_params or {})
         self.locotrack_params = dict(locotrack_params or {})
+        self.cotracker_params = dict(cotracker_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -288,12 +295,16 @@ class TrackingDialog(QDialog):
             return "TAPIR"
         if sources == {"locotrack_offline"}:
             return "LocoTrack"
+        if sources == {"cotracker3_offline"}:
+            return "CoTracker3"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
             return "TAPIR+Manual"
         if "locotrack_offline" in sources and sources.issubset({"locotrack_offline"} | manual_sources):
             return "LocoTrack+Manual"
+        if "cotracker3_offline" in sources and sources.issubset({"cotracker3_offline"} | manual_sources):
+            return "CoTracker3+Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -398,6 +409,21 @@ class TrackingDialog(QDialog):
                 lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "cotracker3_offline":
+            raw_x = getattr(spot, "cotracker3_raw_x", None)
+            raw_y = getattr(spot, "cotracker3_raw_y", None)
+            refined_x = getattr(spot, "cotracker3_refined_x", None)
+            refined_y = getattr(spot, "cotracker3_refined_y", None)
+            visibility = getattr(spot, "cotracker3_visibility", None)
+            rejected_reason = getattr(spot, "cotracker3_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw CoTracker3: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -436,6 +462,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "locotrack_raw_x", None)
             raw_y = getattr(spot, "locotrack_raw_y", None)
             label = f"LOCOTRACK T{selected_track.track_id}"
+        elif source == "cotracker3_offline":
+            raw_x = getattr(spot, "cotracker3_raw_x", None)
+            raw_y = getattr(spot, "cotracker3_raw_y", None)
+            label = f"COTRACKER3 T{selected_track.track_id}"
         else:
             return []
 
@@ -496,6 +526,7 @@ class TrackingDialog(QDialog):
         retrack_action = menu.addAction("Re-track from this point (Optical Flow)")
         retrack_tapir_action = menu.addAction("Re-track from this point (TAPIR)")
         retrack_locotrack_action = menu.addAction("Re-track from this point (LocoTrack)")
+        retrack_cotracker_action = menu.addAction("Re-track from this point (CoTracker3)")
         
         action = menu.exec(global_pos)
         
@@ -507,6 +538,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_tapir(spot_id)
         elif action == retrack_locotrack_action:
             self.initiate_retrack_locotrack(spot_id)
+        elif action == retrack_cotracker_action:
+            self.initiate_retrack_cotracker3(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -650,6 +683,56 @@ class TrackingDialog(QDialog):
             method_label="LocoTrack re-tracking",
         )
 
+    def initiate_retrack_cotracker3(self, spot_id: int):
+        """Prepares and launches CoTracker3 re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.cotracker_params:
+            QMessageBox.warning(
+                self,
+                "CoTracker3 Settings Missing",
+                "CoTracker3 parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_cotracker_environment(
+            models_dir=self.cotracker_params.get("cotracker3_models_dir"),
+            checkpoint_path=self.cotracker_params.get("checkpoint_path"),
+            repo_path=self.cotracker_params.get("repo_path")
+            or self.cotracker_params.get("cotracker3_repo_path")
+            or self.cotracker_params.get("cotracker_repo_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "CoTracker3 Unavailable",
+                format_cotracker_environment_report(status),
+            )
+            return
+
+        cotracker_params = dict(self.cotracker_params)
+        cotracker_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_cotracker3_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            cotracker_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with CoTracker3...",
+            cancel_event=cancel_event,
+            method_label="CoTracker3 re-tracking",
+        )
+
     def launch_retrack_worker(
         self,
         worker: GenericWorker,
@@ -673,6 +756,9 @@ class TrackingDialog(QDialog):
         self.worker.progress.connect(self.progress_dialog.setValue)
         self.worker.finished.connect(self.on_retrack_finished)
         self.worker.error.connect(self.on_retrack_error)
+        self.worker.error.connect(self.progress_dialog.accept)
+        self.worker.error.connect(self.worker_thread.quit)
+        self.worker.error.connect(self.worker.deleteLater)
 
         self.worker.finished.connect(self.progress_dialog.accept)
         self.worker.finished.connect(self.worker_thread.quit)

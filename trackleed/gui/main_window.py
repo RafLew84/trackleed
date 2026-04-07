@@ -30,6 +30,10 @@ from trackleed.analysis.locotrack_backend import (
     format_locotrack_environment_report,
     probe_locotrack_environment,
 )
+from trackleed.analysis.cotracker_backend import (
+    format_cotracker_environment_report,
+    probe_cotracker_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -44,6 +48,7 @@ from trackleed.analysis.tracking import (
     track_spots_hungarian_directional,
     track_spots_tapir_offline,
     track_spots_locotrack_offline,
+    track_spots_cotracker3_offline,
 )
 
 from skimage.util import img_as_float
@@ -130,6 +135,32 @@ class LocotrackTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class CotrackerTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    device: str = "auto"
+    inference_resolution: int = 256
+    window_len: int = 60
+    window_size: int = 64
+    window_overlap: int = 8
+    use_visibility_gating: bool = True
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -151,20 +182,26 @@ class MainWindow(QMainWindow):
         self.yolo_settings = YOLOSpotSettings()
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
+        self.cotracker_settings = CotrackerTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
         self.yolo_models_dir = self.tracking_models_dir / "yolo"
         self.tapir_models_dir = self.tracking_models_dir / "tapir"
         self.locotrack_models_dir = self.tracking_models_dir / "locotrack"
+        self.cotracker_models_dir = self.tracking_models_dir / "cotracker3"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
+        default_cotracker_repo = Path(__file__).resolve().parents[3] / "co-tracker"
+        if default_cotracker_repo.exists():
+            self.cotracker_settings.repo_path = str(default_cotracker_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
         self._tapir_checkpoint_available = False
         self._locotrack_checkpoint_available = False
+        self._cotracker_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1036,6 +1073,7 @@ class MainWindow(QMainWindow):
             "Optical Flow (skip, anchor)",
             "Offline TAPIR",
             "Offline LocoTrack",
+            "Offline CoTracker3",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -1702,6 +1740,226 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.locotrack_group)
 
+        # --- Offline CoTracker3 parameters ---
+        self.cotracker_group = QGroupBox("Offline CoTracker3")
+        cotracker_layout = QFormLayout(self.cotracker_group)
+
+        self.cotracker_repo_path_edit = QLineEdit(self.cotracker_settings.repo_path or "")
+        self.cotracker_repo_path_edit.setPlaceholderText("Path to local co-tracker repo root")
+        self.cotracker_repo_path_edit.setToolTip(
+            "Local clone of the CoTracker repository. Must contain cotracker/predictor.py."
+        )
+        self.cotracker_repo_path_edit.editingFinished.connect(self._refresh_cotracker_checkpoints)
+        cotracker_layout.addRow("Repo path:", self.cotracker_repo_path_edit)
+
+        cotracker_model_row_widget = QWidget()
+        cotracker_model_row_layout = QHBoxLayout(cotracker_model_row_widget)
+        cotracker_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.cotracker_checkpoint_combo = QComboBox()
+        self.cotracker_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.cotracker_checkpoint_combo.setToolTip(
+            "Select a CoTracker3 checkpoint (.pth) from tracking_models/cotracker3."
+        )
+        self.cotracker_checkpoint_combo.currentIndexChanged.connect(self._on_cotracker_checkpoint_selected)
+        self.cotracker_refresh_button = QPushButton("Refresh")
+        self.cotracker_refresh_button.setToolTip(
+            "Re-scan tracking_models/cotracker3 and re-run CoTracker3 environment diagnostics."
+        )
+        self.cotracker_refresh_button.clicked.connect(self._refresh_cotracker_checkpoints)
+        cotracker_model_row_layout.addWidget(self.cotracker_checkpoint_combo)
+        cotracker_model_row_layout.addWidget(self.cotracker_refresh_button)
+        cotracker_layout.addRow("Checkpoint:", cotracker_model_row_widget)
+
+        self.cotracker_device_combo = QComboBox()
+        self.cotracker_device_combo.addItem("Auto", "auto")
+        self.cotracker_device_combo.addItem("GPU", "gpu")
+        self.cotracker_device_combo.addItem("CPU", "cpu")
+        self.cotracker_device_combo.setCurrentIndex(0)
+        self.cotracker_device_combo.setToolTip("Device used for CoTracker3 inference.")
+        cotracker_layout.addRow("Device:", self.cotracker_device_combo)
+
+        self.cotracker_inference_resolution_combo = QComboBox()
+        for value in (256, 384, 512):
+            self.cotracker_inference_resolution_combo.addItem(f"{value}", value)
+        self.cotracker_inference_resolution_combo.setCurrentIndex(0)
+        self.cotracker_inference_resolution_combo.setToolTip(
+            "Square pre-resize applied before CoTracker3 inference. The model still applies its own internal resize."
+        )
+        cotracker_layout.addRow("Inference resolution:", self.cotracker_inference_resolution_combo)
+
+        self.cotracker_window_len_spinbox = QSpinBox()
+        self.cotracker_window_len_spinbox.setRange(4, 256)
+        self.cotracker_window_len_spinbox.setValue(self.cotracker_settings.window_len)
+        self.cotracker_window_len_spinbox.setToolTip(
+            "Native CoTracker3 offline window length passed to the predictor."
+        )
+        cotracker_layout.addRow("Model window len:", self.cotracker_window_len_spinbox)
+
+        self.cotracker_window_size_spinbox = QSpinBox()
+        self.cotracker_window_size_spinbox.setRange(2, 4096)
+        self.cotracker_window_size_spinbox.setValue(self.cotracker_settings.window_size)
+        self.cotracker_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed CoTracker3 window. Smaller values reduce VRAM and can reduce long-range drift."
+        )
+        cotracker_layout.addRow("Window size:", self.cotracker_window_size_spinbox)
+
+        self.cotracker_window_overlap_spinbox = QSpinBox()
+        self.cotracker_window_overlap_spinbox.setRange(0, 1024)
+        self.cotracker_window_overlap_spinbox.setValue(self.cotracker_settings.window_overlap)
+        self.cotracker_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive CoTracker3 windows."
+        )
+        cotracker_layout.addRow("Window overlap:", self.cotracker_window_overlap_spinbox)
+
+        self.cotracker_visibility_checkbox = QCheckBox("Use visibility gating")
+        self.cotracker_visibility_checkbox.setChecked(self.cotracker_settings.use_visibility_gating)
+        self.cotracker_visibility_checkbox.setToolTip(
+            "Keep only points marked visible by CoTracker3."
+        )
+        cotracker_layout.addRow(self.cotracker_visibility_checkbox)
+
+        self.cotracker_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.cotracker_keep_gaps_checkbox.setChecked(self.cotracker_settings.keep_invisible_points_as_gaps)
+        self.cotracker_keep_gaps_checkbox.setToolTip(
+            "If enabled, invisible CoTracker3 predictions create gaps instead of forced points."
+        )
+        cotracker_layout.addRow(self.cotracker_keep_gaps_checkbox)
+
+        self.cotracker_max_step_spinbox = QDoubleSpinBox()
+        self.cotracker_max_step_spinbox.setDecimals(1)
+        self.cotracker_max_step_spinbox.setRange(0.0, 500.0)
+        self.cotracker_max_step_spinbox.setSingleStep(1.0)
+        self.cotracker_max_step_spinbox.setValue(self.cotracker_settings.max_step_distance_px)
+        self.cotracker_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        cotracker_layout.addRow("Max jump (px):", self.cotracker_max_step_spinbox)
+
+        self.cotracker_max_reacquisition_gap_spinbox = QSpinBox()
+        self.cotracker_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.cotracker_max_reacquisition_gap_spinbox.setValue(self.cotracker_settings.max_reacquisition_gap)
+        self.cotracker_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        cotracker_layout.addRow("Max reacquisition gap:", self.cotracker_max_reacquisition_gap_spinbox)
+
+        self.cotracker_terminate_after_invisible_spinbox = QSpinBox()
+        self.cotracker_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.cotracker_terminate_after_invisible_spinbox.setValue(
+            self.cotracker_settings.terminate_after_invisible_frames
+        )
+        self.cotracker_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        cotracker_layout.addRow("Terminate after gap:", self.cotracker_terminate_after_invisible_spinbox)
+
+        self.cotracker_center_mode_combo = QComboBox()
+        self.cotracker_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.cotracker_center_mode_combo.addItem("Manual", "manual")
+        cotracker_center_mode_idx = self.cotracker_center_mode_combo.findData(self.cotracker_settings.center_mode)
+        self.cotracker_center_mode_combo.setCurrentIndex(cotracker_center_mode_idx if cotracker_center_mode_idx >= 0 else 0)
+        self.cotracker_center_mode_combo.setToolTip(
+            "Center used for radial CoTracker3 direction gating. Auto tries detections/pattern center and falls back to image center."
+        )
+        self.cotracker_center_mode_combo.currentIndexChanged.connect(self._on_cotracker_center_mode_changed)
+        cotracker_layout.addRow("Direction center:", self.cotracker_center_mode_combo)
+
+        cotracker_center_row_widget = QWidget()
+        cotracker_center_row_layout = QHBoxLayout(cotracker_center_row_widget)
+        cotracker_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.cotracker_center_x_spinbox = QDoubleSpinBox()
+        self.cotracker_center_x_spinbox.setRange(0.0, 10000.0)
+        self.cotracker_center_x_spinbox.setDecimals(1)
+        self.cotracker_center_x_spinbox.setValue(self.cotracker_settings.manual_center_x)
+        self.cotracker_center_y_spinbox = QDoubleSpinBox()
+        self.cotracker_center_y_spinbox.setRange(0.0, 10000.0)
+        self.cotracker_center_y_spinbox.setDecimals(1)
+        self.cotracker_center_y_spinbox.setValue(self.cotracker_settings.manual_center_y)
+        cotracker_center_row_layout.addWidget(self.cotracker_center_x_spinbox)
+        cotracker_center_row_layout.addWidget(QLabel(","))
+        cotracker_center_row_layout.addWidget(self.cotracker_center_y_spinbox)
+        cotracker_layout.addRow("Manual center (x, y):", cotracker_center_row_widget)
+
+        self.cotracker_direction_mode_combo = QComboBox()
+        self.cotracker_direction_mode_combo.addItem("None", "none")
+        self.cotracker_direction_mode_combo.addItem("Auto", "auto")
+        self.cotracker_direction_mode_combo.addItem("Inward", "inward")
+        self.cotracker_direction_mode_combo.addItem("Outward", "outward")
+        cotracker_direction_idx = self.cotracker_direction_mode_combo.findData(self.cotracker_settings.direction_mode)
+        self.cotracker_direction_mode_combo.setCurrentIndex(cotracker_direction_idx if cotracker_direction_idx >= 0 else 0)
+        self.cotracker_direction_mode_combo.setToolTip(
+            "Apply radial direction constraints to CoTracker3 trajectories."
+        )
+        cotracker_layout.addRow("Direction mode:", self.cotracker_direction_mode_combo)
+
+        self.cotracker_lateral_tol_spinbox = QDoubleSpinBox()
+        self.cotracker_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.cotracker_lateral_tol_spinbox.setSingleStep(1.0)
+        self.cotracker_lateral_tol_spinbox.setValue(self.cotracker_settings.lateral_angle_tolerance_deg)
+        self.cotracker_lateral_tol_spinbox.setToolTip(
+            "Allowed angular deviation from the expected radial direction."
+        )
+        cotracker_layout.addRow("Angular tol (deg):", self.cotracker_lateral_tol_spinbox)
+
+        self.cotracker_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.cotracker_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.cotracker_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.cotracker_max_radial_jump_spinbox.setValue(self.cotracker_settings.max_radial_jump_px)
+        self.cotracker_max_radial_jump_spinbox.setToolTip(
+            "Maximum accepted radial change between two accepted points. Set 0 to disable."
+        )
+        cotracker_layout.addRow("Max radial jump (px):", self.cotracker_max_radial_jump_spinbox)
+
+        self.cotracker_recenter_mode_combo = QComboBox()
+        self.cotracker_recenter_mode_combo.addItem("None", "none")
+        self.cotracker_recenter_mode_combo.addItem("Peak", "peak")
+        self.cotracker_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.cotracker_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        cotracker_recenter_mode_idx = self.cotracker_recenter_mode_combo.findData(self.cotracker_settings.recenter_mode)
+        self.cotracker_recenter_mode_combo.setCurrentIndex(cotracker_recenter_mode_idx if cotracker_recenter_mode_idx >= 0 else 2)
+        self.cotracker_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each CoTracker3 prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        cotracker_layout.addRow("Recenter mode:", self.cotracker_recenter_mode_combo)
+
+        self.cotracker_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.cotracker_centroid_multiplier_spinbox.setDecimals(2)
+        self.cotracker_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.cotracker_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.cotracker_centroid_multiplier_spinbox.setValue(self.cotracker_settings.recenter_patch_multiplier)
+        self.cotracker_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        cotracker_layout.addRow("Recenter radius x ROI:", self.cotracker_centroid_multiplier_spinbox)
+
+        self.cotracker_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.cotracker_centroid_rel_thr_spinbox.setDecimals(2)
+        self.cotracker_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.cotracker_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.cotracker_centroid_rel_thr_spinbox.setValue(self.cotracker_settings.centroid_rel_threshold)
+        self.cotracker_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        cotracker_layout.addRow("Recenter threshold:", self.cotracker_centroid_rel_thr_spinbox)
+
+        self.cotracker_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.cotracker_centroid_max_shift_spinbox.setDecimals(2)
+        self.cotracker_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.cotracker_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.cotracker_centroid_max_shift_spinbox.setValue(self.cotracker_settings.centroid_max_shift_ratio)
+        self.cotracker_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        cotracker_layout.addRow("Max recenter shift:", self.cotracker_centroid_max_shift_spinbox)
+
+        self.cotracker_warning_label = QLabel()
+        self.cotracker_warning_label.setStyleSheet("color: #d9534f;")
+        self.cotracker_warning_label.setWordWrap(True)
+        cotracker_layout.addRow(self.cotracker_warning_label)
+        self._on_cotracker_center_mode_changed(self.cotracker_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.cotracker_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -1857,6 +2115,7 @@ class MainWindow(QMainWindow):
         self._refresh_segmentation_models()
         self._refresh_tapir_checkpoints()
         self._refresh_locotrack_checkpoints()
+        self._refresh_cotracker_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -2255,6 +2514,103 @@ class MainWindow(QMainWindow):
                 self.locotrack_settings.model_size = inferred_size
         self._refresh_locotrack_checkpoints()
 
+    def _refresh_cotracker_checkpoints(self):
+        repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
+        if repo_path:
+            self.cotracker_settings.repo_path = repo_path
+        status = probe_cotracker_environment(
+            models_dir=self.cotracker_models_dir,
+            checkpoint_path=self.cotracker_settings.checkpoint_path,
+            repo_path=self.cotracker_settings.repo_path,
+        )
+
+        self.cotracker_checkpoint_combo.blockSignals(True)
+        self.cotracker_checkpoint_combo.clear()
+
+        offline_checkpoints = [
+            path for path in status.available_checkpoints
+            if "online" not in path.name.lower()
+        ]
+
+        if not offline_checkpoints:
+            self.cotracker_checkpoint_combo.addItem("No offline checkpoints found", userData=None)
+            self.cotracker_checkpoint_combo.setEnabled(False)
+            self._cotracker_checkpoint_available = False
+            self.cotracker_settings.checkpoint_path = None
+        else:
+            self.cotracker_checkpoint_combo.setEnabled(True)
+            for path in offline_checkpoints:
+                self.cotracker_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._cotracker_checkpoint_available = True
+            selected_checkpoint_path = None
+            try:
+                current_selected = Path(self.cotracker_settings.checkpoint_path).resolve() if self.cotracker_settings.checkpoint_path else None
+            except Exception:
+                current_selected = None
+            if current_selected is not None and current_selected in offline_checkpoints:
+                selected_checkpoint_path = str(current_selected)
+            else:
+                preferred_checkpoint = None
+                for path in offline_checkpoints:
+                    if path.name.lower() == "scaled_offline.pth":
+                        preferred_checkpoint = path
+                        break
+                if preferred_checkpoint is None:
+                    for path in offline_checkpoints:
+                        if path.name.lower() == "baseline_offline.pth":
+                            preferred_checkpoint = path
+                            break
+                if preferred_checkpoint is None and offline_checkpoints:
+                    preferred_checkpoint = offline_checkpoints[0]
+                if preferred_checkpoint is not None:
+                    selected_checkpoint_path = str(preferred_checkpoint.resolve())
+
+            selected_checkpoint = (
+                selected_checkpoint_path
+            )
+            if selected_checkpoint:
+                idx = self.cotracker_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.cotracker_checkpoint_combo.setCurrentIndex(idx)
+                    self.cotracker_settings.checkpoint_path = selected_checkpoint
+            if not self.cotracker_settings.checkpoint_path and self.cotracker_checkpoint_combo.count() > 0:
+                self.cotracker_checkpoint_combo.setCurrentIndex(0)
+                self.cotracker_settings.checkpoint_path = self.cotracker_checkpoint_combo.currentData()
+
+        self.cotracker_checkpoint_combo.blockSignals(False)
+        self.cotracker_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.cotracker_settings.repo_path or "")
+        )
+        self.cotracker_settings.repo_path = str(status.repo_path) if status.repo_path else self.cotracker_settings.repo_path
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            online_count = len(status.available_checkpoints) - len(offline_checkpoints)
+            if online_count > 0:
+                details.append(f"{online_count} online hidden")
+            self.cotracker_warning_label.setStyleSheet("color: #5cb85c;")
+            self.cotracker_warning_label.setText(
+                "CoTracker3 ready. " + ", ".join(details)
+            )
+            self.cotracker_warning_label.setToolTip(format_cotracker_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.cotracker_warning_label.setStyleSheet("color: #d9534f;")
+            self.cotracker_warning_label.setText("\n".join(summary))
+            self.cotracker_warning_label.setToolTip(format_cotracker_environment_report(status))
+
+    def _on_cotracker_checkpoint_selected(self, index: int):
+        checkpoint_path = self.cotracker_checkpoint_combo.itemData(index)
+        self.cotracker_settings.checkpoint_path = checkpoint_path
+        self._refresh_cotracker_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -2331,6 +2687,7 @@ class MainWindow(QMainWindow):
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
         show_tapir = scenario == "Offline TAPIR"
         show_locotrack = scenario == "Offline LocoTrack"
+        show_cotracker = scenario == "Offline CoTracker3"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -2342,6 +2699,8 @@ class MainWindow(QMainWindow):
             self.tapir_group.setVisible(show_tapir)
         if hasattr(self, "locotrack_group"):
             self.locotrack_group.setVisible(show_locotrack)
+        if hasattr(self, "cotracker_group"):
+            self.cotracker_group.setVisible(show_cotracker)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -2356,6 +2715,11 @@ class MainWindow(QMainWindow):
         manual = self.locotrack_center_mode_combo.itemData(idx) == "manual"
         self.locotrack_center_x_spinbox.setEnabled(manual)
         self.locotrack_center_y_spinbox.setEnabled(manual)
+
+    def _on_cotracker_center_mode_changed(self, idx: int):
+        manual = self.cotracker_center_mode_combo.itemData(idx) == "manual"
+        self.cotracker_center_x_spinbox.setEnabled(manual)
+        self.cotracker_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -3021,6 +3385,40 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_cotracker_tracking_params(self) -> dict:
+        """Collect the current CoTracker3 tracking settings from the UI."""
+        repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
+        return {
+            "cotracker3_models_dir": str(self.cotracker_models_dir.resolve()),
+            "cotracker3_repo_path": repo_path,
+            "cotracker_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.cotracker_settings.checkpoint_path,
+            "device": self.cotracker_device_combo.currentData(),
+            "inference_resolution": int(self.cotracker_inference_resolution_combo.currentData()),
+            "window_len": self.cotracker_window_len_spinbox.value(),
+            "window_size": self.cotracker_window_size_spinbox.value(),
+            "window_overlap": self.cotracker_window_overlap_spinbox.value(),
+            "use_visibility_gating": self.cotracker_visibility_checkbox.isChecked(),
+            "keep_invisible_points_as_gaps": self.cotracker_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.cotracker_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.cotracker_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.cotracker_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.cotracker_center_mode_combo.currentData(),
+            "manual_center": (
+                self.cotracker_center_x_spinbox.value(),
+                self.cotracker_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.cotracker_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.cotracker_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.cotracker_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.cotracker_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.cotracker_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.cotracker_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.cotracker_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -3168,6 +3566,44 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline CoTracker3":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline CoTracker3 requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
+            self.cotracker_settings.repo_path = repo_path
+            status = probe_cotracker_environment(
+                models_dir=self.cotracker_models_dir,
+                checkpoint_path=self.cotracker_settings.checkpoint_path,
+                repo_path=self.cotracker_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "CoTracker3 Unavailable",
+                    format_cotracker_environment_report(status),
+                )
+                return
+
+            cotracker_params = self._collect_cotracker_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_cotracker3_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                cotracker_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -3248,6 +3684,9 @@ class MainWindow(QMainWindow):
         self.worker.finished.connect(progress_dialog.accept)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.error.connect(progress_dialog.accept)
+        self.worker.error.connect(self.thread.quit)
+        self.worker.error.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
         self.thread.finished.connect(lambda: setattr(self, "thread", None))
         self.thread.finished.connect(lambda: setattr(self, "worker", None))
@@ -3317,6 +3756,7 @@ class MainWindow(QMainWindow):
             lk_max_level=lk_max_level,
             tapir_params=self._collect_tapir_tracking_params(),
             locotrack_params=self._collect_locotrack_tracking_params(),
+            cotracker_params=self._collect_cotracker_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
