@@ -175,6 +175,7 @@ plan_cotracker3.md
 plan_tapnext.md
 plan_trackonr.md
 plan_sam2.md
+instructions/track-on-r_instructions.md
 tests/
 papers/
 third_party/
@@ -188,3 +189,4 @@ tracking_models/locotrack/locotrack_small.ckpt
 tracking_models/tapir/causal_bootstapir_checkpoint.pt
 tracking_models/tapir/tapir_checkpoint_panning.pt
 tracking_models/tapnext/tapnextpp_ckpt.pt
+tracking_models/trackonr/track_on_r.pt
