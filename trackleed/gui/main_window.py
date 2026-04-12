@@ -38,6 +38,10 @@ from trackleed.analysis.tapnext_backend import (
     format_tapnext_environment_report,
     probe_tapnext_environment,
 )
+from trackleed.analysis.trackonr_backend import (
+    format_trackonr_environment_report,
+    probe_trackonr_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -54,6 +58,7 @@ from trackleed.analysis.tracking import (
     track_spots_locotrack_offline,
     track_spots_cotracker3_offline,
     track_spots_tapnext_offline,
+    track_spots_trackonr_offline,
 )
 
 from skimage.util import img_as_float
@@ -195,6 +200,33 @@ class TapnextTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class TrackonrTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    device: str = "auto"
+    inference_resolution: tuple[int, int] = (384, 512)
+    support_grid_size: int = 20
+    window_size: int = 64
+    window_overlap: int = 8
+    use_visibility_gating: bool = True
+    visibility_threshold: float = 0.8
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -218,6 +250,7 @@ class MainWindow(QMainWindow):
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
         self.tapnext_settings = TapnextTrackingSettings()
+        self.trackonr_settings = TrackonrTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -226,6 +259,7 @@ class MainWindow(QMainWindow):
         self.locotrack_models_dir = self.tracking_models_dir / "locotrack"
         self.cotracker_models_dir = self.tracking_models_dir / "cotracker3"
         self.tapnext_models_dir = self.tracking_models_dir / "tapnext"
+        self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
@@ -235,6 +269,9 @@ class MainWindow(QMainWindow):
         default_tapnet_repo = Path(__file__).resolve().parents[3] / "tapnet"
         if default_tapnet_repo.exists():
             self.tapnext_settings.repo_path = str(default_tapnet_repo.resolve())
+        default_trackon_repo = Path(__file__).resolve().parents[3] / "track_on"
+        if default_trackon_repo.exists():
+            self.trackonr_settings.repo_path = str(default_trackon_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
@@ -242,6 +279,7 @@ class MainWindow(QMainWindow):
         self._locotrack_checkpoint_available = False
         self._cotracker_checkpoint_available = False
         self._tapnext_checkpoint_available = False
+        self._trackonr_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1115,6 +1153,7 @@ class MainWindow(QMainWindow):
             "Offline LocoTrack",
             "Offline CoTracker3",
             "Offline TAPNext",
+            "Offline Track-On-R",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -2250,6 +2289,250 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.tapnext_group)
 
+        # --- Offline Track-On-R parameters ---
+        self.trackonr_group = QGroupBox("Offline Track-On-R")
+        trackonr_layout = QFormLayout(self.trackonr_group)
+
+        self.trackonr_repo_path_edit = QLineEdit(self.trackonr_settings.repo_path or "")
+        self.trackonr_repo_path_edit.setPlaceholderText("Path to local track_on repo root")
+        self.trackonr_repo_path_edit.setToolTip(
+            "Local clone of the track_on repository. Must contain model/trackon_predictor.py."
+        )
+        self.trackonr_repo_path_edit.editingFinished.connect(self._refresh_trackonr_checkpoints)
+        trackonr_layout.addRow("Repo path:", self.trackonr_repo_path_edit)
+
+        trackonr_model_row_widget = QWidget()
+        trackonr_model_row_layout = QHBoxLayout(trackonr_model_row_widget)
+        trackonr_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.trackonr_checkpoint_combo = QComboBox()
+        self.trackonr_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.trackonr_checkpoint_combo.setToolTip(
+            "Select a Track-On-R checkpoint (.pt or .pth) from tracking_models/trackonr."
+        )
+        self.trackonr_checkpoint_combo.currentIndexChanged.connect(self._on_trackonr_checkpoint_selected)
+        self.trackonr_refresh_button = QPushButton("Refresh")
+        self.trackonr_refresh_button.setToolTip(
+            "Re-scan tracking_models/trackonr and re-run Track-On-R environment diagnostics."
+        )
+        self.trackonr_refresh_button.clicked.connect(self._refresh_trackonr_checkpoints)
+        trackonr_model_row_layout.addWidget(self.trackonr_checkpoint_combo)
+        trackonr_model_row_layout.addWidget(self.trackonr_refresh_button)
+        trackonr_layout.addRow("Checkpoint:", trackonr_model_row_widget)
+
+        self.trackonr_device_combo = QComboBox()
+        self.trackonr_device_combo.addItem("Auto", "auto")
+        self.trackonr_device_combo.addItem("GPU", "gpu")
+        self.trackonr_device_combo.addItem("CPU", "cpu")
+        trackonr_device_idx = self.trackonr_device_combo.findData(self.trackonr_settings.device)
+        self.trackonr_device_combo.setCurrentIndex(trackonr_device_idx if trackonr_device_idx >= 0 else 0)
+        self.trackonr_device_combo.setToolTip("Device used for Track-On-R inference.")
+        trackonr_layout.addRow("Device:", self.trackonr_device_combo)
+
+        self.trackonr_inference_resolution_combo = QComboBox()
+        for label, value in (
+            ("256 x 256", (256, 256)),
+            ("384 x 512", (384, 512)),
+            ("512 x 512", (512, 512)),
+        ):
+            self.trackonr_inference_resolution_combo.addItem(label, value)
+        trackonr_res_idx = self.trackonr_inference_resolution_combo.findData(
+            self.trackonr_settings.inference_resolution
+        )
+        self.trackonr_inference_resolution_combo.setCurrentIndex(trackonr_res_idx if trackonr_res_idx >= 0 else 1)
+        self.trackonr_inference_resolution_combo.setToolTip(
+            "Input resolution passed to Track-On-R. Higher values may help with tiny LEED spots but cost more VRAM."
+        )
+        trackonr_layout.addRow("Inference resolution:", self.trackonr_inference_resolution_combo)
+
+        self.trackonr_support_grid_spinbox = QSpinBox()
+        self.trackonr_support_grid_spinbox.setRange(0, 256)
+        self.trackonr_support_grid_spinbox.setValue(self.trackonr_settings.support_grid_size)
+        self.trackonr_support_grid_spinbox.setToolTip(
+            "Additional support-grid queries used by Track-On-R around the user points. Higher values may help stability at extra cost."
+        )
+        trackonr_layout.addRow("Support grid size:", self.trackonr_support_grid_spinbox)
+
+        self.trackonr_window_size_spinbox = QSpinBox()
+        self.trackonr_window_size_spinbox.setRange(2, 4096)
+        self.trackonr_window_size_spinbox.setValue(self.trackonr_settings.window_size)
+        self.trackonr_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed Track-On-R window. Smaller values reduce VRAM and reset long temporal context more often."
+        )
+        trackonr_layout.addRow("Window size:", self.trackonr_window_size_spinbox)
+
+        self.trackonr_window_overlap_spinbox = QSpinBox()
+        self.trackonr_window_overlap_spinbox.setRange(0, 1024)
+        self.trackonr_window_overlap_spinbox.setValue(self.trackonr_settings.window_overlap)
+        self.trackonr_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive Track-On-R windows. "
+            "In multi-window mode Track-On-R is reset and reseeded from the overlap, "
+            "so the backend clamps this to at least 1 shared frame."
+        )
+        trackonr_layout.addRow("Window overlap:", self.trackonr_window_overlap_spinbox)
+
+        self.trackonr_visibility_checkbox = QCheckBox("Use visibility gating")
+        self.trackonr_visibility_checkbox.setChecked(self.trackonr_settings.use_visibility_gating)
+        self.trackonr_visibility_checkbox.setToolTip(
+            "Drop points whose Track-On-R visibility falls below the threshold."
+        )
+        trackonr_layout.addRow(self.trackonr_visibility_checkbox)
+
+        self.trackonr_visibility_threshold_spinbox = QDoubleSpinBox()
+        self.trackonr_visibility_threshold_spinbox.setDecimals(2)
+        self.trackonr_visibility_threshold_spinbox.setRange(0.01, 0.99)
+        self.trackonr_visibility_threshold_spinbox.setSingleStep(0.05)
+        self.trackonr_visibility_threshold_spinbox.setValue(self.trackonr_settings.visibility_threshold)
+        self.trackonr_visibility_threshold_spinbox.setToolTip("Minimum visibility score to keep a point.")
+        trackonr_layout.addRow("Visibility threshold:", self.trackonr_visibility_threshold_spinbox)
+
+        self.trackonr_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.trackonr_keep_gaps_checkbox.setChecked(self.trackonr_settings.keep_invisible_points_as_gaps)
+        self.trackonr_keep_gaps_checkbox.setToolTip(
+            "If enabled, invisible Track-On-R predictions create gaps instead of forced points."
+        )
+        trackonr_layout.addRow(self.trackonr_keep_gaps_checkbox)
+
+        self.trackonr_max_step_spinbox = QDoubleSpinBox()
+        self.trackonr_max_step_spinbox.setDecimals(1)
+        self.trackonr_max_step_spinbox.setRange(0.0, 500.0)
+        self.trackonr_max_step_spinbox.setSingleStep(1.0)
+        self.trackonr_max_step_spinbox.setValue(self.trackonr_settings.max_step_distance_px)
+        self.trackonr_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        trackonr_layout.addRow("Max jump (px):", self.trackonr_max_step_spinbox)
+
+        self.trackonr_max_reacquisition_gap_spinbox = QSpinBox()
+        self.trackonr_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.trackonr_max_reacquisition_gap_spinbox.setValue(self.trackonr_settings.max_reacquisition_gap)
+        self.trackonr_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        trackonr_layout.addRow("Max reacquisition gap:", self.trackonr_max_reacquisition_gap_spinbox)
+
+        self.trackonr_terminate_after_invisible_spinbox = QSpinBox()
+        self.trackonr_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.trackonr_terminate_after_invisible_spinbox.setValue(
+            self.trackonr_settings.terminate_after_invisible_frames
+        )
+        self.trackonr_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        trackonr_layout.addRow("Terminate after gap:", self.trackonr_terminate_after_invisible_spinbox)
+
+        self.trackonr_center_mode_combo = QComboBox()
+        self.trackonr_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.trackonr_center_mode_combo.addItem("Manual", "manual")
+        trackonr_center_mode_idx = self.trackonr_center_mode_combo.findData(self.trackonr_settings.center_mode)
+        self.trackonr_center_mode_combo.setCurrentIndex(
+            trackonr_center_mode_idx if trackonr_center_mode_idx >= 0 else 0
+        )
+        self.trackonr_center_mode_combo.setToolTip(
+            "Reference center used by directional gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.trackonr_center_mode_combo.currentIndexChanged.connect(self._on_trackonr_center_mode_changed)
+        trackonr_layout.addRow("Direction center:", self.trackonr_center_mode_combo)
+
+        trackonr_center_row_widget = QWidget()
+        trackonr_center_row_layout = QHBoxLayout(trackonr_center_row_widget)
+        trackonr_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.trackonr_center_x_spinbox = QDoubleSpinBox()
+        self.trackonr_center_x_spinbox.setRange(0.0, 10000.0)
+        self.trackonr_center_x_spinbox.setDecimals(1)
+        self.trackonr_center_x_spinbox.setValue(self.trackonr_settings.manual_center_x)
+        self.trackonr_center_y_spinbox = QDoubleSpinBox()
+        self.trackonr_center_y_spinbox.setRange(0.0, 10000.0)
+        self.trackonr_center_y_spinbox.setDecimals(1)
+        self.trackonr_center_y_spinbox.setValue(self.trackonr_settings.manual_center_y)
+        trackonr_center_row_layout.addWidget(self.trackonr_center_x_spinbox)
+        trackonr_center_row_layout.addWidget(QLabel(","))
+        trackonr_center_row_layout.addWidget(self.trackonr_center_y_spinbox)
+        trackonr_layout.addRow("Manual center (x, y):", trackonr_center_row_widget)
+
+        self.trackonr_direction_mode_combo = QComboBox()
+        self.trackonr_direction_mode_combo.addItem("None", "none")
+        self.trackonr_direction_mode_combo.addItem("Auto", "auto")
+        self.trackonr_direction_mode_combo.addItem("Inward", "inward")
+        self.trackonr_direction_mode_combo.addItem("Outward", "outward")
+        trackonr_direction_idx = self.trackonr_direction_mode_combo.findData(self.trackonr_settings.direction_mode)
+        self.trackonr_direction_mode_combo.setCurrentIndex(
+            trackonr_direction_idx if trackonr_direction_idx >= 0 else 0
+        )
+        self.trackonr_direction_mode_combo.setToolTip(
+            "Optional directional prior for radial motion relative to the LEED center."
+        )
+        trackonr_layout.addRow("Direction mode:", self.trackonr_direction_mode_combo)
+
+        self.trackonr_lateral_tol_spinbox = QDoubleSpinBox()
+        self.trackonr_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.trackonr_lateral_tol_spinbox.setSingleStep(1.0)
+        self.trackonr_lateral_tol_spinbox.setValue(self.trackonr_settings.lateral_angle_tolerance_deg)
+        self.trackonr_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        trackonr_layout.addRow("Angular tol (deg):", self.trackonr_lateral_tol_spinbox)
+
+        self.trackonr_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.trackonr_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.trackonr_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.trackonr_max_radial_jump_spinbox.setValue(self.trackonr_settings.max_radial_jump_px)
+        self.trackonr_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        trackonr_layout.addRow("Max radial jump (px):", self.trackonr_max_radial_jump_spinbox)
+
+        self.trackonr_recenter_mode_combo = QComboBox()
+        self.trackonr_recenter_mode_combo.addItem("None", "none")
+        self.trackonr_recenter_mode_combo.addItem("Peak", "peak")
+        self.trackonr_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.trackonr_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        trackonr_recenter_mode_idx = self.trackonr_recenter_mode_combo.findData(self.trackonr_settings.recenter_mode)
+        self.trackonr_recenter_mode_combo.setCurrentIndex(
+            trackonr_recenter_mode_idx if trackonr_recenter_mode_idx >= 0 else 2
+        )
+        self.trackonr_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each Track-On-R prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        trackonr_layout.addRow("Recenter mode:", self.trackonr_recenter_mode_combo)
+
+        self.trackonr_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.trackonr_centroid_multiplier_spinbox.setDecimals(2)
+        self.trackonr_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.trackonr_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.trackonr_centroid_multiplier_spinbox.setValue(self.trackonr_settings.recenter_patch_multiplier)
+        self.trackonr_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        trackonr_layout.addRow("Recenter radius x ROI:", self.trackonr_centroid_multiplier_spinbox)
+
+        self.trackonr_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.trackonr_centroid_rel_thr_spinbox.setDecimals(2)
+        self.trackonr_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.trackonr_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.trackonr_centroid_rel_thr_spinbox.setValue(self.trackonr_settings.centroid_rel_threshold)
+        self.trackonr_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        trackonr_layout.addRow("Recenter threshold:", self.trackonr_centroid_rel_thr_spinbox)
+
+        self.trackonr_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.trackonr_centroid_max_shift_spinbox.setDecimals(2)
+        self.trackonr_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.trackonr_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.trackonr_centroid_max_shift_spinbox.setValue(self.trackonr_settings.centroid_max_shift_ratio)
+        self.trackonr_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        trackonr_layout.addRow("Max recenter shift:", self.trackonr_centroid_max_shift_spinbox)
+
+        self.trackonr_warning_label = QLabel()
+        self.trackonr_warning_label.setStyleSheet("color: #d9534f;")
+        self.trackonr_warning_label.setWordWrap(True)
+        trackonr_layout.addRow(self.trackonr_warning_label)
+        self._on_trackonr_center_mode_changed(self.trackonr_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.trackonr_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -2407,6 +2690,7 @@ class MainWindow(QMainWindow):
         self._refresh_locotrack_checkpoints()
         self._refresh_cotracker_checkpoints()
         self._refresh_tapnext_checkpoints()
+        self._refresh_trackonr_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -2970,6 +3254,79 @@ class MainWindow(QMainWindow):
         self.tapnext_settings.checkpoint_path = checkpoint_path
         self._refresh_tapnext_checkpoints()
 
+    def _refresh_trackonr_checkpoints(self):
+        repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
+        if repo_path:
+            self.trackonr_settings.repo_path = repo_path
+        status = probe_trackonr_environment(
+            models_dir=self.trackonr_models_dir,
+            checkpoint_path=self.trackonr_settings.checkpoint_path,
+            repo_path=self.trackonr_settings.repo_path,
+        )
+
+        self.trackonr_checkpoint_combo.blockSignals(True)
+        self.trackonr_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.trackonr_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.trackonr_checkpoint_combo.setEnabled(False)
+            self._trackonr_checkpoint_available = False
+            self.trackonr_settings.checkpoint_path = None
+        else:
+            self.trackonr_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.trackonr_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._trackonr_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.trackonr_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.trackonr_checkpoint_combo.setCurrentIndex(idx)
+                    self.trackonr_settings.checkpoint_path = selected_checkpoint
+            if not self.trackonr_settings.checkpoint_path and self.trackonr_checkpoint_combo.count() > 0:
+                self.trackonr_checkpoint_combo.setCurrentIndex(0)
+                self.trackonr_settings.checkpoint_path = self.trackonr_checkpoint_combo.currentData()
+
+        self.trackonr_checkpoint_combo.blockSignals(False)
+        self.trackonr_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.trackonr_settings.repo_path or "")
+        )
+        self.trackonr_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.trackonr_settings.repo_path
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            if status.mmcv_version:
+                details.append(f"mmcv {status.mmcv_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            details.append("DINO cached" if status.dinov3_cache_present else "DINO on-demand")
+            self.trackonr_warning_label.setStyleSheet("color: #5cb85c;")
+            self.trackonr_warning_label.setText(
+                "Track-On-R ready. " + ", ".join(details)
+            )
+            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.trackonr_warning_label.setStyleSheet("color: #d9534f;")
+            self.trackonr_warning_label.setText("\n".join(summary))
+            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
+
+    def _on_trackonr_checkpoint_selected(self, index: int):
+        checkpoint_path = self.trackonr_checkpoint_combo.itemData(index)
+        self.trackonr_settings.checkpoint_path = checkpoint_path
+        self._refresh_trackonr_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -3048,6 +3405,7 @@ class MainWindow(QMainWindow):
         show_locotrack = scenario == "Offline LocoTrack"
         show_cotracker = scenario == "Offline CoTracker3"
         show_tapnext = scenario == "Offline TAPNext"
+        show_trackonr = scenario == "Offline Track-On-R"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -3063,6 +3421,8 @@ class MainWindow(QMainWindow):
             self.cotracker_group.setVisible(show_cotracker)
         if hasattr(self, "tapnext_group"):
             self.tapnext_group.setVisible(show_tapnext)
+        if hasattr(self, "trackonr_group"):
+            self.trackonr_group.setVisible(show_trackonr)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -3087,6 +3447,11 @@ class MainWindow(QMainWindow):
         manual = self.tapnext_center_mode_combo.itemData(idx) == "manual"
         self.tapnext_center_x_spinbox.setEnabled(manual)
         self.tapnext_center_y_spinbox.setEnabled(manual)
+
+    def _on_trackonr_center_mode_changed(self, idx: int):
+        manual = self.trackonr_center_mode_combo.itemData(idx) == "manual"
+        self.trackonr_center_x_spinbox.setEnabled(manual)
+        self.trackonr_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -3822,6 +4187,46 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_trackonr_tracking_params(self) -> dict:
+        """Collect the current Track-On-R tracking settings from the UI."""
+        repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
+        inference_resolution = self.trackonr_inference_resolution_combo.currentData()
+        if isinstance(inference_resolution, (tuple, list)) and len(inference_resolution) >= 2:
+            inference_resolution = (int(inference_resolution[0]), int(inference_resolution[1]))
+        else:
+            inference_resolution = self.trackonr_settings.inference_resolution
+        return {
+            "trackonr_models_dir": str(self.trackonr_models_dir.resolve()),
+            "trackonr_repo_path": repo_path,
+            "track_on_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.trackonr_settings.checkpoint_path,
+            "device": self.trackonr_device_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "support_grid_size": self.trackonr_support_grid_spinbox.value(),
+            "window_size": self.trackonr_window_size_spinbox.value(),
+            "window_overlap": self.trackonr_window_overlap_spinbox.value(),
+            "use_visibility_gating": self.trackonr_visibility_checkbox.isChecked(),
+            "visibility_threshold": self.trackonr_visibility_threshold_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.trackonr_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.trackonr_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.trackonr_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.trackonr_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.trackonr_center_mode_combo.currentData(),
+            "manual_center": (
+                self.trackonr_center_x_spinbox.value(),
+                self.trackonr_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.trackonr_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.trackonr_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.trackonr_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.trackonr_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.trackonr_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.trackonr_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.trackonr_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -4045,6 +4450,44 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline Track-On-R":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline Track-On-R requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
+            self.trackonr_settings.repo_path = repo_path
+            status = probe_trackonr_environment(
+                models_dir=self.trackonr_models_dir,
+                checkpoint_path=self.trackonr_settings.checkpoint_path,
+                repo_path=self.trackonr_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "Track-On-R Unavailable",
+                    format_trackonr_environment_report(status),
+                )
+                return
+
+            trackonr_params = self._collect_trackonr_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_trackonr_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                trackonr_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -4199,6 +4642,7 @@ class MainWindow(QMainWindow):
             locotrack_params=self._collect_locotrack_tracking_params(),
             cotracker_params=self._collect_cotracker_tracking_params(),
             tapnext_params=self._collect_tapnext_tracking_params(),
+            trackonr_params=self._collect_trackonr_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )

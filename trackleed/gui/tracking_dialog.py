@@ -29,10 +29,15 @@ from trackleed.analysis.tapnext_backend import (
     format_tapnext_environment_report,
     probe_tapnext_environment,
 )
+from trackleed.analysis.trackonr_backend import (
+    format_trackonr_environment_report,
+    probe_trackonr_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
+    retrack_single_spot_trackonr_offline,
     retrack_single_spot_tapnext_offline,
     retrack_single_spot_tapir_offline,
 )
@@ -55,6 +60,7 @@ class TrackingDialog(QDialog):
         locotrack_params: dict | None = None,
         cotracker_params: dict | None = None,
         tapnext_params: dict | None = None,
+        trackonr_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -78,6 +84,7 @@ class TrackingDialog(QDialog):
         self.locotrack_params = dict(locotrack_params or {})
         self.cotracker_params = dict(cotracker_params or {})
         self.tapnext_params = dict(tapnext_params or {})
+        self.trackonr_params = dict(trackonr_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -306,6 +313,8 @@ class TrackingDialog(QDialog):
             return "CoTracker3"
         if sources == {"tapnext_offline"}:
             return "TAPNext"
+        if sources == {"trackonr_offline"}:
+            return "Track-On-R"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
@@ -316,6 +325,8 @@ class TrackingDialog(QDialog):
             return "CoTracker3+Manual"
         if "tapnext_offline" in sources and sources.issubset({"tapnext_offline"} | manual_sources):
             return "TAPNext+Manual"
+        if "trackonr_offline" in sources and sources.issubset({"trackonr_offline"} | manual_sources):
+            return "Track-On-R+Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -459,6 +470,21 @@ class TrackingDialog(QDialog):
                 lines.append(f"Combined score: {float(combined_score):.3f}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "trackonr_offline":
+            raw_x = getattr(spot, "trackonr_raw_x", None)
+            raw_y = getattr(spot, "trackonr_raw_y", None)
+            refined_x = getattr(spot, "trackonr_refined_x", None)
+            refined_y = getattr(spot, "trackonr_refined_y", None)
+            visibility = getattr(spot, "trackonr_visibility", None)
+            rejected_reason = getattr(spot, "trackonr_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw Track-On-R: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -505,6 +531,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "tapnext_raw_x", None)
             raw_y = getattr(spot, "tapnext_raw_y", None)
             label = f"TAPNEXT T{selected_track.track_id}"
+        elif source == "trackonr_offline":
+            raw_x = getattr(spot, "trackonr_raw_x", None)
+            raw_y = getattr(spot, "trackonr_raw_y", None)
+            label = f"TRACK-ON-R T{selected_track.track_id}"
         else:
             return []
 
@@ -567,6 +597,7 @@ class TrackingDialog(QDialog):
         retrack_locotrack_action = menu.addAction("Re-track from this point (LocoTrack)")
         retrack_cotracker_action = menu.addAction("Re-track from this point (CoTracker3)")
         retrack_tapnext_action = menu.addAction("Re-track from this point (TAPNext)")
+        retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
         
         action = menu.exec(global_pos)
         
@@ -582,6 +613,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_cotracker3(spot_id)
         elif action == retrack_tapnext_action:
             self.initiate_retrack_tapnext(spot_id)
+        elif action == retrack_trackonr_action:
+            self.initiate_retrack_trackonr(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -821,6 +854,58 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with TAPNext...",
             cancel_event=cancel_event,
             method_label="TAPNext re-tracking",
+        )
+
+    def initiate_retrack_trackonr(self, spot_id: int):
+        """Prepares and launches Track-On-R re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.trackonr_params:
+            QMessageBox.warning(
+                self,
+                "Track-On-R Settings Missing",
+                "Track-On-R parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_trackonr_environment(
+            models_dir=self.trackonr_params.get("trackonr_models_dir"),
+            checkpoint_path=self.trackonr_params.get("checkpoint_path"),
+            repo_path=(
+                self.trackonr_params.get("repo_path")
+                or self.trackonr_params.get("trackonr_repo_path")
+                or self.trackonr_params.get("track_on_repo_path")
+            ),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "Track-On-R Unavailable",
+                format_trackonr_environment_report(status),
+            )
+            return
+
+        trackonr_params = dict(self.trackonr_params)
+        trackonr_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_trackonr_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            trackonr_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with Track-On-R...",
+            cancel_event=cancel_event,
+            method_label="Track-On-R re-tracking",
         )
 
     def launch_retrack_worker(
