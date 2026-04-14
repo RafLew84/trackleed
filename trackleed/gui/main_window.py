@@ -23,6 +23,7 @@ from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
 from trackleed.analysis.tapir_backend import (
+    discover_online_tapir_checkpoints,
     format_tapir_environment_report,
     probe_tapir_environment,
 )
@@ -55,6 +56,7 @@ from trackleed.analysis.tracking import (
     track_spots_hungarian,
     track_spots_hungarian_directional,
     track_spots_tapir_offline,
+    track_spots_tapir_online,
     track_spots_locotrack_offline,
     track_spots_cotracker3_offline,
     track_spots_tapnext_offline,
@@ -90,6 +92,7 @@ class YOLOSpotSettings:
 @dataclass
 class TapirTrackingSettings:
     checkpoint_path: str | None = None
+    runtime_mode: str = "offline"
     device: str = "auto"
     inference_resolution: int = 256
     query_chunk_size: int = 64
@@ -1150,6 +1153,7 @@ class MainWindow(QMainWindow):
             "Optical Flow Tracking",
             "Optical Flow (skip, anchor)",
             "Offline TAPIR",
+            "BootsTAPIR Online / Causal",
             "Offline LocoTrack",
             "Offline CoTracker3",
             "Offline TAPNext",
@@ -1330,7 +1334,7 @@ class MainWindow(QMainWindow):
         form_layout.addRow(self.optical_skip_group)
 
         # --- Offline TAPIR parameters ---
-        self.tapir_group = QGroupBox("Offline TAPIR")
+        self.tapir_group = QGroupBox("TAPIR")
         tapir_layout = QFormLayout(self.tapir_group)
 
         tapir_model_row_widget = QWidget()
@@ -2643,8 +2647,8 @@ class MainWindow(QMainWindow):
         form_layout.addRow(self.dir_group)
         self._on_dir_center_mode_changed(self.dir_center_mode_combo.currentIndex())
 
-        self.tracking_scenario_combo.currentTextChanged.connect(self._update_tracking_params_visibility)
-        self._update_tracking_params_visibility(self.tracking_scenario_combo.currentText())
+        self.tracking_scenario_combo.currentTextChanged.connect(self._on_tracking_scenario_changed)
+        self._on_tracking_scenario_changed(self.tracking_scenario_combo.currentText())
 
         # --- Action Buttons ---
         self.track_button = QPushButton("Track Spots")
@@ -2957,27 +2961,42 @@ class MainWindow(QMainWindow):
         self._update_find_spots_button_state()
 
     def _refresh_tapir_checkpoints(self):
+        runtime_mode = self._tapir_runtime_mode()
+        self.tapir_settings.runtime_mode = runtime_mode
         status = probe_tapir_environment(
             models_dir=self.tapir_models_dir,
             checkpoint_path=self.tapir_settings.checkpoint_path,
+        )
+        online_names = {path.name for path in discover_online_tapir_checkpoints(self.tapir_models_dir)}
+        filtered_checkpoints = (
+            [path for path in status.available_checkpoints if path.name in online_names]
+            if runtime_mode == "online"
+            else [path for path in status.available_checkpoints if path.name not in online_names]
         )
 
         self.tapir_checkpoint_combo.blockSignals(True)
         self.tapir_checkpoint_combo.clear()
 
-        if not status.available_checkpoints:
-            self.tapir_checkpoint_combo.addItem("No checkpoints found", userData=None)
+        if not filtered_checkpoints:
+            self.tapir_checkpoint_combo.addItem(
+                "No causal checkpoints found" if runtime_mode == "online" else "No offline checkpoints found",
+                userData=None,
+            )
             self.tapir_checkpoint_combo.setEnabled(False)
             self._tapir_checkpoint_available = False
             self.tapir_settings.checkpoint_path = None
         else:
             self.tapir_checkpoint_combo.setEnabled(True)
-            for path in status.available_checkpoints:
+            for path in filtered_checkpoints:
                 self.tapir_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
             self._tapir_checkpoint_available = True
             selected_checkpoint = (
                 str(status.selected_checkpoint.resolve())
-                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                if (
+                    status.selected_checkpoint is not None
+                    and status.selected_checkpoint.exists()
+                    and status.selected_checkpoint in filtered_checkpoints
+                )
                 else None
             )
             if selected_checkpoint:
@@ -2985,31 +3004,47 @@ class MainWindow(QMainWindow):
                 if idx >= 0:
                     self.tapir_checkpoint_combo.setCurrentIndex(idx)
                     self.tapir_settings.checkpoint_path = selected_checkpoint
+            else:
+                self.tapir_settings.checkpoint_path = None
             if not self.tapir_settings.checkpoint_path and self.tapir_checkpoint_combo.count() > 0:
                 self.tapir_checkpoint_combo.setCurrentIndex(0)
                 self.tapir_settings.checkpoint_path = self.tapir_checkpoint_combo.currentData()
 
         self.tapir_checkpoint_combo.blockSignals(False)
 
-        if status.is_ready:
+        effective_status = probe_tapir_environment(
+            models_dir=self.tapir_models_dir,
+            checkpoint_path=self.tapir_settings.checkpoint_path,
+        )
+
+        if effective_status.is_ready and (
+            runtime_mode != "online" or effective_status.selected_checkpoint_is_online
+        ):
             details = []
-            if status.torch_version:
-                details.append(f"torch {status.torch_version}")
-            details.append("CUDA" if status.cuda_available else "CPU")
+            if effective_status.torch_version:
+                details.append(f"torch {effective_status.torch_version}")
+            details.append("CUDA" if effective_status.cuda_available else "CPU")
+            details.append("causal" if runtime_mode == "online" else "offline")
             self.tapir_warning_label.setStyleSheet("color: #5cb85c;")
             self.tapir_warning_label.setText(
                 "TAPIR ready. " + ", ".join(details)
             )
-            self.tapir_warning_label.setToolTip(format_tapir_environment_report(status))
+            self.tapir_warning_label.setToolTip(format_tapir_environment_report(effective_status))
         else:
             summary = []
-            if status.errors:
-                summary.append(status.errors[0])
-            if status.warnings:
-                summary.extend(status.warnings[:1])
+            if effective_status.errors:
+                summary.append(effective_status.errors[0])
+            if effective_status.warnings:
+                summary.extend(effective_status.warnings[:1])
+            if not summary:
+                summary.append(
+                    "No causal TAPIR checkpoint selected."
+                    if runtime_mode == "online"
+                    else "No offline TAPIR checkpoint selected."
+                )
             self.tapir_warning_label.setStyleSheet("color: #d9534f;")
             self.tapir_warning_label.setText("\n".join(summary))
-            self.tapir_warning_label.setToolTip(format_tapir_environment_report(status))
+            self.tapir_warning_label.setToolTip(format_tapir_environment_report(effective_status))
 
     def _on_tapir_checkpoint_selected(self, index: int):
         checkpoint_path = self.tapir_checkpoint_combo.itemData(index)
@@ -3394,6 +3429,22 @@ class MainWindow(QMainWindow):
                     btn.setEnabled(True)
                     btn.setToolTip("")
 
+    def _tapir_runtime_mode(self, scenario: str | None = None) -> str:
+        if scenario is None:
+            scenario = self.tracking_scenario_combo.currentText()
+        return "online" if scenario == "BootsTAPIR Online / Causal" else "offline"
+
+    def _on_tracking_scenario_changed(self, scenario: str):
+        self._update_tracking_params_visibility(scenario)
+        if hasattr(self, "tapir_group"):
+            self.tapir_group.setTitle(
+                "BootsTAPIR Online / Causal"
+                if self._tapir_runtime_mode(scenario) == "online"
+                else "Offline TAPIR"
+            )
+        if scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}:
+            self._refresh_tapir_checkpoints()
+
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
         if scenario is None:
@@ -3401,7 +3452,7 @@ class MainWindow(QMainWindow):
 
         show_optical_basic = scenario.startswith("Optical Flow")
         show_optical_skip = scenario == "Optical Flow (skip, anchor)"
-        show_tapir = scenario == "Offline TAPIR"
+        show_tapir = scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}
         show_locotrack = scenario == "Offline LocoTrack"
         show_cotracker = scenario == "Offline CoTracker3"
         show_tapnext = scenario == "Offline TAPNext"
@@ -4043,6 +4094,7 @@ class MainWindow(QMainWindow):
         return {
             "tapir_models_dir": str(self.tapir_models_dir.resolve()),
             "checkpoint_path": self.tapir_settings.checkpoint_path,
+            "runtime_mode": self._tapir_runtime_mode(),
             "device": self.tapir_device_combo.currentData(),
             "inference_resolution": int(self.tapir_inference_resolution_combo.currentData()),
             "query_chunk_size": self.tapir_query_chunk_spinbox.value(),
@@ -4301,10 +4353,14 @@ class MainWindow(QMainWindow):
                     cancel_event=cancel_event,
                 )
 
-        elif selected_scenario == "Offline TAPIR":
+        elif selected_scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}:
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline TAPIR requires selecting a reference frame.")
+                QMessageBox.warning(
+                    self,
+                    "No Reference",
+                    "TAPIR tracking requires selecting a reference frame.",
+                )
                 return
             ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
             if not ref_file.spots:
@@ -4315,7 +4371,8 @@ class MainWindow(QMainWindow):
                 models_dir=self.tapir_models_dir,
                 checkpoint_path=self.tapir_settings.checkpoint_path,
             )
-            if not status.is_ready:
+            requires_online_checkpoint = selected_scenario == "BootsTAPIR Online / Causal"
+            if not status.is_ready or (requires_online_checkpoint and not status.selected_checkpoint_is_online):
                 QMessageBox.warning(
                     self,
                     "TAPIR Unavailable",
@@ -4328,7 +4385,9 @@ class MainWindow(QMainWindow):
             file_map = {f.id: f for f in self.data_files if f.id is not None}
             sorted_ids = sorted(file_map.keys())
             worker = GenericWorker(
-                track_spots_tapir_offline,
+                track_spots_tapir_online
+                if selected_scenario == "BootsTAPIR Online / Causal"
+                else track_spots_tapir_offline,
                 file_map,
                 sorted_ids,
                 ref_file.id,

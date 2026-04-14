@@ -19,9 +19,13 @@ from trackleed.analysis.peak_analyzer import find_pattern_center, fit_spot_to_ga
 from trackleed.analysis.tracking_config import default_directional_hybrid_params
 from trackleed.analysis.tapir_backend import (
     DEFAULT_TAPIR_MODELS_DIR,
+    TapirOnlineRuntimeSettings,
     TapirRuntimeSettings,
+    discover_online_tapir_checkpoints,
     discover_tapir_checkpoints,
     run_tapir_offline,
+    run_tapir_online,
+    select_default_online_tapir_checkpoint,
     select_default_tapir_checkpoint,
 )
 from trackleed.analysis.locotrack_backend import (
@@ -298,6 +302,7 @@ def _build_tapir_spot(
     centroid_rel_threshold: float,
     centroid_max_expand: int,
     centroid_max_shift_ratio: float,
+    source: str = "tapir_offline",
 ) -> SpotROI:
     """Create a SpotROI from TAPIR output, optionally recentered on the local spot."""
     x = float(raw_x)
@@ -321,7 +326,7 @@ def _build_tapir_spot(
         center_x=x,
         center_y=y,
         intensity=1.0 if visible else 0.0,
-        source="tapir_offline",
+        source=source,
     )
     setattr(spot, "tapir_raw_x", float(raw_x))
     setattr(spot, "tapir_raw_y", float(raw_y))
@@ -585,6 +590,24 @@ def _resolve_trackonr_window_overlap(
     return overlap
 
 
+def _resolve_tapir_online_window_overlap(
+    total_frames: int,
+    window_size: int,
+    window_overlap: int,
+) -> int:
+    """
+    Online / causal TAPIR windows are restarted independently and reseeded from overlap frames.
+
+    That means multi-window tracking needs at least one shared frame between
+    neighboring windows; otherwise the next window has no already-tracked point
+    on its first frame to seed from.
+    """
+    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
+    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
+        overlap = max(1, overlap)
+    return overlap
+
+
 def _infer_locotrack_model_size(
     checkpoint_path: str | Path | None,
     fallback: str = "small",
@@ -628,6 +651,7 @@ def _append_tapir_sequence_to_track(
     start_local_idx: int = 1,
     min_global_write_idx: int | None = None,
     global_start_idx: int = 0,
+    source: str = "tapir_offline",
 ) -> bool:
     """
     Append TAPIR predictions to one track, applying filtering and gap logic.
@@ -682,6 +706,7 @@ def _append_tapir_sequence_to_track(
                 centroid_rel_threshold,
                 centroid_max_expand,
                 centroid_max_shift_ratio,
+                source=source,
             )
 
             if max_step_distance_px > 0.0 and last_valid_xy is not None:
@@ -760,6 +785,7 @@ def _append_tapir_sequence_to_track(
                     centroid_rel_threshold,
                     centroid_max_expand,
                     centroid_max_shift_ratio,
+                    source=source,
                 )
                 forced_spot.intensity = 0.0
                 setattr(forced_spot, "tapir_visibility", False)
@@ -3783,6 +3809,333 @@ def track_spots_trackonr_offline(
     return converted_tracks
 
 
+def track_spots_tapir_online(
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots from a reference frame using causal / online PyTorch TAPIR.
+
+    This backend keeps the TAPIR runtime state frame-by-frame and converts the
+    resulting trajectories into Track / SpotROI objects compatible with Trackleed.
+    """
+    ref_file = all_files_map.get(reference_frame_id)
+    if not ref_file or not ref_file.spots:
+        raise ValueError("Reference frame must contain at least one defined spot.")
+    if reference_frame_id not in sorted_frame_ids:
+        raise ValueError("Reference frame is missing from the provided frame list.")
+
+    ref_index = sorted_frame_ids.index(reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[ref_index:]
+    if len(subset_frame_ids) < 2:
+        raise ValueError("BootsTAPIR Online requires at least two frames starting from the reference.")
+
+    tapir_models_dir = Path(params.get("tapir_models_dir", DEFAULT_TAPIR_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_online_tapir_checkpoints(tapir_models_dir)
+        selected_checkpoint = select_default_online_tapir_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No causal TAPIR checkpoint selected. Place causal_bootstapir_checkpoint.pt "
+            "in tracking_models/tapir and pass checkpoint_path in params."
+        )
+    checkpoint_name = Path(checkpoint_path).name.lower()
+    if "causal" not in checkpoint_name and "online" not in checkpoint_name:
+        raise ValueError(
+            "Selected TAPIR checkpoint does not look causal/online. "
+            "BootsTAPIR Online expects causal_bootstapir_checkpoint.pt or similar."
+        )
+
+    query_points = np.array(
+        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    tapir_settings = TapirOnlineRuntimeSettings(
+        checkpoint_path=checkpoint_path,
+        device=params.get("device", "auto"),
+        inference_resolution=int(params.get("inference_resolution", 256)),
+        query_chunk_size=int(params.get("query_chunk_size", 64)),
+        use_visibility_gating=bool(params.get("use_visibility_gating", True)),
+        visibility_threshold=float(params.get("visibility_threshold", 0.5)),
+        use_uncertainty_gating=bool(params.get("use_uncertainty_gating", True)),
+        expected_dist_threshold=float(params.get("expected_dist_threshold", 0.5)),
+    )
+
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    recenter_mode = str(
+        params.get(
+            "recenter_mode",
+            "centroid" if bool(params.get("use_centroid_refinement", True)) else "none",
+        )
+    ).strip().lower()
+    centroid_patch_multiplier = float(
+        params.get("recenter_patch_multiplier", params.get("centroid_patch_multiplier", 1.25))
+    )
+    centroid_rel_threshold = float(params.get("centroid_rel_threshold", 0.35))
+    centroid_max_expand = int(max(0, params.get("centroid_max_expand", 1)))
+    centroid_max_shift_ratio = float(params.get("centroid_max_shift_ratio", 0.45))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_tapir_online_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            ref_image = load_tiff(ref_file.filepath)
+            fallback_shape = None
+            if ref_image is not None and np.asarray(ref_image).size:
+                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_tapir_online(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=tapir_settings,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        converted_tracks: List[Track] = []
+        for query_idx, reference_spot in enumerate(ref_file.spots):
+            track = Track(track_id=reference_spot.id, spots_by_image_id={reference_frame_id: reference_spot})
+            state = {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            ok = _append_tapir_sequence_to_track(
+                track,
+                state,
+                reference_spot,
+                subset_frame_ids,
+                frames,
+                frame_shapes,
+                result.tracks_xy[query_idx],
+                result.visible_mask[query_idx],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                recenter_mode=recenter_mode,
+                centroid_patch_multiplier=centroid_patch_multiplier,
+                centroid_rel_threshold=centroid_rel_threshold,
+                centroid_max_expand=centroid_max_expand,
+                centroid_max_shift_ratio=centroid_max_shift_ratio,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=None,
+                global_start_idx=0,
+                source="tapir_online",
+            )
+            if not ok:
+                return None
+            converted_tracks.append(track)
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        track_map: Dict[int, Track] = {
+            reference_spot.id: Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            for reference_spot in ref_file.spots
+        }
+        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
+        track_states: Dict[int, Dict[str, Any]] = {
+            reference_spot.id: {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            for reference_spot in ref_file.spots
+        }
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_tapir_online_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            query_rows: List[List[float]] = []
+            query_specs: List[Tuple[SpotROI, int]] = []
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+
+            for track_id, track in track_map.items():
+                reference_spot = reference_spots_by_id[track_id]
+                seed_local_idx = None
+                seed_spot = None
+                for local_idx, frame_id in enumerate(window_frame_ids):
+                    if frame_id not in query_seed_ids:
+                        break
+                    candidate = track.spots_by_image_id.get(frame_id)
+                    if candidate is None:
+                        continue
+                    seed_local_idx = local_idx
+                    seed_spot = candidate
+                    break
+                if seed_spot is None or seed_local_idx is None:
+                    continue
+                query_rows.append(
+                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
+                )
+                query_specs.append((reference_spot, seed_local_idx))
+
+            if not query_rows:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_tapir_online(
+                frames=window_frames,
+                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
+                settings=tapir_settings,
+            )
+
+            write_after_global_idx = covered_until
+            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
+                if cancel_event and cancel_event.is_set():
+                    return None
+
+                track = track_map[reference_spot.id]
+                ok = _append_tapir_sequence_to_track(
+                    track,
+                    track_states[reference_spot.id],
+                    reference_spot,
+                    window_frame_ids,
+                    window_frames,
+                    window_shapes,
+                    result.tracks_xy[query_idx],
+                    result.visible_mask[query_idx],
+                    roi_size=roi_size,
+                    keep_invisible_as_gaps=keep_invisible_as_gaps,
+                    recenter_mode=recenter_mode,
+                    centroid_patch_multiplier=centroid_patch_multiplier,
+                    centroid_rel_threshold=centroid_rel_threshold,
+                    centroid_max_expand=centroid_max_expand,
+                    centroid_max_shift_ratio=centroid_max_shift_ratio,
+                    max_step_distance_px=max_step_distance_px,
+                    max_reacquisition_gap=max_reacquisition_gap,
+                    terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=direction_mode,
+                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                    max_radial_jump_px=max_radial_jump_px,
+                    min_directional_motion_px=min_directional_motion_px,
+                    cancel_event=cancel_event,
+                    start_local_idx=seed_local_idx + 1,
+                    min_global_write_idx=write_after_global_idx,
+                    global_start_idx=start_idx,
+                    source="tapir_online",
+                )
+                if not ok:
+                    return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+        converted_tracks = list(track_map.values())
+
+    if progress_callback:
+        progress_callback(100)
+    return converted_tracks
+
+
 def retrack_single_spot_tapir_offline(
     track_to_update: Track,
     start_frame_id: int,
@@ -4059,6 +4412,309 @@ def retrack_single_spot_tapir_offline(
                 start_local_idx=seed_local_idx + 1,
                 min_global_write_idx=covered_until,
                 global_start_idx=start_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
+
+
+def retrack_single_spot_tapir_online(
+    track_to_update: Track,
+    start_frame_id: int,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[Track]:
+    """
+    Re-track a single existing track from a chosen frame using causal / online TAPIR.
+
+    The track is trimmed after `start_frame_id`, then TAPIR is run from that
+    point to the end of the sequence using the spot center on the start frame
+    as the single query point.
+    """
+    if start_frame_id not in track_to_update.spots_by_image_id:
+        raise ValueError(
+            f"Cannot start BootsTAPIR Online re-tracking. Track {track_to_update.track_id} "
+            f"has no point on frame {start_frame_id}."
+        )
+    if start_frame_id not in sorted_frame_ids:
+        raise ValueError("Start frame is missing from the provided frame list.")
+
+    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
+    for fid in frames_to_remove:
+        del track_to_update.spots_by_image_id[fid]
+
+    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    subset_frame_ids = sorted_frame_ids[start_frame_index:]
+    if len(subset_frame_ids) < 2:
+        if progress_callback:
+            progress_callback(100)
+        return track_to_update
+
+    tapir_models_dir = Path(params.get("tapir_models_dir", DEFAULT_TAPIR_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_online_tapir_checkpoints(tapir_models_dir)
+        selected_checkpoint = select_default_online_tapir_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No causal TAPIR checkpoint selected. Place causal_bootstapir_checkpoint.pt "
+            "in tracking_models/tapir and pass checkpoint_path in params."
+        )
+    checkpoint_name = Path(checkpoint_path).name.lower()
+    if "causal" not in checkpoint_name and "online" not in checkpoint_name:
+        raise ValueError(
+            "Selected TAPIR checkpoint does not look causal/online. "
+            "BootsTAPIR Online expects causal_bootstapir_checkpoint.pt or similar."
+        )
+
+    query_points = np.array(
+        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
+        dtype=np.float32,
+    )
+
+    tapir_settings = TapirOnlineRuntimeSettings(
+        checkpoint_path=checkpoint_path,
+        device=params.get("device", "auto"),
+        inference_resolution=int(params.get("inference_resolution", 256)),
+        query_chunk_size=int(params.get("query_chunk_size", 64)),
+        use_visibility_gating=bool(params.get("use_visibility_gating", True)),
+        visibility_threshold=float(params.get("visibility_threshold", 0.5)),
+        use_uncertainty_gating=bool(params.get("use_uncertainty_gating", True)),
+        expected_dist_threshold=float(params.get("expected_dist_threshold", 0.5)),
+    )
+
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    recenter_mode = str(
+        params.get(
+            "recenter_mode",
+            "centroid" if bool(params.get("use_centroid_refinement", True)) else "none",
+        )
+    ).strip().lower()
+    centroid_patch_multiplier = float(
+        params.get("recenter_patch_multiplier", params.get("centroid_patch_multiplier", 1.25))
+    )
+    centroid_rel_threshold = float(params.get("centroid_rel_threshold", 0.35))
+    centroid_max_expand = int(max(0, params.get("centroid_max_expand", 1)))
+    centroid_max_shift_ratio = float(params.get("centroid_max_shift_ratio", 0.45))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_tapir_online_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            start_file = all_files_map.get(start_frame_id)
+            if start_file is not None:
+                start_image = load_tiff(start_file.filepath)
+            else:
+                start_image = None
+            fallback_shape = None
+            if start_image is not None and np.asarray(start_image).size:
+                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    state = {
+        "last_valid_xy": np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        ),
+        "invisible_streak": 0,
+        "terminated": False,
+        "expected_direction_sign": None,
+    }
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_tapir_online(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=tapir_settings,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = _append_tapir_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frames,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            recenter_mode=recenter_mode,
+            centroid_patch_multiplier=centroid_patch_multiplier,
+            centroid_rel_threshold=centroid_rel_threshold,
+            centroid_max_expand=centroid_max_expand,
+            centroid_max_shift_ratio=centroid_max_shift_ratio,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=1,
+            min_global_write_idx=None,
+            global_start_idx=0,
+            source="tapir_online",
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_tapir_online_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_tapir_online(
+                frames=window_frames,
+                query_points_tyx=np.asarray(
+                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=tapir_settings,
+            )
+
+            ok = _append_tapir_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                window_frame_ids,
+                window_frames,
+                window_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                recenter_mode=recenter_mode,
+                centroid_patch_multiplier=centroid_patch_multiplier,
+                centroid_rel_threshold=centroid_rel_threshold,
+                centroid_max_expand=centroid_max_expand,
+                centroid_max_shift_ratio=centroid_max_shift_ratio,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=seed_local_idx + 1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx,
+                source="tapir_online",
             )
             if not ok:
                 return None

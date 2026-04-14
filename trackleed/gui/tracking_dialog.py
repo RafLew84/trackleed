@@ -40,6 +40,7 @@ from trackleed.analysis.tracking import (
     retrack_single_spot_trackonr_offline,
     retrack_single_spot_tapnext_offline,
     retrack_single_spot_tapir_offline,
+    retrack_single_spot_tapir_online,
 )
 from trackleed.logic.generic_worker import GenericWorker
 
@@ -307,6 +308,8 @@ class TrackingDialog(QDialog):
         manual_sources = {"manual", "manual_new", "manual_corr", "manual_point"}
         if sources == {"tapir_offline"}:
             return "TAPIR"
+        if sources == {"tapir_online"}:
+            return "BootsTAPIR Online"
         if sources == {"locotrack_offline"}:
             return "LocoTrack"
         if sources == {"cotracker3_offline"}:
@@ -319,6 +322,8 @@ class TrackingDialog(QDialog):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
             return "TAPIR+Manual"
+        if "tapir_online" in sources and sources.issubset({"tapir_online"} | manual_sources):
+            return "BootsTAPIR Online+Manual"
         if "locotrack_offline" in sources and sources.issubset({"locotrack_offline"} | manual_sources):
             return "LocoTrack+Manual"
         if "cotracker3_offline" in sources and sources.issubset({"cotracker3_offline"} | manual_sources):
@@ -401,7 +406,7 @@ class TrackingDialog(QDialog):
         )
 
         source = str(getattr(spot, "source", "")).lower()
-        if source == "tapir_offline":
+        if source in {"tapir_offline", "tapir_online"}:
             raw_x = getattr(spot, "tapir_raw_x", None)
             raw_y = getattr(spot, "tapir_raw_y", None)
             refined_x = getattr(spot, "tapir_refined_x", None)
@@ -409,7 +414,8 @@ class TrackingDialog(QDialog):
             visibility = getattr(spot, "tapir_visibility", None)
             rejected_reason = getattr(spot, "tapir_filter_rejected_reason", None)
             if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw TAPIR: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+                label = "Raw BootsTAPIR Online" if source == "tapir_online" else "Raw TAPIR"
+                lines.append(f"{label}: ({float(raw_x):.2f}, {float(raw_y):.2f})")
             if refined_x is not None and refined_y is not None:
                 lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
             if visibility is not None:
@@ -515,10 +521,14 @@ class TrackingDialog(QDialog):
         if spot is None:
             return []
         source = str(getattr(spot, "source", "")).lower()
-        if source == "tapir_offline":
+        if source in {"tapir_offline", "tapir_online"}:
             raw_x = getattr(spot, "tapir_raw_x", None)
             raw_y = getattr(spot, "tapir_raw_y", None)
-            label = f"TAPIR T{selected_track.track_id}"
+            label = (
+                f"BOOTSTAPIR T{selected_track.track_id}"
+                if source == "tapir_online"
+                else f"TAPIR T{selected_track.track_id}"
+            )
         elif source == "locotrack_offline":
             raw_x = getattr(spot, "locotrack_raw_x", None)
             raw_y = getattr(spot, "locotrack_raw_y", None)
@@ -669,6 +679,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        current_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        spot_source = str(getattr(current_spot, "source", "")).strip().lower() if current_spot else ""
+        runtime_mode = str(self.tapir_params.get("runtime_mode", "offline")).strip().lower()
+        use_online = spot_source == "tapir_online" or runtime_mode == "online"
 
         if not self.tapir_params:
             QMessageBox.warning(
@@ -689,13 +703,20 @@ class TrackingDialog(QDialog):
                 format_tapir_environment_report(status),
             )
             return
+        if use_online and not status.selected_checkpoint_is_online:
+            QMessageBox.warning(
+                self,
+                "Causal TAPIR Required",
+                "BootsTAPIR Online re-tracking requires a causal / online TAPIR checkpoint.",
+            )
+            return
 
         tapir_params = dict(self.tapir_params)
         tapir_params["roi_size"] = self.roi_size
 
         cancel_event = Event()
         worker = GenericWorker(
-            retrack_single_spot_tapir_offline,
+            retrack_single_spot_tapir_online if use_online else retrack_single_spot_tapir_offline,
             track_to_retrack,
             current_frame_id,
             self.file_map,
@@ -705,9 +726,15 @@ class TrackingDialog(QDialog):
         )
         self.launch_retrack_worker(
             worker,
-            title="Re-tracking spot with TAPIR...",
+            title=(
+                "Re-tracking spot with BootsTAPIR Online..."
+                if use_online
+                else "Re-tracking spot with TAPIR..."
+            ),
             cancel_event=cancel_event,
-            method_label="TAPIR re-tracking",
+            method_label=(
+                "BootsTAPIR Online re-tracking" if use_online else "TAPIR re-tracking"
+            ),
         )
 
     def initiate_retrack_locotrack(self, spot_id: int):
