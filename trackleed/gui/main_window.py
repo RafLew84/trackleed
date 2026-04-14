@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/main_window.py
 
 from pathlib import Path
@@ -43,6 +45,10 @@ from trackleed.analysis.trackonr_backend import (
     format_trackonr_environment_report,
     probe_trackonr_environment,
 )
+from trackleed.analysis.pipspp_backend import (
+    format_pipspp_environment_report,
+    probe_pipspp_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -61,6 +67,7 @@ from trackleed.analysis.tracking import (
     track_spots_cotracker3_offline,
     track_spots_tapnext_offline,
     track_spots_trackonr_offline,
+    track_spots_pipspp_offline,
 )
 
 from skimage.util import img_as_float
@@ -230,6 +237,33 @@ class TrackonrTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class PipsppTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    device: str = "auto"
+    inference_resolution: tuple[int, int] = (256, 384)
+    iters: int = 4
+    beautify: bool = True
+    use_inbounds_visibility: bool = True
+    window_size: int = 64
+    window_overlap: int = 8
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -254,6 +288,7 @@ class MainWindow(QMainWindow):
         self.cotracker_settings = CotrackerTrackingSettings()
         self.tapnext_settings = TapnextTrackingSettings()
         self.trackonr_settings = TrackonrTrackingSettings()
+        self.pipspp_settings = PipsppTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -263,6 +298,7 @@ class MainWindow(QMainWindow):
         self.cotracker_models_dir = self.tracking_models_dir / "cotracker3"
         self.tapnext_models_dir = self.tracking_models_dir / "tapnext"
         self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
+        self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
@@ -275,6 +311,9 @@ class MainWindow(QMainWindow):
         default_trackon_repo = Path(__file__).resolve().parents[3] / "track_on"
         if default_trackon_repo.exists():
             self.trackonr_settings.repo_path = str(default_trackon_repo.resolve())
+        default_pipspp_repo = Path(__file__).resolve().parents[3] / "pipspp"
+        if default_pipspp_repo.exists():
+            self.pipspp_settings.repo_path = str(default_pipspp_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
@@ -283,6 +322,7 @@ class MainWindow(QMainWindow):
         self._cotracker_checkpoint_available = False
         self._tapnext_checkpoint_available = False
         self._trackonr_checkpoint_available = False
+        self._pipspp_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1158,6 +1198,7 @@ class MainWindow(QMainWindow):
             "Offline CoTracker3",
             "Offline TAPNext",
             "Offline Track-On-R",
+            "Offline PIPs++",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -2537,6 +2578,248 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.trackonr_group)
 
+        # --- Offline PIPs++ parameters ---
+        self.pipspp_group = QGroupBox("Offline PIPs++")
+        pipspp_layout = QFormLayout(self.pipspp_group)
+
+        self.pipspp_repo_path_edit = QLineEdit(self.pipspp_settings.repo_path or "")
+        self.pipspp_repo_path_edit.setPlaceholderText("Path to local pipspp repo root")
+        self.pipspp_repo_path_edit.setToolTip(
+            "Local clone of the PIPs++ repository. Must contain nets/pips2.py and saverloader.py."
+        )
+        self.pipspp_repo_path_edit.editingFinished.connect(self._refresh_pipspp_checkpoints)
+        pipspp_layout.addRow("Repo path:", self.pipspp_repo_path_edit)
+
+        pipspp_model_row_widget = QWidget()
+        pipspp_model_row_layout = QHBoxLayout(pipspp_model_row_widget)
+        pipspp_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.pipspp_checkpoint_combo = QComboBox()
+        self.pipspp_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.pipspp_checkpoint_combo.setToolTip(
+            "Select a PIPs++ checkpoint reference from tracking_models/pipspp or repo/reference_model."
+        )
+        self.pipspp_checkpoint_combo.currentIndexChanged.connect(self._on_pipspp_checkpoint_selected)
+        self.pipspp_refresh_button = QPushButton("Refresh")
+        self.pipspp_refresh_button.setToolTip(
+            "Re-scan tracking_models/pipspp and re-run PIPs++ environment diagnostics."
+        )
+        self.pipspp_refresh_button.clicked.connect(self._refresh_pipspp_checkpoints)
+        pipspp_model_row_layout.addWidget(self.pipspp_checkpoint_combo)
+        pipspp_model_row_layout.addWidget(self.pipspp_refresh_button)
+        pipspp_layout.addRow("Checkpoint:", pipspp_model_row_widget)
+
+        self.pipspp_device_combo = QComboBox()
+        self.pipspp_device_combo.addItem("Auto", "auto")
+        self.pipspp_device_combo.addItem("GPU", "gpu")
+        self.pipspp_device_combo.addItem("CPU", "cpu")
+        pipspp_device_idx = self.pipspp_device_combo.findData(self.pipspp_settings.device)
+        self.pipspp_device_combo.setCurrentIndex(pipspp_device_idx if pipspp_device_idx >= 0 else 0)
+        self.pipspp_device_combo.setToolTip("Device used for PIPs++ inference. Upstream runtime currently expects CUDA.")
+        pipspp_layout.addRow("Device:", self.pipspp_device_combo)
+
+        self.pipspp_inference_resolution_combo = QComboBox()
+        for label, value in (
+            ("256 x 384", (256, 384)),
+            ("384 x 512", (384, 512)),
+            ("512 x 896", (512, 896)),
+        ):
+            self.pipspp_inference_resolution_combo.addItem(label, value)
+        pipspp_res_idx = self.pipspp_inference_resolution_combo.findData(
+            self.pipspp_settings.inference_resolution
+        )
+        self.pipspp_inference_resolution_combo.setCurrentIndex(pipspp_res_idx if pipspp_res_idx >= 0 else 0)
+        self.pipspp_inference_resolution_combo.setToolTip(
+            "Input resolution passed to PIPs++. Values should remain divisible by 32."
+        )
+        pipspp_layout.addRow("Inference resolution:", self.pipspp_inference_resolution_combo)
+
+        self.pipspp_iters_spinbox = QSpinBox()
+        self.pipspp_iters_spinbox.setRange(1, 32)
+        self.pipspp_iters_spinbox.setValue(self.pipspp_settings.iters)
+        self.pipspp_iters_spinbox.setToolTip(
+            "Number of iterative PIPs++ refinement steps. Higher values may improve stability at higher cost."
+        )
+        pipspp_layout.addRow("Iterations:", self.pipspp_iters_spinbox)
+
+        self.pipspp_beautify_checkbox = QCheckBox("Use beautify")
+        self.pipspp_beautify_checkbox.setChecked(self.pipspp_settings.beautify)
+        self.pipspp_beautify_checkbox.setToolTip(
+            "Enable the upstream PIPs++ smoothing step during the last refinement iterations."
+        )
+        pipspp_layout.addRow(self.pipspp_beautify_checkbox)
+
+        self.pipspp_inbounds_visibility_checkbox = QCheckBox("Use in-bounds visibility")
+        self.pipspp_inbounds_visibility_checkbox.setChecked(self.pipspp_settings.use_inbounds_visibility)
+        self.pipspp_inbounds_visibility_checkbox.setToolTip(
+            "PIPs++ does not expose visibility logits in inference, so Trackleed uses an in-bounds heuristic."
+        )
+        pipspp_layout.addRow(self.pipspp_inbounds_visibility_checkbox)
+
+        self.pipspp_window_size_spinbox = QSpinBox()
+        self.pipspp_window_size_spinbox.setRange(2, 4096)
+        self.pipspp_window_size_spinbox.setValue(self.pipspp_settings.window_size)
+        self.pipspp_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed PIPs++ window. Smaller values reduce VRAM."
+        )
+        pipspp_layout.addRow("Window size:", self.pipspp_window_size_spinbox)
+
+        self.pipspp_window_overlap_spinbox = QSpinBox()
+        self.pipspp_window_overlap_spinbox.setRange(0, 1024)
+        self.pipspp_window_overlap_spinbox.setValue(self.pipspp_settings.window_overlap)
+        self.pipspp_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive PIPs++ windows. "
+            "Trackleed reseeds the next window from this overlap and enforces at least one shared frame when multiple windows are used."
+        )
+        pipspp_layout.addRow("Window overlap:", self.pipspp_window_overlap_spinbox)
+
+        self.pipspp_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.pipspp_keep_gaps_checkbox.setChecked(self.pipspp_settings.keep_invisible_points_as_gaps)
+        self.pipspp_keep_gaps_checkbox.setToolTip(
+            "If enabled, rejected or out-of-bounds PIPs++ predictions create gaps instead of forced points."
+        )
+        pipspp_layout.addRow(self.pipspp_keep_gaps_checkbox)
+
+        self.pipspp_max_step_spinbox = QDoubleSpinBox()
+        self.pipspp_max_step_spinbox.setDecimals(1)
+        self.pipspp_max_step_spinbox.setRange(0.0, 500.0)
+        self.pipspp_max_step_spinbox.setSingleStep(1.0)
+        self.pipspp_max_step_spinbox.setValue(self.pipspp_settings.max_step_distance_px)
+        self.pipspp_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        pipspp_layout.addRow("Max jump (px):", self.pipspp_max_step_spinbox)
+
+        self.pipspp_max_reacquisition_gap_spinbox = QSpinBox()
+        self.pipspp_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.pipspp_max_reacquisition_gap_spinbox.setValue(self.pipspp_settings.max_reacquisition_gap)
+        self.pipspp_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        pipspp_layout.addRow("Max reacquisition gap:", self.pipspp_max_reacquisition_gap_spinbox)
+
+        self.pipspp_terminate_after_invisible_spinbox = QSpinBox()
+        self.pipspp_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.pipspp_terminate_after_invisible_spinbox.setValue(
+            self.pipspp_settings.terminate_after_invisible_frames
+        )
+        self.pipspp_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        pipspp_layout.addRow("Terminate after gap:", self.pipspp_terminate_after_invisible_spinbox)
+
+        self.pipspp_center_mode_combo = QComboBox()
+        self.pipspp_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.pipspp_center_mode_combo.addItem("Manual", "manual")
+        pipspp_center_mode_idx = self.pipspp_center_mode_combo.findData(self.pipspp_settings.center_mode)
+        self.pipspp_center_mode_combo.setCurrentIndex(
+            pipspp_center_mode_idx if pipspp_center_mode_idx >= 0 else 0
+        )
+        self.pipspp_center_mode_combo.setToolTip(
+            "Reference center used by directional gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.pipspp_center_mode_combo.currentIndexChanged.connect(self._on_pipspp_center_mode_changed)
+        pipspp_layout.addRow("Direction center:", self.pipspp_center_mode_combo)
+
+        pipspp_center_row_widget = QWidget()
+        pipspp_center_row_layout = QHBoxLayout(pipspp_center_row_widget)
+        pipspp_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.pipspp_center_x_spinbox = QDoubleSpinBox()
+        self.pipspp_center_x_spinbox.setRange(0.0, 10000.0)
+        self.pipspp_center_x_spinbox.setDecimals(1)
+        self.pipspp_center_x_spinbox.setValue(self.pipspp_settings.manual_center_x)
+        self.pipspp_center_y_spinbox = QDoubleSpinBox()
+        self.pipspp_center_y_spinbox.setRange(0.0, 10000.0)
+        self.pipspp_center_y_spinbox.setDecimals(1)
+        self.pipspp_center_y_spinbox.setValue(self.pipspp_settings.manual_center_y)
+        pipspp_center_row_layout.addWidget(self.pipspp_center_x_spinbox)
+        pipspp_center_row_layout.addWidget(QLabel(","))
+        pipspp_center_row_layout.addWidget(self.pipspp_center_y_spinbox)
+        pipspp_layout.addRow("Manual center (x, y):", pipspp_center_row_widget)
+
+        self.pipspp_direction_mode_combo = QComboBox()
+        self.pipspp_direction_mode_combo.addItem("None", "none")
+        self.pipspp_direction_mode_combo.addItem("Auto", "auto")
+        self.pipspp_direction_mode_combo.addItem("Inward", "inward")
+        self.pipspp_direction_mode_combo.addItem("Outward", "outward")
+        pipspp_direction_idx = self.pipspp_direction_mode_combo.findData(self.pipspp_settings.direction_mode)
+        self.pipspp_direction_mode_combo.setCurrentIndex(
+            pipspp_direction_idx if pipspp_direction_idx >= 0 else 0
+        )
+        self.pipspp_direction_mode_combo.setToolTip(
+            "Optional directional prior for radial motion relative to the LEED center."
+        )
+        pipspp_layout.addRow("Direction mode:", self.pipspp_direction_mode_combo)
+
+        self.pipspp_lateral_tol_spinbox = QDoubleSpinBox()
+        self.pipspp_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.pipspp_lateral_tol_spinbox.setSingleStep(1.0)
+        self.pipspp_lateral_tol_spinbox.setValue(self.pipspp_settings.lateral_angle_tolerance_deg)
+        self.pipspp_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        pipspp_layout.addRow("Angular tol (deg):", self.pipspp_lateral_tol_spinbox)
+
+        self.pipspp_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.pipspp_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.pipspp_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.pipspp_max_radial_jump_spinbox.setValue(self.pipspp_settings.max_radial_jump_px)
+        self.pipspp_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        pipspp_layout.addRow("Max radial jump (px):", self.pipspp_max_radial_jump_spinbox)
+
+        self.pipspp_recenter_mode_combo = QComboBox()
+        self.pipspp_recenter_mode_combo.addItem("None", "none")
+        self.pipspp_recenter_mode_combo.addItem("Peak", "peak")
+        self.pipspp_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.pipspp_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        pipspp_recenter_mode_idx = self.pipspp_recenter_mode_combo.findData(self.pipspp_settings.recenter_mode)
+        self.pipspp_recenter_mode_combo.setCurrentIndex(
+            pipspp_recenter_mode_idx if pipspp_recenter_mode_idx >= 0 else 2
+        )
+        self.pipspp_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each PIPs++ prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        pipspp_layout.addRow("Recenter mode:", self.pipspp_recenter_mode_combo)
+
+        self.pipspp_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.pipspp_centroid_multiplier_spinbox.setDecimals(2)
+        self.pipspp_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.pipspp_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.pipspp_centroid_multiplier_spinbox.setValue(self.pipspp_settings.recenter_patch_multiplier)
+        self.pipspp_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        pipspp_layout.addRow("Recenter radius x ROI:", self.pipspp_centroid_multiplier_spinbox)
+
+        self.pipspp_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.pipspp_centroid_rel_thr_spinbox.setDecimals(2)
+        self.pipspp_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.pipspp_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.pipspp_centroid_rel_thr_spinbox.setValue(self.pipspp_settings.centroid_rel_threshold)
+        self.pipspp_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        pipspp_layout.addRow("Recenter threshold:", self.pipspp_centroid_rel_thr_spinbox)
+
+        self.pipspp_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.pipspp_centroid_max_shift_spinbox.setDecimals(2)
+        self.pipspp_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.pipspp_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.pipspp_centroid_max_shift_spinbox.setValue(self.pipspp_settings.centroid_max_shift_ratio)
+        self.pipspp_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        pipspp_layout.addRow("Max recenter shift:", self.pipspp_centroid_max_shift_spinbox)
+
+        self.pipspp_warning_label = QLabel()
+        self.pipspp_warning_label.setStyleSheet("color: #d9534f;")
+        self.pipspp_warning_label.setWordWrap(True)
+        pipspp_layout.addRow(self.pipspp_warning_label)
+        self._on_pipspp_center_mode_changed(self.pipspp_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.pipspp_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -2695,6 +2978,7 @@ class MainWindow(QMainWindow):
         self._refresh_cotracker_checkpoints()
         self._refresh_tapnext_checkpoints()
         self._refresh_trackonr_checkpoints()
+        self._refresh_pipspp_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -3362,6 +3646,76 @@ class MainWindow(QMainWindow):
         self.trackonr_settings.checkpoint_path = checkpoint_path
         self._refresh_trackonr_checkpoints()
 
+    def _refresh_pipspp_checkpoints(self):
+        repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
+        if repo_path:
+            self.pipspp_settings.repo_path = repo_path
+        status = probe_pipspp_environment(
+            models_dir=self.pipspp_models_dir,
+            checkpoint_path=self.pipspp_settings.checkpoint_path,
+            repo_path=self.pipspp_settings.repo_path,
+        )
+
+        self.pipspp_checkpoint_combo.blockSignals(True)
+        self.pipspp_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.pipspp_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.pipspp_checkpoint_combo.setEnabled(False)
+            self._pipspp_checkpoint_available = False
+            self.pipspp_settings.checkpoint_path = None
+        else:
+            self.pipspp_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.pipspp_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._pipspp_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.pipspp_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.pipspp_checkpoint_combo.setCurrentIndex(idx)
+                    self.pipspp_settings.checkpoint_path = selected_checkpoint
+            if not self.pipspp_settings.checkpoint_path and self.pipspp_checkpoint_combo.count() > 0:
+                self.pipspp_checkpoint_combo.setCurrentIndex(0)
+                self.pipspp_settings.checkpoint_path = self.pipspp_checkpoint_combo.currentData()
+
+        self.pipspp_checkpoint_combo.blockSignals(False)
+        self.pipspp_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.pipspp_settings.repo_path or "")
+        )
+        self.pipspp_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.pipspp_settings.repo_path
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            self.pipspp_warning_label.setStyleSheet("color: #5cb85c;")
+            self.pipspp_warning_label.setText(
+                "PIPs++ ready. " + ", ".join(details)
+            )
+            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            self.pipspp_warning_label.setStyleSheet("color: #d9534f;")
+            self.pipspp_warning_label.setText("\n".join(summary))
+            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
+
+    def _on_pipspp_checkpoint_selected(self, index: int):
+        checkpoint_path = self.pipspp_checkpoint_combo.itemData(index)
+        self.pipspp_settings.checkpoint_path = checkpoint_path
+        self._refresh_pipspp_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -3444,6 +3798,8 @@ class MainWindow(QMainWindow):
             )
         if scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}:
             self._refresh_tapir_checkpoints()
+        if scenario == "Offline PIPs++":
+            self._refresh_pipspp_checkpoints()
 
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
@@ -3457,6 +3813,7 @@ class MainWindow(QMainWindow):
         show_cotracker = scenario == "Offline CoTracker3"
         show_tapnext = scenario == "Offline TAPNext"
         show_trackonr = scenario == "Offline Track-On-R"
+        show_pipspp = scenario == "Offline PIPs++"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -3474,6 +3831,8 @@ class MainWindow(QMainWindow):
             self.tapnext_group.setVisible(show_tapnext)
         if hasattr(self, "trackonr_group"):
             self.trackonr_group.setVisible(show_trackonr)
+        if hasattr(self, "pipspp_group"):
+            self.pipspp_group.setVisible(show_pipspp)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -3503,6 +3862,11 @@ class MainWindow(QMainWindow):
         manual = self.trackonr_center_mode_combo.itemData(idx) == "manual"
         self.trackonr_center_x_spinbox.setEnabled(manual)
         self.trackonr_center_y_spinbox.setEnabled(manual)
+
+    def _on_pipspp_center_mode_changed(self, idx: int):
+        manual = self.pipspp_center_mode_combo.itemData(idx) == "manual"
+        self.pipspp_center_x_spinbox.setEnabled(manual)
+        self.pipspp_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -4279,6 +4643,45 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_pipspp_tracking_params(self) -> dict:
+        """Collect the current PIPs++ tracking settings from the UI."""
+        repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
+        inference_resolution = self.pipspp_inference_resolution_combo.currentData()
+        if isinstance(inference_resolution, (tuple, list)) and len(inference_resolution) >= 2:
+            inference_resolution = (int(inference_resolution[0]), int(inference_resolution[1]))
+        else:
+            inference_resolution = self.pipspp_settings.inference_resolution
+        return {
+            "pipspp_models_dir": str(self.pipspp_models_dir.resolve()),
+            "pipspp_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.pipspp_settings.checkpoint_path,
+            "device": self.pipspp_device_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "iters": self.pipspp_iters_spinbox.value(),
+            "beautify": self.pipspp_beautify_checkbox.isChecked(),
+            "use_inbounds_visibility": self.pipspp_inbounds_visibility_checkbox.isChecked(),
+            "window_size": self.pipspp_window_size_spinbox.value(),
+            "window_overlap": self.pipspp_window_overlap_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.pipspp_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.pipspp_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.pipspp_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.pipspp_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.pipspp_center_mode_combo.currentData(),
+            "manual_center": (
+                self.pipspp_center_x_spinbox.value(),
+                self.pipspp_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.pipspp_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.pipspp_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.pipspp_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.pipspp_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.pipspp_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.pipspp_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.pipspp_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -4547,6 +4950,44 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline PIPs++":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline PIPs++ requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
+            self.pipspp_settings.repo_path = repo_path
+            status = probe_pipspp_environment(
+                models_dir=self.pipspp_models_dir,
+                checkpoint_path=self.pipspp_settings.checkpoint_path,
+                repo_path=self.pipspp_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "PIPs++ Unavailable",
+                    format_pipspp_environment_report(status),
+                )
+                return
+
+            pipspp_params = self._collect_pipspp_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_pipspp_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                pipspp_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -4702,6 +5143,7 @@ class MainWindow(QMainWindow):
             cotracker_params=self._collect_cotracker_tracking_params(),
             tapnext_params=self._collect_tapnext_tracking_params(),
             trackonr_params=self._collect_trackonr_tracking_params(),
+            pipspp_params=self._collect_pipspp_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/tracking_dialog.py
 
 from typing import List
@@ -33,10 +35,15 @@ from trackleed.analysis.trackonr_backend import (
     format_trackonr_environment_report,
     probe_trackonr_environment,
 )
+from trackleed.analysis.pipspp_backend import (
+    format_pipspp_environment_report,
+    probe_pipspp_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
+    retrack_single_spot_pipspp_offline,
     retrack_single_spot_trackonr_offline,
     retrack_single_spot_tapnext_offline,
     retrack_single_spot_tapir_offline,
@@ -62,6 +69,7 @@ class TrackingDialog(QDialog):
         cotracker_params: dict | None = None,
         tapnext_params: dict | None = None,
         trackonr_params: dict | None = None,
+        pipspp_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -86,6 +94,7 @@ class TrackingDialog(QDialog):
         self.cotracker_params = dict(cotracker_params or {})
         self.tapnext_params = dict(tapnext_params or {})
         self.trackonr_params = dict(trackonr_params or {})
+        self.pipspp_params = dict(pipspp_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -318,6 +327,8 @@ class TrackingDialog(QDialog):
             return "TAPNext"
         if sources == {"trackonr_offline"}:
             return "Track-On-R"
+        if sources == {"pipspp_offline"}:
+            return "PIPs++"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
@@ -332,6 +343,8 @@ class TrackingDialog(QDialog):
             return "TAPNext+Manual"
         if "trackonr_offline" in sources and sources.issubset({"trackonr_offline"} | manual_sources):
             return "Track-On-R+Manual"
+        if "pipspp_offline" in sources and sources.issubset({"pipspp_offline"} | manual_sources):
+            return "PIPs++ + Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -491,6 +504,21 @@ class TrackingDialog(QDialog):
                 lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "pipspp_offline":
+            raw_x = getattr(spot, "pipspp_raw_x", None)
+            raw_y = getattr(spot, "pipspp_raw_y", None)
+            refined_x = getattr(spot, "pipspp_refined_x", None)
+            refined_y = getattr(spot, "pipspp_refined_y", None)
+            visibility = getattr(spot, "pipspp_visibility", None)
+            rejected_reason = getattr(spot, "pipspp_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw PIPs++: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -545,6 +573,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "trackonr_raw_x", None)
             raw_y = getattr(spot, "trackonr_raw_y", None)
             label = f"TRACK-ON-R T{selected_track.track_id}"
+        elif source == "pipspp_offline":
+            raw_x = getattr(spot, "pipspp_raw_x", None)
+            raw_y = getattr(spot, "pipspp_raw_y", None)
+            label = f"PIPS++ T{selected_track.track_id}"
         else:
             return []
 
@@ -608,6 +640,7 @@ class TrackingDialog(QDialog):
         retrack_cotracker_action = menu.addAction("Re-track from this point (CoTracker3)")
         retrack_tapnext_action = menu.addAction("Re-track from this point (TAPNext)")
         retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
+        retrack_pipspp_action = menu.addAction("Re-track from this point (PIPs++)")
         
         action = menu.exec(global_pos)
         
@@ -625,6 +658,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_tapnext(spot_id)
         elif action == retrack_trackonr_action:
             self.initiate_retrack_trackonr(spot_id)
+        elif action == retrack_pipspp_action:
+            self.initiate_retrack_pipspp(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -933,6 +968,54 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with Track-On-R...",
             cancel_event=cancel_event,
             method_label="Track-On-R re-tracking",
+        )
+
+    def initiate_retrack_pipspp(self, spot_id: int):
+        """Prepares and launches PIPs++ re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.pipspp_params:
+            QMessageBox.warning(
+                self,
+                "PIPs++ Settings Missing",
+                "PIPs++ parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_pipspp_environment(
+            models_dir=self.pipspp_params.get("pipspp_models_dir"),
+            checkpoint_path=self.pipspp_params.get("checkpoint_path"),
+            repo_path=self.pipspp_params.get("repo_path") or self.pipspp_params.get("pipspp_repo_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "PIPs++ Unavailable",
+                format_pipspp_environment_report(status),
+            )
+            return
+
+        pipspp_params = dict(self.pipspp_params)
+        pipspp_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_pipspp_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            pipspp_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with PIPs++...",
+            cancel_event=cancel_event,
+            method_label="PIPs++ re-tracking",
         )
 
     def launch_retrack_worker(

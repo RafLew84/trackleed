@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/logic/generic_worker.py
 from PyQt6.QtCore import QObject, pyqtSignal, QThread
 import traceback

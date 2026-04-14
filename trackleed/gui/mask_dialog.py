@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/mask_dialog.py
 
 from PyQt6.QtCore import QRect, QSize, Qt, QPoint

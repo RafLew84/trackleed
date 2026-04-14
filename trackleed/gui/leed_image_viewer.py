@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/leed_image_viewer.py
 
 from typing import Any, List, Dict

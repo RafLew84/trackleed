@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/positions_analysis_dialog.py
 
 import json

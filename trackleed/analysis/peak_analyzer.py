@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/analysis/peak_analyzer.py
 
 import numpy as np

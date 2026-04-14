@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/analysis/tracking.py
 
 from pathlib import Path
@@ -55,6 +57,13 @@ from trackleed.analysis.trackonr_backend import (
     discover_trackonr_checkpoints,
     run_trackonr_offline,
     select_default_trackonr_checkpoint,
+)
+from trackleed.analysis.pipspp_backend import (
+    DEFAULT_PIPSPP_MODELS_DIR,
+    PipsppRuntimeSettings,
+    discover_pipspp_checkpoints,
+    run_pipspp_offline,
+    select_default_pipspp_checkpoint,
 )
 
 
@@ -529,6 +538,56 @@ def _build_trackonr_spot(
     return spot
 
 
+def _build_pipspp_spot(
+    reference_spot: SpotROI,
+    image_frame: np.ndarray,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    recenter_mode: str,
+    centroid_patch_multiplier: float,
+    centroid_rel_threshold: float,
+    centroid_max_expand: int,
+    centroid_max_shift_ratio: float,
+) -> SpotROI:
+    """Create a SpotROI from PIPs++ output, optionally recentered on the local spot."""
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+    if visible and np.isfinite(x) and np.isfinite(y):
+        x, y = _refine_tapir_point(
+            image_frame,
+            x,
+            y,
+            roi_size,
+            recenter_mode,
+            centroid_patch_multiplier,
+            centroid_rel_threshold,
+            centroid_max_expand,
+            centroid_max_shift_ratio,
+        )
+    rect = _centered_roi_rect(x, y, roi_size, image_shape)
+    spot = SpotROI(
+        id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        intensity=1.0 if visible else 0.0,
+        source="pipspp_offline",
+    )
+    setattr(spot, "pipspp_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
+    setattr(spot, "pipspp_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
+    setattr(spot, "pipspp_refined_x", float(x))
+    setattr(spot, "pipspp_refined_y", float(y))
+    setattr(spot, "pipspp_visibility", bool(visible))
+    return spot
+
+
 def _compute_point_tracker_window_starts(
     total_frames: int,
     window_size: int,
@@ -579,6 +638,24 @@ def _resolve_trackonr_window_overlap(
 ) -> int:
     """
     Track-On-R windows are restarted independently and reseeded from overlap frames.
+
+    That means multi-window tracking needs at least one shared frame between
+    neighboring windows; otherwise the next window has no already-tracked point
+    on its first frame to seed from.
+    """
+    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
+    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
+        overlap = max(1, overlap)
+    return overlap
+
+
+def _resolve_pipspp_window_overlap(
+    total_frames: int,
+    window_size: int,
+    window_overlap: int,
+) -> int:
+    """
+    PIPs++ windows are restarted independently and reseeded from overlap frames.
 
     That means multi-window tracking needs at least one shared frame between
     neighboring windows; otherwise the next window has no already-tracked point
@@ -1527,6 +1604,192 @@ def _append_trackonr_sequence_to_track(
                 )
                 forced_spot.intensity = 0.0
                 setattr(forced_spot, "trackonr_visibility", False)
+                track.spots_by_image_id[frame_id] = forced_spot
+            continue
+
+        track.spots_by_image_id[frame_id] = candidate_spot
+        last_valid_xy = np.array(
+            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+            dtype=np.float32,
+        )
+        invisible_streak = 0
+
+    state["last_valid_xy"] = last_valid_xy
+    state["invisible_streak"] = invisible_streak
+    state["terminated"] = terminated
+    return True
+
+
+def _append_pipspp_sequence_to_track(
+    track: Track,
+    state: Dict[str, Any],
+    reference_spot: SpotROI,
+    frame_ids: List[int],
+    frames: np.ndarray,
+    frame_shapes: List[Tuple[int, int]],
+    query_tracks: np.ndarray,
+    query_visible: np.ndarray,
+    *,
+    roi_size: int,
+    keep_invisible_as_gaps: bool,
+    recenter_mode: str,
+    centroid_patch_multiplier: float,
+    centroid_rel_threshold: float,
+    centroid_max_expand: int,
+    centroid_max_shift_ratio: float,
+    max_step_distance_px: float,
+    max_reacquisition_gap: int,
+    terminate_after_invisible_frames: int,
+    direction_center_xy: Tuple[float, float] | None,
+    direction_mode: str,
+    lateral_angle_tolerance_deg: float,
+    max_radial_jump_px: float,
+    min_directional_motion_px: float,
+    cancel_event: Optional[Event] = None,
+    start_local_idx: int = 1,
+    min_global_write_idx: int | None = None,
+    global_start_idx: int = 0,
+) -> bool:
+    """
+    Append PIPs++ predictions to one track, applying filtering and gap logic.
+
+    Returns False only when canceled.
+    """
+    last_valid_xy = state["last_valid_xy"]
+    invisible_streak = int(state["invisible_streak"])
+    terminated = bool(state["terminated"])
+    max_step_distance_px = float(max(0.0, max_step_distance_px))
+    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
+    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
+    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
+    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
+    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
+    direction_mode = str(direction_mode or "none").strip().lower()
+
+    if terminated:
+        return True
+
+    for local_idx in range(start_local_idx, len(frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        global_idx = global_start_idx + local_idx
+        if min_global_write_idx is not None and global_idx <= min_global_write_idx:
+            continue
+
+        frame_id = frame_ids[local_idx]
+        visible = bool(query_visible[local_idx])
+        raw_x = float(query_tracks[local_idx, 0])
+        raw_y = float(query_tracks[local_idx, 1])
+
+        candidate_spot: SpotROI | None = None
+        accepted = visible
+
+        if accepted:
+            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
+                state["terminated"] = True
+                return True
+
+            candidate_spot = _build_pipspp_spot(
+                reference_spot,
+                frames[local_idx],
+                frame_shapes[local_idx],
+                raw_x,
+                raw_y,
+                True,
+                roi_size,
+                recenter_mode,
+                centroid_patch_multiplier,
+                centroid_rel_threshold,
+                centroid_max_expand,
+                centroid_max_shift_ratio,
+            )
+
+            if max_step_distance_px > 0.0 and last_valid_xy is not None:
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
+                    accepted = False
+                    setattr(candidate_spot, "pipspp_filter_rejected", True)
+                    setattr(candidate_spot, "pipspp_filter_rejected_reason", "max_step_distance")
+
+            if (
+                accepted
+                and direction_center_xy is not None
+                and last_valid_xy is not None
+                and direction_mode != "none"
+            ):
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                delta = candidate_xy - last_valid_xy
+                step_norm = float(np.linalg.norm(delta))
+                radial_unit, last_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
+                )
+                _, candidate_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(candidate_xy[0]), float(candidate_xy[1])),
+                )
+
+                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
+                    accepted = False
+                    setattr(candidate_spot, "pipspp_filter_rejected", True)
+                    setattr(candidate_spot, "pipspp_filter_rejected_reason", "max_radial_jump")
+
+                if accepted and step_norm >= min_directional_motion_px:
+                    expected_sign = state.get("expected_direction_sign")
+                    if direction_mode == "inward":
+                        expected_sign = -1.0
+                    elif direction_mode == "outward":
+                        expected_sign = 1.0
+                    else:
+                        if expected_sign is None:
+                            radial_comp_seed = float(np.dot(delta, radial_unit))
+                            if abs(radial_comp_seed) >= min_directional_motion_px:
+                                expected_sign = float(np.sign(radial_comp_seed))
+                                state["expected_direction_sign"] = expected_sign
+
+                    if expected_sign is not None:
+                        expected_vec = radial_unit * float(expected_sign)
+                        angle_deg = angular_offset_deg(expected_vec, delta)
+                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
+                            accepted = False
+                            setattr(candidate_spot, "pipspp_filter_rejected", True)
+                            setattr(candidate_spot, "pipspp_filter_rejected_reason", "direction_gating")
+
+        if not accepted:
+            invisible_streak += 1
+            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
+                state["terminated"] = True
+                return True
+            if not keep_invisible_as_gaps:
+                fallback_x = raw_x if np.isfinite(raw_x) else (
+                    float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
+                )
+                fallback_y = raw_y if np.isfinite(raw_y) else (
+                    float(last_valid_xy[1]) if last_valid_xy is not None else float(reference_spot.center_y)
+                )
+                forced_spot = candidate_spot or _build_pipspp_spot(
+                    reference_spot,
+                    frames[local_idx],
+                    frame_shapes[local_idx],
+                    fallback_x,
+                    fallback_y,
+                    False,
+                    roi_size,
+                    "none",
+                    centroid_patch_multiplier,
+                    centroid_rel_threshold,
+                    centroid_max_expand,
+                    centroid_max_shift_ratio,
+                )
+                forced_spot.intensity = 0.0
+                setattr(forced_spot, "pipspp_visibility", False)
                 track.spots_by_image_id[frame_id] = forced_spot
             continue
 
@@ -2594,7 +2857,11 @@ def track_spots_locotrack_offline(
     centroid_max_expand = int(max(0, params.get("centroid_max_expand", 1)))
     centroid_max_shift_ratio = float(params.get("centroid_max_shift_ratio", 0.45))
     window_size = int(params.get("window_size", 64))
-    window_overlap = int(params.get("window_overlap", 8))
+    window_overlap = _resolve_pipspp_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
@@ -2729,7 +2996,11 @@ def track_spots_locotrack_offline(
             window_size,
             window_overlap,
         )
-        overlap = min(max(0, window_overlap), max(0, window_size - 1))
+        overlap = _resolve_pipspp_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
         covered_until = 0
 
         for window_idx, start_idx in enumerate(window_starts):
@@ -3119,6 +3390,325 @@ def track_spots_cotracker3_offline(
 
                 track = track_map[reference_spot.id]
                 ok = _append_cotracker3_sequence_to_track(
+                    track,
+                    track_states[reference_spot.id],
+                    reference_spot,
+                    window_frame_ids,
+                    window_frames,
+                    window_shapes,
+                    result.tracks_xy[query_idx],
+                    result.visible_mask[query_idx],
+                    roi_size=roi_size,
+                    keep_invisible_as_gaps=keep_invisible_as_gaps,
+                    recenter_mode=recenter_mode,
+                    centroid_patch_multiplier=centroid_patch_multiplier,
+                    centroid_rel_threshold=centroid_rel_threshold,
+                    centroid_max_expand=centroid_max_expand,
+                    centroid_max_shift_ratio=centroid_max_shift_ratio,
+                    max_step_distance_px=max_step_distance_px,
+                    max_reacquisition_gap=max_reacquisition_gap,
+                    terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=direction_mode,
+                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                    max_radial_jump_px=max_radial_jump_px,
+                    min_directional_motion_px=min_directional_motion_px,
+                    cancel_event=cancel_event,
+                    start_local_idx=seed_local_idx + 1,
+                    min_global_write_idx=write_after_global_idx,
+                    global_start_idx=start_idx,
+                )
+                if not ok:
+                    return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+        converted_tracks = list(track_map.values())
+
+    if progress_callback:
+        progress_callback(100)
+    return converted_tracks
+
+
+def track_spots_pipspp_offline(
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots from a reference frame using offline PIPs++.
+
+    This backend mirrors the other point-tracker integrations: each reference
+    spot center becomes one query point, and returned trajectories are converted
+    to Track / SpotROI objects compatible with the rest of Trackleed.
+    """
+    ref_file = all_files_map.get(reference_frame_id)
+    if not ref_file or not ref_file.spots:
+        raise ValueError("Reference frame must contain at least one defined spot.")
+    if reference_frame_id not in sorted_frame_ids:
+        raise ValueError("Reference frame is missing from the provided frame list.")
+
+    ref_index = sorted_frame_ids.index(reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[ref_index:]
+    if len(subset_frame_ids) < 2:
+        raise ValueError("Offline PIPs++ requires at least two frames starting from the reference.")
+
+    repo_path = params.get("repo_path") or params.get("pipspp_repo_path")
+    pipspp_models_dir = Path(params.get("pipspp_models_dir", DEFAULT_PIPSPP_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_pipspp_checkpoints(
+            pipspp_models_dir,
+            repo_path=repo_path,
+        )
+        selected_checkpoint = select_default_pipspp_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No PIPs++ checkpoint selected. Add a checkpoint directory such as "
+            "`reference_model/` under tracking_models/pipspp or the local repo and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    pipspp_settings = PipsppRuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        device=params.get("device", "auto"),
+        inference_resolution=params.get("inference_resolution", (256, 384)),
+        iters=int(params.get("iters", 4)),
+        beautify=bool(params.get("beautify", True)),
+        use_inbounds_visibility=bool(params.get("use_inbounds_visibility", True)),
+    )
+
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    recenter_mode = str(
+        params.get(
+            "recenter_mode",
+            "centroid" if bool(params.get("use_centroid_refinement", True)) else "none",
+        )
+    ).strip().lower()
+    centroid_patch_multiplier = float(
+        params.get("recenter_patch_multiplier", params.get("centroid_patch_multiplier", 1.25))
+    )
+    centroid_rel_threshold = float(params.get("centroid_rel_threshold", 0.35))
+    centroid_max_expand = int(max(0, params.get("centroid_max_expand", 1)))
+    centroid_max_shift_ratio = float(params.get("centroid_max_shift_ratio", 0.45))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = int(params.get("window_overlap", 8))
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            ref_image = load_tiff(ref_file.filepath)
+            fallback_shape = None
+            if ref_image is not None and np.asarray(ref_image).size:
+                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_pipspp_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=pipspp_settings,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        converted_tracks: List[Track] = []
+        for query_idx, reference_spot in enumerate(ref_file.spots):
+            track = Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            state = {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            ok = _append_pipspp_sequence_to_track(
+                track,
+                state,
+                reference_spot,
+                subset_frame_ids,
+                frames,
+                frame_shapes,
+                result.tracks_xy[query_idx],
+                result.visible_mask[query_idx],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                recenter_mode=recenter_mode,
+                centroid_patch_multiplier=centroid_patch_multiplier,
+                centroid_rel_threshold=centroid_rel_threshold,
+                centroid_max_expand=centroid_max_expand,
+                centroid_max_shift_ratio=centroid_max_shift_ratio,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=None,
+                global_start_idx=0,
+            )
+            if not ok:
+                return None
+
+            converted_tracks.append(track)
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        track_map: Dict[int, Track] = {
+            reference_spot.id: Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            for reference_spot in ref_file.spots
+        }
+        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
+        track_states: Dict[int, Dict[str, Any]] = {
+            reference_spot.id: {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            for reference_spot in ref_file.spots
+        }
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = min(max(0, window_overlap), max(0, window_size - 1))
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            query_rows: List[List[float]] = []
+            query_specs: List[Tuple[SpotROI, int]] = []
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+
+            for track_id, track in track_map.items():
+                reference_spot = reference_spots_by_id[track_id]
+                seed_local_idx = None
+                seed_spot = None
+                for local_idx, frame_id in enumerate(window_frame_ids):
+                    if frame_id not in query_seed_ids:
+                        break
+                    candidate = track.spots_by_image_id.get(frame_id)
+                    if candidate is None:
+                        continue
+                    seed_local_idx = local_idx
+                    seed_spot = candidate
+                    break
+                if seed_spot is None or seed_local_idx is None:
+                    continue
+                query_rows.append(
+                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
+                )
+                query_specs.append((reference_spot, seed_local_idx))
+
+            if not query_rows:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_pipspp_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
+                settings=pipspp_settings,
+            )
+
+            write_after_global_idx = covered_until
+            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
+                if cancel_event and cancel_event.is_set():
+                    return None
+
+                track = track_map[reference_spot.id]
+                ok = _append_pipspp_sequence_to_track(
                     track,
                     track_states[reference_spot.id],
                     reference_spot,
@@ -5876,6 +6466,303 @@ def retrack_single_spot_trackonr_offline(
             )
 
             ok = _append_trackonr_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                window_frame_ids,
+                window_frames,
+                window_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                recenter_mode=recenter_mode,
+                centroid_patch_multiplier=centroid_patch_multiplier,
+                centroid_rel_threshold=centroid_rel_threshold,
+                centroid_max_expand=centroid_max_expand,
+                centroid_max_shift_ratio=centroid_max_shift_ratio,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=seed_local_idx + 1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
+
+
+def retrack_single_spot_pipspp_offline(
+    track_to_update: Track,
+    start_frame_id: int,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[Track]:
+    """
+    Re-track a single existing track from a chosen frame using offline PIPs++.
+
+    The track is trimmed after `start_frame_id`, then PIPs++ is run from that
+    point to the end of the sequence using the spot center on the start frame
+    as the single query point.
+    """
+    if start_frame_id not in track_to_update.spots_by_image_id:
+        raise ValueError(
+            f"Cannot start PIPs++ re-tracking. Track {track_to_update.track_id} "
+            f"has no point on frame {start_frame_id}."
+        )
+    if start_frame_id not in sorted_frame_ids:
+        raise ValueError("Start frame is missing from the provided frame list.")
+
+    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
+    for fid in frames_to_remove:
+        del track_to_update.spots_by_image_id[fid]
+
+    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    subset_frame_ids = sorted_frame_ids[start_frame_index:]
+    if len(subset_frame_ids) < 2:
+        if progress_callback:
+            progress_callback(100)
+        return track_to_update
+
+    pipspp_models_dir = Path(params.get("pipspp_models_dir", DEFAULT_PIPSPP_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_pipspp_checkpoints(
+            pipspp_models_dir,
+            repo_path=params.get("repo_path") or params.get("pipspp_repo_path"),
+        )
+        selected_checkpoint = select_default_pipspp_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No PIPs++ checkpoint selected. Place a checkpoint in tracking_models/pipspp "
+            "or in repo/reference_model and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
+        dtype=np.float32,
+    )
+
+    pipspp_settings = PipsppRuntimeSettings(
+        repo_path=params.get("repo_path") or params.get("pipspp_repo_path"),
+        checkpoint_path=checkpoint_path,
+        device=params.get("device", "auto"),
+        inference_resolution=params.get("inference_resolution", (256, 384)),
+        iters=int(params.get("iters", 4)),
+        beautify=bool(params.get("beautify", True)),
+        use_inbounds_visibility=bool(params.get("use_inbounds_visibility", True)),
+    )
+
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    recenter_mode = str(
+        params.get(
+            "recenter_mode",
+            "centroid" if bool(params.get("use_centroid_refinement", True)) else "none",
+        )
+    ).strip().lower()
+    centroid_patch_multiplier = float(
+        params.get("recenter_patch_multiplier", params.get("centroid_patch_multiplier", 1.25))
+    )
+    centroid_rel_threshold = float(params.get("centroid_rel_threshold", 0.35))
+    centroid_max_expand = int(max(0, params.get("centroid_max_expand", 1)))
+    centroid_max_shift_ratio = float(params.get("centroid_max_shift_ratio", 0.45))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_pipspp_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            start_file = all_files_map.get(start_frame_id)
+            if start_file is not None:
+                start_image = load_tiff(start_file.filepath)
+            else:
+                start_image = None
+            fallback_shape = None
+            if start_image is not None and np.asarray(start_image).size:
+                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    state = {
+        "last_valid_xy": np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        ),
+        "invisible_streak": 0,
+        "terminated": False,
+        "expected_direction_sign": None,
+    }
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_pipspp_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=pipspp_settings,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = _append_pipspp_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frames,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            recenter_mode=recenter_mode,
+            centroid_patch_multiplier=centroid_patch_multiplier,
+            centroid_rel_threshold=centroid_rel_threshold,
+            centroid_max_expand=centroid_max_expand,
+            centroid_max_shift_ratio=centroid_max_shift_ratio,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=1,
+            min_global_write_idx=None,
+            global_start_idx=0,
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_pipspp_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_pipspp_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(
+                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=pipspp_settings,
+            )
+
+            ok = _append_pipspp_sequence_to_track(
                 track_to_update,
                 state,
                 start_spot,

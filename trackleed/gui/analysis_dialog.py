@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # stal/gui/analysis_dialog.py
 
 from pathlib import Path
