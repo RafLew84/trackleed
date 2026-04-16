@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # stal/gui/tracking_dialog.py
 
+from pathlib import Path
 from typing import List
 from threading import Event
 import numpy as np
@@ -39,8 +40,13 @@ from trackleed.analysis.pipspp_backend import (
     format_pipspp_environment_report,
     probe_pipspp_environment,
 )
+from trackleed.analysis.mftiq_backend import (
+    format_mftiq_environment_report,
+    probe_mftiq_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
+    retrack_single_spot_mftiq_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_pipspp_offline,
@@ -70,6 +76,7 @@ class TrackingDialog(QDialog):
         tapnext_params: dict | None = None,
         trackonr_params: dict | None = None,
         pipspp_params: dict | None = None,
+        mftiq_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -95,6 +102,7 @@ class TrackingDialog(QDialog):
         self.tapnext_params = dict(tapnext_params or {})
         self.trackonr_params = dict(trackonr_params or {})
         self.pipspp_params = dict(pipspp_params or {})
+        self.mftiq_params = dict(mftiq_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -329,6 +337,8 @@ class TrackingDialog(QDialog):
             return "Track-On-R"
         if sources == {"pipspp_offline"}:
             return "PIPs++"
+        if sources == {"mftiq_offline"}:
+            return "MFTIQ"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
@@ -345,6 +355,8 @@ class TrackingDialog(QDialog):
             return "Track-On-R+Manual"
         if "pipspp_offline" in sources and sources.issubset({"pipspp_offline"} | manual_sources):
             return "PIPs++ + Manual"
+        if "mftiq_offline" in sources and sources.issubset({"mftiq_offline"} | manual_sources):
+            return "MFTIQ + Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -519,6 +531,27 @@ class TrackingDialog(QDialog):
                 lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "mftiq_offline":
+            raw_x = getattr(spot, "mftiq_raw_x", None)
+            raw_y = getattr(spot, "mftiq_raw_y", None)
+            refined_x = getattr(spot, "mftiq_refined_x", None)
+            refined_y = getattr(spot, "mftiq_refined_y", None)
+            visibility = getattr(spot, "mftiq_visibility", None)
+            occlusion_score = getattr(spot, "mftiq_occlusion_score", None)
+            sigma_score = getattr(spot, "mftiq_sigma_score", None)
+            rejected_reason = getattr(spot, "mftiq_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Raw MFTIQ: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if occlusion_score is not None:
+                lines.append(f"Occlusion score: {float(occlusion_score):.3f}")
+            if sigma_score is not None:
+                lines.append(f"Sigma score: {float(sigma_score):.3f}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -577,6 +610,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "pipspp_raw_x", None)
             raw_y = getattr(spot, "pipspp_raw_y", None)
             label = f"PIPS++ T{selected_track.track_id}"
+        elif source == "mftiq_offline":
+            raw_x = getattr(spot, "mftiq_raw_x", None)
+            raw_y = getattr(spot, "mftiq_raw_y", None)
+            label = f"MFTIQ T{selected_track.track_id}"
         else:
             return []
 
@@ -641,6 +678,7 @@ class TrackingDialog(QDialog):
         retrack_tapnext_action = menu.addAction("Re-track from this point (TAPNext)")
         retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
         retrack_pipspp_action = menu.addAction("Re-track from this point (PIPs++)")
+        retrack_mftiq_action = menu.addAction("Re-track from this point (MFTIQ)")
         
         action = menu.exec(global_pos)
         
@@ -660,6 +698,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_trackonr(spot_id)
         elif action == retrack_pipspp_action:
             self.initiate_retrack_pipspp(spot_id)
+        elif action == retrack_mftiq_action:
+            self.initiate_retrack_mftiq(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -1016,6 +1056,85 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with PIPs++...",
             cancel_event=cancel_event,
             method_label="PIPs++ re-tracking",
+        )
+
+    def initiate_retrack_mftiq(self, spot_id: int):
+        """Prepares and launches MFTIQ re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.mftiq_params:
+            QMessageBox.warning(
+                self,
+                "MFTIQ Settings Missing",
+                "MFTIQ parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_mftiq_environment(
+            models_dir=self.mftiq_params.get("mftiq_models_dir"),
+            checkpoint_path=self.mftiq_params.get("checkpoint_path"),
+            repo_path=self.mftiq_params.get("repo_path") or self.mftiq_params.get("mftiq_repo_path"),
+            config_path=self.mftiq_params.get("config_path"),
+        )
+        backend_mode = str(self.mftiq_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = self.mftiq_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(str(python_executable)).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.config_exists
+        )
+
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "MFTIQ Unavailable",
+                    format_mftiq_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "MFTIQ Unavailable",
+                    format_mftiq_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "MFTIQ Unavailable",
+                    format_mftiq_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `mftiq` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
+
+        mftiq_params = dict(self.mftiq_params)
+        mftiq_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_mftiq_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            mftiq_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with MFTIQ...",
+            cancel_event=cancel_event,
+            method_label="MFTIQ re-tracking",
         )
 
     def launch_retrack_worker(

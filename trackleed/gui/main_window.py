@@ -49,6 +49,10 @@ from trackleed.analysis.pipspp_backend import (
     format_pipspp_environment_report,
     probe_pipspp_environment,
 )
+from trackleed.analysis.mftiq_backend import (
+    format_mftiq_environment_report,
+    probe_mftiq_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -68,6 +72,7 @@ from trackleed.analysis.tracking import (
     track_spots_tapnext_offline,
     track_spots_trackonr_offline,
     track_spots_pipspp_offline,
+    track_spots_mftiq_offline,
 )
 
 from skimage.util import img_as_float
@@ -264,6 +269,35 @@ class PipsppTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class MftiqTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    config_path: str | None = None
+    device: str = "auto"
+    backend_mode: str = "subprocess"
+    inference_resolution: tuple[int, int] | None = None
+    occlusion_threshold: float = 0.5
+    subprocess_timeout_sec: float = 1800.0
+    window_size: int = 64
+    window_overlap: int = 8
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+    recenter_mode: str = "centroid"
+    recenter_patch_multiplier: float = 1.25
+    centroid_rel_threshold: float = 0.35
+    centroid_max_shift_ratio: float = 0.45
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -289,6 +323,7 @@ class MainWindow(QMainWindow):
         self.tapnext_settings = TapnextTrackingSettings()
         self.trackonr_settings = TrackonrTrackingSettings()
         self.pipspp_settings = PipsppTrackingSettings()
+        self.mftiq_settings = MftiqTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -299,6 +334,7 @@ class MainWindow(QMainWindow):
         self.tapnext_models_dir = self.tracking_models_dir / "tapnext"
         self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
         self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
+        self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
@@ -314,6 +350,9 @@ class MainWindow(QMainWindow):
         default_pipspp_repo = Path(__file__).resolve().parents[3] / "pipspp"
         if default_pipspp_repo.exists():
             self.pipspp_settings.repo_path = str(default_pipspp_repo.resolve())
+        default_mftiq_repo = Path(__file__).resolve().parents[3] / "mftiq"
+        if default_mftiq_repo.exists():
+            self.mftiq_settings.repo_path = str(default_mftiq_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
@@ -323,6 +362,7 @@ class MainWindow(QMainWindow):
         self._tapnext_checkpoint_available = False
         self._trackonr_checkpoint_available = False
         self._pipspp_checkpoint_available = False
+        self._mftiq_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1199,6 +1239,7 @@ class MainWindow(QMainWindow):
             "Offline TAPNext",
             "Offline Track-On-R",
             "Offline PIPs++",
+            "Offline MFTIQ",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -2820,6 +2861,257 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.pipspp_group)
 
+        # --- Offline MFTIQ parameters ---
+        self.mftiq_group = QGroupBox("Offline MFTIQ")
+        mftiq_layout = QFormLayout(self.mftiq_group)
+
+        self.mftiq_repo_path_edit = QLineEdit(self.mftiq_settings.repo_path or "")
+        self.mftiq_repo_path_edit.setPlaceholderText("Path to local mftiq repo root")
+        self.mftiq_repo_path_edit.setToolTip(
+            "Local clone of the MFTIQ repository. Must contain demo.py, configs/, and src/MFTIQ/."
+        )
+        self.mftiq_repo_path_edit.editingFinished.connect(self._refresh_mftiq_checkpoints)
+        mftiq_layout.addRow("Repo path:", self.mftiq_repo_path_edit)
+
+        self.mftiq_python_executable_edit = QLineEdit(self.mftiq_settings.python_executable or "")
+        self.mftiq_python_executable_edit.setPlaceholderText(
+            "Optional path to the Python executable inside the dedicated mftiq env"
+        )
+        self.mftiq_python_executable_edit.setToolTip(
+            "Used by the recommended subprocess backend. Leave empty only if Trackleed itself runs "
+            "inside the MFTIQ environment."
+        )
+        self.mftiq_python_executable_edit.editingFinished.connect(self._refresh_mftiq_checkpoints)
+        mftiq_layout.addRow("Python executable:", self.mftiq_python_executable_edit)
+
+        self.mftiq_backend_mode_combo = QComboBox()
+        self.mftiq_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.mftiq_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        mftiq_backend_mode_idx = self.mftiq_backend_mode_combo.findData(self.mftiq_settings.backend_mode)
+        self.mftiq_backend_mode_combo.setCurrentIndex(mftiq_backend_mode_idx if mftiq_backend_mode_idx >= 0 else 0)
+        self.mftiq_backend_mode_combo.setToolTip(
+            "Subprocess keeps the heavy MFTIQ runtime isolated in its own env. "
+            "Direct import requires running the whole app inside the MFTIQ env."
+        )
+        self.mftiq_backend_mode_combo.currentIndexChanged.connect(self._on_mftiq_backend_mode_changed)
+        mftiq_layout.addRow("Backend mode:", self.mftiq_backend_mode_combo)
+
+        mftiq_model_row_widget = QWidget()
+        mftiq_model_row_layout = QHBoxLayout(mftiq_model_row_widget)
+        mftiq_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.mftiq_checkpoint_combo = QComboBox()
+        self.mftiq_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.mftiq_checkpoint_combo.setToolTip(
+            "Select an MFTIQ checkpoint (.pth) from tracking_models/mftiq or repo/checkpoints."
+        )
+        self.mftiq_checkpoint_combo.currentIndexChanged.connect(self._on_mftiq_checkpoint_selected)
+        self.mftiq_refresh_button = QPushButton("Refresh")
+        self.mftiq_refresh_button.setToolTip(
+            "Re-scan tracking_models/mftiq and re-run MFTIQ environment diagnostics."
+        )
+        self.mftiq_refresh_button.clicked.connect(self._refresh_mftiq_checkpoints)
+        mftiq_model_row_layout.addWidget(self.mftiq_checkpoint_combo)
+        mftiq_model_row_layout.addWidget(self.mftiq_refresh_button)
+        mftiq_layout.addRow("Checkpoint:", mftiq_model_row_widget)
+
+        self.mftiq_device_combo = QComboBox()
+        self.mftiq_device_combo.addItem("Auto", "auto")
+        self.mftiq_device_combo.addItem("GPU", "gpu")
+        self.mftiq_device_combo.addItem("CPU", "cpu")
+        mftiq_device_idx = self.mftiq_device_combo.findData(self.mftiq_settings.device)
+        self.mftiq_device_combo.setCurrentIndex(mftiq_device_idx if mftiq_device_idx >= 0 else 0)
+        self.mftiq_device_combo.setToolTip(
+            "Device passed to the MFTIQ runtime. Upstream runtime currently expects CUDA."
+        )
+        mftiq_layout.addRow("Device:", self.mftiq_device_combo)
+
+        self.mftiq_inference_resolution_combo = QComboBox()
+        self.mftiq_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("256 x 256", (256, 256)),
+            ("384 x 512", (384, 512)),
+            ("512 x 512", (512, 512)),
+        ):
+            self.mftiq_inference_resolution_combo.addItem(label, value)
+        mftiq_res_idx = self.mftiq_inference_resolution_combo.findData(self.mftiq_settings.inference_resolution)
+        self.mftiq_inference_resolution_combo.setCurrentIndex(mftiq_res_idx if mftiq_res_idx >= 0 else 0)
+        self.mftiq_inference_resolution_combo.setToolTip(
+            "Optional input resolution for MFTIQ. Native keeps the original LEED frame size."
+        )
+        mftiq_layout.addRow("Inference resolution:", self.mftiq_inference_resolution_combo)
+
+        self.mftiq_occlusion_threshold_spinbox = QDoubleSpinBox()
+        self.mftiq_occlusion_threshold_spinbox.setDecimals(2)
+        self.mftiq_occlusion_threshold_spinbox.setRange(0.0, 10.0)
+        self.mftiq_occlusion_threshold_spinbox.setSingleStep(0.05)
+        self.mftiq_occlusion_threshold_spinbox.setValue(self.mftiq_settings.occlusion_threshold)
+        self.mftiq_occlusion_threshold_spinbox.setToolTip(
+            "Maximum accepted MFTIQ occlusion score. Higher values keep more uncertain points."
+        )
+        mftiq_layout.addRow("Occlusion threshold:", self.mftiq_occlusion_threshold_spinbox)
+
+        self.mftiq_window_size_spinbox = QSpinBox()
+        self.mftiq_window_size_spinbox.setRange(2, 4096)
+        self.mftiq_window_size_spinbox.setValue(self.mftiq_settings.window_size)
+        self.mftiq_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed MFTIQ window. Smaller values reduce VRAM."
+        )
+        mftiq_layout.addRow("Window size:", self.mftiq_window_size_spinbox)
+
+        self.mftiq_window_overlap_spinbox = QSpinBox()
+        self.mftiq_window_overlap_spinbox.setRange(0, 1024)
+        self.mftiq_window_overlap_spinbox.setValue(self.mftiq_settings.window_overlap)
+        self.mftiq_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive MFTIQ windows. "
+            "Trackleed reseeds the next window from this overlap and enforces at least one shared frame when multiple windows are used."
+        )
+        mftiq_layout.addRow("Window overlap:", self.mftiq_window_overlap_spinbox)
+
+        self.mftiq_keep_gaps_checkbox = QCheckBox("Keep invisible points as gaps")
+        self.mftiq_keep_gaps_checkbox.setChecked(self.mftiq_settings.keep_invisible_points_as_gaps)
+        self.mftiq_keep_gaps_checkbox.setToolTip(
+            "If enabled, rejected or occluded MFTIQ predictions create gaps instead of forced points."
+        )
+        mftiq_layout.addRow(self.mftiq_keep_gaps_checkbox)
+
+        self.mftiq_max_step_spinbox = QDoubleSpinBox()
+        self.mftiq_max_step_spinbox.setDecimals(1)
+        self.mftiq_max_step_spinbox.setRange(0.0, 500.0)
+        self.mftiq_max_step_spinbox.setSingleStep(1.0)
+        self.mftiq_max_step_spinbox.setValue(self.mftiq_settings.max_step_distance_px)
+        self.mftiq_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        mftiq_layout.addRow("Max jump (px):", self.mftiq_max_step_spinbox)
+
+        self.mftiq_max_reacquisition_gap_spinbox = QSpinBox()
+        self.mftiq_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.mftiq_max_reacquisition_gap_spinbox.setValue(self.mftiq_settings.max_reacquisition_gap)
+        self.mftiq_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible point is still accepted. Set 0 to disable."
+        )
+        mftiq_layout.addRow("Max reacquisition gap:", self.mftiq_max_reacquisition_gap_spinbox)
+
+        self.mftiq_terminate_after_invisible_spinbox = QSpinBox()
+        self.mftiq_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.mftiq_terminate_after_invisible_spinbox.setValue(
+            self.mftiq_settings.terminate_after_invisible_frames
+        )
+        self.mftiq_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        mftiq_layout.addRow("Terminate after gap:", self.mftiq_terminate_after_invisible_spinbox)
+
+        self.mftiq_center_mode_combo = QComboBox()
+        self.mftiq_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.mftiq_center_mode_combo.addItem("Manual", "manual")
+        mftiq_center_mode_idx = self.mftiq_center_mode_combo.findData(self.mftiq_settings.center_mode)
+        self.mftiq_center_mode_combo.setCurrentIndex(mftiq_center_mode_idx if mftiq_center_mode_idx >= 0 else 0)
+        self.mftiq_center_mode_combo.setToolTip(
+            "Reference center used by directional gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.mftiq_center_mode_combo.currentIndexChanged.connect(self._on_mftiq_center_mode_changed)
+        mftiq_layout.addRow("Direction center:", self.mftiq_center_mode_combo)
+
+        mftiq_center_row_widget = QWidget()
+        mftiq_center_row_layout = QHBoxLayout(mftiq_center_row_widget)
+        mftiq_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.mftiq_center_x_spinbox = QDoubleSpinBox()
+        self.mftiq_center_x_spinbox.setRange(0.0, 10000.0)
+        self.mftiq_center_x_spinbox.setDecimals(1)
+        self.mftiq_center_x_spinbox.setValue(self.mftiq_settings.manual_center_x)
+        self.mftiq_center_y_spinbox = QDoubleSpinBox()
+        self.mftiq_center_y_spinbox.setRange(0.0, 10000.0)
+        self.mftiq_center_y_spinbox.setDecimals(1)
+        self.mftiq_center_y_spinbox.setValue(self.mftiq_settings.manual_center_y)
+        mftiq_center_row_layout.addWidget(self.mftiq_center_x_spinbox)
+        mftiq_center_row_layout.addWidget(QLabel(","))
+        mftiq_center_row_layout.addWidget(self.mftiq_center_y_spinbox)
+        mftiq_layout.addRow("Manual center (x, y):", mftiq_center_row_widget)
+
+        self.mftiq_direction_mode_combo = QComboBox()
+        self.mftiq_direction_mode_combo.addItem("None", "none")
+        self.mftiq_direction_mode_combo.addItem("Auto", "auto")
+        self.mftiq_direction_mode_combo.addItem("Inward", "inward")
+        self.mftiq_direction_mode_combo.addItem("Outward", "outward")
+        mftiq_direction_idx = self.mftiq_direction_mode_combo.findData(self.mftiq_settings.direction_mode)
+        self.mftiq_direction_mode_combo.setCurrentIndex(mftiq_direction_idx if mftiq_direction_idx >= 0 else 0)
+        self.mftiq_direction_mode_combo.setToolTip(
+            "Optional directional prior for radial motion relative to the LEED center."
+        )
+        mftiq_layout.addRow("Direction mode:", self.mftiq_direction_mode_combo)
+
+        self.mftiq_lateral_tol_spinbox = QDoubleSpinBox()
+        self.mftiq_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.mftiq_lateral_tol_spinbox.setSingleStep(1.0)
+        self.mftiq_lateral_tol_spinbox.setValue(self.mftiq_settings.lateral_angle_tolerance_deg)
+        self.mftiq_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        mftiq_layout.addRow("Angular tol (deg):", self.mftiq_lateral_tol_spinbox)
+
+        self.mftiq_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.mftiq_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.mftiq_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.mftiq_max_radial_jump_spinbox.setValue(self.mftiq_settings.max_radial_jump_px)
+        self.mftiq_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        mftiq_layout.addRow("Max radial jump (px):", self.mftiq_max_radial_jump_spinbox)
+
+        self.mftiq_recenter_mode_combo = QComboBox()
+        self.mftiq_recenter_mode_combo.addItem("None", "none")
+        self.mftiq_recenter_mode_combo.addItem("Peak", "peak")
+        self.mftiq_recenter_mode_combo.addItem("Centroid", "centroid")
+        self.mftiq_recenter_mode_combo.addItem("Gaussian", "gaussian")
+        mftiq_recenter_mode_idx = self.mftiq_recenter_mode_combo.findData(self.mftiq_settings.recenter_mode)
+        self.mftiq_recenter_mode_combo.setCurrentIndex(
+            mftiq_recenter_mode_idx if mftiq_recenter_mode_idx >= 0 else 2
+        )
+        self.mftiq_recenter_mode_combo.setToolTip(
+            "Local refinement applied after each MFTIQ prediction: none, brightest peak, centroid, or 2D Gaussian."
+        )
+        mftiq_layout.addRow("Recenter mode:", self.mftiq_recenter_mode_combo)
+
+        self.mftiq_centroid_multiplier_spinbox = QDoubleSpinBox()
+        self.mftiq_centroid_multiplier_spinbox.setDecimals(2)
+        self.mftiq_centroid_multiplier_spinbox.setRange(0.50, 3.00)
+        self.mftiq_centroid_multiplier_spinbox.setSingleStep(0.05)
+        self.mftiq_centroid_multiplier_spinbox.setValue(self.mftiq_settings.recenter_patch_multiplier)
+        self.mftiq_centroid_multiplier_spinbox.setToolTip(
+            "Multiplier of ROI half-size used as the local refinement search radius."
+        )
+        mftiq_layout.addRow("Recenter radius x ROI:", self.mftiq_centroid_multiplier_spinbox)
+
+        self.mftiq_centroid_rel_thr_spinbox = QDoubleSpinBox()
+        self.mftiq_centroid_rel_thr_spinbox.setDecimals(2)
+        self.mftiq_centroid_rel_thr_spinbox.setRange(0.05, 0.95)
+        self.mftiq_centroid_rel_thr_spinbox.setSingleStep(0.05)
+        self.mftiq_centroid_rel_thr_spinbox.setValue(self.mftiq_settings.centroid_rel_threshold)
+        self.mftiq_centroid_rel_thr_spinbox.setToolTip(
+            "Relative threshold used to build the centroid mask around the predicted point."
+        )
+        mftiq_layout.addRow("Recenter threshold:", self.mftiq_centroid_rel_thr_spinbox)
+
+        self.mftiq_centroid_max_shift_spinbox = QDoubleSpinBox()
+        self.mftiq_centroid_max_shift_spinbox.setDecimals(2)
+        self.mftiq_centroid_max_shift_spinbox.setRange(0.10, 1.00)
+        self.mftiq_centroid_max_shift_spinbox.setSingleStep(0.05)
+        self.mftiq_centroid_max_shift_spinbox.setValue(self.mftiq_settings.centroid_max_shift_ratio)
+        self.mftiq_centroid_max_shift_spinbox.setToolTip(
+            "Maximum allowed centroid correction as a fraction of ROI size. Limits jumps to a nearby wrong spot."
+        )
+        mftiq_layout.addRow("Max recenter shift:", self.mftiq_centroid_max_shift_spinbox)
+
+        self.mftiq_warning_label = QLabel()
+        self.mftiq_warning_label.setStyleSheet("color: #d9534f;")
+        self.mftiq_warning_label.setWordWrap(True)
+        mftiq_layout.addRow(self.mftiq_warning_label)
+        self._on_mftiq_backend_mode_changed(self.mftiq_backend_mode_combo.currentIndex())
+        self._on_mftiq_center_mode_changed(self.mftiq_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.mftiq_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -2979,6 +3271,7 @@ class MainWindow(QMainWindow):
         self._refresh_tapnext_checkpoints()
         self._refresh_trackonr_checkpoints()
         self._refresh_pipspp_checkpoints()
+        self._refresh_mftiq_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -3716,6 +4009,111 @@ class MainWindow(QMainWindow):
         self.pipspp_settings.checkpoint_path = checkpoint_path
         self._refresh_pipspp_checkpoints()
 
+    def _refresh_mftiq_checkpoints(self):
+        repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
+        if repo_path:
+            self.mftiq_settings.repo_path = repo_path
+        self.mftiq_settings.python_executable = self.mftiq_python_executable_edit.text().strip() or None
+        self.mftiq_settings.backend_mode = self.mftiq_backend_mode_combo.currentData()
+
+        status = probe_mftiq_environment(
+            models_dir=self.mftiq_models_dir,
+            checkpoint_path=self.mftiq_settings.checkpoint_path,
+            repo_path=self.mftiq_settings.repo_path,
+            config_path=self.mftiq_settings.config_path,
+        )
+
+        self.mftiq_checkpoint_combo.blockSignals(True)
+        self.mftiq_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.mftiq_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.mftiq_checkpoint_combo.setEnabled(False)
+            self._mftiq_checkpoint_available = False
+            self.mftiq_settings.checkpoint_path = None
+        else:
+            self.mftiq_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.mftiq_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._mftiq_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.mftiq_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.mftiq_checkpoint_combo.setCurrentIndex(idx)
+                    self.mftiq_settings.checkpoint_path = selected_checkpoint
+            if not self.mftiq_settings.checkpoint_path and self.mftiq_checkpoint_combo.count() > 0:
+                self.mftiq_checkpoint_combo.setCurrentIndex(0)
+                self.mftiq_settings.checkpoint_path = self.mftiq_checkpoint_combo.currentData()
+
+        self.mftiq_checkpoint_combo.blockSignals(False)
+        self.mftiq_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.mftiq_settings.repo_path or "")
+        )
+        self.mftiq_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.mftiq_settings.repo_path
+        )
+
+        python_executable = self.mftiq_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.config_exists
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            if status.xformers_version:
+                details.append(f"xformers {status.xformers_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            self.mftiq_warning_label.setStyleSheet("color: #5cb85c;")
+            self.mftiq_warning_label.setText("MFTIQ ready. " + ", ".join(details))
+            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
+        elif (
+            self.mftiq_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.mftiq_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.mftiq_warning_label.setText(
+                "MFTIQ subprocess configured. Current app env is not MFTIQ-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.mftiq_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated mftiq env, or run Trackleed from that env."
+                )
+            self.mftiq_warning_label.setStyleSheet("color: #d9534f;")
+            self.mftiq_warning_label.setText("\n".join(summary))
+            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
+
+    def _on_mftiq_checkpoint_selected(self, index: int):
+        checkpoint_path = self.mftiq_checkpoint_combo.itemData(index)
+        self.mftiq_settings.checkpoint_path = checkpoint_path
+        self._refresh_mftiq_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -3800,6 +4198,8 @@ class MainWindow(QMainWindow):
             self._refresh_tapir_checkpoints()
         if scenario == "Offline PIPs++":
             self._refresh_pipspp_checkpoints()
+        if scenario == "Offline MFTIQ":
+            self._refresh_mftiq_checkpoints()
 
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
@@ -3814,6 +4214,7 @@ class MainWindow(QMainWindow):
         show_tapnext = scenario == "Offline TAPNext"
         show_trackonr = scenario == "Offline Track-On-R"
         show_pipspp = scenario == "Offline PIPs++"
+        show_mftiq = scenario == "Offline MFTIQ"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -3833,6 +4234,8 @@ class MainWindow(QMainWindow):
             self.trackonr_group.setVisible(show_trackonr)
         if hasattr(self, "pipspp_group"):
             self.pipspp_group.setVisible(show_pipspp)
+        if hasattr(self, "mftiq_group"):
+            self.mftiq_group.setVisible(show_mftiq)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -3867,6 +4270,17 @@ class MainWindow(QMainWindow):
         manual = self.pipspp_center_mode_combo.itemData(idx) == "manual"
         self.pipspp_center_x_spinbox.setEnabled(manual)
         self.pipspp_center_y_spinbox.setEnabled(manual)
+
+    def _on_mftiq_backend_mode_changed(self, idx: int):
+        backend_mode = self.mftiq_backend_mode_combo.itemData(idx)
+        self.mftiq_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "mftiq_warning_label"):
+            self._refresh_mftiq_checkpoints()
+
+    def _on_mftiq_center_mode_changed(self, idx: int):
+        manual = self.mftiq_center_mode_combo.itemData(idx) == "manual"
+        self.mftiq_center_x_spinbox.setEnabled(manual)
+        self.mftiq_center_y_spinbox.setEnabled(manual)
 
     def on_spot_selection_changed(self, current_item: QListWidgetItem | None, previous_item: QListWidgetItem | None):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
@@ -4682,6 +5096,47 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_mftiq_tracking_params(self) -> dict:
+        """Collect the current MFTIQ tracking settings from the UI."""
+        repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
+        inference_resolution = self.mftiq_inference_resolution_combo.currentData()
+        if isinstance(inference_resolution, (tuple, list)) and len(inference_resolution) >= 2:
+            inference_resolution = (int(inference_resolution[0]), int(inference_resolution[1]))
+        else:
+            inference_resolution = None
+        return {
+            "mftiq_models_dir": str(self.mftiq_models_dir.resolve()),
+            "mftiq_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.mftiq_settings.checkpoint_path,
+            "python_executable": self.mftiq_python_executable_edit.text().strip() or None,
+            "config_path": self.mftiq_settings.config_path,
+            "device": self.mftiq_device_combo.currentData(),
+            "backend_mode": self.mftiq_backend_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "occlusion_threshold": self.mftiq_occlusion_threshold_spinbox.value(),
+            "subprocess_timeout_sec": self.mftiq_settings.subprocess_timeout_sec,
+            "window_size": self.mftiq_window_size_spinbox.value(),
+            "window_overlap": self.mftiq_window_overlap_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.mftiq_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.mftiq_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.mftiq_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.mftiq_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.mftiq_center_mode_combo.currentData(),
+            "manual_center": (
+                self.mftiq_center_x_spinbox.value(),
+                self.mftiq_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.mftiq_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.mftiq_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.mftiq_max_radial_jump_spinbox.value(),
+            "recenter_mode": self.mftiq_recenter_mode_combo.currentData(),
+            "recenter_patch_multiplier": self.mftiq_centroid_multiplier_spinbox.value(),
+            "centroid_rel_threshold": self.mftiq_centroid_rel_thr_spinbox.value(),
+            "centroid_max_shift_ratio": self.mftiq_centroid_max_shift_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -4988,6 +5443,77 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline MFTIQ":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline MFTIQ requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
+            self.mftiq_settings.repo_path = repo_path
+            self.mftiq_settings.python_executable = self.mftiq_python_executable_edit.text().strip() or None
+            self.mftiq_settings.backend_mode = self.mftiq_backend_mode_combo.currentData()
+            status = probe_mftiq_environment(
+                models_dir=self.mftiq_models_dir,
+                checkpoint_path=self.mftiq_settings.checkpoint_path,
+                repo_path=self.mftiq_settings.repo_path,
+                config_path=self.mftiq_settings.config_path,
+            )
+
+            python_executable = self.mftiq_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.config_exists
+            )
+
+            if self.mftiq_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        format_mftiq_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        format_mftiq_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        format_mftiq_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `mftiq` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
+
+            mftiq_params = self._collect_mftiq_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_mftiq_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                mftiq_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -5144,6 +5670,7 @@ class MainWindow(QMainWindow):
             tapnext_params=self._collect_tapnext_tracking_params(),
             trackonr_params=self._collect_trackonr_tracking_params(),
             pipspp_params=self._collect_pipspp_tracking_params(),
+            mftiq_params=self._collect_mftiq_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
