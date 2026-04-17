@@ -53,6 +53,10 @@ from trackleed.analysis.mftiq_backend import (
     format_mftiq_environment_report,
     probe_mftiq_environment,
 )
+from trackleed.analysis.sam2_backend import (
+    format_sam2_environment_report,
+    probe_sam2_environment,
+)
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
@@ -73,6 +77,7 @@ from trackleed.analysis.tracking import (
     track_spots_trackonr_offline,
     track_spots_pipspp_offline,
     track_spots_mftiq_offline,
+    track_spots_sam2_offline,
 )
 
 from skimage.util import img_as_float
@@ -307,6 +312,42 @@ class MftiqTrackingSettings:
     centroid_max_shift_ratio: float = 0.45
 
 
+@dataclass
+class Sam2TrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    config_path: str | None = None
+    device: str = "auto"
+    prompt_mode: str = "point+bbox"
+    representative_point_mode: str = "mask_centroid"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 12.0
+    mask_threshold: float = 0.5
+    min_mask_area: float = 1.0
+    max_mask_area: float = 0.0
+    use_vos_optimized: bool = False
+    apply_postprocessing: bool = True
+    offload_video_to_cpu: bool = True
+    offload_state_to_cpu: bool = False
+    async_loading_frames: bool = False
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    max_mask_area_ratio_change: float = 0.0
+    max_bbox_aspect_ratio_change: float = 0.0
+    max_mask_components: int = 0
+    max_bbox_center_jump_px: float = 0.0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -333,6 +374,7 @@ class MainWindow(QMainWindow):
         self.trackonr_settings = TrackonrTrackingSettings()
         self.pipspp_settings = PipsppTrackingSettings()
         self.mftiq_settings = MftiqTrackingSettings()
+        self.sam2_settings = Sam2TrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -344,6 +386,7 @@ class MainWindow(QMainWindow):
         self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
         self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
         self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
+        self.sam2_models_dir = self.tracking_models_dir / "sam2"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
@@ -362,6 +405,9 @@ class MainWindow(QMainWindow):
         default_mftiq_repo = Path(__file__).resolve().parents[3] / "mftiq"
         if default_mftiq_repo.exists():
             self.mftiq_settings.repo_path = str(default_mftiq_repo.resolve())
+        default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
+        if default_sam2_repo.exists():
+            self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
@@ -372,6 +418,7 @@ class MainWindow(QMainWindow):
         self._trackonr_checkpoint_available = False
         self._pipspp_checkpoint_available = False
         self._mftiq_checkpoint_available = False
+        self._sam2_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -1249,6 +1296,7 @@ class MainWindow(QMainWindow):
             "Offline Track-On-R",
             "Offline PIPs++",
             "Offline MFTIQ",
+            "Offline SAM2",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
         ])
@@ -3187,6 +3235,320 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.mftiq_group)
 
+        # --- Offline SAM2 parameters ---
+        self.sam2_group = QGroupBox("Offline SAM2")
+        sam2_layout = QFormLayout(self.sam2_group)
+
+        self.sam2_repo_path_edit = QLineEdit(self.sam2_settings.repo_path or "")
+        self.sam2_repo_path_edit.setPlaceholderText("Path to local sam2 repo root")
+        self.sam2_repo_path_edit.setToolTip(
+            "Local clone of the SAM 2 repository. Must contain sam2/build_sam.py and configs/."
+        )
+        self.sam2_repo_path_edit.editingFinished.connect(self._refresh_sam2_checkpoints)
+        sam2_layout.addRow("Repo path:", self.sam2_repo_path_edit)
+
+        sam2_model_row_widget = QWidget()
+        sam2_model_row_layout = QHBoxLayout(sam2_model_row_widget)
+        sam2_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.sam2_checkpoint_combo = QComboBox()
+        self.sam2_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.sam2_checkpoint_combo.setToolTip(
+            "Select a SAM 2 checkpoint from tracking_models/sam2 or repo/checkpoints."
+        )
+        self.sam2_checkpoint_combo.currentIndexChanged.connect(self._on_sam2_checkpoint_selected)
+        self.sam2_refresh_button = QPushButton("Refresh")
+        self.sam2_refresh_button.setToolTip(
+            "Re-scan tracking_models/sam2 and re-run SAM 2 environment diagnostics."
+        )
+        self.sam2_refresh_button.clicked.connect(self._refresh_sam2_checkpoints)
+        sam2_model_row_layout.addWidget(self.sam2_checkpoint_combo)
+        sam2_model_row_layout.addWidget(self.sam2_refresh_button)
+        sam2_layout.addRow("Checkpoint:", sam2_model_row_widget)
+
+        self.sam2_config_path_edit = QLineEdit(self.sam2_settings.config_path or "")
+        self.sam2_config_path_edit.setReadOnly(True)
+        self.sam2_config_path_edit.setPlaceholderText("Resolved automatically from checkpoint name")
+        self.sam2_config_path_edit.setToolTip(
+            "Hydra config resolved from the selected checkpoint. Example: sam2.1_hiera_small.pt -> configs/sam2.1/sam2.1_hiera_s.yaml"
+        )
+        sam2_layout.addRow("Resolved config:", self.sam2_config_path_edit)
+
+        self.sam2_device_combo = QComboBox()
+        self.sam2_device_combo.addItem("Auto", "auto")
+        self.sam2_device_combo.addItem("GPU", "cuda")
+        self.sam2_device_combo.addItem("CPU", "cpu")
+        sam2_device_idx = self.sam2_device_combo.findData(self.sam2_settings.device)
+        self.sam2_device_combo.setCurrentIndex(sam2_device_idx if sam2_device_idx >= 0 else 0)
+        self.sam2_device_combo.setToolTip("Device passed to the SAM 2 runtime.")
+        sam2_layout.addRow("Device:", self.sam2_device_combo)
+
+        self.sam2_inference_resolution_combo = QComboBox()
+        self.sam2_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("512 x 512", 512),
+            ("768 x 768", 768),
+            ("1024 x 1024", 1024),
+        ):
+            self.sam2_inference_resolution_combo.addItem(label, value)
+        sam2_res_idx = self.sam2_inference_resolution_combo.findData(self.sam2_settings.inference_resolution)
+        self.sam2_inference_resolution_combo.setCurrentIndex(sam2_res_idx if sam2_res_idx >= 0 else 0)
+        self.sam2_inference_resolution_combo.setToolTip(
+            "Optional square input resolution for SAM 2. Native keeps the original LEED frame size."
+        )
+        sam2_layout.addRow("Inference resolution:", self.sam2_inference_resolution_combo)
+
+        self.sam2_window_size_spinbox = QSpinBox()
+        self.sam2_window_size_spinbox.setRange(2, 4096)
+        self.sam2_window_size_spinbox.setValue(self.sam2_settings.window_size)
+        self.sam2_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed SAM 2 window. Smaller values reduce VRAM pressure."
+        )
+        sam2_layout.addRow("Window size:", self.sam2_window_size_spinbox)
+
+        self.sam2_window_overlap_spinbox = QSpinBox()
+        self.sam2_window_overlap_spinbox.setRange(0, 1024)
+        self.sam2_window_overlap_spinbox.setValue(self.sam2_settings.window_overlap)
+        self.sam2_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive SAM 2 windows. "
+            "Trackleed reseeds the next window from this overlap and enforces at least one shared frame when multiple windows are used."
+        )
+        sam2_layout.addRow("Window overlap:", self.sam2_window_overlap_spinbox)
+
+        self.sam2_prompt_mode_combo = QComboBox()
+        self.sam2_prompt_mode_combo.addItem("Point", "point")
+        self.sam2_prompt_mode_combo.addItem("BBox", "bbox")
+        self.sam2_prompt_mode_combo.addItem("Point + BBox", "point+bbox")
+        sam2_prompt_idx = self.sam2_prompt_mode_combo.findData(self.sam2_settings.prompt_mode)
+        self.sam2_prompt_mode_combo.setCurrentIndex(sam2_prompt_idx if sam2_prompt_idx >= 0 else 2)
+        self.sam2_prompt_mode_combo.setToolTip(
+            "Prompt used to initialize each LEED spot/object in SAM 2."
+        )
+        sam2_layout.addRow("Prompt mode:", self.sam2_prompt_mode_combo)
+
+        self.sam2_repr_mode_combo = QComboBox()
+        self.sam2_repr_mode_combo.addItem("Mask centroid", "mask_centroid")
+        self.sam2_repr_mode_combo.addItem("Peak in mask", "peak_in_mask")
+        self.sam2_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.sam2_repr_mode_combo.addItem("Gaussian in mask", "gaussian_in_mask")
+        sam2_repr_idx = self.sam2_repr_mode_combo.findData(self.sam2_settings.representative_point_mode)
+        self.sam2_repr_mode_combo.setCurrentIndex(sam2_repr_idx if sam2_repr_idx >= 0 else 0)
+        self.sam2_repr_mode_combo.setToolTip(
+            "How Trackleed converts the propagated SAM 2 mask into one representative point."
+        )
+        sam2_layout.addRow("Representative point:", self.sam2_repr_mode_combo)
+
+        self.sam2_bbox_padding_spinbox = QDoubleSpinBox()
+        self.sam2_bbox_padding_spinbox.setDecimals(1)
+        self.sam2_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.sam2_bbox_padding_spinbox.setSingleStep(1.0)
+        self.sam2_bbox_padding_spinbox.setValue(self.sam2_settings.initial_bbox_padding_px)
+        self.sam2_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around the seed point when Trackleed builds an init bbox for SAM 2."
+        )
+        sam2_layout.addRow("Init bbox padding (px):", self.sam2_bbox_padding_spinbox)
+
+        self.sam2_mask_threshold_spinbox = QDoubleSpinBox()
+        self.sam2_mask_threshold_spinbox.setDecimals(2)
+        self.sam2_mask_threshold_spinbox.setRange(0.00, 1.00)
+        self.sam2_mask_threshold_spinbox.setSingleStep(0.05)
+        self.sam2_mask_threshold_spinbox.setValue(self.sam2_settings.mask_threshold)
+        self.sam2_mask_threshold_spinbox.setToolTip(
+            "Threshold applied to SAM 2 mask logits before deriving mask area, bbox, and representative point."
+        )
+        sam2_layout.addRow("Mask threshold:", self.sam2_mask_threshold_spinbox)
+
+        self.sam2_min_mask_area_spinbox = QDoubleSpinBox()
+        self.sam2_min_mask_area_spinbox.setDecimals(1)
+        self.sam2_min_mask_area_spinbox.setRange(0.0, 1000000.0)
+        self.sam2_min_mask_area_spinbox.setSingleStep(1.0)
+        self.sam2_min_mask_area_spinbox.setValue(self.sam2_settings.min_mask_area)
+        self.sam2_min_mask_area_spinbox.setToolTip(
+            "Reject masks smaller than this pixel area after thresholding."
+        )
+        sam2_layout.addRow("Min mask area:", self.sam2_min_mask_area_spinbox)
+
+        self.sam2_max_mask_area_spinbox = QDoubleSpinBox()
+        self.sam2_max_mask_area_spinbox.setDecimals(1)
+        self.sam2_max_mask_area_spinbox.setRange(0.0, 1000000.0)
+        self.sam2_max_mask_area_spinbox.setSingleStep(10.0)
+        self.sam2_max_mask_area_spinbox.setValue(self.sam2_settings.max_mask_area)
+        self.sam2_max_mask_area_spinbox.setToolTip(
+            "Reject masks larger than this pixel area. Set 0 to disable the upper bound."
+        )
+        sam2_layout.addRow("Max mask area:", self.sam2_max_mask_area_spinbox)
+
+        self.sam2_use_vos_checkbox = QCheckBox("Use vos_optimized")
+        self.sam2_use_vos_checkbox.setChecked(self.sam2_settings.use_vos_optimized)
+        self.sam2_use_vos_checkbox.setToolTip(
+            "Enable the optimized video segmentation path when supported by the installed SAM 2 runtime."
+        )
+        sam2_layout.addRow(self.sam2_use_vos_checkbox)
+
+        self.sam2_postprocessing_checkbox = QCheckBox("Apply postprocessing")
+        self.sam2_postprocessing_checkbox.setChecked(self.sam2_settings.apply_postprocessing)
+        self.sam2_postprocessing_checkbox.setToolTip(
+            "Enable upstream SAM 2 postprocessing when constructing masks."
+        )
+        sam2_layout.addRow(self.sam2_postprocessing_checkbox)
+
+        self.sam2_offload_video_checkbox = QCheckBox("Offload video to CPU")
+        self.sam2_offload_video_checkbox.setChecked(self.sam2_settings.offload_video_to_cpu)
+        self.sam2_offload_video_checkbox.setToolTip(
+            "Store video frames on CPU inside the SAM 2 state to reduce VRAM usage at the cost of speed."
+        )
+        sam2_layout.addRow(self.sam2_offload_video_checkbox)
+
+        self.sam2_offload_state_checkbox = QCheckBox("Offload state to CPU")
+        self.sam2_offload_state_checkbox.setChecked(self.sam2_settings.offload_state_to_cpu)
+        self.sam2_offload_state_checkbox.setToolTip(
+            "Move more of the SAM 2 internal state to CPU memory. Useful on smaller GPUs, but slower."
+        )
+        sam2_layout.addRow(self.sam2_offload_state_checkbox)
+
+        self.sam2_async_loading_checkbox = QCheckBox("Async frame loading")
+        self.sam2_async_loading_checkbox.setChecked(self.sam2_settings.async_loading_frames)
+        self.sam2_async_loading_checkbox.setToolTip(
+            "Let SAM 2 load video frames asynchronously when supported by the runtime."
+        )
+        sam2_layout.addRow(self.sam2_async_loading_checkbox)
+
+        self.sam2_keep_gaps_checkbox = QCheckBox("Keep invalid masks as gaps")
+        self.sam2_keep_gaps_checkbox.setChecked(self.sam2_settings.keep_invisible_points_as_gaps)
+        self.sam2_keep_gaps_checkbox.setToolTip(
+            "If enabled, invalid/invisible SAM 2 masks produce gaps instead of forced representative points."
+        )
+        sam2_layout.addRow(self.sam2_keep_gaps_checkbox)
+
+        self.sam2_max_step_spinbox = QDoubleSpinBox()
+        self.sam2_max_step_spinbox.setDecimals(1)
+        self.sam2_max_step_spinbox.setRange(0.0, 10000.0)
+        self.sam2_max_step_spinbox.setSingleStep(1.0)
+        self.sam2_max_step_spinbox.setValue(self.sam2_settings.max_step_distance_px)
+        self.sam2_max_step_spinbox.setToolTip(
+            "Reject representative points that jump farther than this distance from the last accepted SAM 2 point. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max jump (px):", self.sam2_max_step_spinbox)
+
+        self.sam2_max_gap_spinbox = QSpinBox()
+        self.sam2_max_gap_spinbox.setRange(0, 4096)
+        self.sam2_max_gap_spinbox.setValue(self.sam2_settings.max_reacquisition_gap)
+        self.sam2_max_gap_spinbox.setToolTip(
+            "If a SAM 2 track stays invalid longer than this gap, later reacquisition attempts are discarded. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max reacquisition gap:", self.sam2_max_gap_spinbox)
+
+        self.sam2_terminate_gap_spinbox = QSpinBox()
+        self.sam2_terminate_gap_spinbox.setRange(0, 4096)
+        self.sam2_terminate_gap_spinbox.setValue(self.sam2_settings.terminate_after_invisible_frames)
+        self.sam2_terminate_gap_spinbox.setToolTip(
+            "Stop writing any more SAM 2 points after this many consecutive invalid frames. Set 0 to disable."
+        )
+        sam2_layout.addRow("Terminate after gap:", self.sam2_terminate_gap_spinbox)
+
+        self.sam2_max_area_ratio_spinbox = QDoubleSpinBox()
+        self.sam2_max_area_ratio_spinbox.setDecimals(2)
+        self.sam2_max_area_ratio_spinbox.setRange(0.0, 100.0)
+        self.sam2_max_area_ratio_spinbox.setSingleStep(0.05)
+        self.sam2_max_area_ratio_spinbox.setValue(self.sam2_settings.max_mask_area_ratio_change)
+        self.sam2_max_area_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask area between accepted frames. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max area drift x:", self.sam2_max_area_ratio_spinbox)
+
+        self.sam2_max_aspect_ratio_spinbox = QDoubleSpinBox()
+        self.sam2_max_aspect_ratio_spinbox.setDecimals(2)
+        self.sam2_max_aspect_ratio_spinbox.setRange(0.0, 100.0)
+        self.sam2_max_aspect_ratio_spinbox.setSingleStep(0.05)
+        self.sam2_max_aspect_ratio_spinbox.setValue(self.sam2_settings.max_bbox_aspect_ratio_change)
+        self.sam2_max_aspect_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask bbox aspect ratio between accepted frames. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max aspect drift x:", self.sam2_max_aspect_ratio_spinbox)
+
+        self.sam2_max_components_spinbox = QSpinBox()
+        self.sam2_max_components_spinbox.setRange(0, 1024)
+        self.sam2_max_components_spinbox.setValue(self.sam2_settings.max_mask_components)
+        self.sam2_max_components_spinbox.setToolTip(
+            "Reject masks split into more connected components than this. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max components:", self.sam2_max_components_spinbox)
+
+        self.sam2_bbox_jump_spinbox = QDoubleSpinBox()
+        self.sam2_bbox_jump_spinbox.setDecimals(1)
+        self.sam2_bbox_jump_spinbox.setRange(0.0, 10000.0)
+        self.sam2_bbox_jump_spinbox.setSingleStep(1.0)
+        self.sam2_bbox_jump_spinbox.setValue(self.sam2_settings.max_bbox_center_jump_px)
+        self.sam2_bbox_jump_spinbox.setToolTip(
+            "Maximum accepted shift of the propagated mask bbox center between accepted frames. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max bbox jump (px):", self.sam2_bbox_jump_spinbox)
+
+        self.sam2_center_mode_combo = QComboBox()
+        self.sam2_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.sam2_center_mode_combo.addItem("Manual", "manual")
+        sam2_center_mode_idx = self.sam2_center_mode_combo.findData(self.sam2_settings.center_mode)
+        self.sam2_center_mode_combo.setCurrentIndex(sam2_center_mode_idx if sam2_center_mode_idx >= 0 else 0)
+        self.sam2_center_mode_combo.setToolTip(
+            "Reference center used by SAM 2 direction gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.sam2_center_mode_combo.currentIndexChanged.connect(self._on_sam2_center_mode_changed)
+        sam2_layout.addRow("Direction center:", self.sam2_center_mode_combo)
+
+        sam2_center_row_widget = QWidget()
+        sam2_center_row_layout = QHBoxLayout(sam2_center_row_widget)
+        sam2_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.sam2_center_x_spinbox = QDoubleSpinBox()
+        self.sam2_center_x_spinbox.setRange(0.0, 10000.0)
+        self.sam2_center_x_spinbox.setDecimals(1)
+        self.sam2_center_x_spinbox.setValue(self.sam2_settings.manual_center_x)
+        self.sam2_center_y_spinbox = QDoubleSpinBox()
+        self.sam2_center_y_spinbox.setRange(0.0, 10000.0)
+        self.sam2_center_y_spinbox.setDecimals(1)
+        self.sam2_center_y_spinbox.setValue(self.sam2_settings.manual_center_y)
+        sam2_center_row_layout.addWidget(self.sam2_center_x_spinbox)
+        sam2_center_row_layout.addWidget(QLabel(","))
+        sam2_center_row_layout.addWidget(self.sam2_center_y_spinbox)
+        sam2_layout.addRow("Manual center (x, y):", sam2_center_row_widget)
+
+        self.sam2_direction_mode_combo = QComboBox()
+        self.sam2_direction_mode_combo.addItem("None", "none")
+        self.sam2_direction_mode_combo.addItem("Auto", "auto")
+        self.sam2_direction_mode_combo.addItem("Inward", "inward")
+        self.sam2_direction_mode_combo.addItem("Outward", "outward")
+        sam2_direction_idx = self.sam2_direction_mode_combo.findData(self.sam2_settings.direction_mode)
+        self.sam2_direction_mode_combo.setCurrentIndex(sam2_direction_idx if sam2_direction_idx >= 0 else 0)
+        self.sam2_direction_mode_combo.setToolTip(
+            "Optional directional prior applied to the SAM 2 representative point."
+        )
+        sam2_layout.addRow("Direction mode:", self.sam2_direction_mode_combo)
+
+        self.sam2_lateral_tol_spinbox = QDoubleSpinBox()
+        self.sam2_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.sam2_lateral_tol_spinbox.setSingleStep(1.0)
+        self.sam2_lateral_tol_spinbox.setValue(self.sam2_settings.lateral_angle_tolerance_deg)
+        self.sam2_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        sam2_layout.addRow("Angular tol (deg):", self.sam2_lateral_tol_spinbox)
+
+        self.sam2_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.sam2_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.sam2_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.sam2_max_radial_jump_spinbox.setValue(self.sam2_settings.max_radial_jump_px)
+        self.sam2_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        sam2_layout.addRow("Max radial jump (px):", self.sam2_max_radial_jump_spinbox)
+
+        self.sam2_warning_label = QLabel()
+        self.sam2_warning_label.setStyleSheet("color: #d9534f;")
+        self.sam2_warning_label.setWordWrap(True)
+        sam2_layout.addRow(self.sam2_warning_label)
+
+        self._on_sam2_center_mode_changed(self.sam2_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.sam2_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -3347,6 +3709,7 @@ class MainWindow(QMainWindow):
         self._refresh_trackonr_checkpoints()
         self._refresh_pipspp_checkpoints()
         self._refresh_mftiq_checkpoints()
+        self._refresh_sam2_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
@@ -4286,6 +4649,87 @@ class MainWindow(QMainWindow):
         self.mftiq_settings.checkpoint_path = checkpoint_path
         self._refresh_mftiq_checkpoints()
 
+    def _refresh_sam2_checkpoints(self):
+        repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
+        if repo_path:
+            self.sam2_settings.repo_path = repo_path
+
+        status = probe_sam2_environment(
+            models_dir=self.sam2_models_dir,
+            checkpoint_path=self.sam2_settings.checkpoint_path,
+            repo_path=self.sam2_settings.repo_path,
+            config_path=None,
+        )
+
+        self.sam2_checkpoint_combo.blockSignals(True)
+        self.sam2_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.sam2_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.sam2_checkpoint_combo.setEnabled(False)
+            self._sam2_checkpoint_available = False
+            self.sam2_settings.checkpoint_path = None
+        else:
+            self.sam2_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.sam2_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._sam2_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.sam2_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.sam2_checkpoint_combo.setCurrentIndex(idx)
+                    self.sam2_settings.checkpoint_path = selected_checkpoint
+            if not self.sam2_settings.checkpoint_path and self.sam2_checkpoint_combo.count() > 0:
+                self.sam2_checkpoint_combo.setCurrentIndex(0)
+                self.sam2_settings.checkpoint_path = self.sam2_checkpoint_combo.currentData()
+
+        self.sam2_checkpoint_combo.blockSignals(False)
+        self.sam2_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.sam2_settings.repo_path or "")
+        )
+        self.sam2_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.sam2_settings.repo_path
+        )
+        self.sam2_settings.config_path = (
+            str(status.config_path.resolve())
+            if status.config_path is not None and status.config_path.exists()
+            else None
+        )
+        self.sam2_config_path_edit.setText(self.sam2_settings.config_path or "")
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            details.append("video predictor")
+            self.sam2_warning_label.setStyleSheet("color: #5cb85c;")
+            self.sam2_warning_label.setText("SAM 2 ready. " + ", ".join(details))
+            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if not summary:
+                summary.append(
+                    "Run Trackleed from the dedicated `sam2` environment until the subprocess backend is added."
+                )
+            self.sam2_warning_label.setStyleSheet("color: #d9534f;")
+            self.sam2_warning_label.setText("\n".join(summary))
+            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
+
+    def _on_sam2_checkpoint_selected(self, index: int):
+        checkpoint_path = self.sam2_checkpoint_combo.itemData(index)
+        self.sam2_settings.checkpoint_path = checkpoint_path
+        self._refresh_sam2_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -4372,6 +4816,8 @@ class MainWindow(QMainWindow):
             self._refresh_pipspp_checkpoints()
         if scenario == "Offline MFTIQ":
             self._refresh_mftiq_checkpoints()
+        if scenario == "Offline SAM2":
+            self._refresh_sam2_checkpoints()
 
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
@@ -4387,6 +4833,7 @@ class MainWindow(QMainWindow):
         show_trackonr = scenario == "Offline Track-On-R"
         show_pipspp = scenario == "Offline PIPs++"
         show_mftiq = scenario == "Offline MFTIQ"
+        show_sam2 = scenario == "Offline SAM2"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
 
@@ -4408,6 +4855,8 @@ class MainWindow(QMainWindow):
             self.pipspp_group.setVisible(show_pipspp)
         if hasattr(self, "mftiq_group"):
             self.mftiq_group.setVisible(show_mftiq)
+        if hasattr(self, "sam2_group"):
+            self.sam2_group.setVisible(show_sam2)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
@@ -4466,6 +4915,11 @@ class MainWindow(QMainWindow):
         self.mftiq_python_executable_edit.setEnabled(backend_mode == "subprocess")
         if hasattr(self, "mftiq_warning_label"):
             self._refresh_mftiq_checkpoints()
+
+    def _on_sam2_center_mode_changed(self, idx: int):
+        manual = self.sam2_center_mode_combo.itemData(idx) == "manual"
+        self.sam2_center_x_spinbox.setEnabled(manual)
+        self.sam2_center_y_spinbox.setEnabled(manual)
 
     def _on_mftiq_center_mode_changed(self, idx: int):
         manual = self.mftiq_center_mode_combo.itemData(idx) == "manual"
@@ -5336,6 +5790,58 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_sam2_tracking_params(self) -> dict:
+        """Collect the current SAM 2 tracking settings from the UI."""
+        repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
+        config_path = self.sam2_settings.config_path
+        if config_path and not Path(config_path).expanduser().exists():
+            config_path = None
+        inference_resolution = self.sam2_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        max_mask_area = self.sam2_max_mask_area_spinbox.value()
+        if max_mask_area <= 0.0:
+            max_mask_area = None
+        return {
+            "sam2_models_dir": str(self.sam2_models_dir.resolve()),
+            "sam2_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.sam2_settings.checkpoint_path,
+            "config_path": config_path,
+            "device": self.sam2_device_combo.currentData(),
+            "prompt_mode": self.sam2_prompt_mode_combo.currentData(),
+            "representative_point_mode": self.sam2_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.sam2_window_size_spinbox.value(),
+            "window_overlap": self.sam2_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.sam2_bbox_padding_spinbox.value(),
+            "mask_threshold": self.sam2_mask_threshold_spinbox.value(),
+            "min_mask_area": self.sam2_min_mask_area_spinbox.value(),
+            "max_mask_area": max_mask_area,
+            "use_vos_optimized": self.sam2_use_vos_checkbox.isChecked(),
+            "apply_postprocessing": self.sam2_postprocessing_checkbox.isChecked(),
+            "offload_video_to_cpu": self.sam2_offload_video_checkbox.isChecked(),
+            "offload_state_to_cpu": self.sam2_offload_state_checkbox.isChecked(),
+            "async_loading_frames": self.sam2_async_loading_checkbox.isChecked(),
+            "keep_invisible_points_as_gaps": self.sam2_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.sam2_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.sam2_max_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.sam2_terminate_gap_spinbox.value(),
+            "max_mask_area_ratio_change": self.sam2_max_area_ratio_spinbox.value(),
+            "max_bbox_aspect_ratio_change": self.sam2_max_aspect_ratio_spinbox.value(),
+            "max_mask_components": self.sam2_max_components_spinbox.value(),
+            "max_bbox_center_jump_px": self.sam2_bbox_jump_spinbox.value(),
+            "center_mode": self.sam2_center_mode_combo.currentData(),
+            "manual_center": (
+                self.sam2_center_x_spinbox.value(),
+                self.sam2_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.sam2_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.sam2_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.sam2_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
@@ -5804,6 +6310,59 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline SAM2":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline SAM2 requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
+            self.sam2_settings.repo_path = repo_path
+            status = probe_sam2_environment(
+                models_dir=self.sam2_models_dir,
+                checkpoint_path=self.sam2_settings.checkpoint_path,
+                repo_path=self.sam2_settings.repo_path,
+                config_path=self.sam2_settings.config_path,
+            )
+            if not status.is_ready and self.sam2_settings.config_path:
+                status = probe_sam2_environment(
+                    models_dir=self.sam2_models_dir,
+                    checkpoint_path=self.sam2_settings.checkpoint_path,
+                    repo_path=self.sam2_settings.repo_path,
+                    config_path=None,
+                )
+            self.sam2_settings.config_path = (
+                str(status.config_path.resolve())
+                if status.config_path is not None and status.config_path.exists()
+                else None
+            )
+
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "SAM2 Unavailable",
+                    format_sam2_environment_report(status)
+                    + "\n\nRun Trackleed from the dedicated `sam2` environment until the subprocess backend is added.",
+                )
+                return
+
+            sam2_params = self._collect_sam2_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_sam2_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                sam2_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
                 "max_distance_px": self.hung_max_dist_spinbox.value(),
@@ -5961,6 +6520,7 @@ class MainWindow(QMainWindow):
             trackonr_params=self._collect_trackonr_tracking_params(),
             pipspp_params=self._collect_pipspp_tracking_params(),
             mftiq_params=self._collect_mftiq_tracking_params(),
+            sam2_params=self._collect_sam2_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )

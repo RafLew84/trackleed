@@ -44,12 +44,17 @@ from trackleed.analysis.mftiq_backend import (
     format_mftiq_environment_report,
     probe_mftiq_environment,
 )
+from trackleed.analysis.sam2_backend import (
+    format_sam2_environment_report,
+    probe_sam2_environment,
+)
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_mftiq_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_pipspp_offline,
+    retrack_single_spot_sam2_offline,
     retrack_single_spot_trackonr_offline,
     retrack_single_spot_tapnext_offline,
     retrack_single_spot_tapir_offline,
@@ -77,6 +82,7 @@ class TrackingDialog(QDialog):
         trackonr_params: dict | None = None,
         pipspp_params: dict | None = None,
         mftiq_params: dict | None = None,
+        sam2_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -103,6 +109,7 @@ class TrackingDialog(QDialog):
         self.trackonr_params = dict(trackonr_params or {})
         self.pipspp_params = dict(pipspp_params or {})
         self.mftiq_params = dict(mftiq_params or {})
+        self.sam2_params = dict(sam2_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -339,6 +346,8 @@ class TrackingDialog(QDialog):
             return "PIPs++"
         if sources == {"mftiq_offline"}:
             return "MFTIQ"
+        if sources == {"sam2_offline"}:
+            return "SAM2"
         if sources.issubset(manual_sources):
             return "Manual"
         if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
@@ -357,6 +366,8 @@ class TrackingDialog(QDialog):
             return "PIPs++ + Manual"
         if "mftiq_offline" in sources and sources.issubset({"mftiq_offline"} | manual_sources):
             return "MFTIQ + Manual"
+        if "sam2_offline" in sources and sources.issubset({"sam2_offline"} | manual_sources):
+            return "SAM2 + Manual"
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -552,6 +563,48 @@ class TrackingDialog(QDialog):
                 lines.append(f"Sigma score: {float(sigma_score):.3f}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "sam2_offline":
+            raw_x = getattr(spot, "sam2_raw_x", None)
+            raw_y = getattr(spot, "sam2_raw_y", None)
+            refined_x = getattr(spot, "sam2_refined_x", None)
+            refined_y = getattr(spot, "sam2_refined_y", None)
+            visibility = getattr(spot, "sam2_visibility", None)
+            mask_area = getattr(spot, "sam2_mask_area", None)
+            mask_score = getattr(spot, "sam2_mask_score", None)
+            mask_component_count = getattr(spot, "sam2_mask_component_count", None)
+            mask_bbox_xyxy = getattr(spot, "sam2_mask_bbox_xyxy", None)
+            mask_bbox_aspect_ratio = getattr(spot, "sam2_mask_bbox_aspect_ratio", None)
+            repr_mode = getattr(spot, "sam2_repr_mode", None)
+            prompt_mode = getattr(spot, "sam2_prompt_mode", None)
+            rejected_reason = getattr(spot, "sam2_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if repr_mode:
+                lines.append(f"Representative mode: {repr_mode}")
+            if prompt_mode:
+                lines.append(f"Prompt mode: {prompt_mode}")
+            if mask_area is not None:
+                lines.append(f"Mask area: {float(mask_area):.1f}")
+            if mask_score is not None:
+                lines.append(f"Mask score: {float(mask_score):.3f}")
+            if mask_component_count is not None:
+                lines.append(f"Mask components: {int(mask_component_count)}")
+            if mask_bbox_xyxy is not None:
+                try:
+                    x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
+                    lines.append(
+                        f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
+                    )
+                except Exception:
+                    pass
+            if mask_bbox_aspect_ratio is not None:
+                lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -614,6 +667,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "mftiq_raw_x", None)
             raw_y = getattr(spot, "mftiq_raw_y", None)
             label = f"MFTIQ T{selected_track.track_id}"
+        elif source == "sam2_offline":
+            raw_x = getattr(spot, "sam2_raw_x", None)
+            raw_y = getattr(spot, "sam2_raw_y", None)
+            label = f"SAM2 T{selected_track.track_id}"
         else:
             return []
 
@@ -679,6 +736,7 @@ class TrackingDialog(QDialog):
         retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
         retrack_pipspp_action = menu.addAction("Re-track from this point (PIPs++)")
         retrack_mftiq_action = menu.addAction("Re-track from this point (MFTIQ)")
+        retrack_sam2_action = menu.addAction("Re-track from this point (SAM2)")
         
         action = menu.exec(global_pos)
         
@@ -700,6 +758,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_pipspp(spot_id)
         elif action == retrack_mftiq_action:
             self.initiate_retrack_mftiq(spot_id)
+        elif action == retrack_sam2_action:
+            self.initiate_retrack_sam2(spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -1223,6 +1283,63 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with MFTIQ...",
             cancel_event=cancel_event,
             method_label="MFTIQ re-tracking",
+        )
+
+    def initiate_retrack_sam2(self, spot_id: int):
+        """Prepares and launches SAM 2 re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.sam2_params:
+            QMessageBox.warning(
+                self,
+                "SAM2 Settings Missing",
+                "SAM2 parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_sam2_environment(
+            models_dir=self.sam2_params.get("sam2_models_dir"),
+            checkpoint_path=self.sam2_params.get("checkpoint_path"),
+            repo_path=self.sam2_params.get("repo_path") or self.sam2_params.get("sam2_repo_path"),
+            config_path=self.sam2_params.get("config_path"),
+        )
+        if not status.is_ready and self.sam2_params.get("config_path"):
+            status = probe_sam2_environment(
+                models_dir=self.sam2_params.get("sam2_models_dir"),
+                checkpoint_path=self.sam2_params.get("checkpoint_path"),
+                repo_path=self.sam2_params.get("repo_path") or self.sam2_params.get("sam2_repo_path"),
+                config_path=None,
+            )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "SAM2 Unavailable",
+                format_sam2_environment_report(status)
+                + "\n\nRun Trackleed from the dedicated `sam2` environment until the subprocess backend is added.",
+            )
+            return
+
+        sam2_params = dict(self.sam2_params)
+        sam2_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_sam2_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            sam2_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with SAM2...",
+            cancel_event=cancel_event,
+            method_label="SAM2 re-tracking",
         )
 
     def launch_retrack_worker(

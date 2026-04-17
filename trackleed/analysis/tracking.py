@@ -72,6 +72,13 @@ from trackleed.analysis.mftiq_backend import (
     run_mftiq_offline,
     select_default_mftiq_checkpoint,
 )
+from trackleed.analysis.sam2_backend import (
+    DEFAULT_SAM2_MODELS_DIR,
+    Sam2RuntimeSettings,
+    discover_sam2_checkpoints,
+    run_sam2_offline,
+    select_default_sam2_checkpoint,
+)
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
@@ -141,6 +148,73 @@ def _centered_roi_rect(
     left = min(max(0.0, left), max_left)
     top = min(max(0.0, top), max_top)
     return QRect(int(round(left)), int(round(top)), int(size), int(size))
+
+
+def _roi_rect_from_bbox_xyxy(
+    bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+    image_shape: Tuple[int, int],
+    *,
+    fallback_center_x: float,
+    fallback_center_y: float,
+    fallback_roi_size: int,
+) -> QRect:
+    """Build a QRect from an xyxy bbox and clamp it to image bounds."""
+    if bbox_xyxy is None:
+        return _centered_roi_rect(
+            fallback_center_x,
+            fallback_center_y,
+            fallback_roi_size,
+            image_shape,
+        )
+
+    bbox = np.asarray(bbox_xyxy, dtype=np.float32).reshape(-1)
+    if bbox.size < 4 or not np.all(np.isfinite(bbox[:4])):
+        return _centered_roi_rect(
+            fallback_center_x,
+            fallback_center_y,
+            fallback_roi_size,
+            image_shape,
+        )
+
+    image_h, image_w = int(image_shape[0]), int(image_shape[1])
+    x0 = float(np.clip(bbox[0], 0.0, max(0.0, float(image_w - 1))))
+    y0 = float(np.clip(bbox[1], 0.0, max(0.0, float(image_h - 1))))
+    x1 = float(np.clip(bbox[2], 0.0, float(image_w)))
+    y1 = float(np.clip(bbox[3], 0.0, float(image_h)))
+    if x1 <= x0 or y1 <= y0:
+        return _centered_roi_rect(
+            fallback_center_x,
+            fallback_center_y,
+            fallback_roi_size,
+            image_shape,
+        )
+
+    width = max(1, int(round(x1 - x0)))
+    height = max(1, int(round(y1 - y0)))
+    left = min(max(0, int(round(x0))), max(0, image_w - width))
+    top = min(max(0, int(round(y0))), max(0, image_h - height))
+    return QRect(left, top, width, height)
+
+
+def _bbox_center_and_aspect_ratio_from_xyxy(
+    bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+) -> tuple[np.ndarray | None, float | None]:
+    """Return bbox center and width/height aspect ratio for a valid xyxy box."""
+    if bbox_xyxy is None:
+        return None, None
+    bbox = np.asarray(bbox_xyxy, dtype=np.float32).reshape(-1)
+    if bbox.size < 4 or not np.all(np.isfinite(bbox[:4])):
+        return None, None
+    x0, y0, x1, y1 = (float(v) for v in bbox[:4])
+    width = float(x1 - x0)
+    height = float(y1 - y0)
+    if width <= 0.0 or height <= 0.0:
+        return None, None
+    center_xy = np.array(
+        [float((x0 + x1) * 0.5), float((y0 + y1) * 0.5)],
+        dtype=np.float32,
+    )
+    return center_xy, float(width / height)
 
 
 def _frame_to_normalized_gray(frame: np.ndarray) -> np.ndarray:
@@ -649,6 +723,72 @@ def _build_mftiq_spot(
     return spot
 
 
+def _build_sam2_spot(
+    reference_spot: SpotROI,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    mask_area: float,
+    mask_bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+    mask_score: float,
+    mask_component_count: int,
+    representative_point_mode: str,
+    prompt_mode: str,
+) -> SpotROI:
+    """Create a SpotROI from SAM 2 output using the representative point and mask bbox."""
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+
+    rect = _roi_rect_from_bbox_xyxy(
+        mask_bbox_xyxy if visible else None,
+        image_shape,
+        fallback_center_x=x,
+        fallback_center_y=y,
+        fallback_roi_size=roi_size,
+    )
+    spot = SpotROI(
+        id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        intensity=1.0 if visible else 0.0,
+        source="sam2_offline",
+    )
+    setattr(spot, "sam2_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
+    setattr(spot, "sam2_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
+    setattr(spot, "sam2_refined_x", float(x))
+    setattr(spot, "sam2_refined_y", float(y))
+    setattr(spot, "sam2_visibility", bool(visible))
+    setattr(spot, "sam2_mask_area", float(mask_area))
+    setattr(spot, "sam2_mask_score", float(mask_score))
+    setattr(spot, "sam2_mask_component_count", int(mask_component_count))
+    if mask_bbox_xyxy is not None:
+        bbox = np.asarray(mask_bbox_xyxy, dtype=np.float32).reshape(-1)
+        if bbox.size >= 4 and np.all(np.isfinite(bbox[:4])):
+            setattr(spot, "sam2_mask_bbox_xyxy", tuple(float(v) for v in bbox[:4].tolist()))
+            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox[:4])
+            setattr(
+                spot,
+                "sam2_mask_bbox_aspect_ratio",
+                float(aspect_ratio) if aspect_ratio is not None else None,
+            )
+        else:
+            setattr(spot, "sam2_mask_bbox_xyxy", None)
+            setattr(spot, "sam2_mask_bbox_aspect_ratio", None)
+    else:
+        setattr(spot, "sam2_mask_bbox_xyxy", None)
+        setattr(spot, "sam2_mask_bbox_aspect_ratio", None)
+    setattr(spot, "sam2_repr_mode", str(representative_point_mode))
+    setattr(spot, "sam2_prompt_mode", str(prompt_mode))
+    return spot
+
+
 def _compute_point_tracker_window_starts(
     total_frames: int,
     window_size: int,
@@ -739,6 +879,24 @@ def _resolve_mftiq_window_overlap(
     That means multi-window tracking needs at least one shared frame between
     neighboring windows; otherwise the next window has no already-tracked point
     on its first frame to seed from.
+    """
+    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
+    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
+        overlap = max(1, overlap)
+    return overlap
+
+
+def _resolve_sam2_window_overlap(
+    total_frames: int,
+    window_size: int,
+    window_overlap: int,
+) -> int:
+    """
+    SAM 2 windows are restarted independently and reseeded from overlap frames.
+
+    That means multi-window tracking needs at least one shared frame between
+    neighboring windows; otherwise the next window has no already-tracked seed
+    object to continue propagation from.
     """
     overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
     if total_frames > 1 and 1 < int(window_size) < int(total_frames):
@@ -2074,6 +2232,289 @@ def _append_mftiq_sequence_to_track(
         invisible_streak = 0
 
     state["last_valid_xy"] = last_valid_xy
+    state["invisible_streak"] = invisible_streak
+    state["terminated"] = terminated
+    return True
+
+
+def _append_sam2_sequence_to_track(
+    track: Track,
+    state: Dict[str, Any],
+    reference_spot: SpotROI,
+    frame_ids: List[int],
+    frame_shapes: List[Tuple[int, int]],
+    query_tracks: np.ndarray,
+    query_visible: np.ndarray,
+    query_mask_areas: np.ndarray,
+    query_mask_bboxes_xyxy: np.ndarray,
+    query_mask_scores: np.ndarray,
+    query_mask_component_counts: np.ndarray,
+    *,
+    roi_size: int,
+    keep_invisible_as_gaps: bool,
+    representative_point_mode: str,
+    prompt_mode: str,
+    max_step_distance_px: float,
+    max_reacquisition_gap: int,
+    terminate_after_invisible_frames: int,
+    max_mask_area_ratio_change: float,
+    max_bbox_aspect_ratio_change: float,
+    max_mask_components: int,
+    max_bbox_center_jump_px: float,
+    direction_center_xy: Tuple[float, float] | None,
+    direction_mode: str,
+    lateral_angle_tolerance_deg: float,
+    max_radial_jump_px: float,
+    min_directional_motion_px: float,
+    cancel_event: Optional[Event] = None,
+    start_local_idx: int = 1,
+    min_global_write_idx: int | None = None,
+    global_start_idx: int = 0,
+) -> bool:
+    """
+    Append SAM 2 representative points and mask summaries to one track.
+
+    Returns False only when canceled.
+    """
+    last_valid_xy = state["last_valid_xy"]
+    last_valid_mask_area = state["last_valid_mask_area"]
+    last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
+    last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
+    invisible_streak = int(state["invisible_streak"])
+    terminated = bool(state["terminated"])
+    max_step_distance_px = float(max(0.0, max_step_distance_px))
+    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
+    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
+    max_mask_area_ratio_change = float(max(0.0, max_mask_area_ratio_change))
+    max_bbox_aspect_ratio_change = float(max(0.0, max_bbox_aspect_ratio_change))
+    max_mask_components = int(max(0, max_mask_components))
+    max_bbox_center_jump_px = float(max(0.0, max_bbox_center_jump_px))
+    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
+    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
+    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
+    direction_mode = str(direction_mode or "none").strip().lower()
+
+    if terminated:
+        return True
+
+    for local_idx in range(start_local_idx, len(frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        global_idx = global_start_idx + local_idx
+        if min_global_write_idx is not None and global_idx <= min_global_write_idx:
+            continue
+
+        frame_id = frame_ids[local_idx]
+        visible = bool(query_visible[local_idx])
+        raw_x = float(query_tracks[local_idx, 0])
+        raw_y = float(query_tracks[local_idx, 1])
+        mask_area = float(query_mask_areas[local_idx])
+        mask_score = float(query_mask_scores[local_idx])
+        mask_bbox_xyxy = query_mask_bboxes_xyxy[local_idx]
+        mask_component_count = int(query_mask_component_counts[local_idx])
+        image_h, image_w = frame_shapes[local_idx]
+        bbox_center_xy, bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(mask_bbox_xyxy)
+
+        candidate_spot: SpotROI | None = None
+        rejection_reason = "invalid_mask"
+        accepted = visible
+
+        if accepted:
+            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
+                state["terminated"] = True
+                return True
+
+            if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
+                accepted = False
+                rejection_reason = "invalid_mask"
+            elif not (0.0 <= raw_x < float(image_w) and 0.0 <= raw_y < float(image_h)):
+                accepted = False
+                rejection_reason = "out_of_bounds"
+            elif max_mask_components > 0 and mask_component_count > max_mask_components:
+                accepted = False
+                rejection_reason = "mask_fragmentation"
+
+        if accepted:
+            candidate_spot = _build_sam2_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                raw_x,
+                raw_y,
+                True,
+                roi_size,
+                mask_area,
+                mask_bbox_xyxy,
+                mask_score,
+                mask_component_count,
+                representative_point_mode,
+                prompt_mode,
+            )
+
+            if (
+                accepted
+                and max_mask_area_ratio_change > 1.0
+                and last_valid_mask_area is not None
+                and np.isfinite(last_valid_mask_area)
+                and last_valid_mask_area > 0.0
+                and np.isfinite(mask_area)
+                and mask_area > 0.0
+            ):
+                area_ratio = max(float(mask_area), float(last_valid_mask_area)) / min(
+                    float(mask_area),
+                    float(last_valid_mask_area),
+                )
+                if area_ratio > max_mask_area_ratio_change:
+                    accepted = False
+                    rejection_reason = "mask_area_drift"
+                    setattr(candidate_spot, "sam2_filter_rejected", True)
+                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and max_bbox_aspect_ratio_change > 1.0
+                and last_valid_bbox_aspect_ratio is not None
+                and np.isfinite(last_valid_bbox_aspect_ratio)
+                and last_valid_bbox_aspect_ratio > 0.0
+                and bbox_aspect_ratio is not None
+                and np.isfinite(bbox_aspect_ratio)
+                and bbox_aspect_ratio > 0.0
+            ):
+                aspect_ratio_change = max(
+                    float(bbox_aspect_ratio),
+                    float(last_valid_bbox_aspect_ratio),
+                ) / min(
+                    float(bbox_aspect_ratio),
+                    float(last_valid_bbox_aspect_ratio),
+                )
+                if aspect_ratio_change > max_bbox_aspect_ratio_change:
+                    accepted = False
+                    rejection_reason = "bbox_aspect_ratio_drift"
+                    setattr(candidate_spot, "sam2_filter_rejected", True)
+                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and max_bbox_center_jump_px > 0.0
+                and last_valid_bbox_center_xy is not None
+                and bbox_center_xy is not None
+                and float(np.linalg.norm(bbox_center_xy - last_valid_bbox_center_xy)) > max_bbox_center_jump_px
+            ):
+                accepted = False
+                rejection_reason = "bbox_jump"
+                setattr(candidate_spot, "sam2_filter_rejected", True)
+                setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+            if max_step_distance_px > 0.0 and last_valid_xy is not None:
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
+                    accepted = False
+                    rejection_reason = "max_step_distance"
+                    setattr(candidate_spot, "sam2_filter_rejected", True)
+                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and direction_center_xy is not None
+                and last_valid_xy is not None
+                and direction_mode != "none"
+            ):
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                delta = candidate_xy - last_valid_xy
+                step_norm = float(np.linalg.norm(delta))
+                radial_unit, last_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
+                )
+                _, candidate_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(candidate_xy[0]), float(candidate_xy[1])),
+                )
+
+                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
+                    accepted = False
+                    rejection_reason = "max_radial_jump"
+                    setattr(candidate_spot, "sam2_filter_rejected", True)
+                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+                if accepted and step_norm >= min_directional_motion_px:
+                    expected_sign = state.get("expected_direction_sign")
+                    if direction_mode == "inward":
+                        expected_sign = -1.0
+                    elif direction_mode == "outward":
+                        expected_sign = 1.0
+                    else:
+                        if expected_sign is None:
+                            radial_comp_seed = float(np.dot(delta, radial_unit))
+                            if abs(radial_comp_seed) >= min_directional_motion_px:
+                                expected_sign = float(np.sign(radial_comp_seed))
+                                state["expected_direction_sign"] = expected_sign
+
+                    if expected_sign is not None:
+                        expected_vec = radial_unit * float(expected_sign)
+                        angle_deg = angular_offset_deg(expected_vec, delta)
+                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
+                            accepted = False
+                            rejection_reason = "direction_gating"
+                            setattr(candidate_spot, "sam2_filter_rejected", True)
+                            setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
+
+        if not accepted:
+            invisible_streak += 1
+            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
+                state["terminated"] = True
+                return True
+            if not keep_invisible_as_gaps:
+                fallback_x = raw_x if np.isfinite(raw_x) else (
+                    float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
+                )
+                fallback_y = raw_y if np.isfinite(raw_y) else (
+                    float(last_valid_xy[1]) if last_valid_xy is not None else float(reference_spot.center_y)
+                )
+                forced_spot = candidate_spot or _build_sam2_spot(
+                    reference_spot,
+                    frame_shapes[local_idx],
+                    fallback_x,
+                    fallback_y,
+                    False,
+                    roi_size,
+                    mask_area,
+                    mask_bbox_xyxy,
+                    mask_score,
+                    mask_component_count,
+                    representative_point_mode,
+                    prompt_mode,
+                )
+                forced_spot.intensity = 0.0
+                setattr(forced_spot, "sam2_visibility", False)
+                setattr(forced_spot, "sam2_filter_rejected", True)
+                setattr(forced_spot, "sam2_filter_rejected_reason", rejection_reason)
+                track.spots_by_image_id[frame_id] = forced_spot
+            continue
+
+        track.spots_by_image_id[frame_id] = candidate_spot
+        last_valid_xy = np.array(
+            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+            dtype=np.float32,
+        )
+        if np.isfinite(mask_area) and mask_area > 0.0:
+            last_valid_mask_area = float(mask_area)
+        if bbox_aspect_ratio is not None and np.isfinite(bbox_aspect_ratio) and bbox_aspect_ratio > 0.0:
+            last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
+        if bbox_center_xy is not None:
+            last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
+        invisible_streak = 0
+
+    state["last_valid_xy"] = last_valid_xy
+    state["last_valid_mask_area"] = last_valid_mask_area
+    state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
+    state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
     state["invisible_streak"] = invisible_streak
     state["terminated"] = terminated
     return True
@@ -4339,6 +4780,386 @@ def track_spots_mftiq_offline(
                     max_step_distance_px=max_step_distance_px,
                     max_reacquisition_gap=max_reacquisition_gap,
                     terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=direction_mode,
+                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                    max_radial_jump_px=max_radial_jump_px,
+                    min_directional_motion_px=min_directional_motion_px,
+                    cancel_event=cancel_event,
+                    start_local_idx=seed_local_idx + 1,
+                    min_global_write_idx=write_after_global_idx,
+                    global_start_idx=start_idx,
+                )
+                if not ok:
+                    return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+        converted_tracks = list(track_map.values())
+
+    if progress_callback:
+        progress_callback(100)
+    return converted_tracks
+
+
+def track_spots_sam2_offline(
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots from a reference frame using offline SAM 2 mask propagation.
+
+    Each reference spot becomes one prompted object. The returned masks are
+    reduced to one representative point per frame and converted to Track / SpotROI.
+    """
+    ref_file = all_files_map.get(reference_frame_id)
+    if not ref_file or not ref_file.spots:
+        raise ValueError("Reference frame must contain at least one defined spot.")
+    if reference_frame_id not in sorted_frame_ids:
+        raise ValueError("Reference frame is missing from the provided frame list.")
+
+    ref_index = sorted_frame_ids.index(reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[ref_index:]
+    if len(subset_frame_ids) < 2:
+        raise ValueError("Offline SAM 2 requires at least two frames starting from the reference.")
+
+    repo_path = params.get("repo_path") or params.get("sam2_repo_path")
+    sam2_models_dir = Path(params.get("sam2_models_dir", DEFAULT_SAM2_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_sam2_checkpoints(
+            sam2_models_dir,
+            repo_path=repo_path,
+        )
+        selected_checkpoint = select_default_sam2_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No SAM 2 checkpoint selected. Place a checkpoint such as `sam2.1_hiera_small.pt` "
+            "in tracking_models/sam2 or the local repo/checkpoints and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [
+            [
+                float(spot.roi_rect.left()),
+                float(spot.roi_rect.top()),
+                float(spot.roi_rect.left() + spot.roi_rect.width()),
+                float(spot.roi_rect.top() + spot.roi_rect.height()),
+            ]
+            for spot in ref_file.spots
+        ],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    sam2_settings = Sam2RuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        config_path=params.get("config_path"),
+        device=params.get("device", "auto"),
+        prompt_mode=params.get("prompt_mode", "point+bbox"),
+        representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 12.0)),
+        mask_threshold=float(params.get("mask_threshold", 0.5)),
+        min_mask_area=float(params.get("min_mask_area", 1.0)),
+        max_mask_area=(
+            None if params.get("max_mask_area") in {None, ""} else float(params.get("max_mask_area"))
+        ),
+        use_vos_optimized=bool(params.get("use_vos_optimized", False)),
+        apply_postprocessing=bool(params.get("apply_postprocessing", True)),
+        offload_video_to_cpu=bool(params.get("offload_video_to_cpu", True)),
+        offload_state_to_cpu=bool(params.get("offload_state_to_cpu", False)),
+        async_loading_frames=bool(params.get("async_loading_frames", False)),
+    )
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
+    max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
+    max_mask_components = int(params.get("max_mask_components", 0) or 0)
+    max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    roi_size = int(params.get("roi_size", 32))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_sam2_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            ref_image = load_tiff(ref_file.filepath)
+            fallback_shape = None
+            if ref_image is not None and np.asarray(ref_image).size:
+                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_sam2_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=sam2_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        converted_tracks: List[Track] = []
+        for query_idx, reference_spot in enumerate(ref_file.spots):
+            track = Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            state = {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "last_valid_mask_area": float(reference_spot.roi_rect.width() * reference_spot.roi_rect.height()),
+                "last_valid_bbox_aspect_ratio": (
+                    float(reference_spot.roi_rect.width()) / float(reference_spot.roi_rect.height())
+                    if reference_spot.roi_rect.height() > 0
+                    else None
+                ),
+                "last_valid_bbox_center_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            ok = _append_sam2_sequence_to_track(
+                track,
+                state,
+                reference_spot,
+                subset_frame_ids,
+                frame_shapes,
+                result.tracks_xy[query_idx],
+                result.visible_mask[query_idx],
+                result.mask_areas[query_idx],
+                result.mask_bboxes_xyxy[query_idx],
+                result.mask_scores[query_idx],
+                result.mask_component_counts[query_idx],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                prompt_mode=result.prompt_mode,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                max_mask_area_ratio_change=max_mask_area_ratio_change,
+                max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                max_mask_components=max_mask_components,
+                max_bbox_center_jump_px=max_bbox_center_jump_px,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=None,
+                global_start_idx=0,
+            )
+            if not ok:
+                return None
+            converted_tracks.append(track)
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        track_map: Dict[int, Track] = {
+            reference_spot.id: Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            for reference_spot in ref_file.spots
+        }
+        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
+        track_states: Dict[int, Dict[str, Any]] = {
+            reference_spot.id: {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "last_valid_mask_area": float(reference_spot.roi_rect.width() * reference_spot.roi_rect.height()),
+                "last_valid_bbox_aspect_ratio": (
+                    float(reference_spot.roi_rect.width()) / float(reference_spot.roi_rect.height())
+                    if reference_spot.roi_rect.height() > 0
+                    else None
+                ),
+                "last_valid_bbox_center_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            for reference_spot in ref_file.spots
+        }
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_sam2_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            query_rows: List[List[float]] = []
+            query_box_rows: List[List[float]] = []
+            query_specs: List[Tuple[SpotROI, int]] = []
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+
+            for track_id, track in track_map.items():
+                reference_spot = reference_spots_by_id[track_id]
+                seed_local_idx = None
+                seed_spot = None
+                for local_idx, frame_id in enumerate(window_frame_ids):
+                    if frame_id not in query_seed_ids:
+                        break
+                    candidate = track.spots_by_image_id.get(frame_id)
+                    if candidate is None:
+                        continue
+                    seed_local_idx = local_idx
+                    seed_spot = candidate
+                    break
+                if seed_spot is None or seed_local_idx is None:
+                    continue
+
+                seed_rect = seed_spot.roi_rect
+                query_rows.append(
+                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
+                )
+                query_box_rows.append(
+                    [
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]
+                )
+                query_specs.append((reference_spot, seed_local_idx))
+
+            if not query_rows:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_sam2_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
+                settings=sam2_settings,
+                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
+            )
+
+            write_after_global_idx = covered_until
+            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
+                if cancel_event and cancel_event.is_set():
+                    return None
+
+                track = track_map[reference_spot.id]
+                ok = _append_sam2_sequence_to_track(
+                    track,
+                    track_states[reference_spot.id],
+                    reference_spot,
+                    window_frame_ids,
+                    window_shapes,
+                    result.tracks_xy[query_idx],
+                    result.visible_mask[query_idx],
+                    result.mask_areas[query_idx],
+                    result.mask_bboxes_xyxy[query_idx],
+                    result.mask_scores[query_idx],
+                    result.mask_component_counts[query_idx],
+                    roi_size=roi_size,
+                    keep_invisible_as_gaps=keep_invisible_as_gaps,
+                    representative_point_mode=result.representative_point_mode,
+                    prompt_mode=result.prompt_mode,
+                    max_step_distance_px=max_step_distance_px,
+                    max_reacquisition_gap=max_reacquisition_gap,
+                    terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    max_mask_area_ratio_change=max_mask_area_ratio_change,
+                    max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                    max_mask_components=max_mask_components,
+                    max_bbox_center_jump_px=max_bbox_center_jump_px,
                     direction_center_xy=direction_center_xy,
                     direction_mode=direction_mode,
                     lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
@@ -7708,6 +8529,355 @@ def retrack_single_spot_mftiq_offline(
                 max_step_distance_px=max_step_distance_px,
                 max_reacquisition_gap=max_reacquisition_gap,
                 terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=seed_local_idx + 1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
+
+
+def retrack_single_spot_sam2_offline(
+    track_to_update: Track,
+    start_frame_id: int,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[Track]:
+    """
+    Re-track a single existing track from a chosen frame using offline SAM 2.
+
+    The track is trimmed after `start_frame_id`, then SAM 2 is rerun from that
+    point to the end of the sequence using the spot center and ROI on the start
+    frame as the seed prompt.
+    """
+    if start_frame_id not in track_to_update.spots_by_image_id:
+        raise ValueError(
+            f"Cannot start SAM 2 re-tracking. Track {track_to_update.track_id} "
+            f"has no point on frame {start_frame_id}."
+        )
+    if start_frame_id not in sorted_frame_ids:
+        raise ValueError("Start frame is missing from the provided frame list.")
+
+    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
+    for fid in frames_to_remove:
+        del track_to_update.spots_by_image_id[fid]
+
+    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    subset_frame_ids = sorted_frame_ids[start_frame_index:]
+    if len(subset_frame_ids) < 2:
+        if progress_callback:
+            progress_callback(100)
+        return track_to_update
+
+    sam2_models_dir = Path(params.get("sam2_models_dir", DEFAULT_SAM2_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_sam2_checkpoints(
+            sam2_models_dir,
+            repo_path=params.get("repo_path") or params.get("sam2_repo_path"),
+        )
+        selected_checkpoint = select_default_sam2_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No SAM 2 checkpoint selected. Place a checkpoint such as `sam2.1_hiera_small.pt` "
+            "in tracking_models/sam2 or the local repo/checkpoints and pass checkpoint_path in params."
+        )
+
+    start_rect = start_spot.roi_rect
+    query_points = np.array(
+        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [[
+            float(start_rect.left()),
+            float(start_rect.top()),
+            float(start_rect.left() + start_rect.width()),
+            float(start_rect.top() + start_rect.height()),
+        ]],
+        dtype=np.float32,
+    )
+
+    sam2_settings = Sam2RuntimeSettings(
+        repo_path=params.get("repo_path") or params.get("sam2_repo_path"),
+        checkpoint_path=checkpoint_path,
+        config_path=params.get("config_path"),
+        device=params.get("device", "auto"),
+        prompt_mode=params.get("prompt_mode", "point+bbox"),
+        representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 12.0)),
+        mask_threshold=float(params.get("mask_threshold", 0.5)),
+        min_mask_area=float(params.get("min_mask_area", 1.0)),
+        max_mask_area=(
+            None if params.get("max_mask_area") in {None, ""} else float(params.get("max_mask_area"))
+        ),
+        use_vos_optimized=bool(params.get("use_vos_optimized", False)),
+        apply_postprocessing=bool(params.get("apply_postprocessing", True)),
+        offload_video_to_cpu=bool(params.get("offload_video_to_cpu", True)),
+        offload_state_to_cpu=bool(params.get("offload_state_to_cpu", False)),
+        async_loading_frames=bool(params.get("async_loading_frames", False)),
+    )
+
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
+    max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
+    max_mask_components = int(params.get("max_mask_components", 0) or 0)
+    max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    roi_size = int(params.get("roi_size", 32))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_sam2_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            start_file = all_files_map.get(start_frame_id)
+            if start_file is not None:
+                start_image = load_tiff(start_file.filepath)
+            else:
+                start_image = None
+            fallback_shape = None
+            if start_image is not None and np.asarray(start_image).size:
+                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    start_mask_area = getattr(start_spot, "sam2_mask_area", None)
+    if not (start_mask_area is not None and np.isfinite(float(start_mask_area)) and float(start_mask_area) > 0.0):
+        start_mask_area = float(start_rect.width() * start_rect.height())
+    start_bbox_xyxy = getattr(start_spot, "sam2_mask_bbox_xyxy", None)
+    start_bbox_center_xy, start_bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(start_bbox_xyxy)
+    if start_bbox_aspect_ratio is None:
+        start_bbox_aspect_ratio = (
+            float(start_rect.width()) / float(start_rect.height())
+            if start_rect.height() > 0
+            else None
+        )
+    if start_bbox_center_xy is None:
+        start_bbox_center_xy = np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        )
+
+    state = {
+        "last_valid_xy": np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        ),
+        "last_valid_mask_area": float(start_mask_area),
+        "last_valid_bbox_aspect_ratio": start_bbox_aspect_ratio,
+        "last_valid_bbox_center_xy": np.asarray(start_bbox_center_xy, dtype=np.float32),
+        "invisible_streak": 0,
+        "terminated": False,
+        "expected_direction_sign": None,
+    }
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_sam2_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=sam2_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = _append_sam2_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            result.mask_areas[0],
+            result.mask_bboxes_xyxy[0],
+            result.mask_scores[0],
+            result.mask_component_counts[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            representative_point_mode=result.representative_point_mode,
+            prompt_mode=result.prompt_mode,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            max_mask_area_ratio_change=max_mask_area_ratio_change,
+            max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+            max_mask_components=max_mask_components,
+            max_bbox_center_jump_px=max_bbox_center_jump_px,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=1,
+            min_global_write_idx=None,
+            global_start_idx=0,
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_sam2_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            seed_rect = seed_spot.roi_rect
+            result = run_sam2_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(
+                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=sam2_settings,
+                query_boxes_xyxy=np.asarray(
+                    [[
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]],
+                    dtype=np.float32,
+                ),
+            )
+
+            ok = _append_sam2_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                window_frame_ids,
+                window_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                result.mask_areas[0],
+                result.mask_bboxes_xyxy[0],
+                result.mask_scores[0],
+                result.mask_component_counts[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                prompt_mode=result.prompt_mode,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                max_mask_area_ratio_change=max_mask_area_ratio_change,
+                max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                max_mask_components=max_mask_components,
+                max_bbox_center_jump_px=max_bbox_center_jump_px,
                 direction_center_xy=direction_center_xy,
                 direction_mode=direction_mode,
                 lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
