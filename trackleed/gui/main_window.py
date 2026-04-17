@@ -3265,6 +3265,14 @@ class MainWindow(QMainWindow):
         sam2_model_row_layout.addWidget(self.sam2_refresh_button)
         sam2_layout.addRow("Checkpoint:", sam2_model_row_widget)
 
+        self.sam2_checkpoint_hint_label = QLabel(
+            "Hint: start with sam2.1_hiera_small.pt, then try sam2.1_hiera_base_plus.pt. "
+            "sam2.1_hiera_large.pt is heavier and usually much slower."
+        )
+        self.sam2_checkpoint_hint_label.setWordWrap(True)
+        self.sam2_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        sam2_layout.addRow(self.sam2_checkpoint_hint_label)
+
         self.sam2_config_path_edit = QLineEdit(self.sam2_settings.config_path or "")
         self.sam2_config_path_edit.setReadOnly(True)
         self.sam2_config_path_edit.setPlaceholderText("Resolved automatically from checkpoint name")
