@@ -5,9 +5,12 @@ from __future__ import annotations
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional, Any
 import importlib
 import inspect
+import json
+import subprocess
 import sys
 
 import numpy as np
@@ -23,6 +26,7 @@ OFFLINE_CHECKPOINT_PRIORITY = (
     "locotrack_small.ckpt",
     "locotrack_base.ckpt",
 )
+DEFAULT_LOCOTRACK_SUBPROCESS_SCRIPT = Path("scripts") / "run_locotrack_subprocess.py"
 _MODEL_CACHE: dict[tuple[str, str, str, str], Any] = {}
 
 
@@ -67,6 +71,8 @@ class LocotrackSmokeTestResult:
 class LocotrackRuntimeSettings:
     repo_path: str | Path
     checkpoint_path: str | Path
+    python_executable: str | Path | None = None
+    backend_mode: str = "subprocess"
     model_size: str = "auto"
     device: str = "auto"
     inference_resolution: int = 256
@@ -75,6 +81,7 @@ class LocotrackRuntimeSettings:
     visibility_threshold: float = 0.5
     use_uncertainty_gating: bool = True
     expected_dist_threshold: float = 0.5
+    subprocess_timeout_sec: float = 1800.0
 
 
 @dataclass
@@ -239,6 +246,108 @@ def run_locotrack_offline(
             "query_points_tyx must have shape [num_queries, 3] in [t, y, x] format."
         )
 
+    backend_mode = str(settings.backend_mode or "subprocess").strip().lower()
+    if backend_mode == "auto":
+        backend_mode = "subprocess"
+
+    if backend_mode == "direct":
+        return _run_locotrack_direct_offline(frames_np, query_np, settings)
+    if backend_mode != "subprocess":
+        raise ValueError(
+            f"Unsupported LocoTrack backend mode: {settings.backend_mode}. "
+            "Expected `subprocess` or `direct`."
+        )
+    return _run_locotrack_subprocess_offline(frames_np, query_np, settings)
+
+
+def _run_locotrack_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: LocotrackRuntimeSettings,
+) -> LocotrackOfflineResult:
+    python_executable = _resolve_locotrack_python_executable(settings.python_executable)
+    script_path = (Path(__file__).resolve().parents[2] / DEFAULT_LOCOTRACK_SUBPROCESS_SCRIPT).resolve()
+    if not script_path.exists():
+        raise FileNotFoundError(f"LocoTrack subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_locotrack_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "locotrack_input.npz"
+        output_path = temp_root / "locotrack_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            query_points_tyx=np.asarray(query_points_tyx, dtype=np.float32),
+        )
+
+        command = [
+            str(python_executable),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(settings.checkpoint_path),
+            "--model-size",
+            str(settings.model_size),
+            "--device",
+            str(settings.device),
+            "--inference-resolution",
+            str(int(settings.inference_resolution)),
+            "--query-chunk-size",
+            str(int(max(1, settings.query_chunk_size))),
+            "--visibility-threshold",
+            str(float(settings.visibility_threshold)),
+            "--expected-dist-threshold",
+            str(float(settings.expected_dist_threshold)),
+        ]
+        if settings.repo_path is not None:
+            command.extend(["--repo-path", str(settings.repo_path)])
+        if not bool(settings.use_visibility_gating):
+            command.append("--disable-visibility-gating")
+        if not bool(settings.use_uncertainty_gating):
+            command.append("--disable-uncertainty-gating")
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+        )
+        if completed.returncode != 0:
+            payload = {
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout.strip(),
+                "stderr": completed.stderr.strip(),
+            }
+            raise RuntimeError(
+                "LocoTrack subprocess inference failed:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
+        if not output_path.exists():
+            raise FileNotFoundError(f"LocoTrack subprocess did not create output: {output_path}")
+
+        with np.load(output_path, allow_pickle=False) as data:
+            return LocotrackOfflineResult(
+                tracks_xy=np.asarray(data["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(data["visible_mask"], dtype=bool),
+                occlusion_logits=np.asarray(data["occlusion_logits"], dtype=np.float32),
+                expected_dist_logits=np.asarray(data["expected_dist_logits"], dtype=np.float32),
+                inference_resolution=tuple(int(v) for v in data["inference_resolution"].tolist()),
+                original_resolution=tuple(int(v) for v in data["original_resolution"].tolist()),
+                model_size=str(data["model_size"].tolist()),
+            )
+
+
+def _run_locotrack_direct_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: LocotrackRuntimeSettings,
+) -> LocotrackOfflineResult:
     torch = importlib.import_module("torch")
     resolved_repo_path = _resolve_locotrack_repo_path(settings.repo_path)
     if resolved_repo_path is None:
@@ -249,11 +358,11 @@ def run_locotrack_offline(
     device = _resolve_torch_device(torch, settings.device)
     model = _load_locotrack_model(torch, settings, resolved_repo_path, device)
 
-    prepared_frames, original_resolution = _prepare_frames_rgb(frames_np)
+    prepared_frames, original_resolution = _prepare_frames_rgb(frames)
     resized_frames = _resize_video_numpy(prepared_frames, settings.inference_resolution)
     resized_resolution = (int(resized_frames.shape[1]), int(resized_frames.shape[2]))
     scaled_query_points = _scale_query_points_tyx(
-        query_np,
+        query_points_tyx,
         source_resolution=original_resolution,
         target_resolution=resized_resolution,
     )
@@ -483,6 +592,14 @@ def _resolve_torch_device(torch_module, device: str) -> str:
     if requested.startswith("cuda") and not torch_module.cuda.is_available():
         return "cpu"
     return requested
+
+
+def _resolve_locotrack_python_executable(
+    python_executable: str | Path | None,
+) -> Path:
+    if python_executable is not None:
+        return Path(python_executable).expanduser().resolve()
+    return Path(sys.executable).resolve()
 
 
 def _prepare_frames_rgb(frames: np.ndarray) -> tuple[np.ndarray, tuple[int, int]]:

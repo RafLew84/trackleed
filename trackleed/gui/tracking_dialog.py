@@ -832,13 +832,42 @@ class TrackingDialog(QDialog):
             checkpoint_path=self.locotrack_params.get("checkpoint_path"),
             repo_path=self.locotrack_params.get("repo_path") or self.locotrack_params.get("locotrack_repo_path"),
         )
-        if not status.is_ready:
-            QMessageBox.warning(
-                self,
-                "LocoTrack Unavailable",
-                format_locotrack_environment_report(status),
-            )
-            return
+        backend_mode = str(self.locotrack_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = self.locotrack_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(str(python_executable)).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "LocoTrack Unavailable",
+                    format_locotrack_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "LocoTrack Unavailable",
+                    format_locotrack_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "LocoTrack Unavailable",
+                    format_locotrack_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `locotrack` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
 
         locotrack_params = dict(self.locotrack_params)
         locotrack_params["roi_size"] = self.roi_size
@@ -982,13 +1011,42 @@ class TrackingDialog(QDialog):
                 or self.trackonr_params.get("track_on_repo_path")
             ),
         )
-        if not status.is_ready:
-            QMessageBox.warning(
-                self,
-                "Track-On-R Unavailable",
-                format_trackonr_environment_report(status),
-            )
-            return
+        backend_mode = str(self.trackonr_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = self.trackonr_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(str(python_executable)).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "Track-On-R Unavailable",
+                    format_trackonr_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "Track-On-R Unavailable",
+                    format_trackonr_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "Track-On-R Unavailable",
+                    format_trackonr_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `trackonr` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
 
         trackonr_params = dict(self.trackonr_params)
         trackonr_params["roi_size"] = self.roi_size
@@ -1030,13 +1088,43 @@ class TrackingDialog(QDialog):
             checkpoint_path=self.pipspp_params.get("checkpoint_path"),
             repo_path=self.pipspp_params.get("repo_path") or self.pipspp_params.get("pipspp_repo_path"),
         )
-        if not status.is_ready:
-            QMessageBox.warning(
-                self,
-                "PIPs++ Unavailable",
-                format_pipspp_environment_report(status),
-            )
-            return
+        backend_mode = str(self.pipspp_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = self.pipspp_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(str(python_executable)).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.selected_checkpoint_file is not None
+        )
+
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "PIPs++ Unavailable",
+                    format_pipspp_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "PIPs++ Unavailable",
+                    format_pipspp_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "PIPs++ Unavailable",
+                    format_pipspp_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `pipspp` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
 
         pipspp_params = dict(self.pipspp_params)
         pipspp_params["roi_size"] = self.roi_size

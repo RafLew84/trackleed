@@ -134,10 +134,13 @@ class TapirTrackingSettings:
 class LocotrackTrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
+    python_executable: str | None = None
+    backend_mode: str = "subprocess"
     model_size: str = "auto"
     device: str = "auto"
     inference_resolution: int = 256
     query_chunk_size: int = 64
+    subprocess_timeout_sec: float = 1800.0
     window_size: int = 64
     window_overlap: int = 8
     use_visibility_gating: bool = True
@@ -219,9 +222,12 @@ class TapnextTrackingSettings:
 class TrackonrTrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
+    python_executable: str | None = None
+    backend_mode: str = "subprocess"
     device: str = "auto"
     inference_resolution: tuple[int, int] = (384, 512)
     support_grid_size: int = 20
+    subprocess_timeout_sec: float = 1800.0
     window_size: int = 64
     window_overlap: int = 8
     use_visibility_gating: bool = True
@@ -246,11 +252,14 @@ class TrackonrTrackingSettings:
 class PipsppTrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
+    python_executable: str | None = None
+    backend_mode: str = "subprocess"
     device: str = "auto"
     inference_resolution: tuple[int, int] = (256, 384)
     iters: int = 4
     beautify: bool = True
     use_inbounds_visibility: bool = True
+    subprocess_timeout_sec: float = 1800.0
     window_size: int = 64
     window_overlap: int = 8
     keep_invisible_points_as_gaps: bool = True
@@ -1664,6 +1673,27 @@ class MainWindow(QMainWindow):
         self.locotrack_repo_path_edit.editingFinished.connect(self._refresh_locotrack_checkpoints)
         locotrack_layout.addRow("Repo path:", self.locotrack_repo_path_edit)
 
+        self.locotrack_python_executable_edit = QLineEdit(self.locotrack_settings.python_executable or "")
+        self.locotrack_python_executable_edit.setPlaceholderText(
+            "Optional python.exe from dedicated locotrack env"
+        )
+        self.locotrack_python_executable_edit.setToolTip(
+            "Used only in subprocess mode. Point this to the interpreter of the dedicated LocoTrack environment."
+        )
+        self.locotrack_python_executable_edit.editingFinished.connect(self._refresh_locotrack_checkpoints)
+        locotrack_layout.addRow("Python executable:", self.locotrack_python_executable_edit)
+
+        self.locotrack_backend_mode_combo = QComboBox()
+        self.locotrack_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.locotrack_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        locotrack_backend_mode_idx = self.locotrack_backend_mode_combo.findData(self.locotrack_settings.backend_mode)
+        self.locotrack_backend_mode_combo.setCurrentIndex(locotrack_backend_mode_idx if locotrack_backend_mode_idx >= 0 else 0)
+        self.locotrack_backend_mode_combo.setToolTip(
+            "Subprocess lets Trackleed stay in the main env while LocoTrack runs in its own dedicated env."
+        )
+        self.locotrack_backend_mode_combo.currentIndexChanged.connect(self._on_locotrack_backend_mode_changed)
+        locotrack_layout.addRow("Backend mode:", self.locotrack_backend_mode_combo)
+
         locotrack_model_row_widget = QWidget()
         locotrack_model_row_layout = QHBoxLayout(locotrack_model_row_widget)
         locotrack_model_row_layout.setContentsMargins(0, 0, 0, 0)
@@ -1902,6 +1932,7 @@ class MainWindow(QMainWindow):
         self.locotrack_warning_label.setStyleSheet("color: #d9534f;")
         self.locotrack_warning_label.setWordWrap(True)
         locotrack_layout.addRow(self.locotrack_warning_label)
+        self._on_locotrack_backend_mode_changed(self.locotrack_backend_mode_combo.currentIndex())
         self._on_locotrack_center_mode_changed(self.locotrack_center_mode_combo.currentIndex())
 
         form_layout.addRow(self.locotrack_group)
@@ -2387,6 +2418,27 @@ class MainWindow(QMainWindow):
         self.trackonr_repo_path_edit.editingFinished.connect(self._refresh_trackonr_checkpoints)
         trackonr_layout.addRow("Repo path:", self.trackonr_repo_path_edit)
 
+        self.trackonr_python_executable_edit = QLineEdit(self.trackonr_settings.python_executable or "")
+        self.trackonr_python_executable_edit.setPlaceholderText(
+            "Optional python.exe from dedicated trackonr env"
+        )
+        self.trackonr_python_executable_edit.setToolTip(
+            "Used only in subprocess mode. Point this to the interpreter of the dedicated Track-On-R environment."
+        )
+        self.trackonr_python_executable_edit.editingFinished.connect(self._refresh_trackonr_checkpoints)
+        trackonr_layout.addRow("Python executable:", self.trackonr_python_executable_edit)
+
+        self.trackonr_backend_mode_combo = QComboBox()
+        self.trackonr_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.trackonr_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        trackonr_backend_mode_idx = self.trackonr_backend_mode_combo.findData(self.trackonr_settings.backend_mode)
+        self.trackonr_backend_mode_combo.setCurrentIndex(trackonr_backend_mode_idx if trackonr_backend_mode_idx >= 0 else 0)
+        self.trackonr_backend_mode_combo.setToolTip(
+            "Subprocess lets Trackleed stay in the main env while Track-On-R runs in its own dedicated env."
+        )
+        self.trackonr_backend_mode_combo.currentIndexChanged.connect(self._on_trackonr_backend_mode_changed)
+        trackonr_layout.addRow("Backend mode:", self.trackonr_backend_mode_combo)
+
         trackonr_model_row_widget = QWidget()
         trackonr_model_row_layout = QHBoxLayout(trackonr_model_row_widget)
         trackonr_model_row_layout.setContentsMargins(0, 0, 0, 0)
@@ -2615,6 +2667,7 @@ class MainWindow(QMainWindow):
         self.trackonr_warning_label.setStyleSheet("color: #d9534f;")
         self.trackonr_warning_label.setWordWrap(True)
         trackonr_layout.addRow(self.trackonr_warning_label)
+        self._on_trackonr_backend_mode_changed(self.trackonr_backend_mode_combo.currentIndex())
         self._on_trackonr_center_mode_changed(self.trackonr_center_mode_combo.currentIndex())
 
         form_layout.addRow(self.trackonr_group)
@@ -2630,6 +2683,27 @@ class MainWindow(QMainWindow):
         )
         self.pipspp_repo_path_edit.editingFinished.connect(self._refresh_pipspp_checkpoints)
         pipspp_layout.addRow("Repo path:", self.pipspp_repo_path_edit)
+
+        self.pipspp_python_executable_edit = QLineEdit(self.pipspp_settings.python_executable or "")
+        self.pipspp_python_executable_edit.setPlaceholderText(
+            "Optional python.exe from dedicated pipspp env"
+        )
+        self.pipspp_python_executable_edit.setToolTip(
+            "Used only in subprocess mode. Point this to the interpreter of the dedicated PIPs++ environment."
+        )
+        self.pipspp_python_executable_edit.editingFinished.connect(self._refresh_pipspp_checkpoints)
+        pipspp_layout.addRow("Python executable:", self.pipspp_python_executable_edit)
+
+        self.pipspp_backend_mode_combo = QComboBox()
+        self.pipspp_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.pipspp_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        pipspp_backend_mode_idx = self.pipspp_backend_mode_combo.findData(self.pipspp_settings.backend_mode)
+        self.pipspp_backend_mode_combo.setCurrentIndex(pipspp_backend_mode_idx if pipspp_backend_mode_idx >= 0 else 0)
+        self.pipspp_backend_mode_combo.setToolTip(
+            "Subprocess lets Trackleed stay in the main env while PIPs++ runs in its own dedicated env."
+        )
+        self.pipspp_backend_mode_combo.currentIndexChanged.connect(self._on_pipspp_backend_mode_changed)
+        pipspp_layout.addRow("Backend mode:", self.pipspp_backend_mode_combo)
 
         pipspp_model_row_widget = QWidget()
         pipspp_model_row_layout = QHBoxLayout(pipspp_model_row_widget)
@@ -2857,6 +2931,7 @@ class MainWindow(QMainWindow):
         self.pipspp_warning_label.setStyleSheet("color: #d9534f;")
         self.pipspp_warning_label.setWordWrap(True)
         pipspp_layout.addRow(self.pipspp_warning_label)
+        self._on_pipspp_backend_mode_changed(self.pipspp_backend_mode_combo.currentIndex())
         self._on_pipspp_center_mode_changed(self.pipspp_center_mode_combo.currentIndex())
 
         form_layout.addRow(self.pipspp_group)
@@ -3632,6 +3707,8 @@ class MainWindow(QMainWindow):
         repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
         if repo_path:
             self.locotrack_settings.repo_path = repo_path
+        self.locotrack_settings.python_executable = self.locotrack_python_executable_edit.text().strip() or None
+        self.locotrack_settings.backend_mode = self.locotrack_backend_mode_combo.currentData()
         status = probe_locotrack_environment(
             models_dir=self.locotrack_models_dir,
             checkpoint_path=self.locotrack_settings.checkpoint_path,
@@ -3669,6 +3746,16 @@ class MainWindow(QMainWindow):
         self.locotrack_repo_path_edit.setText(str(status.repo_path) if status.repo_path else (self.locotrack_settings.repo_path or ""))
         self.locotrack_settings.repo_path = str(status.repo_path) if status.repo_path else self.locotrack_settings.repo_path
 
+        python_executable = self.locotrack_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
         if status.is_ready:
             details = []
             if status.torch_version:
@@ -3679,12 +3766,32 @@ class MainWindow(QMainWindow):
                 "LocoTrack ready. " + ", ".join(details)
             )
             self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
+        elif (
+            self.locotrack_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.locotrack_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.locotrack_warning_label.setText(
+                "LocoTrack subprocess configured. Current app env is not LocoTrack-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
+            if (
+                self.locotrack_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated locotrack env, or run Trackleed from that env."
+                )
             self.locotrack_warning_label.setStyleSheet("color: #d9534f;")
             self.locotrack_warning_label.setText("\n".join(summary))
             self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
@@ -3870,6 +3977,8 @@ class MainWindow(QMainWindow):
         repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
         if repo_path:
             self.trackonr_settings.repo_path = repo_path
+        self.trackonr_settings.python_executable = self.trackonr_python_executable_edit.text().strip() or None
+        self.trackonr_settings.backend_mode = self.trackonr_backend_mode_combo.currentData()
         status = probe_trackonr_environment(
             models_dir=self.trackonr_models_dir,
             checkpoint_path=self.trackonr_settings.checkpoint_path,
@@ -3911,6 +4020,16 @@ class MainWindow(QMainWindow):
             str(status.repo_path) if status.repo_path else self.trackonr_settings.repo_path
         )
 
+        python_executable = self.trackonr_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
         if status.is_ready:
             details = []
             if status.torch_version:
@@ -3924,12 +4043,32 @@ class MainWindow(QMainWindow):
                 "Track-On-R ready. " + ", ".join(details)
             )
             self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
+        elif (
+            self.trackonr_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.trackonr_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.trackonr_warning_label.setText(
+                "Track-On-R subprocess configured. Current app env is not Track-On-R-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
+            if (
+                self.trackonr_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated trackonr env, or run Trackleed from that env."
+                )
             self.trackonr_warning_label.setStyleSheet("color: #d9534f;")
             self.trackonr_warning_label.setText("\n".join(summary))
             self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
@@ -3943,6 +4082,8 @@ class MainWindow(QMainWindow):
         repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
         if repo_path:
             self.pipspp_settings.repo_path = repo_path
+        self.pipspp_settings.python_executable = self.pipspp_python_executable_edit.text().strip() or None
+        self.pipspp_settings.backend_mode = self.pipspp_backend_mode_combo.currentData()
         status = probe_pipspp_environment(
             models_dir=self.pipspp_models_dir,
             checkpoint_path=self.pipspp_settings.checkpoint_path,
@@ -3984,6 +4125,17 @@ class MainWindow(QMainWindow):
             str(status.repo_path) if status.repo_path else self.pipspp_settings.repo_path
         )
 
+        python_executable = self.pipspp_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.selected_checkpoint_file is not None
+        )
+
         if status.is_ready:
             details = []
             if status.torch_version:
@@ -3994,12 +4146,32 @@ class MainWindow(QMainWindow):
                 "PIPs++ ready. " + ", ".join(details)
             )
             self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
+        elif (
+            self.pipspp_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.pipspp_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.pipspp_warning_label.setText(
+                "PIPs++ subprocess configured. Current app env is not PIPs++-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
+            if (
+                self.pipspp_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated pipspp env, or run Trackleed from that env."
+                )
             self.pipspp_warning_label.setStyleSheet("color: #d9534f;")
             self.pipspp_warning_label.setText("\n".join(summary))
             self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
@@ -4270,6 +4442,24 @@ class MainWindow(QMainWindow):
         manual = self.pipspp_center_mode_combo.itemData(idx) == "manual"
         self.pipspp_center_x_spinbox.setEnabled(manual)
         self.pipspp_center_y_spinbox.setEnabled(manual)
+
+    def _on_locotrack_backend_mode_changed(self, idx: int):
+        backend_mode = self.locotrack_backend_mode_combo.itemData(idx)
+        self.locotrack_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "locotrack_warning_label"):
+            self._refresh_locotrack_checkpoints()
+
+    def _on_trackonr_backend_mode_changed(self, idx: int):
+        backend_mode = self.trackonr_backend_mode_combo.itemData(idx)
+        self.trackonr_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "trackonr_warning_label"):
+            self._refresh_trackonr_checkpoints()
+
+    def _on_pipspp_backend_mode_changed(self, idx: int):
+        backend_mode = self.pipspp_backend_mode_combo.itemData(idx)
+        self.pipspp_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "pipspp_warning_label"):
+            self._refresh_pipspp_checkpoints()
 
     def _on_mftiq_backend_mode_changed(self, idx: int):
         backend_mode = self.mftiq_backend_mode_combo.itemData(idx)
@@ -4918,10 +5108,13 @@ class MainWindow(QMainWindow):
             "locotrack_repo_path": repo_path,
             "repo_path": repo_path,
             "checkpoint_path": self.locotrack_settings.checkpoint_path,
+            "python_executable": self.locotrack_python_executable_edit.text().strip() or None,
+            "backend_mode": self.locotrack_backend_mode_combo.currentData(),
             "model_size": selected_model_size,
             "device": self.locotrack_device_combo.currentData(),
             "inference_resolution": int(self.locotrack_inference_resolution_combo.currentData()),
             "query_chunk_size": self.locotrack_query_chunk_spinbox.value(),
+            "subprocess_timeout_sec": self.locotrack_settings.subprocess_timeout_sec,
             "window_size": self.locotrack_window_size_spinbox.value(),
             "window_overlap": self.locotrack_window_overlap_spinbox.value(),
             "use_visibility_gating": self.locotrack_visibility_checkbox.isChecked(),
@@ -5031,9 +5224,12 @@ class MainWindow(QMainWindow):
             "track_on_repo_path": repo_path,
             "repo_path": repo_path,
             "checkpoint_path": self.trackonr_settings.checkpoint_path,
+            "python_executable": self.trackonr_python_executable_edit.text().strip() or None,
+            "backend_mode": self.trackonr_backend_mode_combo.currentData(),
             "device": self.trackonr_device_combo.currentData(),
             "inference_resolution": inference_resolution,
             "support_grid_size": self.trackonr_support_grid_spinbox.value(),
+            "subprocess_timeout_sec": self.trackonr_settings.subprocess_timeout_sec,
             "window_size": self.trackonr_window_size_spinbox.value(),
             "window_overlap": self.trackonr_window_overlap_spinbox.value(),
             "use_visibility_gating": self.trackonr_visibility_checkbox.isChecked(),
@@ -5070,11 +5266,14 @@ class MainWindow(QMainWindow):
             "pipspp_repo_path": repo_path,
             "repo_path": repo_path,
             "checkpoint_path": self.pipspp_settings.checkpoint_path,
+            "python_executable": self.pipspp_python_executable_edit.text().strip() or None,
+            "backend_mode": self.pipspp_backend_mode_combo.currentData(),
             "device": self.pipspp_device_combo.currentData(),
             "inference_resolution": inference_resolution,
             "iters": self.pipspp_iters_spinbox.value(),
             "beautify": self.pipspp_beautify_checkbox.isChecked(),
             "use_inbounds_visibility": self.pipspp_inbounds_visibility_checkbox.isChecked(),
+            "subprocess_timeout_sec": self.pipspp_settings.subprocess_timeout_sec,
             "window_size": self.pipspp_window_size_spinbox.value(),
             "window_overlap": self.pipspp_window_overlap_spinbox.value(),
             "keep_invisible_points_as_gaps": self.pipspp_keep_gaps_checkbox.isChecked(),
@@ -5265,18 +5464,48 @@ class MainWindow(QMainWindow):
 
             repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
             self.locotrack_settings.repo_path = repo_path
+            self.locotrack_settings.python_executable = self.locotrack_python_executable_edit.text().strip() or None
+            self.locotrack_settings.backend_mode = self.locotrack_backend_mode_combo.currentData()
             status = probe_locotrack_environment(
                 models_dir=self.locotrack_models_dir,
                 checkpoint_path=self.locotrack_settings.checkpoint_path,
                 repo_path=self.locotrack_settings.repo_path,
             )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "LocoTrack Unavailable",
-                    format_locotrack_environment_report(status),
-                )
-                return
+            python_executable = self.locotrack_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.locotrack_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        format_locotrack_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        format_locotrack_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        format_locotrack_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `locotrack` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
 
             locotrack_params = self._collect_locotrack_tracking_params()
 
@@ -5379,18 +5608,48 @@ class MainWindow(QMainWindow):
 
             repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
             self.trackonr_settings.repo_path = repo_path
+            self.trackonr_settings.python_executable = self.trackonr_python_executable_edit.text().strip() or None
+            self.trackonr_settings.backend_mode = self.trackonr_backend_mode_combo.currentData()
             status = probe_trackonr_environment(
                 models_dir=self.trackonr_models_dir,
                 checkpoint_path=self.trackonr_settings.checkpoint_path,
                 repo_path=self.trackonr_settings.repo_path,
             )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "Track-On-R Unavailable",
-                    format_trackonr_environment_report(status),
-                )
-                return
+            python_executable = self.trackonr_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.trackonr_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        format_trackonr_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        format_trackonr_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        format_trackonr_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `trackonr` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
 
             trackonr_params = self._collect_trackonr_tracking_params()
 
@@ -5417,18 +5676,49 @@ class MainWindow(QMainWindow):
 
             repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
             self.pipspp_settings.repo_path = repo_path
+            self.pipspp_settings.python_executable = self.pipspp_python_executable_edit.text().strip() or None
+            self.pipspp_settings.backend_mode = self.pipspp_backend_mode_combo.currentData()
             status = probe_pipspp_environment(
                 models_dir=self.pipspp_models_dir,
                 checkpoint_path=self.pipspp_settings.checkpoint_path,
                 repo_path=self.pipspp_settings.repo_path,
             )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "PIPs++ Unavailable",
-                    format_pipspp_environment_report(status),
-                )
-                return
+            python_executable = self.pipspp_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.selected_checkpoint_file is not None
+            )
+
+            if self.pipspp_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        format_pipspp_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        format_pipspp_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        format_pipspp_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `pipspp` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
 
             pipspp_params = self._collect_pipspp_tracking_params()
 

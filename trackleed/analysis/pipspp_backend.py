@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional, Any
 import importlib
 import inspect
+import json
 import re
+import subprocess
 import sys
 
 import numpy as np
@@ -23,6 +26,7 @@ CHECKPOINT_PRIORITY = (
     "model-000200000.pth",
 )
 CHECKPOINT_FILE_PATTERN = "model-*.pth"
+DEFAULT_PIPSPP_SUBPROCESS_SCRIPT = Path("scripts") / "run_pipspp_subprocess.py"
 _MODEL_CACHE: dict[tuple[str, str, str], Any] = {}
 
 
@@ -72,11 +76,14 @@ class PipsppSmokeTestResult:
 class PipsppRuntimeSettings:
     checkpoint_path: str | Path
     repo_path: str | Path | None = None
+    python_executable: str | Path | None = None
+    backend_mode: str = "subprocess"
     device: str = "auto"
     inference_resolution: int | tuple[int, int] = (256, 384)
     iters: int = 4
     beautify: bool = True
     use_inbounds_visibility: bool = True
+    subprocess_timeout_sec: float = 1800.0
 
 
 @dataclass
@@ -342,6 +349,108 @@ def run_pipspp_offline(
     if query_np.shape[0] == 0:
         raise ValueError("No query points provided for PIPs++ inference.")
 
+    backend_mode = str(settings.backend_mode or "subprocess").strip().lower()
+    if backend_mode == "auto":
+        backend_mode = "subprocess"
+
+    if backend_mode == "direct":
+        return _run_pipspp_direct_offline(frames_np, query_np, settings)
+    if backend_mode != "subprocess":
+        raise ValueError(
+            f"Unsupported PIPs++ backend mode: {settings.backend_mode}. "
+            "Expected `subprocess` or `direct`."
+        )
+    return _run_pipspp_subprocess_offline(frames_np, query_np, settings)
+
+
+def _run_pipspp_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: PipsppRuntimeSettings,
+) -> PipsppOfflineResult:
+    python_executable = _resolve_pipspp_python_executable(settings.python_executable)
+    script_path = (Path(__file__).resolve().parents[2] / DEFAULT_PIPSPP_SUBPROCESS_SCRIPT).resolve()
+    if not script_path.exists():
+        raise FileNotFoundError(f"PIPs++ subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_pipspp_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "pipspp_input.npz"
+        output_path = temp_root / "pipspp_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            query_points_tyx=np.asarray(query_points_tyx, dtype=np.float32),
+        )
+
+        command = [
+            str(python_executable),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(settings.checkpoint_path),
+            "--device",
+            str(settings.device),
+            "--iters",
+            str(int(max(1, settings.iters))),
+        ]
+        if settings.repo_path is not None:
+            command.extend(["--repo-path", str(settings.repo_path)])
+        normalized_resolution = _normalize_pipspp_resolution(settings.inference_resolution)
+        command.extend(
+            [
+                "--height",
+                str(int(normalized_resolution[0])),
+                "--width",
+                str(int(normalized_resolution[1])),
+            ]
+        )
+        if bool(settings.beautify):
+            command.append("--beautify")
+        if not bool(settings.use_inbounds_visibility):
+            command.append("--disable-inbounds-visibility")
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+        )
+        if completed.returncode != 0:
+            payload = {
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout.strip(),
+                "stderr": completed.stderr.strip(),
+            }
+            raise RuntimeError(
+                "PIPs++ subprocess inference failed:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
+        if not output_path.exists():
+            raise FileNotFoundError(f"PIPs++ subprocess did not create output: {output_path}")
+
+        with np.load(output_path, allow_pickle=False) as data:
+            return PipsppOfflineResult(
+                tracks_xy=np.asarray(data["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(data["visible_mask"], dtype=bool),
+                inference_resolution=tuple(int(v) for v in data["inference_resolution"].tolist()),
+                original_resolution=tuple(int(v) for v in data["original_resolution"].tolist()),
+                checkpoint_name=str(data["checkpoint_name"].tolist()),
+                num_prediction_stages=int(data["num_prediction_stages"].tolist()),
+            )
+
+
+def _run_pipspp_direct_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: PipsppRuntimeSettings,
+) -> PipsppOfflineResult:
     torch = importlib.import_module("torch")
     resolved_device = _resolve_torch_device(torch, settings.device)
     if resolved_device.type != "cuda":
@@ -350,11 +459,11 @@ def run_pipspp_offline(
             "creates CUDA tensors inside `Pips.forward()`."
         )
 
-    prepared_frames, original_resolution = _prepare_frames_rgb(frames_np)
+    prepared_frames, original_resolution = _prepare_frames_rgb(frames)
     inference_resolution = _normalize_pipspp_resolution(settings.inference_resolution)
     resized_frames = _resize_video_numpy(prepared_frames, inference_resolution)
     scaled_query_points = _scale_query_points_tyx(
-        query_np,
+        query_points_tyx,
         source_resolution=original_resolution,
         target_resolution=inference_resolution,
     )
@@ -581,6 +690,14 @@ def _resolve_torch_device(torch_module, requested_device: str):
     if device == "cuda" and not torch_module.cuda.is_available():
         return torch_module.device("cpu")
     return torch_module.device(device)
+
+
+def _resolve_pipspp_python_executable(
+    python_executable: str | Path | None,
+) -> Path:
+    if python_executable is not None:
+        return Path(python_executable).expanduser().resolve()
+    return Path(sys.executable).resolve()
 
 
 def _load_pipspp_model(

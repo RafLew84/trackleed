@@ -3100,6 +3100,8 @@ def track_spots_locotrack_offline(
     locotrack_settings = LocotrackRuntimeSettings(
         repo_path=params.get("repo_path") or params.get("locotrack_repo_path"),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         model_size=str(
             params.get(
                 "model_size",
@@ -3113,6 +3115,7 @@ def track_spots_locotrack_offline(
         visibility_threshold=float(params.get("visibility_threshold", 0.5)),
         use_uncertainty_gating=bool(params.get("use_uncertainty_gating", True)),
         expected_dist_threshold=float(params.get("expected_dist_threshold", 0.5)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))
@@ -3758,11 +3761,14 @@ def track_spots_pipspp_offline(
     pipspp_settings = PipsppRuntimeSettings(
         repo_path=repo_path,
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         device=params.get("device", "auto"),
         inference_resolution=params.get("inference_resolution", (256, 384)),
         iters=int(params.get("iters", 4)),
         beautify=bool(params.get("beautify", True)),
         use_inbounds_visibility=bool(params.get("use_inbounds_visibility", True)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))
@@ -4733,11 +4739,14 @@ def track_spots_trackonr_offline(
             or params.get("track_on_repo_path")
         ),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         device=params.get("device", "auto"),
         inference_resolution=params.get("inference_resolution", (384, 512)),
         support_grid_size=int(params.get("support_grid_size", 20)),
         use_visibility_gating=bool(params.get("use_visibility_gating", True)),
         visibility_threshold=float(params.get("visibility_threshold", 0.8)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))
@@ -5978,6 +5987,8 @@ def retrack_single_spot_locotrack_offline(
     locotrack_settings = LocotrackRuntimeSettings(
         repo_path=params.get("repo_path") or params.get("locotrack_repo_path"),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         model_size=str(
             params.get(
                 "model_size",
@@ -5991,6 +6002,7 @@ def retrack_single_spot_locotrack_offline(
         visibility_threshold=float(params.get("visibility_threshold", 0.5)),
         use_uncertainty_gating=bool(params.get("use_uncertainty_gating", True)),
         expected_dist_threshold=float(params.get("expected_dist_threshold", 0.5)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))
@@ -6872,11 +6884,14 @@ def retrack_single_spot_trackonr_offline(
             or params.get("track_on_repo_path")
         ),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         device=params.get("device", "auto"),
         inference_resolution=params.get("inference_resolution", (384, 512)),
         support_grid_size=int(params.get("support_grid_size", 20)),
         use_visibility_gating=bool(params.get("use_visibility_gating", True)),
         visibility_threshold=float(params.get("visibility_threshold", 0.8)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))
@@ -7169,11 +7184,14 @@ def retrack_single_spot_pipspp_offline(
     pipspp_settings = PipsppRuntimeSettings(
         repo_path=params.get("repo_path") or params.get("pipspp_repo_path"),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         device=params.get("device", "auto"),
         inference_resolution=params.get("inference_resolution", (256, 384)),
         iters=int(params.get("iters", 4)),
         beautify=bool(params.get("beautify", True)),
         use_inbounds_visibility=bool(params.get("use_inbounds_visibility", True)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     roi_size = int(params.get("roi_size", 32))

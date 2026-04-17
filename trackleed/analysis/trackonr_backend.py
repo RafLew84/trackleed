@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional, Any
 import importlib
 import inspect
+import json
+import subprocess
 import sys
 
 import numpy as np
@@ -24,6 +27,7 @@ CHECKPOINT_PRIORITY = (
     "trackonr_kubric_real_world.pt",
 )
 DINO_CACHE_DIRNAME = "models--facebook--dinov3-vits16plus-pretrain-lvd1689m"
+DEFAULT_TRACKONR_SUBPROCESS_SCRIPT = Path("scripts") / "run_trackonr_subprocess.py"
 _MODEL_CACHE: dict[tuple[str, str, str], Any] = {}
 
 
@@ -79,11 +83,14 @@ class TrackonrSmokeTestResult:
 class TrackonrRuntimeSettings:
     checkpoint_path: str | Path
     repo_path: str | Path | None = None
+    python_executable: str | Path | None = None
+    backend_mode: str = "subprocess"
     device: str = "auto"
     inference_resolution: int | tuple[int, int] = (384, 512)
     support_grid_size: int = 20
     use_visibility_gating: bool = True
     visibility_threshold: float = 0.8
+    subprocess_timeout_sec: float = 1800.0
 
 
 @dataclass
@@ -352,12 +359,114 @@ def run_trackonr_offline(
     if query_np.shape[0] == 0:
         raise ValueError("No query points provided for Track-On-R inference.")
 
+    backend_mode = str(settings.backend_mode or "subprocess").strip().lower()
+    if backend_mode == "auto":
+        backend_mode = "subprocess"
+
+    if backend_mode == "direct":
+        return _run_trackonr_direct_offline(frames_np, query_np, settings)
+    if backend_mode != "subprocess":
+        raise ValueError(
+            f"Unsupported Track-On-R backend mode: {settings.backend_mode}. "
+            "Expected `subprocess` or `direct`."
+        )
+    return _run_trackonr_subprocess_offline(frames_np, query_np, settings)
+
+
+def _run_trackonr_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: TrackonrRuntimeSettings,
+) -> TrackonrOfflineResult:
+    python_executable = _resolve_trackonr_python_executable(settings.python_executable)
+    script_path = (Path(__file__).resolve().parents[2] / DEFAULT_TRACKONR_SUBPROCESS_SCRIPT).resolve()
+    if not script_path.exists():
+        raise FileNotFoundError(f"Track-On-R subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_trackonr_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "trackonr_input.npz"
+        output_path = temp_root / "trackonr_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            query_points_tyx=np.asarray(query_points_tyx, dtype=np.float32),
+        )
+
+        command = [
+            str(python_executable),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(settings.checkpoint_path),
+            "--device",
+            str(settings.device),
+            "--visibility-threshold",
+            str(float(settings.visibility_threshold)),
+            "--support-grid-size",
+            str(int(max(0, settings.support_grid_size))),
+        ]
+        if settings.repo_path is not None:
+            command.extend(["--repo-path", str(settings.repo_path)])
+        normalized_resolution = _normalize_trackonr_resolution(settings.inference_resolution)
+        command.extend(
+            [
+                "--height",
+                str(int(normalized_resolution[0])),
+                "--width",
+                str(int(normalized_resolution[1])),
+            ]
+        )
+        if not bool(settings.use_visibility_gating):
+            command.append("--disable-visibility-gating")
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+        )
+        if completed.returncode != 0:
+            payload = {
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout.strip(),
+                "stderr": completed.stderr.strip(),
+            }
+            raise RuntimeError(
+                "Track-On-R subprocess inference failed:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
+        if not output_path.exists():
+            raise FileNotFoundError(f"Track-On-R subprocess did not create output: {output_path}")
+
+        with np.load(output_path, allow_pickle=False) as data:
+            return TrackonrOfflineResult(
+                tracks_xy=np.asarray(data["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(data["visible_mask"], dtype=bool),
+                inference_resolution=tuple(int(v) for v in data["inference_resolution"].tolist()),
+                original_resolution=tuple(int(v) for v in data["original_resolution"].tolist()),
+                checkpoint_name=str(data["checkpoint_name"].tolist()),
+                support_grid_size=int(data["support_grid_size"].tolist()),
+            )
+
+
+def _run_trackonr_direct_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: TrackonrRuntimeSettings,
+) -> TrackonrOfflineResult:
     torch = importlib.import_module("torch")
     resolved_device = _resolve_torch_device(torch, settings.device)
     resolved_repo_path = _resolve_trackonr_repo_path(settings.repo_path)
 
-    prepared_frames, original_resolution = _prepare_frames_rgb(frames_np)
-    query_points_txy = _convert_query_points_tyx_to_txy(query_np)
+    prepared_frames, original_resolution = _prepare_frames_rgb(frames)
+    query_points_txy = _convert_query_points_tyx_to_txy(query_points_tyx)
 
     predictor = _load_trackonr_predictor(
         torch_module=torch,
@@ -484,6 +593,14 @@ def _resolve_torch_device(torch_module, requested_device: str):
     if device == "cuda" and not torch_module.cuda.is_available():
         return torch_module.device("cpu")
     return torch_module.device(device)
+
+
+def _resolve_trackonr_python_executable(
+    python_executable: str | Path | None,
+) -> Path:
+    if python_executable is not None:
+        return Path(python_executable).expanduser().resolve()
+    return Path(sys.executable).resolve()
 
 
 def _load_trackonr_predictor(
