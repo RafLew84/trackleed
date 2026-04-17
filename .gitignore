@@ -197,3 +197,4 @@ tracking_models/trackonr/track_on_r.pt
 tracking_models/pipspp/reference_model/model-000200000.pth
 tracking_models/mftiq/UOM_bs4_200k.pth
 .codex
+tracking_models/sam2/sam2.1_hiera_small.pt
