@@ -195,3 +195,5 @@ tracking_models/tapir/tapir_checkpoint_panning.pt
 tracking_models/tapnext/tapnextpp_ckpt.pt
 tracking_models/trackonr/track_on_r.pt
 tracking_models/pipspp/reference_model/model-000200000.pth
+tracking_models/mftiq/UOM_bs4_200k.pth
+.codex
