@@ -316,8 +316,10 @@ class MftiqTrackingSettings:
 class Sam2TrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
+    python_executable: str | None = None
     config_path: str | None = None
     device: str = "auto"
+    backend_mode: str = "subprocess"
     prompt_mode: str = "point+bbox"
     representative_point_mode: str = "mask_centroid"
     inference_resolution: int | None = None
@@ -332,6 +334,7 @@ class Sam2TrackingSettings:
     offload_video_to_cpu: bool = True
     offload_state_to_cpu: bool = False
     async_loading_frames: bool = False
+    subprocess_timeout_sec: float = 1800.0
     keep_invisible_points_as_gaps: bool = True
     max_step_distance_px: float = 0.0
     max_reacquisition_gap: int = 0
@@ -3247,6 +3250,29 @@ class MainWindow(QMainWindow):
         self.sam2_repo_path_edit.editingFinished.connect(self._refresh_sam2_checkpoints)
         sam2_layout.addRow("Repo path:", self.sam2_repo_path_edit)
 
+        self.sam2_python_executable_edit = QLineEdit(self.sam2_settings.python_executable or "")
+        self.sam2_python_executable_edit.setPlaceholderText(
+            "Optional path to the Python executable inside the dedicated sam2 env"
+        )
+        self.sam2_python_executable_edit.setToolTip(
+            "Used by the recommended subprocess backend. Leave empty only if Trackleed itself runs "
+            "inside the SAM 2 environment."
+        )
+        self.sam2_python_executable_edit.editingFinished.connect(self._refresh_sam2_checkpoints)
+        sam2_layout.addRow("Python executable:", self.sam2_python_executable_edit)
+
+        self.sam2_backend_mode_combo = QComboBox()
+        self.sam2_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.sam2_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        sam2_backend_mode_idx = self.sam2_backend_mode_combo.findData(self.sam2_settings.backend_mode)
+        self.sam2_backend_mode_combo.setCurrentIndex(sam2_backend_mode_idx if sam2_backend_mode_idx >= 0 else 0)
+        self.sam2_backend_mode_combo.setToolTip(
+            "Subprocess keeps the heavy SAM 2 runtime isolated in its own env. "
+            "Direct import requires running the whole app inside the SAM 2 env."
+        )
+        self.sam2_backend_mode_combo.currentIndexChanged.connect(self._on_sam2_backend_mode_changed)
+        sam2_layout.addRow("Backend mode:", self.sam2_backend_mode_combo)
+
         sam2_model_row_widget = QWidget()
         sam2_model_row_layout = QHBoxLayout(sam2_model_row_widget)
         sam2_model_row_layout.setContentsMargins(0, 0, 0, 0)
@@ -3553,6 +3579,7 @@ class MainWindow(QMainWindow):
         self.sam2_warning_label.setWordWrap(True)
         sam2_layout.addRow(self.sam2_warning_label)
 
+        self._on_sam2_backend_mode_changed(self.sam2_backend_mode_combo.currentIndex())
         self._on_sam2_center_mode_changed(self.sam2_center_mode_combo.currentIndex())
 
         form_layout.addRow(self.sam2_group)
@@ -4661,6 +4688,8 @@ class MainWindow(QMainWindow):
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
         if repo_path:
             self.sam2_settings.repo_path = repo_path
+        self.sam2_settings.python_executable = self.sam2_python_executable_edit.text().strip() or None
+        self.sam2_settings.backend_mode = self.sam2_backend_mode_combo.currentData()
 
         status = probe_sam2_environment(
             models_dir=self.sam2_models_dir,
@@ -4710,6 +4739,18 @@ class MainWindow(QMainWindow):
         )
         self.sam2_config_path_edit.setText(self.sam2_settings.config_path or "")
 
+        python_executable = self.sam2_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.config_exists
+            and status.config_identifier is not None
+        )
+
         if status.is_ready:
             details = []
             if status.torch_version:
@@ -4719,16 +4760,34 @@ class MainWindow(QMainWindow):
             self.sam2_warning_label.setStyleSheet("color: #5cb85c;")
             self.sam2_warning_label.setText("SAM 2 ready. " + ", ".join(details))
             self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
+        elif (
+            self.sam2_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.sam2_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.sam2_warning_label.setText(
+                "SAM 2 subprocess configured. Current app env is not SAM 2-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
-            if not summary:
+            if (
+                self.sam2_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
                 summary.append(
-                    "Run Trackleed from the dedicated `sam2` environment until the subprocess backend is added."
+                    "Set the Python executable of the dedicated sam2 env, or run Trackleed from that env."
                 )
+            if not summary:
+                summary.append("Configure the dedicated sam2 env or run Trackleed from that env.")
             self.sam2_warning_label.setStyleSheet("color: #d9534f;")
             self.sam2_warning_label.setText("\n".join(summary))
             self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
@@ -4923,6 +4982,12 @@ class MainWindow(QMainWindow):
         self.mftiq_python_executable_edit.setEnabled(backend_mode == "subprocess")
         if hasattr(self, "mftiq_warning_label"):
             self._refresh_mftiq_checkpoints()
+
+    def _on_sam2_backend_mode_changed(self, idx: int):
+        backend_mode = self.sam2_backend_mode_combo.itemData(idx)
+        self.sam2_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "sam2_warning_label"):
+            self._refresh_sam2_checkpoints()
 
     def _on_sam2_center_mode_changed(self, idx: int):
         manual = self.sam2_center_mode_combo.itemData(idx) == "manual"
@@ -5815,8 +5880,10 @@ class MainWindow(QMainWindow):
             "sam2_repo_path": repo_path,
             "repo_path": repo_path,
             "checkpoint_path": self.sam2_settings.checkpoint_path,
+            "python_executable": self.sam2_python_executable_edit.text().strip() or None,
             "config_path": config_path,
             "device": self.sam2_device_combo.currentData(),
+            "backend_mode": self.sam2_backend_mode_combo.currentData(),
             "prompt_mode": self.sam2_prompt_mode_combo.currentData(),
             "representative_point_mode": self.sam2_repr_mode_combo.currentData(),
             "inference_resolution": inference_resolution,
@@ -5831,6 +5898,7 @@ class MainWindow(QMainWindow):
             "offload_video_to_cpu": self.sam2_offload_video_checkbox.isChecked(),
             "offload_state_to_cpu": self.sam2_offload_state_checkbox.isChecked(),
             "async_loading_frames": self.sam2_async_loading_checkbox.isChecked(),
+            "subprocess_timeout_sec": self.sam2_settings.subprocess_timeout_sec,
             "keep_invisible_points_as_gaps": self.sam2_keep_gaps_checkbox.isChecked(),
             "max_step_distance_px": self.sam2_max_step_spinbox.value(),
             "max_reacquisition_gap": self.sam2_max_gap_spinbox.value(),
@@ -6330,6 +6398,8 @@ class MainWindow(QMainWindow):
 
             repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
             self.sam2_settings.repo_path = repo_path
+            self.sam2_settings.python_executable = self.sam2_python_executable_edit.text().strip() or None
+            self.sam2_settings.backend_mode = self.sam2_backend_mode_combo.currentData()
             status = probe_sam2_environment(
                 models_dir=self.sam2_models_dir,
                 checkpoint_path=self.sam2_settings.checkpoint_path,
@@ -6349,14 +6419,43 @@ class MainWindow(QMainWindow):
                 else None
             )
 
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "SAM2 Unavailable",
-                    format_sam2_environment_report(status)
-                    + "\n\nRun Trackleed from the dedicated `sam2` environment until the subprocess backend is added.",
-                )
-                return
+            python_executable = self.sam2_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.config_exists
+                and status.config_identifier is not None
+            )
+
+            if self.sam2_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        format_sam2_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        format_sam2_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        format_sam2_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `sam2` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
 
             sam2_params = self._collect_sam2_tracking_params()
 

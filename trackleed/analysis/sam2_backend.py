@@ -8,8 +8,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Optional, Any
 import importlib
-import inspect
+import json
 import os
+import subprocess
 import sys
 
 import cv2
@@ -21,6 +22,7 @@ DEFAULT_SAM2_REPO_CANDIDATES = (
     Path(__file__).resolve().parents[3] / "sam2",
     Path(__file__).resolve().parents[2] / "sam2",
 )
+DEFAULT_SAM2_SUBPROCESS_SCRIPT = Path("scripts") / "run_sam2_subprocess.py"
 CHECKPOINT_PRIORITY = (
     "sam2.1_hiera_small.pt",
     "sam2.1_hiera_tiny.pt",
@@ -106,8 +108,10 @@ class Sam2SmokeTestResult:
 class Sam2RuntimeSettings:
     checkpoint_path: str | Path
     repo_path: str | Path | None = None
+    python_executable: str | Path | None = None
     config_path: str | Path | None = None
     device: str = "auto"
+    backend_mode: str = "direct"
     prompt_mode: str = "point+bbox"
     representative_point_mode: str = "mask_centroid"
     inference_resolution: int | tuple[int, int] | None = None
@@ -120,6 +124,7 @@ class Sam2RuntimeSettings:
     offload_video_to_cpu: bool = True
     offload_state_to_cpu: bool = False
     async_loading_frames: bool = False
+    subprocess_timeout_sec: float = 1800.0
 
 
 @dataclass
@@ -137,6 +142,7 @@ class Sam2OfflineResult:
     prompt_mode: str
     representative_point_mode: str
     use_vos_optimized: bool
+    backend_mode: str
 
 
 def discover_sam2_checkpoints(
@@ -350,14 +356,7 @@ def run_sam2_offline(
     """
     Run SAM 2 video propagation on a sequence of frames and sparse seed points.
 
-    Args:
-        frames: [T, H, W] grayscale or [T, H, W, C] input frames.
-        query_points_tyx: [Q, 3] in [t, y, x] using original frame coordinates.
-        settings: SAM 2 runtime settings.
-        query_boxes_xyxy: Optional [Q, 4] init boxes in [x0, y0, x1, y1].
-
-    Returns:
-        Sam2OfflineResult containing representative points and mask summaries.
+    Supports both direct import and subprocess execution modes.
     """
     frames_np = np.asarray(frames)
     if frames_np.ndim not in (3, 4):
@@ -378,6 +377,55 @@ def run_sam2_offline(
             raise ValueError(
                 f"query_boxes_xyxy must have shape {(query_np.shape[0], 4)}, got {boxes_np.shape}."
             )
+
+    backend_mode = str(settings.backend_mode or "direct").strip().lower()
+    if backend_mode == "auto":
+        backend_mode = "subprocess"
+
+    if backend_mode == "direct":
+        return _run_sam2_direct_offline(
+            frames_np,
+            query_np,
+            settings,
+            query_boxes_xyxy=boxes_np,
+        )
+    if backend_mode != "subprocess":
+        raise ValueError(
+            f"Unsupported SAM 2 backend mode: {settings.backend_mode}. "
+            "Expected `subprocess` or `direct`."
+        )
+    return _run_sam2_subprocess_offline(
+        frames_np,
+        query_np,
+        settings,
+        query_boxes_xyxy=boxes_np,
+    )
+
+
+def _run_sam2_direct_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: Sam2RuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+) -> Sam2OfflineResult:
+    """
+    Run SAM 2 video propagation on a sequence of frames and sparse seed points.
+
+    Args:
+        frames: [T, H, W] grayscale or [T, H, W, C] input frames.
+        query_points_tyx: [Q, 3] in [t, y, x] using original frame coordinates.
+        settings: SAM 2 runtime settings.
+        query_boxes_xyxy: Optional [Q, 4] init boxes in [x0, y0, x1, y1].
+
+    Returns:
+        Sam2OfflineResult containing representative points and mask summaries.
+    """
+    frames_np = np.asarray(frames)
+    query_np = np.asarray(query_points_tyx, dtype=np.float32)
+    boxes_np = (
+        None if query_boxes_xyxy is None else np.asarray(query_boxes_xyxy, dtype=np.float32)
+    )
 
     mask_threshold = float(settings.mask_threshold)
     if not 0.0 <= mask_threshold <= 1.0:
@@ -560,7 +608,133 @@ def run_sam2_offline(
         prompt_mode=prompt_mode,
         representative_point_mode=representative_point_mode,
         use_vos_optimized=bool(settings.use_vos_optimized),
+        backend_mode="direct",
     )
+
+
+def _run_sam2_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: Sam2RuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+) -> Sam2OfflineResult:
+    python_executable = _resolve_sam2_python_executable(settings.python_executable)
+    script_path = (Path(__file__).resolve().parents[2] / DEFAULT_SAM2_SUBPROCESS_SCRIPT).resolve()
+    if not script_path.exists():
+        raise FileNotFoundError(f"SAM 2 subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_sam2_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "sam2_input.npz"
+        output_path = temp_root / "sam2_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            query_points_tyx=np.asarray(query_points_tyx, dtype=np.float32),
+            query_boxes_xyxy=(
+                np.asarray(query_boxes_xyxy, dtype=np.float32)
+                if query_boxes_xyxy is not None
+                else np.zeros((0, 4), dtype=np.float32)
+            ),
+            has_query_boxes=np.asarray(query_boxes_xyxy is not None, dtype=bool),
+        )
+
+        command = [
+            str(python_executable),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(settings.checkpoint_path),
+            "--device",
+            str(settings.device),
+            "--prompt-mode",
+            str(settings.prompt_mode),
+            "--representative-point-mode",
+            str(settings.representative_point_mode),
+            "--initial-bbox-padding-px",
+            str(float(settings.initial_bbox_padding_px)),
+            "--mask-threshold",
+            str(float(settings.mask_threshold)),
+            "--min-mask-area",
+            str(float(settings.min_mask_area)),
+            "--subprocess-timeout-sec",
+            str(float(settings.subprocess_timeout_sec)),
+        ]
+        if settings.repo_path is not None:
+            command.extend(["--repo-path", str(settings.repo_path)])
+        if settings.config_path is not None:
+            command.extend(["--config", str(settings.config_path)])
+        if settings.inference_resolution is not None:
+            if isinstance(settings.inference_resolution, int):
+                resolution = (
+                    int(settings.inference_resolution),
+                    int(settings.inference_resolution),
+                )
+            else:
+                resolution = (
+                    int(settings.inference_resolution[0]),
+                    int(settings.inference_resolution[1]),
+                )
+            command.extend(["--height", str(int(resolution[0])), "--width", str(int(resolution[1]))])
+        if settings.max_mask_area is not None:
+            command.extend(["--max-mask-area", str(float(settings.max_mask_area))])
+        if settings.use_vos_optimized:
+            command.append("--use-vos-optimized")
+        if settings.apply_postprocessing:
+            command.append("--apply-postprocessing")
+        else:
+            command.append("--disable-postprocessing")
+        if settings.offload_video_to_cpu:
+            command.append("--offload-video-to-cpu")
+        if settings.offload_state_to_cpu:
+            command.append("--offload-state-to-cpu")
+        if settings.async_loading_frames:
+            command.append("--async-loading-frames")
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+        )
+        if completed.returncode != 0:
+            payload = {
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout.strip(),
+                "stderr": completed.stderr.strip(),
+            }
+            raise RuntimeError(
+                "SAM 2 subprocess inference failed:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
+
+        if not output_path.exists():
+            raise FileNotFoundError(f"SAM 2 subprocess did not create output: {output_path}")
+
+        with np.load(output_path, allow_pickle=False) as data:
+            return Sam2OfflineResult(
+                tracks_xy=np.asarray(data["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(data["visible_mask"], dtype=bool),
+                mask_areas=np.asarray(data["mask_areas"], dtype=np.float32),
+                mask_bboxes_xyxy=np.asarray(data["mask_bboxes_xyxy"], dtype=np.float32),
+                mask_scores=np.asarray(data["mask_scores"], dtype=np.float32),
+                mask_component_counts=np.asarray(data["mask_component_counts"], dtype=np.int32),
+                inference_resolution=tuple(int(v) for v in data["inference_resolution"].tolist()),
+                original_resolution=tuple(int(v) for v in data["original_resolution"].tolist()),
+                checkpoint_name=str(data["checkpoint_name"].tolist()),
+                config_name=str(data["config_name"].tolist()),
+                prompt_mode=str(data["prompt_mode"].tolist()),
+                representative_point_mode=str(data["representative_point_mode"].tolist()),
+                use_vos_optimized=bool(data["use_vos_optimized"].tolist()),
+                backend_mode="subprocess",
+            )
 
 
 def run_sam2_smoke_test(
@@ -706,6 +880,14 @@ def _resolve_existing_checkpoint_file(checkpoint_path: Path) -> Path:
     if checkpoint_path.suffix.lower() != ".pt":
         raise FileNotFoundError(f"SAM 2 checkpoint is not a .pt file: {checkpoint_path}")
     return checkpoint_path
+
+
+def _resolve_sam2_python_executable(
+    python_executable: str | Path | None,
+) -> Path:
+    if python_executable is not None:
+        return Path(python_executable).expanduser().resolve()
+    return Path(sys.executable).resolve()
 
 
 def _resolve_config_identifier(

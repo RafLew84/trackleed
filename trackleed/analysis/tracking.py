@@ -4868,8 +4868,10 @@ def track_spots_sam2_offline(
     sam2_settings = Sam2RuntimeSettings(
         repo_path=repo_path,
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
         config_path=params.get("config_path"),
         device=params.get("device", "auto"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         prompt_mode=params.get("prompt_mode", "point+bbox"),
         representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
         inference_resolution=params.get("inference_resolution"),
@@ -4884,6 +4886,7 @@ def track_spots_sam2_offline(
         offload_video_to_cpu=bool(params.get("offload_video_to_cpu", True)),
         offload_state_to_cpu=bool(params.get("offload_state_to_cpu", False)),
         async_loading_frames=bool(params.get("async_loading_frames", False)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
     keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
@@ -8618,8 +8621,10 @@ def retrack_single_spot_sam2_offline(
     sam2_settings = Sam2RuntimeSettings(
         repo_path=params.get("repo_path") or params.get("sam2_repo_path"),
         checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
         config_path=params.get("config_path"),
         device=params.get("device", "auto"),
+        backend_mode=params.get("backend_mode", "subprocess"),
         prompt_mode=params.get("prompt_mode", "point+bbox"),
         representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
         inference_resolution=params.get("inference_resolution"),
@@ -8634,6 +8639,7 @@ def retrack_single_spot_sam2_offline(
         offload_video_to_cpu=bool(params.get("offload_video_to_cpu", True)),
         offload_state_to_cpu=bool(params.get("offload_state_to_cpu", False)),
         async_loading_frames=bool(params.get("async_loading_frames", False)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
     )
 
     keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))

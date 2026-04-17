@@ -1313,14 +1313,43 @@ class TrackingDialog(QDialog):
                 repo_path=self.sam2_params.get("repo_path") or self.sam2_params.get("sam2_repo_path"),
                 config_path=None,
             )
-        if not status.is_ready:
-            QMessageBox.warning(
-                self,
-                "SAM2 Unavailable",
-                format_sam2_environment_report(status)
-                + "\n\nRun Trackleed from the dedicated `sam2` environment until the subprocess backend is added.",
-            )
-            return
+        backend_mode = str(self.sam2_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = self.sam2_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.config_exists
+            and status.config_identifier is not None
+        )
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "SAM2 Unavailable",
+                    format_sam2_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "SAM2 Unavailable",
+                    format_sam2_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "SAM2 Unavailable",
+                    format_sam2_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `sam2` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
 
         sam2_params = dict(self.sam2_params)
         sam2_params["roi_size"] = self.roi_size
