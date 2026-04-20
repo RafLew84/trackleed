@@ -176,6 +176,7 @@ plan_tapnext.md
 plan_trackonr.md
 plan_sam2.md
 plan_cutie.md
+plan_xmem2.md
 plan_bootstapir_online.md
 plan_pipspp.md
 plan_mftiq.md
@@ -202,3 +203,7 @@ tracking_models/mftiq/UOM_bs4_200k.pth
 tracking_models/sam2/sam2.1_hiera_small.pt
 tracking_models/sam2/sam2.1_hiera_base_plus.pt
 tracking_models/sam2/sam2.1_hiera_large.pt
+tracking_models/cutie/coco_lvis_h18_itermask.pth
+tracking_models/cutie/cutie-base-mega.pth
+tracking_models/xmem2/XMem-s012.pth
+tracking_models/xmem2/XMem.pth

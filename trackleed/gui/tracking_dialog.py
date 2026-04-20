@@ -44,12 +44,17 @@ from trackleed.analysis.mftiq_backend import (
     format_mftiq_environment_report,
     probe_mftiq_environment,
 )
+from trackleed.analysis.cutie_backend import (
+    format_cutie_environment_report,
+    probe_cutie_environment,
+)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
 )
 from trackleed.analysis.tracking import (
     retrack_single_spot_cotracker3_offline,
+    retrack_single_spot_cutie_offline,
     retrack_single_spot_mftiq_offline,
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
@@ -82,6 +87,7 @@ class TrackingDialog(QDialog):
         trackonr_params: dict | None = None,
         pipspp_params: dict | None = None,
         mftiq_params: dict | None = None,
+        cutie_params: dict | None = None,
         sam2_params: dict | None = None,
         parent=None,
         save_session_callback=None,
@@ -109,6 +115,7 @@ class TrackingDialog(QDialog):
         self.trackonr_params = dict(trackonr_params or {})
         self.pipspp_params = dict(pipspp_params or {})
         self.mftiq_params = dict(mftiq_params or {})
+        self.cutie_params = dict(cutie_params or {})
         self.sam2_params = dict(sam2_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
@@ -346,6 +353,8 @@ class TrackingDialog(QDialog):
             return "PIPs++"
         if sources == {"mftiq_offline"}:
             return "MFTIQ"
+        if sources == {"cutie_offline"}:
+            return "Cutie"
         if sources == {"sam2_offline"}:
             return "SAM2"
         if sources.issubset(manual_sources):
@@ -366,6 +375,8 @@ class TrackingDialog(QDialog):
             return "PIPs++ + Manual"
         if "mftiq_offline" in sources and sources.issubset({"mftiq_offline"} | manual_sources):
             return "MFTIQ + Manual"
+        if "cutie_offline" in sources and sources.issubset({"cutie_offline"} | manual_sources):
+            return "Cutie + Manual"
         if "sam2_offline" in sources and sources.issubset({"sam2_offline"} | manual_sources):
             return "SAM2 + Manual"
         if any("optical" in src or "flow" in src for src in sources):
@@ -563,6 +574,45 @@ class TrackingDialog(QDialog):
                 lines.append(f"Sigma score: {float(sigma_score):.3f}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source == "cutie_offline":
+            raw_x = getattr(spot, "cutie_raw_x", None)
+            raw_y = getattr(spot, "cutie_raw_y", None)
+            refined_x = getattr(spot, "cutie_refined_x", None)
+            refined_y = getattr(spot, "cutie_refined_y", None)
+            visibility = getattr(spot, "cutie_visibility", None)
+            mask_area = getattr(spot, "cutie_mask_area", None)
+            mask_score = getattr(spot, "cutie_mask_score", None)
+            mask_bbox_xyxy = getattr(spot, "cutie_mask_bbox_xyxy", None)
+            mask_bbox_aspect_ratio = getattr(spot, "cutie_mask_bbox_aspect_ratio", None)
+            repr_mode = getattr(spot, "cutie_repr_mode", None)
+            initial_mask_mode = getattr(spot, "cutie_initial_mask_mode", None)
+            rejected_reason = getattr(spot, "cutie_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if repr_mode:
+                lines.append(f"Representative mode: {repr_mode}")
+            if initial_mask_mode:
+                lines.append(f"Initial mask mode: {initial_mask_mode}")
+            if mask_area is not None:
+                lines.append(f"Mask area: {float(mask_area):.1f}")
+            if mask_score is not None:
+                lines.append(f"Mask score: {float(mask_score):.3f}")
+            if mask_bbox_xyxy is not None:
+                try:
+                    x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
+                    lines.append(
+                        f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
+                    )
+                except Exception:
+                    pass
+            if mask_bbox_aspect_ratio is not None:
+                lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
         elif source == "sam2_offline":
             raw_x = getattr(spot, "sam2_raw_x", None)
             raw_y = getattr(spot, "sam2_raw_y", None)
@@ -667,6 +717,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "mftiq_raw_x", None)
             raw_y = getattr(spot, "mftiq_raw_y", None)
             label = f"MFTIQ T{selected_track.track_id}"
+        elif source == "cutie_offline":
+            raw_x = getattr(spot, "cutie_raw_x", None)
+            raw_y = getattr(spot, "cutie_raw_y", None)
+            label = f"CUTIE T{selected_track.track_id}"
         elif source == "sam2_offline":
             raw_x = getattr(spot, "sam2_raw_x", None)
             raw_y = getattr(spot, "sam2_raw_y", None)
@@ -736,6 +790,7 @@ class TrackingDialog(QDialog):
         retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
         retrack_pipspp_action = menu.addAction("Re-track from this point (PIPs++)")
         retrack_mftiq_action = menu.addAction("Re-track from this point (MFTIQ)")
+        retrack_cutie_action = menu.addAction("Re-track from this point (Cutie)")
         retrack_sam2_action = menu.addAction("Re-track from this point (SAM2)")
         
         action = menu.exec(global_pos)
@@ -758,6 +813,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_pipspp(spot_id)
         elif action == retrack_mftiq_action:
             self.initiate_retrack_mftiq(spot_id)
+        elif action == retrack_cutie_action:
+            self.initiate_retrack_cutie(spot_id)
         elif action == retrack_sam2_action:
             self.initiate_retrack_sam2(spot_id)
 
@@ -1283,6 +1340,54 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with MFTIQ...",
             cancel_event=cancel_event,
             method_label="MFTIQ re-tracking",
+        )
+
+    def initiate_retrack_cutie(self, spot_id: int):
+        """Prepares and launches Cutie re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.cutie_params:
+            QMessageBox.warning(
+                self,
+                "Cutie Settings Missing",
+                "Cutie parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = probe_cutie_environment(
+            models_dir=self.cutie_params.get("cutie_models_dir"),
+            checkpoint_path=self.cutie_params.get("checkpoint_path"),
+            repo_path=self.cutie_params.get("repo_path") or self.cutie_params.get("cutie_repo_path"),
+        )
+        if not status.is_ready:
+            QMessageBox.warning(
+                self,
+                "Cutie Unavailable",
+                format_cutie_environment_report(status),
+            )
+            return
+
+        cutie_params = dict(self.cutie_params)
+        cutie_params["roi_size"] = self.roi_size
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_cutie_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            cutie_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title="Re-tracking spot with Cutie...",
+            cancel_event=cancel_event,
+            method_label="Cutie re-tracking",
         )
 
     def initiate_retrack_sam2(self, spot_id: int):

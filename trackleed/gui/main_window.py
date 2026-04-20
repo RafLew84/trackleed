@@ -53,6 +53,10 @@ from trackleed.analysis.mftiq_backend import (
     format_mftiq_environment_report,
     probe_mftiq_environment,
 )
+from trackleed.analysis.cutie_backend import (
+    format_cutie_environment_report,
+    probe_cutie_environment,
+)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
@@ -77,6 +81,7 @@ from trackleed.analysis.tracking import (
     track_spots_trackonr_offline,
     track_spots_pipspp_offline,
     track_spots_mftiq_offline,
+    track_spots_cutie_offline,
     track_spots_sam2_offline,
 )
 
@@ -351,6 +356,38 @@ class Sam2TrackingSettings:
     max_radial_jump_px: float = 0.0
 
 
+@dataclass
+class CutieTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    device: str = "auto"
+    backend_mode: str = "direct"
+    representative_point_mode: str = "mask_centroid"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 12.0
+    initial_mask_mode: str = "threshold"
+    initial_mask_threshold_rel: float = 0.7
+    initial_mask_disk_radius_ratio: float = 0.35
+    mem_every: int | None = None
+    subprocess_timeout_sec: float = 1800.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    max_mask_area_ratio_change: float = 0.0
+    max_bbox_aspect_ratio_change: float = 0.0
+    max_bbox_center_jump_px: float = 0.0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -378,6 +415,7 @@ class MainWindow(QMainWindow):
         self.pipspp_settings = PipsppTrackingSettings()
         self.mftiq_settings = MftiqTrackingSettings()
         self.sam2_settings = Sam2TrackingSettings()
+        self.cutie_settings = CutieTrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -389,6 +427,7 @@ class MainWindow(QMainWindow):
         self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
         self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
         self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
+        self.cutie_models_dir = self.tracking_models_dir / "cutie"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
@@ -408,6 +447,9 @@ class MainWindow(QMainWindow):
         default_mftiq_repo = Path(__file__).resolve().parents[3] / "mftiq"
         if default_mftiq_repo.exists():
             self.mftiq_settings.repo_path = str(default_mftiq_repo.resolve())
+        default_cutie_repo = Path(__file__).resolve().parents[3] / "cutie"
+        if default_cutie_repo.exists():
+            self.cutie_settings.repo_path = str(default_cutie_repo.resolve())
         default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
         if default_sam2_repo.exists():
             self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
@@ -421,6 +463,7 @@ class MainWindow(QMainWindow):
         self._trackonr_checkpoint_available = False
         self._pipspp_checkpoint_available = False
         self._mftiq_checkpoint_available = False
+        self._cutie_checkpoint_available = False
         self._sam2_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
@@ -1299,6 +1342,7 @@ class MainWindow(QMainWindow):
             "Offline Track-On-R",
             "Offline PIPs++",
             "Offline MFTIQ",
+            "Offline Cutie",
             "Offline SAM2",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
@@ -3238,6 +3282,297 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.mftiq_group)
 
+        # --- Offline Cutie parameters ---
+        self.cutie_group = QGroupBox("Offline Cutie")
+        cutie_layout = QFormLayout(self.cutie_group)
+
+        self.cutie_repo_path_edit = QLineEdit(self.cutie_settings.repo_path or "")
+        self.cutie_repo_path_edit.setPlaceholderText("Path to local cutie repo root")
+        self.cutie_repo_path_edit.setToolTip(
+            "Local clone of the Cutie repository. Must contain scripting_demo.py and cutie/inference/."
+        )
+        self.cutie_repo_path_edit.editingFinished.connect(self._refresh_cutie_checkpoints)
+        cutie_layout.addRow("Repo path:", self.cutie_repo_path_edit)
+
+        self.cutie_python_executable_edit = QLineEdit(self.cutie_settings.python_executable or "")
+        self.cutie_python_executable_edit.setPlaceholderText(
+            "Reserved for the future subprocess backend; currently unused"
+        )
+        self.cutie_python_executable_edit.setToolTip(
+            "Cutie currently runs in direct-import mode only. This field is kept for the later subprocess backend."
+        )
+        self.cutie_python_executable_edit.editingFinished.connect(self._refresh_cutie_checkpoints)
+        cutie_layout.addRow("Python executable:", self.cutie_python_executable_edit)
+
+        self.cutie_backend_mode_combo = QComboBox()
+        self.cutie_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        cutie_backend_mode_idx = self.cutie_backend_mode_combo.findData(self.cutie_settings.backend_mode)
+        self.cutie_backend_mode_combo.setCurrentIndex(cutie_backend_mode_idx if cutie_backend_mode_idx >= 0 else 0)
+        self.cutie_backend_mode_combo.setToolTip(
+            "Cutie GUI integration currently uses direct import. Run Trackleed from the dedicated cutie env."
+        )
+        self.cutie_backend_mode_combo.currentIndexChanged.connect(self._on_cutie_backend_mode_changed)
+        cutie_layout.addRow("Backend mode:", self.cutie_backend_mode_combo)
+
+        cutie_model_row_widget = QWidget()
+        cutie_model_row_layout = QHBoxLayout(cutie_model_row_widget)
+        cutie_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.cutie_checkpoint_combo = QComboBox()
+        self.cutie_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.cutie_checkpoint_combo.setToolTip(
+            "Select a Cutie checkpoint from tracking_models/cutie or repo/weights."
+        )
+        self.cutie_checkpoint_combo.currentIndexChanged.connect(self._on_cutie_checkpoint_selected)
+        self.cutie_refresh_button = QPushButton("Refresh")
+        self.cutie_refresh_button.setToolTip(
+            "Re-scan tracking_models/cutie and re-run Cutie environment diagnostics."
+        )
+        self.cutie_refresh_button.clicked.connect(self._refresh_cutie_checkpoints)
+        cutie_model_row_layout.addWidget(self.cutie_checkpoint_combo)
+        cutie_model_row_layout.addWidget(self.cutie_refresh_button)
+        cutie_layout.addRow("Checkpoint:", cutie_model_row_widget)
+
+        self.cutie_checkpoint_hint_label = QLabel(
+            "Hint: use cutie-base-mega.pth for Trackleed. "
+            "coco_lvis_h18_itermask.pth is the optional interactive checkpoint from the upstream repo."
+        )
+        self.cutie_checkpoint_hint_label.setWordWrap(True)
+        self.cutie_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        cutie_layout.addRow(self.cutie_checkpoint_hint_label)
+
+        self.cutie_device_combo = QComboBox()
+        self.cutie_device_combo.addItem("Auto", "auto")
+        self.cutie_device_combo.addItem("GPU", "cuda")
+        self.cutie_device_combo.addItem("CPU", "cpu")
+        cutie_device_idx = self.cutie_device_combo.findData(self.cutie_settings.device)
+        self.cutie_device_combo.setCurrentIndex(cutie_device_idx if cutie_device_idx >= 0 else 0)
+        self.cutie_device_combo.setToolTip("Device passed to the Cutie runtime.")
+        cutie_layout.addRow("Device:", self.cutie_device_combo)
+
+        self.cutie_inference_resolution_combo = QComboBox()
+        self.cutie_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("256 x 256", 256),
+            ("384 x 384", 384),
+            ("512 x 512", 512),
+        ):
+            self.cutie_inference_resolution_combo.addItem(label, value)
+        cutie_res_idx = self.cutie_inference_resolution_combo.findData(self.cutie_settings.inference_resolution)
+        self.cutie_inference_resolution_combo.setCurrentIndex(cutie_res_idx if cutie_res_idx >= 0 else 0)
+        self.cutie_inference_resolution_combo.setToolTip(
+            "Optional square inference size for Cutie. Native keeps the original LEED frame size."
+        )
+        cutie_layout.addRow("Inference resolution:", self.cutie_inference_resolution_combo)
+
+        self.cutie_window_size_spinbox = QSpinBox()
+        self.cutie_window_size_spinbox.setRange(2, 4096)
+        self.cutie_window_size_spinbox.setValue(self.cutie_settings.window_size)
+        self.cutie_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed Cutie window. Smaller values reduce VRAM pressure."
+        )
+        cutie_layout.addRow("Window size:", self.cutie_window_size_spinbox)
+
+        self.cutie_window_overlap_spinbox = QSpinBox()
+        self.cutie_window_overlap_spinbox.setRange(0, 1024)
+        self.cutie_window_overlap_spinbox.setValue(self.cutie_settings.window_overlap)
+        self.cutie_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive Cutie windows. "
+            "Trackleed reseeds the next window from this overlap and enforces at least one shared frame when multiple windows are used."
+        )
+        cutie_layout.addRow("Window overlap:", self.cutie_window_overlap_spinbox)
+
+        self.cutie_repr_mode_combo = QComboBox()
+        self.cutie_repr_mode_combo.addItem("Mask centroid", "mask_centroid")
+        self.cutie_repr_mode_combo.addItem("Peak in mask", "peak_in_mask")
+        self.cutie_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.cutie_repr_mode_combo.addItem("Gaussian in mask", "gaussian_in_mask")
+        cutie_repr_idx = self.cutie_repr_mode_combo.findData(self.cutie_settings.representative_point_mode)
+        self.cutie_repr_mode_combo.setCurrentIndex(cutie_repr_idx if cutie_repr_idx >= 0 else 0)
+        self.cutie_repr_mode_combo.setToolTip(
+            "How Trackleed converts the propagated Cutie mask into one representative point."
+        )
+        cutie_layout.addRow("Representative point:", self.cutie_repr_mode_combo)
+
+        self.cutie_bbox_padding_spinbox = QDoubleSpinBox()
+        self.cutie_bbox_padding_spinbox.setDecimals(1)
+        self.cutie_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.cutie_bbox_padding_spinbox.setSingleStep(1.0)
+        self.cutie_bbox_padding_spinbox.setValue(self.cutie_settings.initial_bbox_padding_px)
+        self.cutie_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around roi_rect before building the initial Cutie mask."
+        )
+        cutie_layout.addRow("Init bbox padding (px):", self.cutie_bbox_padding_spinbox)
+
+        self.cutie_initial_mask_mode_combo = QComboBox()
+        self.cutie_initial_mask_mode_combo.addItem("Threshold in bbox", "threshold")
+        self.cutie_initial_mask_mode_combo.addItem("Full bbox mask", "full_bbox")
+        self.cutie_initial_mask_mode_combo.addItem("Disk in bbox", "disk")
+        cutie_mask_mode_idx = self.cutie_initial_mask_mode_combo.findData(self.cutie_settings.initial_mask_mode)
+        self.cutie_initial_mask_mode_combo.setCurrentIndex(cutie_mask_mode_idx if cutie_mask_mode_idx >= 0 else 0)
+        self.cutie_initial_mask_mode_combo.setToolTip(
+            "How Trackleed turns the ROI bbox into the initial seed mask for Cutie."
+        )
+        cutie_layout.addRow("Initial mask mode:", self.cutie_initial_mask_mode_combo)
+
+        self.cutie_initial_mask_threshold_spinbox = QDoubleSpinBox()
+        self.cutie_initial_mask_threshold_spinbox.setDecimals(2)
+        self.cutie_initial_mask_threshold_spinbox.setRange(0.00, 1.00)
+        self.cutie_initial_mask_threshold_spinbox.setSingleStep(0.05)
+        self.cutie_initial_mask_threshold_spinbox.setValue(self.cutie_settings.initial_mask_threshold_rel)
+        self.cutie_initial_mask_threshold_spinbox.setToolTip(
+            "Relative threshold used by the default bbox->mask builder. Higher values keep only the brightest core."
+        )
+        cutie_layout.addRow("Threshold rel.:", self.cutie_initial_mask_threshold_spinbox)
+
+        self.cutie_initial_mask_disk_spinbox = QDoubleSpinBox()
+        self.cutie_initial_mask_disk_spinbox.setDecimals(2)
+        self.cutie_initial_mask_disk_spinbox.setRange(0.05, 1.00)
+        self.cutie_initial_mask_disk_spinbox.setSingleStep(0.05)
+        self.cutie_initial_mask_disk_spinbox.setValue(self.cutie_settings.initial_mask_disk_radius_ratio)
+        self.cutie_initial_mask_disk_spinbox.setToolTip(
+            "Disk radius as a fraction of the smaller ROI dimension when the disk seed mode is used."
+        )
+        cutie_layout.addRow("Disk radius ratio:", self.cutie_initial_mask_disk_spinbox)
+
+        self.cutie_mem_every_spinbox = QSpinBox()
+        self.cutie_mem_every_spinbox.setRange(0, 512)
+        self.cutie_mem_every_spinbox.setValue(
+            0 if self.cutie_settings.mem_every in {None, 0} else int(self.cutie_settings.mem_every)
+        )
+        self.cutie_mem_every_spinbox.setToolTip(
+            "How often Cutie stores memory frames. Set 0 to keep the upstream default."
+        )
+        cutie_layout.addRow("Memory every N frames:", self.cutie_mem_every_spinbox)
+
+        self.cutie_max_step_spinbox = QDoubleSpinBox()
+        self.cutie_max_step_spinbox.setDecimals(1)
+        self.cutie_max_step_spinbox.setRange(0.0, 10000.0)
+        self.cutie_max_step_spinbox.setSingleStep(1.0)
+        self.cutie_max_step_spinbox.setValue(self.cutie_settings.max_step_distance_px)
+        self.cutie_max_step_spinbox.setToolTip(
+            "Reject representative points that jump farther than this distance from the last accepted Cutie point. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max jump (px):", self.cutie_max_step_spinbox)
+
+        self.cutie_max_gap_spinbox = QSpinBox()
+        self.cutie_max_gap_spinbox.setRange(0, 4096)
+        self.cutie_max_gap_spinbox.setValue(self.cutie_settings.max_reacquisition_gap)
+        self.cutie_max_gap_spinbox.setToolTip(
+            "If a Cutie track stays invalid longer than this gap, later reacquisition attempts are discarded. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max reacquisition gap:", self.cutie_max_gap_spinbox)
+
+        self.cutie_terminate_gap_spinbox = QSpinBox()
+        self.cutie_terminate_gap_spinbox.setRange(0, 4096)
+        self.cutie_terminate_gap_spinbox.setValue(self.cutie_settings.terminate_after_invisible_frames)
+        self.cutie_terminate_gap_spinbox.setToolTip(
+            "Stop writing any more Cutie points after this many consecutive invalid frames. Set 0 to disable."
+        )
+        cutie_layout.addRow("Terminate after gap:", self.cutie_terminate_gap_spinbox)
+
+        self.cutie_max_area_ratio_spinbox = QDoubleSpinBox()
+        self.cutie_max_area_ratio_spinbox.setDecimals(2)
+        self.cutie_max_area_ratio_spinbox.setRange(0.0, 100.0)
+        self.cutie_max_area_ratio_spinbox.setSingleStep(0.05)
+        self.cutie_max_area_ratio_spinbox.setValue(self.cutie_settings.max_mask_area_ratio_change)
+        self.cutie_max_area_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask area between accepted frames. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max area drift x:", self.cutie_max_area_ratio_spinbox)
+
+        self.cutie_max_aspect_ratio_spinbox = QDoubleSpinBox()
+        self.cutie_max_aspect_ratio_spinbox.setDecimals(2)
+        self.cutie_max_aspect_ratio_spinbox.setRange(0.0, 100.0)
+        self.cutie_max_aspect_ratio_spinbox.setSingleStep(0.05)
+        self.cutie_max_aspect_ratio_spinbox.setValue(self.cutie_settings.max_bbox_aspect_ratio_change)
+        self.cutie_max_aspect_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask bbox aspect ratio between accepted frames. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max aspect drift x:", self.cutie_max_aspect_ratio_spinbox)
+
+        self.cutie_bbox_jump_spinbox = QDoubleSpinBox()
+        self.cutie_bbox_jump_spinbox.setDecimals(1)
+        self.cutie_bbox_jump_spinbox.setRange(0.0, 10000.0)
+        self.cutie_bbox_jump_spinbox.setSingleStep(1.0)
+        self.cutie_bbox_jump_spinbox.setValue(self.cutie_settings.max_bbox_center_jump_px)
+        self.cutie_bbox_jump_spinbox.setToolTip(
+            "Maximum accepted shift of the propagated mask bbox center between accepted frames. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max bbox jump (px):", self.cutie_bbox_jump_spinbox)
+
+        self.cutie_keep_gaps_checkbox = QCheckBox("Keep invisible masks as gaps")
+        self.cutie_keep_gaps_checkbox.setChecked(self.cutie_settings.keep_invisible_points_as_gaps)
+        self.cutie_keep_gaps_checkbox.setToolTip(
+            "If enabled, missing/invalid Cutie masks leave gaps instead of forcing a representative point."
+        )
+        cutie_layout.addRow(self.cutie_keep_gaps_checkbox)
+
+        self.cutie_center_mode_combo = QComboBox()
+        self.cutie_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.cutie_center_mode_combo.addItem("Manual", "manual")
+        cutie_center_mode_idx = self.cutie_center_mode_combo.findData(self.cutie_settings.center_mode)
+        self.cutie_center_mode_combo.setCurrentIndex(cutie_center_mode_idx if cutie_center_mode_idx >= 0 else 0)
+        self.cutie_center_mode_combo.setToolTip(
+            "Reference center used by Cutie direction gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.cutie_center_mode_combo.currentIndexChanged.connect(self._on_cutie_center_mode_changed)
+        cutie_layout.addRow("Direction center:", self.cutie_center_mode_combo)
+
+        cutie_center_row_widget = QWidget()
+        cutie_center_row_layout = QHBoxLayout(cutie_center_row_widget)
+        cutie_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.cutie_center_x_spinbox = QDoubleSpinBox()
+        self.cutie_center_x_spinbox.setRange(0.0, 10000.0)
+        self.cutie_center_x_spinbox.setDecimals(1)
+        self.cutie_center_x_spinbox.setValue(self.cutie_settings.manual_center_x)
+        self.cutie_center_y_spinbox = QDoubleSpinBox()
+        self.cutie_center_y_spinbox.setRange(0.0, 10000.0)
+        self.cutie_center_y_spinbox.setDecimals(1)
+        self.cutie_center_y_spinbox.setValue(self.cutie_settings.manual_center_y)
+        cutie_center_row_layout.addWidget(self.cutie_center_x_spinbox)
+        cutie_center_row_layout.addWidget(QLabel(","))
+        cutie_center_row_layout.addWidget(self.cutie_center_y_spinbox)
+        cutie_layout.addRow("Manual center (x, y):", cutie_center_row_widget)
+
+        self.cutie_direction_mode_combo = QComboBox()
+        self.cutie_direction_mode_combo.addItem("None", "none")
+        self.cutie_direction_mode_combo.addItem("Auto", "auto")
+        self.cutie_direction_mode_combo.addItem("Inward", "inward")
+        self.cutie_direction_mode_combo.addItem("Outward", "outward")
+        cutie_direction_idx = self.cutie_direction_mode_combo.findData(self.cutie_settings.direction_mode)
+        self.cutie_direction_mode_combo.setCurrentIndex(cutie_direction_idx if cutie_direction_idx >= 0 else 0)
+        self.cutie_direction_mode_combo.setToolTip(
+            "Optional directional prior applied to the Cutie representative point."
+        )
+        cutie_layout.addRow("Direction mode:", self.cutie_direction_mode_combo)
+
+        self.cutie_lateral_tol_spinbox = QDoubleSpinBox()
+        self.cutie_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.cutie_lateral_tol_spinbox.setSingleStep(1.0)
+        self.cutie_lateral_tol_spinbox.setValue(self.cutie_settings.lateral_angle_tolerance_deg)
+        self.cutie_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        cutie_layout.addRow("Angular tol (deg):", self.cutie_lateral_tol_spinbox)
+
+        self.cutie_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.cutie_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.cutie_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.cutie_max_radial_jump_spinbox.setValue(self.cutie_settings.max_radial_jump_px)
+        self.cutie_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        cutie_layout.addRow("Max radial jump (px):", self.cutie_max_radial_jump_spinbox)
+
+        self.cutie_warning_label = QLabel()
+        self.cutie_warning_label.setStyleSheet("color: #d9534f;")
+        self.cutie_warning_label.setWordWrap(True)
+        cutie_layout.addRow(self.cutie_warning_label)
+
+        self._on_cutie_backend_mode_changed(self.cutie_backend_mode_combo.currentIndex())
+        self._on_cutie_center_mode_changed(self.cutie_center_mode_combo.currentIndex())
+        form_layout.addRow(self.cutie_group)
+
         # --- Offline SAM2 parameters ---
         self.sam2_group = QGroupBox("Offline SAM2")
         sam2_layout = QFormLayout(self.sam2_group)
@@ -3744,6 +4079,7 @@ class MainWindow(QMainWindow):
         self._refresh_trackonr_checkpoints()
         self._refresh_pipspp_checkpoints()
         self._refresh_mftiq_checkpoints()
+        self._refresh_cutie_checkpoints()
         self._refresh_sam2_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
@@ -4684,6 +5020,82 @@ class MainWindow(QMainWindow):
         self.mftiq_settings.checkpoint_path = checkpoint_path
         self._refresh_mftiq_checkpoints()
 
+    def _refresh_cutie_checkpoints(self):
+        repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
+        if repo_path:
+            self.cutie_settings.repo_path = repo_path
+        self.cutie_settings.python_executable = self.cutie_python_executable_edit.text().strip() or None
+        self.cutie_settings.backend_mode = self.cutie_backend_mode_combo.currentData()
+
+        status = probe_cutie_environment(
+            models_dir=self.cutie_models_dir,
+            checkpoint_path=self.cutie_settings.checkpoint_path,
+            repo_path=self.cutie_settings.repo_path,
+        )
+
+        self.cutie_checkpoint_combo.blockSignals(True)
+        self.cutie_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.cutie_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.cutie_checkpoint_combo.setEnabled(False)
+            self._cutie_checkpoint_available = False
+            self.cutie_settings.checkpoint_path = None
+        else:
+            self.cutie_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.cutie_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._cutie_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.cutie_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.cutie_checkpoint_combo.setCurrentIndex(idx)
+                    self.cutie_settings.checkpoint_path = selected_checkpoint
+            if not self.cutie_settings.checkpoint_path and self.cutie_checkpoint_combo.count() > 0:
+                self.cutie_checkpoint_combo.setCurrentIndex(0)
+                self.cutie_settings.checkpoint_path = self.cutie_checkpoint_combo.currentData()
+
+        self.cutie_checkpoint_combo.blockSignals(False)
+        self.cutie_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.cutie_settings.repo_path or "")
+        )
+        self.cutie_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.cutie_settings.repo_path
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            if status.selected_checkpoint is not None:
+                details.append(status.selected_checkpoint.name)
+            self.cutie_warning_label.setStyleSheet("color: #5cb85c;")
+            self.cutie_warning_label.setText("Cutie ready. " + ", ".join(details))
+            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if not summary:
+                summary.append("Run Trackleed from the dedicated cutie env.")
+            summary.append("Cutie subprocess backend is not added yet; use the current env.")
+            self.cutie_warning_label.setStyleSheet("color: #d9534f;")
+            self.cutie_warning_label.setText("\n".join(summary))
+            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
+
+    def _on_cutie_checkpoint_selected(self, index: int):
+        checkpoint_path = self.cutie_checkpoint_combo.itemData(index)
+        self.cutie_settings.checkpoint_path = checkpoint_path
+        self._refresh_cutie_checkpoints()
+
     def _refresh_sam2_checkpoints(self):
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
         if repo_path:
@@ -4883,6 +5295,8 @@ class MainWindow(QMainWindow):
             self._refresh_pipspp_checkpoints()
         if scenario == "Offline MFTIQ":
             self._refresh_mftiq_checkpoints()
+        if scenario == "Offline Cutie":
+            self._refresh_cutie_checkpoints()
         if scenario == "Offline SAM2":
             self._refresh_sam2_checkpoints()
 
@@ -4900,6 +5314,7 @@ class MainWindow(QMainWindow):
         show_trackonr = scenario == "Offline Track-On-R"
         show_pipspp = scenario == "Offline PIPs++"
         show_mftiq = scenario == "Offline MFTIQ"
+        show_cutie = scenario == "Offline Cutie"
         show_sam2 = scenario == "Offline SAM2"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
@@ -4922,6 +5337,8 @@ class MainWindow(QMainWindow):
             self.pipspp_group.setVisible(show_pipspp)
         if hasattr(self, "mftiq_group"):
             self.mftiq_group.setVisible(show_mftiq)
+        if hasattr(self, "cutie_group"):
+            self.cutie_group.setVisible(show_cutie)
         if hasattr(self, "sam2_group"):
             self.sam2_group.setVisible(show_sam2)
         if hasattr(self, "hungarian_group"):
@@ -4982,6 +5399,17 @@ class MainWindow(QMainWindow):
         self.mftiq_python_executable_edit.setEnabled(backend_mode == "subprocess")
         if hasattr(self, "mftiq_warning_label"):
             self._refresh_mftiq_checkpoints()
+
+    def _on_cutie_backend_mode_changed(self, idx: int):
+        backend_mode = self.cutie_backend_mode_combo.itemData(idx)
+        self.cutie_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "cutie_warning_label"):
+            self._refresh_cutie_checkpoints()
+
+    def _on_cutie_center_mode_changed(self, idx: int):
+        manual = self.cutie_center_mode_combo.itemData(idx) == "manual"
+        self.cutie_center_x_spinbox.setEnabled(manual)
+        self.cutie_center_y_spinbox.setEnabled(manual)
 
     def _on_sam2_backend_mode_changed(self, idx: int):
         backend_mode = self.sam2_backend_mode_combo.itemData(idx)
@@ -5863,6 +6291,51 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_cutie_tracking_params(self) -> dict:
+        """Collect the current Cutie tracking settings from the UI."""
+        repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
+        inference_resolution = self.cutie_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        mem_every = self.cutie_mem_every_spinbox.value()
+        if mem_every <= 0:
+            mem_every = None
+        return {
+            "cutie_models_dir": str(self.cutie_models_dir.resolve()),
+            "cutie_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.cutie_settings.checkpoint_path,
+            "python_executable": self.cutie_python_executable_edit.text().strip() or None,
+            "device": self.cutie_device_combo.currentData(),
+            "backend_mode": self.cutie_backend_mode_combo.currentData(),
+            "representative_point_mode": self.cutie_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.cutie_window_size_spinbox.value(),
+            "window_overlap": self.cutie_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.cutie_bbox_padding_spinbox.value(),
+            "initial_mask_mode": self.cutie_initial_mask_mode_combo.currentData(),
+            "initial_mask_threshold_rel": self.cutie_initial_mask_threshold_spinbox.value(),
+            "initial_mask_disk_radius_ratio": self.cutie_initial_mask_disk_spinbox.value(),
+            "mem_every": mem_every,
+            "subprocess_timeout_sec": self.cutie_settings.subprocess_timeout_sec,
+            "keep_invisible_points_as_gaps": self.cutie_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.cutie_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.cutie_max_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.cutie_terminate_gap_spinbox.value(),
+            "max_mask_area_ratio_change": self.cutie_max_area_ratio_spinbox.value(),
+            "max_bbox_aspect_ratio_change": self.cutie_max_aspect_ratio_spinbox.value(),
+            "max_bbox_center_jump_px": self.cutie_bbox_jump_spinbox.value(),
+            "center_mode": self.cutie_center_mode_combo.currentData(),
+            "manual_center": (
+                self.cutie_center_x_spinbox.value(),
+                self.cutie_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.cutie_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.cutie_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.cutie_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _collect_sam2_tracking_params(self) -> dict:
         """Collect the current SAM 2 tracking settings from the UI."""
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
@@ -6386,6 +6859,47 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline Cutie":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline Cutie requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
+            self.cutie_settings.repo_path = repo_path
+            self.cutie_settings.python_executable = self.cutie_python_executable_edit.text().strip() or None
+            self.cutie_settings.backend_mode = self.cutie_backend_mode_combo.currentData()
+
+            status = probe_cutie_environment(
+                models_dir=self.cutie_models_dir,
+                checkpoint_path=self.cutie_settings.checkpoint_path,
+                repo_path=self.cutie_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "Cutie Unavailable",
+                    format_cutie_environment_report(status),
+                )
+                return
+
+            cutie_params = self._collect_cutie_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_cutie_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                cutie_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Offline SAM2":
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
@@ -6627,6 +7141,7 @@ class MainWindow(QMainWindow):
             trackonr_params=self._collect_trackonr_tracking_params(),
             pipspp_params=self._collect_pipspp_tracking_params(),
             mftiq_params=self._collect_mftiq_tracking_params(),
+            cutie_params=self._collect_cutie_tracking_params(),
             sam2_params=self._collect_sam2_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
