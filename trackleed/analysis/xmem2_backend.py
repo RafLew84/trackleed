@@ -746,6 +746,7 @@ def run_xmem2_offline(
     *,
     query_boxes_xyxy: np.ndarray | None = None,
     query_object_ids: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
 ) -> XMem2OfflineResult:
     frames_np = np.asarray(frames)
     if frames_np.ndim not in (3, 4):
@@ -767,6 +768,11 @@ def run_xmem2_offline(
                 f"query_boxes_xyxy must have shape {(query_np.shape[0], 4)}, got {boxes_np.shape}."
             )
     object_ids_np = _normalize_xmem2_query_object_ids(query_object_ids, query_np.shape[0])
+    query_initial_masks_np = _normalize_xmem2_query_initial_masks(
+        query_initial_masks,
+        num_queries=query_np.shape[0],
+        frame_shape=frames_np.shape[1:3],
+    )
 
     backend_mode = str(settings.backend_mode or "subprocess").strip().lower()
     if backend_mode == "auto":
@@ -778,6 +784,7 @@ def run_xmem2_offline(
             settings,
             query_boxes_xyxy=boxes_np,
             query_object_ids=object_ids_np,
+            query_initial_masks=query_initial_masks_np,
         )
     if backend_mode != "subprocess":
         raise ValueError(
@@ -790,6 +797,7 @@ def run_xmem2_offline(
         settings,
         query_boxes_xyxy=boxes_np,
         query_object_ids=object_ids_np,
+        query_initial_masks=query_initial_masks_np,
     )
 
 
@@ -800,6 +808,7 @@ def _run_xmem2_direct_offline(
     *,
     query_boxes_xyxy: np.ndarray | None = None,
     query_object_ids: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
 ) -> XMem2OfflineResult:
     resolved_repo_path = _resolve_xmem2_repo_path(settings.repo_path)
     if resolved_repo_path is None:
@@ -812,6 +821,9 @@ def _run_xmem2_direct_offline(
         settings.representative_point_mode
     )
     initial_mask_mode = _normalize_xmem2_mask_builder_mode(settings.initial_mask_mode)
+    effective_initial_mask_mode = (
+        "polygon" if query_initial_masks is not None else initial_mask_mode
+    )
     device_name = str(settings.device or "auto").strip().lower()
     if device_name not in {"", "auto", "cuda", "gpu", "cuda:0"}:
         raise ValueError(
@@ -855,6 +867,10 @@ def _run_xmem2_direct_offline(
             else None
         ),
     )
+    scaled_initial_masks = _resize_boolean_mask_stack_numpy(
+        query_initial_masks,
+        inference_resolution,
+    )
     seed_frames = _extract_query_seed_frames(scaled_queries, total_frames=resized_frames.shape[0])
 
     num_objects = int(len(unique_object_ids))
@@ -879,6 +895,7 @@ def _run_xmem2_direct_offline(
             boxes_xyxy=scaled_boxes,
             seed_frames=seed_frames,
             class_ids=class_ids,
+            query_initial_masks=scaled_initial_masks,
             initial_mask_mode=initial_mask_mode,
             threshold_rel=float(settings.initial_mask_threshold_rel),
             disk_radius_ratio=float(settings.initial_mask_disk_radius_ratio),
@@ -975,7 +992,7 @@ def _run_xmem2_direct_offline(
         original_resolution=original_resolution,
         checkpoint_name=checkpoint_file.name,
         representative_point_mode=representative_point_mode,
-        initial_mask_mode=initial_mask_mode,
+        initial_mask_mode=effective_initial_mask_mode,
         backend_mode="direct",
     )
 
@@ -987,6 +1004,7 @@ def _run_xmem2_subprocess_offline(
     *,
     query_boxes_xyxy: np.ndarray | None = None,
     query_object_ids: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
 ) -> XMem2OfflineResult:
     python_executable = _resolve_xmem2_python_executable(settings.python_executable)
     script_path = (Path(__file__).resolve().parents[2] / DEFAULT_XMEM2_SUBPROCESS_SCRIPT).resolve()
@@ -1013,6 +1031,12 @@ def _run_xmem2_subprocess_offline(
                 else np.zeros((0,), dtype=np.int32)
             ),
             has_query_object_ids=np.asarray(query_object_ids is not None, dtype=bool),
+            query_initial_masks=(
+                np.asarray(query_initial_masks, dtype=bool)
+                if query_initial_masks is not None
+                else np.zeros((0, frames.shape[1], frames.shape[2]), dtype=bool)
+            ),
+            has_query_initial_masks=np.asarray(query_initial_masks is not None, dtype=bool),
         )
 
         command = [
@@ -1432,6 +1456,42 @@ def _normalize_xmem2_query_object_ids(
     return object_ids.astype(np.int32, copy=False)
 
 
+def _normalize_xmem2_query_initial_masks(
+    query_initial_masks: np.ndarray | None,
+    *,
+    num_queries: int,
+    frame_shape: tuple[int, ...],
+) -> np.ndarray | None:
+    if query_initial_masks is None:
+        return None
+    masks = np.asarray(query_initial_masks, dtype=bool)
+    if masks.ndim != 3:
+        raise ValueError(
+            f"query_initial_masks must have shape [{num_queries}, H, W], got {masks.shape}."
+        )
+    if masks.shape[0] != int(num_queries):
+        raise ValueError(
+            f"query_initial_masks must have {int(num_queries)} entries, got {masks.shape[0]}."
+        )
+    frame_h = int(frame_shape[0])
+    frame_w = int(frame_shape[1])
+    if masks.shape[1:] != (frame_h, frame_w):
+        raise ValueError(
+            "query_initial_masks must match the input frame resolution. "
+            f"Expected {(frame_h, frame_w)}, got {masks.shape[1:]}."
+        )
+    empty_indices = [
+        int(idx)
+        for idx in np.where(~np.any(masks.reshape(masks.shape[0], -1), axis=1))[0].tolist()
+    ]
+    if empty_indices:
+        raise ValueError(
+            "query_initial_masks contains empty masks for queries: "
+            + ", ".join(str(idx) for idx in empty_indices)
+        )
+    return masks
+
+
 def _resolve_xmem2_python_executable(
     python_executable: str | Path | None,
 ) -> Path:
@@ -1596,6 +1656,44 @@ def _scale_boxes_xyxy(
     return scaled
 
 
+def _resize_boolean_mask_stack_numpy(
+    mask_stack: np.ndarray | None,
+    target_resolution: tuple[int, int],
+) -> np.ndarray | None:
+    if mask_stack is None:
+        return None
+    masks = np.asarray(mask_stack, dtype=bool)
+    if masks.ndim != 3:
+        raise ValueError(f"mask_stack must have shape [N, H, W], got {masks.shape}.")
+    target_h, target_w = int(target_resolution[0]), int(target_resolution[1])
+    if masks.shape[1:] == (target_h, target_w):
+        return masks.astype(bool, copy=True)
+
+    image_module = importlib.import_module("PIL.Image")
+    resized = np.zeros((masks.shape[0], target_h, target_w), dtype=bool)
+    for mask_index in range(masks.shape[0]):
+        raster = image_module.fromarray(masks[mask_index].astype(np.uint8) * 255, mode="L")
+        resized_mask = raster.resize(
+            (target_w, target_h),
+            resample=image_module.Resampling.NEAREST,
+        )
+        resized_mask_np = np.asarray(resized_mask, dtype=np.uint8) > 0
+        if not np.any(resized_mask_np) and np.any(masks[mask_index]):
+            ys, xs = np.nonzero(masks[mask_index])
+            centroid_x = float(np.mean(xs))
+            centroid_y = float(np.mean(ys))
+            src_h, src_w = masks.shape[1], masks.shape[2]
+            mapped_x = int(
+                np.clip(round(centroid_x * float(target_w) / float(src_w)), 0, max(0, target_w - 1))
+            )
+            mapped_y = int(
+                np.clip(round(centroid_y * float(target_h) / float(src_h)), 0, max(0, target_h - 1))
+            )
+            resized_mask_np[mapped_y, mapped_x] = True
+        resized[mask_index] = resized_mask_np
+    return resized
+
+
 def _build_xmem2_prompt_boxes_xyxy(
     query_points_tyx: np.ndarray,
     *,
@@ -1649,6 +1747,7 @@ def _write_xmem2_seed_masks(
     boxes_xyxy: np.ndarray,
     seed_frames: np.ndarray,
     class_ids: np.ndarray,
+    query_initial_masks: np.ndarray | None,
     initial_mask_mode: str,
     threshold_rel: float,
     disk_radius_ratio: float,
@@ -1664,28 +1763,48 @@ def _write_xmem2_seed_masks(
         for query_index in range(num_queries):
             if int(seed_frames[query_index]) != frame_index:
                 continue
-            bbox = np.asarray(boxes_xyxy[query_index], dtype=np.float32)
-            roi_rect_xywh = (
-                int(np.floor(float(bbox[0]))),
-                int(np.floor(float(bbox[1]))),
-                int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
-                int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
-            )
-            seed_mask = build_xmem2_initial_mask(
-                frame_rgb,
-                roi_rect_xywh,
-                mode=initial_mask_mode,
-                threshold_rel=threshold_rel,
-                disk_radius_ratio=disk_radius_ratio,
-            )
-            if not np.any(seed_mask):
+            if query_initial_masks is not None:
+                seed_mask = np.asarray(query_initial_masks[query_index], dtype=bool)
+                if seed_mask.shape != frame_rgb.shape[:2]:
+                    raise ValueError(
+                        "XMem2 query_initial_masks must match the inference frame resolution. "
+                        f"Expected {frame_rgb.shape[:2]}, got {seed_mask.shape}."
+                    )
+                bbox_tuple = _mask_bbox_xyxy(seed_mask)
+                if bbox_tuple is None:
+                    raise ValueError(
+                        f"XMem2 initial mask for query {query_index} is empty after preprocessing."
+                    )
+                bbox = np.asarray(bbox_tuple, dtype=np.float32)
+                roi_rect_xywh = (
+                    int(np.floor(float(bbox[0]))),
+                    int(np.floor(float(bbox[1]))),
+                    int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
+                    int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
+                )
+            else:
+                bbox = np.asarray(boxes_xyxy[query_index], dtype=np.float32)
+                roi_rect_xywh = (
+                    int(np.floor(float(bbox[0]))),
+                    int(np.floor(float(bbox[1]))),
+                    int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
+                    int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
+                )
                 seed_mask = build_xmem2_initial_mask(
                     frame_rgb,
                     roi_rect_xywh,
-                    mode="full_bbox",
+                    mode=initial_mask_mode,
                     threshold_rel=threshold_rel,
                     disk_radius_ratio=disk_radius_ratio,
                 )
+                if not np.any(seed_mask):
+                    seed_mask = build_xmem2_initial_mask(
+                        frame_rgb,
+                        roi_rect_xywh,
+                        mode="full_bbox",
+                        threshold_rel=threshold_rel,
+                        disk_radius_ratio=disk_radius_ratio,
+                    )
             free_mask = seed_mask & (idx_mask == 0)
             if not np.any(free_mask):
                 x, y, width_xy, height_xy = _clamp_roi_rect_xywh(roi_rect_xywh, frame_rgb.shape[:2])

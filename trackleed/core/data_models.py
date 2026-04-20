@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 from PyQt6.QtCore import QRect
 
 @dataclass
@@ -43,6 +43,11 @@ class SpotROI:
     center_y: float             # Precise Y coordinate of the peak
     intensity: float            # Max intensity value at the peak
     source: str                 # How the spot was created: 'auto' or 'manual'
+    polygon_seed_points: List[Tuple[float, float]] = field(default_factory=list)
+
+    @property
+    def has_polygon_seed(self) -> bool:
+        return len(self.polygon_seed_points) >= 3
 
 @dataclass
 class Track:

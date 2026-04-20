@@ -7,7 +7,7 @@ from typing import List
 from threading import Event
 import numpy as np
 from PyQt6.QtCore import Qt, QTimer, QPoint, QPointF, QRect, QThread
-from PyQt6.QtGui import QImage, QPixmap, QActionGroup, QAction
+from PyQt6.QtGui import QImage, QPixmap, QActionGroup, QAction, QColor
 from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QSplitter,
                              QLabel, QTableWidget, QAbstractItemView, QTableWidgetItem, QDialogButtonBox,
                              QHeaderView, QPushButton, QMessageBox, QToolBar, QMenu, QMessageBox, QProgressDialog,
@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
+from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
 from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.tapir_backend import (
     format_tapir_environment_report,
@@ -333,6 +334,116 @@ class TrackingDialog(QDialog):
         track_id = int(id_item.text())
         return next((t for t in self.tracks if t.track_id == track_id), None)
 
+    def _get_current_frame_id(self) -> int | None:
+        """Return the currently displayed frame id, if any."""
+        slider_index = self.frame_slider.value()
+        if not (0 <= slider_index < len(self.sorted_frame_ids)):
+            return None
+        return self.sorted_frame_ids[slider_index]
+
+    def _get_selected_spot_for_frame(self, frame_id: int | None) -> SpotROI | None:
+        """Return the spot of the selected track on the requested frame."""
+        if frame_id is None:
+            return None
+        selected_track = self.get_selected_track()
+        if selected_track is None:
+            return None
+        return selected_track.spots_by_image_id.get(frame_id)
+
+    def _track_supports_polygon_seed(self, track: Track | None) -> bool:
+        """Polygon seed workflow is currently available only for Cutie and XMem2."""
+        if track is None:
+            return False
+        return self._classify_track_method(track) in {
+            "Cutie",
+            "Cutie + Manual",
+            "XMem2",
+            "XMem2 + Manual",
+        }
+
+    def _build_polygon_seed_overlay_for_frame(self, frame_id: int) -> list[dict]:
+        """Build polygon overlay payload for the selected track on the current frame."""
+        selected_track = self.get_selected_track()
+        if selected_track is None or not self._track_supports_polygon_seed(selected_track):
+            return []
+
+        spot = selected_track.spots_by_image_id.get(frame_id)
+        if spot is None or not getattr(spot, "has_polygon_seed", False):
+            return []
+
+        method_label = self._classify_track_method(selected_track)
+        return [
+            {
+                "points": list(getattr(spot, "polygon_seed_points", [])),
+                "color": QColor(255, 165, 0),
+                "label": f"{method_label.upper()} POLY T{selected_track.track_id}",
+                "emphasized": True,
+            }
+        ]
+
+    def _edit_polygon_mask_for_selected_spot(self):
+        """Open the polygon editor for the selected track on the current frame."""
+        current_frame_id = self._get_current_frame_id()
+        selected_track = self.get_selected_track()
+        spot = self._get_selected_spot_for_frame(current_frame_id)
+        if (
+            current_frame_id is None
+            or selected_track is None
+            or spot is None
+            or not self._track_supports_polygon_seed(selected_track)
+        ):
+            QMessageBox.information(
+                self,
+                "Polygon Seed",
+                "Polygon seed editing is available only for Cutie and XMem2 tracks.",
+            )
+            return
+
+        leed_file = self.file_map.get(current_frame_id)
+        if leed_file is None:
+            QMessageBox.warning(self, "Image Missing", "Could not find the current frame to edit its polygon mask.")
+            return
+
+        original_image_data = load_tiff(leed_file.filepath)
+        if original_image_data is None or original_image_data.size == 0:
+            QMessageBox.critical(self, "Error", "Could not load the image to edit the polygon mask.")
+            return
+
+        full_res_pixmap = self._convert_numpy_to_pixmap(original_image_data)
+        dialog = PolygonMaskDialog(
+            full_res_pixmap,
+            existing_points=list(getattr(spot, "polygon_seed_points", [])),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        spot.polygon_seed_points = dialog.get_polygon_points()
+        self.show_frame(current_frame_id)
+
+    def _clear_polygon_mask_for_selected_spot(self):
+        """Remove the polygon seed from the selected track on the current frame."""
+        current_frame_id = self._get_current_frame_id()
+        selected_track = self.get_selected_track()
+        spot = self._get_selected_spot_for_frame(current_frame_id)
+        if (
+            current_frame_id is None
+            or selected_track is None
+            or spot is None
+            or not self._track_supports_polygon_seed(selected_track)
+        ):
+            QMessageBox.information(
+                self,
+                "Polygon Seed",
+                "Polygon seed editing is available only for Cutie and XMem2 tracks.",
+            )
+            return
+        if not getattr(spot, "has_polygon_seed", False):
+            return
+
+        spot.polygon_seed_points = []
+        self.show_frame(current_frame_id)
+
     def _classify_track_method(self, track: Track) -> str:
         """Return a short human-readable label for the dominant source in a track."""
         sources = {
@@ -464,6 +575,12 @@ class TrackingDialog(QDialog):
         )
         if bool(getattr(spot, "xmem2_permanent_reference", False)):
             lines.append("XMem2 permanent reference: yes")
+        if self._track_supports_polygon_seed(selected_track) or getattr(spot, "has_polygon_seed", False):
+            if getattr(spot, "has_polygon_seed", False):
+                lines.append("Seed type: polygon")
+                lines.append(f"Polygon vertices: {len(getattr(spot, 'polygon_seed_points', []))}")
+            else:
+                lines.append("Seed type: polygon missing")
 
         source = str(getattr(spot, "source", "")).lower()
         if source in {"tapir_offline", "tapir_online"}:
@@ -854,6 +971,12 @@ class TrackingDialog(QDialog):
             if xmem2_reference_marked
             else "Mark as XMem2 permanent reference"
         )
+        polygon_edit_action = None
+        polygon_clear_action = None
+        if current_track is not None and current_spot is not None and self._track_supports_polygon_seed(current_track):
+            polygon_edit_action = menu.addAction("Edit polygon mask")
+            polygon_clear_action = menu.addAction("Clear polygon mask")
+            polygon_clear_action.setEnabled(bool(getattr(current_spot, "has_polygon_seed", False)))
         
         menu.addSeparator()
         retrack_action = menu.addAction("Re-track from this point (Optical Flow)")
@@ -874,6 +997,10 @@ class TrackingDialog(QDialog):
             self.delete_point_from_track(spot_id)
         elif action == xmem2_reference_action:
             self.toggle_xmem2_permanent_reference(spot_id)
+        elif action == polygon_edit_action:
+            self._edit_polygon_mask_for_selected_spot()
+        elif action == polygon_clear_action:
+            self._clear_polygon_mask_for_selected_spot()
         elif action == retrack_action:
             self.initiate_retrack_optical_flow(spot_id)
         elif action == retrack_tapir_action:
@@ -1451,19 +1578,55 @@ class TrackingDialog(QDialog):
                 "Cutie parameters were not provided to the tracking visualizer.",
             )
             return
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None or not getattr(start_spot, "has_polygon_seed", False):
+            QMessageBox.warning(
+                self,
+                "Cutie Requires Polygon Mask",
+                "Cutie re-tracking requires a polygon mask on the selected start spot.",
+            )
+            return
 
         status = probe_cutie_environment(
             models_dir=self.cutie_params.get("cutie_models_dir"),
             checkpoint_path=self.cutie_params.get("checkpoint_path"),
             repo_path=self.cutie_params.get("repo_path") or self.cutie_params.get("cutie_repo_path"),
         )
-        if not status.is_ready:
-            QMessageBox.warning(
-                self,
-                "Cutie Unavailable",
-                format_cutie_environment_report(status),
-            )
-            return
+        backend_mode = str(self.cutie_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = self.cutie_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+        if backend_mode == "direct":
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "Cutie Unavailable",
+                    format_cutie_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    "Cutie Unavailable",
+                    format_cutie_environment_report(status),
+                )
+                return
+            if not (status.is_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    "Cutie Unavailable",
+                    format_cutie_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `cutie` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
 
         cutie_params = dict(self.cutie_params)
         cutie_params["roi_size"] = self.roi_size
@@ -1491,6 +1654,14 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None or not getattr(start_spot, "has_polygon_seed", False):
+            QMessageBox.warning(
+                self,
+                "XMem2 Requires Polygon Mask",
+                "XMem2 re-tracking requires a polygon mask on the selected start spot.",
+            )
+            return
 
         if not self.xmem2_params:
             QMessageBox.warning(
@@ -1924,6 +2095,7 @@ class TrackingDialog(QDialog):
         if selected_track is None:
             self.image_viewer.highlight_roi(None)
             self.image_viewer.show_track_path(None)
+            self.image_viewer.update_polygon_overlay([])
             self._update_track_details()
             return
         self.image_viewer.show_track_path(selected_track)
@@ -1941,6 +2113,9 @@ class TrackingDialog(QDialog):
             self.image_viewer.highlight_roi(spot_id_to_highlight)
         else:
             self.image_viewer.highlight_roi(None)
+        self.image_viewer.update_polygon_overlay(
+            self._build_polygon_seed_overlay_for_frame(current_frame_id)
+        )
         self._update_track_details()
 
     def show_frame(self, frame_id: int, fit: bool = False):
@@ -1957,6 +2132,9 @@ class TrackingDialog(QDialog):
         self.image_viewer.update_positions_overlay(
             overlay_groups=[],
             focus_points=self._build_point_tracker_focus_points_for_frame(frame_id),
+        )
+        self.image_viewer.update_polygon_overlay(
+            self._build_polygon_seed_overlay_for_frame(frame_id)
         )
 
         self._update_highlights()

@@ -56,6 +56,7 @@ class LeedImageViewer(QGraphicsView):
         self._analysis_circle_item: QGraphicsEllipseItem | None = None
         self._analysis_ellipse_item: QGraphicsEllipseItem | None = None
         self._positions_overlay_items: List[Any] = []
+        self._polygon_overlay_items: List[Any] = []
 
         # --- Define Drawing Styles ---
         self._roi_transparency_pct = 0.0
@@ -401,6 +402,7 @@ class LeedImageViewer(QGraphicsView):
             self._scene.removeItem(self._analysis_ellipse_item)
             self._analysis_ellipse_item = None
         self.clear_positions_overlay()
+        self.clear_polygon_overlay()
 
     def set_image(self, pixmap: QPixmap | None, fit: bool = False):
         """
@@ -531,6 +533,76 @@ class LeedImageViewer(QGraphicsView):
         for item in self._positions_overlay_items:
             self._scene.removeItem(item)
         self._positions_overlay_items.clear()
+
+    def clear_polygon_overlay(self):
+        """Remove polygon-seed overlays from the scene."""
+        for item in self._polygon_overlay_items:
+            self._scene.removeItem(item)
+        self._polygon_overlay_items.clear()
+
+    def update_polygon_overlay(self, polygons: list[dict] | None):
+        """Draw polygon-seed previews for the currently selected track."""
+        self.clear_polygon_overlay()
+        if not polygons:
+            return
+
+        for payload in polygons:
+            points = self._normalize_polygon_overlay_points(payload.get("points"))
+            if len(points) < 2:
+                continue
+
+            color = self._coerce_overlay_color(payload.get("color"))
+            emphasized = bool(payload.get("emphasized", False))
+            label_text = str(payload.get("label", "")).strip()
+
+            pen_color = QColor(color)
+            pen_color.setAlpha(255 if emphasized else 220)
+            pen = QPen(pen_color)
+            pen.setWidth(3 if emphasized else 2)
+            pen.setCosmetic(True)
+
+            fill_color = QColor(color)
+            fill_color.setAlpha(70 if len(points) >= 3 else 0)
+            brush = QBrush(fill_color if len(points) >= 3 else Qt.BrushStyle.NoBrush)
+
+            path = QPainterPath(points[0])
+            for point in points[1:]:
+                path.lineTo(point)
+            if len(points) >= 3:
+                path.closeSubpath()
+
+            path_item = self._scene.addPath(path, pen, brush)
+            path_item.setZValue(23)
+            self._polygon_overlay_items.append(path_item)
+
+            vertex_pen = QPen(pen_color)
+            vertex_pen.setWidth(2)
+            vertex_pen.setCosmetic(True)
+            vertex_brush = QBrush(QColor(255, 255, 255, 170))
+            for point in points:
+                radius = 2.5 if emphasized else 2.0
+                marker = QGraphicsEllipseItem(
+                    point.x() - radius,
+                    point.y() - radius,
+                    2 * radius,
+                    2 * radius,
+                )
+                marker.setPen(vertex_pen)
+                marker.setBrush(vertex_brush)
+                marker.setZValue(23.5)
+                self._scene.addItem(marker)
+                self._polygon_overlay_items.append(marker)
+
+            if label_text:
+                first_point = points[0]
+                label = QGraphicsSimpleTextItem(label_text)
+                label_color = QColor(color)
+                label_color.setAlpha(245)
+                label.setBrush(QBrush(label_color))
+                label.setPos(QPointF(first_point.x() + 6.0, first_point.y() - 18.0))
+                label.setZValue(24)
+                self._scene.addItem(label)
+                self._polygon_overlay_items.append(label)
 
     def update_positions_overlay(
         self,
@@ -706,6 +778,41 @@ class LeedImageViewer(QGraphicsView):
             label.setZValue(25)
             self._scene.addItem(label)
             self._positions_overlay_items.append(label)
+
+    @staticmethod
+    def _normalize_polygon_overlay_points(points: Any) -> list[QPointF]:
+        """Coerce polygon payload to a list of valid scene-space points."""
+        normalized: list[QPointF] = []
+        if points is None:
+            return normalized
+
+        if isinstance(points, np.ndarray):
+            points = points.tolist()
+
+        if not isinstance(points, (list, tuple)):
+            return normalized
+
+        for point in points:
+            if isinstance(point, dict):
+                x_raw = point.get("x")
+                y_raw = point.get("y")
+            elif isinstance(point, QPointF):
+                x_raw = point.x()
+                y_raw = point.y()
+            elif isinstance(point, (list, tuple)) and len(point) >= 2:
+                x_raw, y_raw = point[:2]
+            else:
+                continue
+
+            try:
+                x = float(x_raw)
+                y = float(y_raw)
+            except Exception:
+                continue
+            if not (np.isfinite(x) and np.isfinite(y)):
+                continue
+            normalized.append(QPointF(x, y))
+        return normalized
 
     def wheelEvent(self, event: QWheelEvent):
         """

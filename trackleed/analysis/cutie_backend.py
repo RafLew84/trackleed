@@ -5,8 +5,11 @@ from __future__ import annotations
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Iterator, Optional
 import importlib
+import json
+import subprocess
 import sys
 
 import numpy as np
@@ -33,6 +36,7 @@ DEFAULT_CUTIE_PROBE_SAMPLES = (
         Path("examples") / "masks" / "judo" / "00000.png",
     ),
 )
+DEFAULT_CUTIE_SUBPROCESS_SCRIPT = Path("scripts") / "run_cutie_subprocess.py"
 CHECKPOINT_PRIORITY = (
     DEFAULT_CUTIE_PRIMARY_CHECKPOINT,
     "cutie-base.pth",
@@ -491,6 +495,7 @@ def run_cutie_offline(
     settings: CutieRuntimeSettings,
     *,
     query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
 ) -> CutieOfflineResult:
     frames_np = np.asarray(frames)
     if frames_np.ndim not in (3, 4):
@@ -511,21 +516,34 @@ def run_cutie_offline(
             raise ValueError(
                 f"query_boxes_xyxy must have shape {(query_np.shape[0], 4)}, got {boxes_np.shape}."
             )
+    query_initial_masks_np = _normalize_cutie_query_initial_masks(
+        query_initial_masks,
+        num_queries=query_np.shape[0],
+        frame_shape=frames_np.shape[1:3],
+    )
 
     backend_mode = str(settings.backend_mode or "direct").strip().lower()
     if backend_mode == "auto":
         backend_mode = "direct"
-    if backend_mode != "direct":
+    if backend_mode == "direct":
+        return _run_cutie_direct_offline(
+            frames_np,
+            query_np,
+            settings,
+            query_boxes_xyxy=boxes_np,
+            query_initial_masks=query_initial_masks_np,
+        )
+    if backend_mode != "subprocess":
         raise ValueError(
             f"Unsupported Cutie backend mode: {settings.backend_mode}. "
-            "Etap 3 currently supports only `direct`."
+            "Expected `direct` or `subprocess`."
         )
-
-    return _run_cutie_direct_offline(
+    return _run_cutie_subprocess_offline(
         frames_np,
         query_np,
         settings,
         query_boxes_xyxy=boxes_np,
+        query_initial_masks=query_initial_masks_np,
     )
 
 
@@ -535,6 +553,7 @@ def _run_cutie_direct_offline(
     settings: CutieRuntimeSettings,
     *,
     query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
 ) -> CutieOfflineResult:
     resolved_repo_path = _resolve_cutie_repo_path(settings.repo_path)
     if resolved_repo_path is None:
@@ -547,6 +566,9 @@ def _run_cutie_direct_offline(
         settings.representative_point_mode
     )
     initial_mask_mode = _normalize_cutie_mask_builder_mode(settings.initial_mask_mode)
+    effective_initial_mask_mode = (
+        "polygon" if query_initial_masks is not None else initial_mask_mode
+    )
 
     prepared_frames, original_resolution = _prepare_frames_rgb(frames)
     inference_resolution = _normalize_optional_resolution(
@@ -573,6 +595,10 @@ def _run_cutie_direct_offline(
             if query_boxes_xyxy is not None
             else None
         ),
+    )
+    scaled_initial_masks = _resize_boolean_mask_stack_numpy(
+        query_initial_masks,
+        inference_resolution,
     )
     seed_frames = _extract_query_seed_frames(scaled_queries, total_frames=resized_frames.shape[0])
 
@@ -609,6 +635,7 @@ def _run_cutie_direct_offline(
                         frame_rgb,
                         scaled_boxes,
                         seed_indices,
+                        query_initial_masks=scaled_initial_masks,
                         device=resolved_device,
                         initial_mask_mode=initial_mask_mode,
                         threshold_rel=float(settings.initial_mask_threshold_rel),
@@ -668,9 +695,127 @@ def _run_cutie_direct_offline(
         original_resolution=original_resolution,
         checkpoint_name=checkpoint_file.name,
         representative_point_mode=representative_point_mode,
-        initial_mask_mode=initial_mask_mode,
+        initial_mask_mode=effective_initial_mask_mode,
         backend_mode="direct",
     )
+
+
+def _run_cutie_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray,
+    settings: CutieRuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
+) -> CutieOfflineResult:
+    python_executable = _resolve_cutie_python_executable(settings.python_executable)
+    script_path = (Path(__file__).resolve().parents[2] / DEFAULT_CUTIE_SUBPROCESS_SCRIPT).resolve()
+    if not script_path.exists():
+        raise FileNotFoundError(f"Cutie subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_cutie_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "cutie_input.npz"
+        output_path = temp_root / "cutie_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            query_points_tyx=np.asarray(query_points_tyx, dtype=np.float32),
+            query_boxes_xyxy=(
+                np.asarray(query_boxes_xyxy, dtype=np.float32)
+                if query_boxes_xyxy is not None
+                else np.zeros((0, 4), dtype=np.float32)
+            ),
+            has_query_boxes=np.asarray(query_boxes_xyxy is not None, dtype=bool),
+            query_initial_masks=(
+                np.asarray(query_initial_masks, dtype=bool)
+                if query_initial_masks is not None
+                else np.zeros((0, frames.shape[1], frames.shape[2]), dtype=bool)
+            ),
+            has_query_initial_masks=np.asarray(query_initial_masks is not None, dtype=bool),
+        )
+
+        command = [
+            str(python_executable),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(settings.checkpoint_path),
+            "--device",
+            str(settings.device),
+            "--representative-point-mode",
+            str(settings.representative_point_mode),
+            "--initial-bbox-padding-px",
+            str(float(settings.initial_bbox_padding_px)),
+            "--initial-mask-mode",
+            str(settings.initial_mask_mode),
+            "--initial-mask-threshold-rel",
+            str(float(settings.initial_mask_threshold_rel)),
+            "--initial-mask-disk-radius-ratio",
+            str(float(settings.initial_mask_disk_radius_ratio)),
+            "--subprocess-timeout-sec",
+            str(float(settings.subprocess_timeout_sec)),
+        ]
+        if settings.repo_path is not None:
+            command.extend(["--repo-path", str(settings.repo_path)])
+        if settings.inference_resolution is not None:
+            if isinstance(settings.inference_resolution, int):
+                resolution = (
+                    int(settings.inference_resolution),
+                    int(settings.inference_resolution),
+                )
+            else:
+                resolution = (
+                    int(settings.inference_resolution[0]),
+                    int(settings.inference_resolution[1]),
+                )
+            command.extend(["--height", str(int(resolution[0])), "--width", str(int(resolution[1]))])
+        if settings.mem_every is not None:
+            command.extend(["--mem-every", str(int(settings.mem_every))])
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+        )
+        if completed.returncode != 0:
+            payload = {
+                "command": command,
+                "returncode": completed.returncode,
+                "stdout": completed.stdout.strip(),
+                "stderr": completed.stderr.strip(),
+            }
+            raise RuntimeError(
+                "Cutie subprocess inference failed:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
+        if not output_path.exists():
+            raise RuntimeError("Cutie subprocess finished without creating the output .npz file.")
+
+        with np.load(output_path, allow_pickle=False) as payload:
+            return CutieOfflineResult(
+                tracks_xy=np.asarray(payload["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(payload["visible_mask"], dtype=bool),
+                mask_areas=np.asarray(payload["mask_areas"], dtype=np.float32),
+                mask_bboxes_xyxy=np.asarray(payload["mask_bboxes_xyxy"], dtype=np.float32),
+                mask_scores=np.asarray(payload["mask_scores"], dtype=np.float32),
+                inference_resolution=tuple(
+                    int(v) for v in np.asarray(payload["inference_resolution"], dtype=np.int32).tolist()
+                ),
+                original_resolution=tuple(
+                    int(v) for v in np.asarray(payload["original_resolution"], dtype=np.int32).tolist()
+                ),
+                checkpoint_name=str(payload["checkpoint_name"].item()),
+                representative_point_mode=str(payload["representative_point_mode"].item()),
+                initial_mask_mode=str(payload["initial_mask_mode"].item()),
+                backend_mode="subprocess",
+            )
 
 
 def build_cutie_initial_mask(
@@ -1212,6 +1357,70 @@ def _scale_boxes_xyxy(
     return scaled
 
 
+def _normalize_cutie_query_initial_masks(
+    query_initial_masks: np.ndarray | None,
+    *,
+    num_queries: int,
+    frame_shape: tuple[int, ...],
+) -> np.ndarray | None:
+    if query_initial_masks is None:
+        return None
+    masks = np.asarray(query_initial_masks, dtype=bool)
+    if masks.ndim != 3:
+        raise ValueError(
+            f"query_initial_masks must have shape [{num_queries}, H, W], got {masks.shape}."
+        )
+    if masks.shape[0] != int(num_queries):
+        raise ValueError(
+            f"query_initial_masks must have {int(num_queries)} entries, got {masks.shape[0]}."
+        )
+    frame_h = int(frame_shape[0])
+    frame_w = int(frame_shape[1])
+    if masks.shape[1:] != (frame_h, frame_w):
+        raise ValueError(
+            "query_initial_masks must match the input frame resolution. "
+            f"Expected {(frame_h, frame_w)}, got {masks.shape[1:]}."
+        )
+    empty_indices = [int(idx) for idx in np.where(~np.any(masks.reshape(masks.shape[0], -1), axis=1))[0].tolist()]
+    if empty_indices:
+        raise ValueError(
+            "query_initial_masks contains empty masks for queries: "
+            + ", ".join(str(idx) for idx in empty_indices)
+        )
+    return masks
+
+
+def _resize_boolean_mask_stack_numpy(
+    mask_stack: np.ndarray | None,
+    target_resolution: tuple[int, int],
+) -> np.ndarray | None:
+    if mask_stack is None:
+        return None
+    masks = np.asarray(mask_stack, dtype=bool)
+    if masks.ndim != 3:
+        raise ValueError(f"mask_stack must have shape [N, H, W], got {masks.shape}.")
+    target_h, target_w = int(target_resolution[0]), int(target_resolution[1])
+    if masks.shape[1:] == (target_h, target_w):
+        return masks.astype(bool, copy=True)
+
+    image_module = importlib.import_module("PIL.Image")
+    resized = np.zeros((masks.shape[0], target_h, target_w), dtype=bool)
+    for mask_index in range(masks.shape[0]):
+        raster = image_module.fromarray(masks[mask_index].astype(np.uint8) * 255, mode="L")
+        resized_mask = raster.resize((target_w, target_h), resample=image_module.Resampling.NEAREST)
+        resized_mask_np = np.asarray(resized_mask, dtype=np.uint8) > 0
+        if not np.any(resized_mask_np) and np.any(masks[mask_index]):
+            ys, xs = np.nonzero(masks[mask_index])
+            centroid_x = float(np.mean(xs))
+            centroid_y = float(np.mean(ys))
+            src_h, src_w = masks.shape[1], masks.shape[2]
+            mapped_x = int(np.clip(round(centroid_x * float(target_w) / float(src_w)), 0, max(0, target_w - 1)))
+            mapped_y = int(np.clip(round(centroid_y * float(target_h) / float(src_h)), 0, max(0, target_h - 1)))
+            resized_mask_np[mapped_y, mapped_x] = True
+        resized[mask_index] = resized_mask_np
+    return resized
+
+
 def _extract_query_seed_frames(query_points_tyx: np.ndarray, total_frames: int) -> np.ndarray:
     seed_frames = np.rint(np.asarray(query_points_tyx[:, 0], dtype=np.float32)).astype(np.int32)
     if np.any(seed_frames < 0) or np.any(seed_frames >= int(total_frames)):
@@ -1256,6 +1465,7 @@ def _build_cutie_seed_mask_tensor(
     boxes_xyxy: np.ndarray,
     seed_indices: list[int],
     *,
+    query_initial_masks: np.ndarray | None,
     device: Any,
     initial_mask_mode: str,
     threshold_rel: float,
@@ -1269,28 +1479,48 @@ def _build_cutie_seed_mask_tensor(
     idx_mask = np.zeros((height, width), dtype=np.int64)
     object_ids: list[int] = []
     for query_index in seed_indices:
-        bbox = np.asarray(boxes_xyxy[query_index], dtype=np.float32)
-        roi_rect_xywh = (
-            int(np.floor(float(bbox[0]))),
-            int(np.floor(float(bbox[1]))),
-            int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
-            int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
-        )
-        seed_mask = build_cutie_initial_mask(
-            frame_rgb,
-            roi_rect_xywh,
-            mode=initial_mask_mode,
-            threshold_rel=threshold_rel,
-            disk_radius_ratio=disk_radius_ratio,
-        )
-        if not np.any(seed_mask):
+        if query_initial_masks is not None:
+            seed_mask = np.asarray(query_initial_masks[query_index], dtype=bool)
+            if seed_mask.shape != (height, width):
+                raise ValueError(
+                    "Cutie query_initial_masks must match the inference frame resolution. "
+                    f"Expected {(height, width)}, got {seed_mask.shape}."
+                )
+            bbox_tuple = _mask_bbox_xyxy(seed_mask)
+            if bbox_tuple is None:
+                raise ValueError(
+                    f"Cutie initial mask for query {query_index} is empty after preprocessing."
+                )
+            bbox = np.asarray(bbox_tuple, dtype=np.float32)
+            roi_rect_xywh = (
+                int(np.floor(float(bbox[0]))),
+                int(np.floor(float(bbox[1]))),
+                int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
+                int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
+            )
+        else:
+            bbox = np.asarray(boxes_xyxy[query_index], dtype=np.float32)
+            roi_rect_xywh = (
+                int(np.floor(float(bbox[0]))),
+                int(np.floor(float(bbox[1]))),
+                int(max(1.0, np.ceil(float(bbox[2]) - float(bbox[0])))),
+                int(max(1.0, np.ceil(float(bbox[3]) - float(bbox[1])))),
+            )
             seed_mask = build_cutie_initial_mask(
                 frame_rgb,
                 roi_rect_xywh,
-                mode="full_bbox",
+                mode=initial_mask_mode,
                 threshold_rel=threshold_rel,
                 disk_radius_ratio=disk_radius_ratio,
             )
+            if not np.any(seed_mask):
+                seed_mask = build_cutie_initial_mask(
+                    frame_rgb,
+                    roi_rect_xywh,
+                    mode="full_bbox",
+                    threshold_rel=threshold_rel,
+                    disk_radius_ratio=disk_radius_ratio,
+                )
 
         free_mask = seed_mask & (idx_mask == 0)
         if not np.any(free_mask):
@@ -1449,6 +1679,14 @@ def _resolve_existing_checkpoint_file(checkpoint_path: Path) -> Path:
     if not resolved.exists():
         raise FileNotFoundError(f"Cutie checkpoint not found: {resolved}")
     return resolved
+
+
+def _resolve_cutie_python_executable(
+    python_executable: str | Path | None,
+) -> Path:
+    if python_executable is not None:
+        return Path(python_executable).expanduser().resolve()
+    return Path(sys.executable).resolve()
 
 
 def _clamp_roi_rect_xywh(

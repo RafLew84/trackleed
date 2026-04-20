@@ -93,6 +93,11 @@ from trackleed.analysis.xmem2_backend import (
     run_xmem2_offline,
     select_default_xmem2_checkpoint,
 )
+from trackleed.analysis.polygon_mask import (
+    normalize_polygon_points,
+    polygon_points_are_valid,
+    polygon_points_to_mask,
+)
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
@@ -229,6 +234,44 @@ def _bbox_center_and_aspect_ratio_from_xyxy(
         dtype=np.float32,
     )
     return center_xy, float(width / height)
+
+
+def _spot_polygon_seed_mask(
+    spot: SpotROI,
+    image_shape: tuple[int, int] | tuple[int, int, int],
+) -> np.ndarray:
+    if not polygon_points_are_valid(spot.polygon_seed_points, image_shape=image_shape):
+        raise ValueError(
+            f"Spot {spot.id} requires a valid polygon seed for mask-based tracking."
+        )
+    return polygon_points_to_mask(image_shape, spot.polygon_seed_points)
+
+
+def _translate_polygon_seed_points(
+    polygon_points: list[tuple[float, float]] | tuple[tuple[float, float], ...] | None,
+    *,
+    delta_x: float,
+    delta_y: float,
+    image_shape: tuple[int, int] | tuple[int, int, int],
+) -> list[tuple[float, float]]:
+    if not polygon_points:
+        return []
+    shifted = [
+        (float(point[0]) + float(delta_x), float(point[1]) + float(delta_y))
+        for point in polygon_points
+    ]
+    return normalize_polygon_points(shifted, image_shape=image_shape)
+
+
+def _collect_missing_polygon_seed_spot_ids(
+    spots: List[SpotROI],
+    image_shape: tuple[int, int] | tuple[int, int, int] | None = None,
+) -> list[int]:
+    missing: list[int] = []
+    for spot in spots:
+        if not polygon_points_are_valid(spot.polygon_seed_points, image_shape=image_shape):
+            missing.append(int(spot.id))
+    return missing
 
 
 def _frame_to_normalized_gray(frame: np.ndarray) -> np.ndarray:
@@ -839,6 +882,15 @@ def _build_cutie_spot(
         intensity=1.0 if visible else 0.0,
         source="cutie_offline",
     )
+    if reference_spot.has_polygon_seed:
+        delta_x = float(x - float(reference_spot.center_x))
+        delta_y = float(y - float(reference_spot.center_y))
+        spot.polygon_seed_points = _translate_polygon_seed_points(
+            reference_spot.polygon_seed_points,
+            delta_x=delta_x,
+            delta_y=delta_y,
+            image_shape=image_shape,
+        )
     setattr(spot, "cutie_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
     setattr(spot, "cutie_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
     setattr(spot, "cutie_refined_x", float(x))
@@ -864,6 +916,8 @@ def _build_cutie_spot(
         setattr(spot, "cutie_mask_bbox_aspect_ratio", None)
     setattr(spot, "cutie_repr_mode", str(representative_point_mode))
     setattr(spot, "cutie_initial_mask_mode", str(initial_mask_mode))
+    setattr(spot, "polygon_seed_used", bool(reference_spot.has_polygon_seed))
+    setattr(spot, "polygon_vertex_count", int(len(spot.polygon_seed_points)))
     return spot
 
 
@@ -903,6 +957,15 @@ def _build_xmem2_spot(
         intensity=1.0 if visible else 0.0,
         source="xmem2_offline",
     )
+    if reference_spot.has_polygon_seed:
+        delta_x = float(x - float(reference_spot.center_x))
+        delta_y = float(y - float(reference_spot.center_y))
+        spot.polygon_seed_points = _translate_polygon_seed_points(
+            reference_spot.polygon_seed_points,
+            delta_x=delta_x,
+            delta_y=delta_y,
+            image_shape=image_shape,
+        )
     setattr(spot, "xmem2_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
     setattr(spot, "xmem2_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
     setattr(spot, "xmem2_refined_x", float(x))
@@ -928,6 +991,8 @@ def _build_xmem2_spot(
         setattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
     setattr(spot, "xmem2_repr_mode", str(representative_point_mode))
     setattr(spot, "xmem2_initial_mask_mode", str(initial_mask_mode))
+    setattr(spot, "polygon_seed_used", bool(reference_spot.has_polygon_seed))
+    setattr(spot, "polygon_vertex_count", int(len(spot.polygon_seed_points)))
     return spot
 
 
@@ -3914,6 +3979,12 @@ def track_spots_tapir_offline(
         raise ValueError("Reference frame must contain at least one defined spot.")
     if reference_frame_id not in sorted_frame_ids:
         raise ValueError("Reference frame is missing from the provided frame list.")
+    missing_polygon_seed_ids = _collect_missing_polygon_seed_spot_ids(ref_file.spots)
+    if missing_polygon_seed_ids:
+        raise ValueError(
+            "Offline Cutie requires a polygon seed for every reference spot. "
+            f"Missing polygon for spot IDs: {', '.join(str(v) for v in missing_polygon_seed_ids)}."
+        )
 
     ref_index = sorted_frame_ids.index(reference_frame_id)
     subset_frame_ids = sorted_frame_ids[ref_index:]
@@ -5570,19 +5641,6 @@ def track_spots_sam2_offline(
         [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
         dtype=np.float32,
     )
-    query_boxes = np.array(
-        [
-            [
-                float(spot.roi_rect.left()),
-                float(spot.roi_rect.top()),
-                float(spot.roi_rect.left() + spot.roi_rect.width()),
-                float(spot.roi_rect.top() + spot.roi_rect.height()),
-            ]
-            for spot in ref_file.spots
-        ],
-        dtype=np.float32,
-    )
-
     if progress_callback:
         progress_callback(5)
     if cancel_event and cancel_event.is_set():
@@ -7205,6 +7263,10 @@ def retrack_single_spot_tapir_online(
         del track_to_update.spots_by_image_id[fid]
 
     start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    if not polygon_points_are_valid(start_spot.polygon_seed_points):
+        raise ValueError(
+            f"Cutie re-tracking requires a polygon seed on the start spot {start_spot.id}."
+        )
     start_frame_index = sorted_frame_ids.index(start_frame_id)
     subset_frame_ids = sorted_frame_ids[start_frame_index:]
     if len(subset_frame_ids) < 2:
@@ -9409,6 +9471,10 @@ def track_spots_cutie_offline(
         if loaded is None:
             return None
         frames, frame_shapes = loaded
+        query_initial_masks = np.asarray(
+            [_spot_polygon_seed_mask(spot, frames[0].shape) for spot in ref_file.spots],
+            dtype=bool,
+        )
 
         if progress_callback:
             progress_callback(45)
@@ -9416,7 +9482,7 @@ def track_spots_cutie_offline(
             frames=frames,
             query_points_tyx=query_points,
             settings=cutie_settings,
-            query_boxes_xyxy=query_boxes,
+            query_initial_masks=query_initial_masks,
         )
 
         if cancel_event and cancel_event.is_set():
@@ -9549,7 +9615,7 @@ def track_spots_cutie_offline(
             window_frames, window_shapes = loaded_window
 
             query_rows: List[List[float]] = []
-            query_box_rows: List[List[float]] = []
+            query_mask_rows: List[np.ndarray] = []
             query_specs: List[Tuple[SpotROI, int]] = []
             query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
 
@@ -9569,17 +9635,11 @@ def track_spots_cutie_offline(
                 if seed_spot is None or seed_local_idx is None:
                     continue
 
-                seed_rect = seed_spot.roi_rect
                 query_rows.append(
                     [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
                 )
-                query_box_rows.append(
-                    [
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]
+                query_mask_rows.append(
+                    _spot_polygon_seed_mask(seed_spot, window_frames[seed_local_idx].shape)
                 )
                 query_specs.append((reference_spot, seed_local_idx))
 
@@ -9595,7 +9655,7 @@ def track_spots_cutie_offline(
                 frames=window_frames,
                 query_points_tyx=np.asarray(query_rows, dtype=np.float32),
                 settings=cutie_settings,
-                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
+                query_initial_masks=np.asarray(query_mask_rows, dtype=bool),
             )
 
             write_after_global_idx = covered_until
@@ -9666,6 +9726,12 @@ def track_spots_xmem2_offline(
         raise ValueError("Reference frame must contain at least one defined spot.")
     if reference_frame_id not in sorted_frame_ids:
         raise ValueError("Reference frame is missing from the provided frame list.")
+    missing_polygon_seed_ids = _collect_missing_polygon_seed_spot_ids(ref_file.spots)
+    if missing_polygon_seed_ids:
+        raise ValueError(
+            "Offline XMem2 requires a polygon seed for every reference spot. "
+            f"Missing polygon for spot IDs: {', '.join(str(v) for v in missing_polygon_seed_ids)}."
+        )
 
     ref_index = sorted_frame_ids.index(reference_frame_id)
     subset_frame_ids = sorted_frame_ids[ref_index:]
@@ -9692,19 +9758,6 @@ def track_spots_xmem2_offline(
         [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
         dtype=np.float32,
     )
-    query_boxes = np.array(
-        [
-            [
-                float(spot.roi_rect.left()),
-                float(spot.roi_rect.top()),
-                float(spot.roi_rect.left() + spot.roi_rect.width()),
-                float(spot.roi_rect.top() + spot.roi_rect.height()),
-            ]
-            for spot in ref_file.spots
-        ],
-        dtype=np.float32,
-    )
-
     if progress_callback:
         progress_callback(5)
     if cancel_event and cancel_event.is_set():
@@ -9780,6 +9833,10 @@ def track_spots_xmem2_offline(
         if loaded is None:
             return None
         frames, frame_shapes = loaded
+        query_initial_masks = np.asarray(
+            [_spot_polygon_seed_mask(spot, frames[0].shape) for spot in ref_file.spots],
+            dtype=bool,
+        )
 
         if progress_callback:
             progress_callback(45)
@@ -9787,7 +9844,7 @@ def track_spots_xmem2_offline(
             frames=frames,
             query_points_tyx=query_points,
             settings=xmem2_settings,
-            query_boxes_xyxy=query_boxes,
+            query_initial_masks=query_initial_masks,
         )
 
         if cancel_event and cancel_event.is_set():
@@ -9920,7 +9977,7 @@ def track_spots_xmem2_offline(
             window_frames, window_shapes = loaded_window
 
             query_rows: List[List[float]] = []
-            query_box_rows: List[List[float]] = []
+            query_mask_rows: List[np.ndarray] = []
             query_specs: List[Tuple[SpotROI, int]] = []
             query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
 
@@ -9940,17 +9997,11 @@ def track_spots_xmem2_offline(
                 if seed_spot is None or seed_local_idx is None:
                     continue
 
-                seed_rect = seed_spot.roi_rect
                 query_rows.append(
                     [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
                 )
-                query_box_rows.append(
-                    [
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]
+                query_mask_rows.append(
+                    _spot_polygon_seed_mask(seed_spot, window_frames[seed_local_idx].shape)
                 )
                 query_specs.append((reference_spot, seed_local_idx))
 
@@ -9966,7 +10017,7 @@ def track_spots_xmem2_offline(
                 frames=window_frames,
                 query_points_tyx=np.asarray(query_rows, dtype=np.float32),
                 settings=xmem2_settings,
-                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
+                query_initial_masks=np.asarray(query_mask_rows, dtype=bool),
             )
 
             write_after_global_idx = covered_until
@@ -10069,20 +10120,11 @@ def retrack_single_spot_sam2_offline(
             "in tracking_models/sam2 or the local repo/checkpoints and pass checkpoint_path in params."
         )
 
-    start_rect = start_spot.roi_rect
     query_points = np.array(
         [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
         dtype=np.float32,
     )
-    query_boxes = np.array(
-        [[
-            float(start_rect.left()),
-            float(start_rect.top()),
-            float(start_rect.left() + start_rect.width()),
-            float(start_rect.top() + start_rect.height()),
-        ]],
-        dtype=np.float32,
-    )
+    start_rect = start_spot.roi_rect
 
     sam2_settings = Sam2RuntimeSettings(
         repo_path=params.get("repo_path") or params.get("sam2_repo_path"),
@@ -10546,6 +10588,10 @@ def retrack_single_spot_cutie_offline(
         if loaded is None:
             return None
         frames, frame_shapes = loaded
+        query_initial_masks = np.asarray(
+            [_spot_polygon_seed_mask(start_spot, frames[0].shape)],
+            dtype=bool,
+        )
 
         if progress_callback:
             progress_callback(45)
@@ -10553,7 +10599,7 @@ def retrack_single_spot_cutie_offline(
             frames=frames,
             query_points_tyx=query_points,
             settings=cutie_settings,
-            query_boxes_xyxy=query_boxes,
+            query_initial_masks=query_initial_masks,
         )
 
         if cancel_event and cancel_event.is_set():
@@ -10650,7 +10696,6 @@ def retrack_single_spot_cutie_offline(
                 base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
                 progress_callback(int(base))
 
-            seed_rect = seed_spot.roi_rect
             result = run_cutie_offline(
                 frames=window_frames,
                 query_points_tyx=np.asarray(
@@ -10658,14 +10703,9 @@ def retrack_single_spot_cutie_offline(
                     dtype=np.float32,
                 ),
                 settings=cutie_settings,
-                query_boxes_xyxy=np.asarray(
-                    [[
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]],
-                    dtype=np.float32,
+                query_initial_masks=np.asarray(
+                    [_spot_polygon_seed_mask(seed_spot, window_frames[seed_local_idx].shape)],
+                    dtype=bool,
                 ),
             )
 
@@ -10771,12 +10811,26 @@ def retrack_single_spot_xmem2_offline(
         del track_to_update.spots_by_image_id[fid]
 
     start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    if not polygon_points_are_valid(start_spot.polygon_seed_points):
+        raise ValueError(
+            f"XMem2 re-tracking requires a polygon seed on the start spot {start_spot.id}."
+        )
     start_frame_index = sorted_frame_ids.index(start_frame_id)
     reference_entries = _collect_xmem2_permanent_reference_spots(
         track_to_update,
         start_frame_id,
         sorted_frame_ids,
     )
+    missing_reference_polygon_ids = [
+        int(reference_spot.id)
+        for _, reference_spot in reference_entries
+        if not polygon_points_are_valid(reference_spot.polygon_seed_points)
+    ]
+    if missing_reference_polygon_ids:
+        raise ValueError(
+            "XMem2 re-tracking requires polygon seeds for all active references. "
+            f"Missing polygon for spot IDs: {', '.join(str(v) for v in missing_reference_polygon_ids)}."
+        )
     earliest_reference_frame_id = reference_entries[0][0] if reference_entries else start_frame_id
     subset_start_index = sorted_frame_ids.index(earliest_reference_frame_id)
     subset_frame_ids = sorted_frame_ids[subset_start_index:]
@@ -10811,19 +10865,8 @@ def retrack_single_spot_xmem2_offline(
         ],
         dtype=np.float32,
     )
-    query_boxes = np.array(
-        [
-            [
-                float(reference_spot.roi_rect.left()),
-                float(reference_spot.roi_rect.top()),
-                float(reference_spot.roi_rect.left() + reference_spot.roi_rect.width()),
-                float(reference_spot.roi_rect.top() + reference_spot.roi_rect.height()),
-            ]
-            for _, reference_spot in reference_entries
-        ],
-        dtype=np.float32,
-    )
     query_object_ids = np.ones((len(reference_entries),), dtype=np.int32)
+    start_rect = start_spot.roi_rect
 
     mem_every_value = params.get("mem_every")
     xmem2_settings = XMem2RuntimeSettings(
@@ -10934,6 +10977,10 @@ def retrack_single_spot_xmem2_offline(
         if loaded is None:
             return None
         frames, frame_shapes = loaded
+        query_initial_masks = np.asarray(
+            [_spot_polygon_seed_mask(reference_spot, frames[0].shape) for _, reference_spot in reference_entries],
+            dtype=bool,
+        )
 
         if progress_callback:
             progress_callback(45)
@@ -10941,8 +10988,8 @@ def retrack_single_spot_xmem2_offline(
             frames=frames,
             query_points_tyx=query_points,
             settings=xmem2_settings,
-            query_boxes_xyxy=query_boxes,
             query_object_ids=query_object_ids,
+            query_initial_masks=query_initial_masks,
         )
 
         if cancel_event and cancel_event.is_set():
@@ -11039,7 +11086,6 @@ def retrack_single_spot_xmem2_offline(
                 base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
                 progress_callback(int(base))
 
-            seed_rect = seed_spot.roi_rect
             result = run_xmem2_offline(
                 frames=window_frames,
                 query_points_tyx=np.asarray(
@@ -11047,14 +11093,9 @@ def retrack_single_spot_xmem2_offline(
                     dtype=np.float32,
                 ),
                 settings=xmem2_settings,
-                query_boxes_xyxy=np.asarray(
-                    [[
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]],
-                    dtype=np.float32,
+                query_initial_masks=np.asarray(
+                    [_spot_polygon_seed_mask(seed_spot, window_frames[seed_local_idx].shape)],
+                    dtype=bool,
                 ),
             )
 

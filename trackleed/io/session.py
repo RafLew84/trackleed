@@ -27,10 +27,24 @@ def _spot_to_dict(spot: SpotROI) -> Dict:
         "center_y": float(spot.center_y),
         "intensity": float(spot.intensity) if spot.intensity is not None else 0.0,
         "source": spot.source,
+        "polygon_seed_points": [
+            [float(x), float(y)]
+            for x, y in getattr(spot, "polygon_seed_points", [])
+        ],
     }
 
 
 def _spot_from_dict(data: Dict) -> SpotROI:
+    raw_polygon_points = data.get("polygon_seed_points", [])
+    polygon_seed_points = []
+    if isinstance(raw_polygon_points, list):
+        for point in raw_polygon_points:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                continue
+            try:
+                polygon_seed_points.append((float(point[0]), float(point[1])))
+            except (TypeError, ValueError):
+                continue
     return SpotROI(
         id=int(data["id"]),
         roi_rect=_rect_from_dict(data["roi"]),
@@ -38,6 +52,7 @@ def _spot_from_dict(data: Dict) -> SpotROI:
         center_y=float(data["center_y"]),
         intensity=float(data.get("intensity", 0)),
         source=data.get("source", "auto"),
+        polygon_seed_points=polygon_seed_points,
     )
 
 

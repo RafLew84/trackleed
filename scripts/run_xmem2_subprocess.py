@@ -87,6 +87,14 @@ def main() -> int:
         query_object_ids = None
         if has_query_object_ids and "query_object_ids" in data:
             query_object_ids = np.asarray(data["query_object_ids"], dtype=np.int32)
+        has_query_initial_masks = (
+            bool(data["has_query_initial_masks"].tolist())
+            if "has_query_initial_masks" in data
+            else False
+        )
+        query_initial_masks = None
+        if has_query_initial_masks and "query_initial_masks" in data:
+            query_initial_masks = np.asarray(data["query_initial_masks"], dtype=bool)
 
     inference_resolution = None
     if args.height is not None or args.width is not None:
@@ -99,6 +107,7 @@ def main() -> int:
         query_points_tyx=query_points_tyx,
         query_boxes_xyxy=query_boxes_xyxy,
         query_object_ids=query_object_ids,
+        query_initial_masks=query_initial_masks,
         settings=XMem2RuntimeSettings(
             checkpoint_path=args.checkpoint,
             repo_path=args.repo_path,

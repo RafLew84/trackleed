@@ -68,6 +68,7 @@ from trackleed.analysis.sam2_backend import (
 from trackleed.io.session import load_session_from_file, save_session_to_file
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
+from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
 from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
@@ -3340,20 +3341,21 @@ class MainWindow(QMainWindow):
 
         self.cutie_python_executable_edit = QLineEdit(self.cutie_settings.python_executable or "")
         self.cutie_python_executable_edit.setPlaceholderText(
-            "Reserved for the future subprocess backend; currently unused"
+            "Used when Backend mode is set to Subprocess"
         )
         self.cutie_python_executable_edit.setToolTip(
-            "Cutie currently runs in direct-import mode only. This field is kept for the later subprocess backend."
+            "Used when Backend mode is set to Subprocess. Point it at the interpreter inside the dedicated cutie env."
         )
         self.cutie_python_executable_edit.editingFinished.connect(self._refresh_cutie_checkpoints)
         cutie_layout.addRow("Python executable:", self.cutie_python_executable_edit)
 
         self.cutie_backend_mode_combo = QComboBox()
+        self.cutie_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
         self.cutie_backend_mode_combo.addItem("Direct import (Current env)", "direct")
         cutie_backend_mode_idx = self.cutie_backend_mode_combo.findData(self.cutie_settings.backend_mode)
         self.cutie_backend_mode_combo.setCurrentIndex(cutie_backend_mode_idx if cutie_backend_mode_idx >= 0 else 0)
         self.cutie_backend_mode_combo.setToolTip(
-            "Cutie GUI integration currently uses direct import. Run Trackleed from the dedicated cutie env."
+            "Subprocess lets Trackleed stay in the main env while Cutie runs in its own dedicated env."
         )
         self.cutie_backend_mode_combo.currentIndexChanged.connect(self._on_cutie_backend_mode_changed)
         cutie_layout.addRow("Backend mode:", self.cutie_backend_mode_combo)
@@ -4406,6 +4408,34 @@ class MainWindow(QMainWindow):
         self.spot_list_widget = QListWidget()
         self.spot_list_widget.currentItemChanged.connect(self.on_spot_selection_changed)
         layout.addWidget(self.spot_list_widget)
+
+        self.polygon_seed_group = QGroupBox("Polygon Seed (Cutie / XMem2)")
+        polygon_group_layout = QVBoxLayout(self.polygon_seed_group)
+        self.polygon_seed_info_label = QLabel(
+            "Draw a polygon for the selected spot. Cutie and XMem2 require this seed and will block tracking without it."
+        )
+        self.polygon_seed_info_label.setWordWrap(True)
+        polygon_group_layout.addWidget(self.polygon_seed_info_label)
+
+        self.polygon_seed_status_label = QLabel("")
+        self.polygon_seed_status_label.setWordWrap(True)
+        polygon_group_layout.addWidget(self.polygon_seed_status_label)
+
+        polygon_buttons_widget = QWidget()
+        polygon_buttons_layout = QHBoxLayout(polygon_buttons_widget)
+        polygon_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.spot_polygon_button = QPushButton("Polygon Mask...")
+        self.spot_polygon_button.setToolTip(
+            "Draw a polygon seed for the selected spot. Cutie and XMem2 will require this polygon."
+        )
+        self.spot_polygon_button.clicked.connect(self.open_spot_polygon_mask_dialog)
+        polygon_buttons_layout.addWidget(self.spot_polygon_button)
+        self.clear_spot_polygon_button = QPushButton("Clear Polygon")
+        self.clear_spot_polygon_button.setToolTip("Remove the polygon seed from the selected spot.")
+        self.clear_spot_polygon_button.clicked.connect(self.clear_selected_spot_polygon_mask)
+        polygon_buttons_layout.addWidget(self.clear_spot_polygon_button)
+        polygon_group_layout.addWidget(polygon_buttons_widget)
+        layout.addWidget(self.polygon_seed_group)
         
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -4424,6 +4454,8 @@ class MainWindow(QMainWindow):
         self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
+        self._update_spot_polygon_buttons()
+        self.polygon_seed_group.setVisible(self._polygon_seed_scenario_active())
 
     def _build_classic_find_spots_panel(self) -> QWidget:
         widget = QWidget()
@@ -5410,6 +5442,16 @@ class MainWindow(QMainWindow):
             str(status.repo_path) if status.repo_path else self.cutie_settings.repo_path
         )
 
+        python_executable = self.cutie_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
         if status.is_ready:
             details = []
             if status.torch_version:
@@ -5420,15 +5462,34 @@ class MainWindow(QMainWindow):
             self.cutie_warning_label.setStyleSheet("color: #5cb85c;")
             self.cutie_warning_label.setText("Cutie ready. " + ", ".join(details))
             self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
+        elif (
+            self.cutie_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.cutie_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.cutie_warning_label.setText(
+                "Cutie subprocess configured. Current app env is not Cutie-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
+            if (
+                self.cutie_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated cutie env, or run Trackleed from that env."
+                )
             if not summary:
-                summary.append("Run Trackleed from the dedicated cutie env.")
-            summary.append("Cutie subprocess backend is not added yet; use the current env.")
+                summary.append("Use the dedicated cutie env or the subprocess backend.")
             self.cutie_warning_label.setStyleSheet("color: #d9534f;")
             self.cutie_warning_label.setText("\n".join(summary))
             self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
@@ -5748,6 +5809,28 @@ class MainWindow(QMainWindow):
             self._refresh_xmem2_checkpoints()
         if scenario == "Offline SAM2":
             self._refresh_sam2_checkpoints()
+        current_item = (
+            self.file_list_widget.currentItem()
+            if hasattr(self, "file_list_widget")
+            else None
+        )
+        current_spot_item = (
+            self.spot_list_widget.currentItem()
+            if hasattr(self, "spot_list_widget")
+            else None
+        )
+        selected_spot_id = None
+        if current_spot_item is not None:
+            selected_spot = current_spot_item.data(Qt.ItemDataRole.UserRole)
+            if selected_spot is not None:
+                selected_spot_id = int(getattr(selected_spot, "id", -1))
+        if current_item is not None:
+            current_file = current_item.data(Qt.ItemDataRole.UserRole)
+            if current_file is not None:
+                self.populate_spot_list(current_file.spots)
+                if selected_spot_id is not None:
+                    self._reselect_spot_in_list(selected_spot_id)
+        self._update_spot_polygon_buttons()
 
     def _update_tracking_params_visibility(self, scenario: str | None = None):
         """Shows parameter groups only for the currently selected tracking algorithm."""
@@ -5797,6 +5880,8 @@ class MainWindow(QMainWindow):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
             self.dir_group.setVisible(show_dir)
+        if hasattr(self, "polygon_seed_group"):
+            self.polygon_seed_group.setVisible(show_cutie or show_xmem2)
 
     def _on_dir_center_mode_changed(self, idx: int):
         manual = idx == 1
@@ -5894,6 +5979,7 @@ class MainWindow(QMainWindow):
         """Handles highlighting the ROI on the image when a spot is selected in the list."""
         if not current_item:
             self.image_viewer.highlight_roi(None) # Clear highlight if nothing is selected
+            self._update_spot_polygon_buttons()
             return
             
         # Retrieve the stored SpotROI object
@@ -5901,6 +5987,121 @@ class MainWindow(QMainWindow):
         if spot:
             # Tell the viewer which spot ID to highlight
             self.image_viewer.highlight_roi(spot.id)
+        self._update_spot_polygon_buttons()
+
+    def _get_selected_spot_for_polygon_edit(self) -> tuple[LeedFile | None, SpotROI | None]:
+        current_file_item = self.file_list_widget.currentItem()
+        current_spot_item = self.spot_list_widget.currentItem()
+        if not current_file_item or not current_spot_item:
+            return None, None
+        leed_file: LeedFile = current_file_item.data(Qt.ItemDataRole.UserRole)
+        spot: SpotROI = current_spot_item.data(Qt.ItemDataRole.UserRole)
+        if leed_file is None or spot is None:
+            return None, None
+        return leed_file, spot
+
+    def _polygon_seed_scenario_active(self) -> bool:
+        if not hasattr(self, "tracking_scenario_combo"):
+            return False
+        return self.tracking_scenario_combo.currentText() in {"Offline Cutie", "Offline XMem2"}
+
+    def _update_spot_polygon_buttons(self):
+        if (
+            not hasattr(self, "spot_polygon_button")
+            or not hasattr(self, "clear_spot_polygon_button")
+            or not hasattr(self, "polygon_seed_status_label")
+        ):
+            return
+        polygon_workflow_active = self._polygon_seed_scenario_active()
+        _, spot = self._get_selected_spot_for_polygon_edit()
+        has_spot = spot is not None
+        self.spot_polygon_button.setEnabled(bool(polygon_workflow_active and has_spot))
+        self.clear_spot_polygon_button.setEnabled(
+            bool(polygon_workflow_active and has_spot and spot.has_polygon_seed)
+        )
+
+        if not polygon_workflow_active:
+            self.polygon_seed_status_label.setStyleSheet("color: #6c757d;")
+            self.polygon_seed_status_label.setText(
+                "Polygon seed tools are available only for Offline Cutie and Offline XMem2."
+            )
+            return
+        if not has_spot:
+            self.polygon_seed_status_label.setStyleSheet("color: #6c757d;")
+            self.polygon_seed_status_label.setText(
+                "Select a spot to create or edit its polygon seed."
+            )
+            return
+        if spot.has_polygon_seed:
+            self.polygon_seed_status_label.setStyleSheet("color: #5cb85c;")
+            self.polygon_seed_status_label.setText(
+                f"Spot {spot.id}: polygon ready ({len(spot.polygon_seed_points)} vertices)."
+            )
+            return
+        self.polygon_seed_status_label.setStyleSheet("color: #d9534f;")
+        self.polygon_seed_status_label.setText(
+            f"Spot {spot.id}: polygon missing. Cutie/XMem2 tracking will be blocked until you draw it."
+        )
+
+    def open_spot_polygon_mask_dialog(self):
+        if not self._polygon_seed_scenario_active():
+            QMessageBox.information(
+                self,
+                "Polygon Seed",
+                "Polygon seed editing is available only for Offline Cutie and Offline XMem2.",
+            )
+            return
+        leed_file, spot = self._get_selected_spot_for_polygon_edit()
+        if leed_file is None or spot is None:
+            QMessageBox.warning(self, "No Spot Selected", "Select a spot before editing its polygon mask.")
+            return
+
+        original_image_data = load_tiff(leed_file.filepath)
+        if original_image_data is None or original_image_data.size == 0:
+            QMessageBox.critical(self, "Error", "Could not load the image to edit the polygon mask.")
+            return
+
+        full_res_pixmap = self._convert_numpy_to_pixmap(original_image_data)
+        dialog = PolygonMaskDialog(
+            full_res_pixmap,
+            existing_points=list(getattr(spot, "polygon_seed_points", [])),
+            parent=self,
+        )
+        result = dialog.exec()
+        if result != QDialog.DialogCode.Accepted:
+            return
+
+        spot.polygon_seed_points = dialog.get_polygon_points()
+        self.populate_spot_list(leed_file.spots)
+        self._reselect_spot_in_list(spot.id)
+        self.refresh_current_view()
+
+    def clear_selected_spot_polygon_mask(self):
+        if not self._polygon_seed_scenario_active():
+            QMessageBox.information(
+                self,
+                "Polygon Seed",
+                "Polygon seed editing is available only for Offline Cutie and Offline XMem2.",
+            )
+            return
+        leed_file, spot = self._get_selected_spot_for_polygon_edit()
+        if leed_file is None or spot is None:
+            QMessageBox.warning(self, "No Spot Selected", "Select a spot before clearing its polygon mask.")
+            return
+        if not spot.has_polygon_seed:
+            return
+        spot.polygon_seed_points = []
+        self.populate_spot_list(leed_file.spots)
+        self._reselect_spot_in_list(spot.id)
+        self.refresh_current_view()
+
+    def _reselect_spot_in_list(self, spot_id: int):
+        for row in range(self.spot_list_widget.count()):
+            item = self.spot_list_widget.item(row)
+            spot = item.data(Qt.ItemDataRole.UserRole)
+            if spot is not None and int(getattr(spot, "id", -1)) == int(spot_id):
+                self.spot_list_widget.setCurrentRow(row)
+                return
 
     def run_spot_finding(self):
         """Gathers parameters and runs the spot finding algorithm."""
@@ -7376,6 +7577,20 @@ class MainWindow(QMainWindow):
             if not ref_file.spots:
                 QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
                 return
+            missing_polygon_seed_ids = [
+                int(spot.id)
+                for spot in ref_file.spots
+                if not getattr(spot, "has_polygon_seed", False)
+            ]
+            if missing_polygon_seed_ids:
+                QMessageBox.warning(
+                    self,
+                    "Cutie Requires Polygon Mask",
+                    "Offline Cutie requires a polygon mask for every reference spot.\n\n"
+                    "Missing polygon for spot IDs: "
+                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
+                )
+                return
 
             repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
             self.cutie_settings.repo_path = repo_path
@@ -7387,13 +7602,40 @@ class MainWindow(QMainWindow):
                 checkpoint_path=self.cutie_settings.checkpoint_path,
                 repo_path=self.cutie_settings.repo_path,
             )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "Cutie Unavailable",
-                    format_cutie_environment_report(status),
-                )
-                return
+            python_executable = self.cutie_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+            if self.cutie_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        format_cutie_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        format_cutie_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        format_cutie_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `cutie` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
 
             cutie_params = self._collect_cutie_tracking_params()
 
@@ -7416,6 +7658,20 @@ class MainWindow(QMainWindow):
             ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
             if not ref_file.spots:
                 QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+            missing_polygon_seed_ids = [
+                int(spot.id)
+                for spot in ref_file.spots
+                if not getattr(spot, "has_polygon_seed", False)
+            ]
+            if missing_polygon_seed_ids:
+                QMessageBox.warning(
+                    self,
+                    "XMem2 Requires Polygon Mask",
+                    "Offline XMem2 requires a polygon mask for every reference spot.\n\n"
+                    "Missing polygon for spot IDs: "
+                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
+                )
                 return
 
             repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
@@ -7755,11 +8011,15 @@ class MainWindow(QMainWindow):
     def populate_spot_list(self, spots: list[SpotROI]):
         """Populates the spot list widget with analysis results."""
         self.spot_list_widget.clear()
+        show_polygon_hint = self._polygon_seed_scenario_active()
         for spot in spots:
             display_text = f"ID: {spot.id}, X: {spot.center_x:.1f}, Y: {spot.center_y:.1f}"
+            if show_polygon_hint and getattr(spot, "has_polygon_seed", False):
+                display_text += f" | poly:{len(getattr(spot, 'polygon_seed_points', []))}"
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, spot)
             self.spot_list_widget.addItem(item)
+        self._update_spot_polygon_buttons()
     
     def refresh_current_view(self):
         """Refreshes the image display for the currently selected item."""
