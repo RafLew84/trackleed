@@ -57,6 +57,10 @@ from trackleed.analysis.cutie_backend import (
     format_cutie_environment_report,
     probe_cutie_environment,
 )
+from trackleed.analysis.xmem2_backend import (
+    format_xmem2_environment_report,
+    probe_xmem2_environment,
+)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
@@ -82,6 +86,7 @@ from trackleed.analysis.tracking import (
     track_spots_pipspp_offline,
     track_spots_mftiq_offline,
     track_spots_cutie_offline,
+    track_spots_xmem2_offline,
     track_spots_sam2_offline,
 )
 
@@ -388,6 +393,38 @@ class CutieTrackingSettings:
     max_radial_jump_px: float = 0.0
 
 
+@dataclass
+class XMem2TrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    device: str = "auto"
+    backend_mode: str = "subprocess"
+    representative_point_mode: str = "mask_centroid"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 12.0
+    initial_mask_mode: str = "threshold"
+    initial_mask_threshold_rel: float = 0.7
+    initial_mask_disk_radius_ratio: float = 0.35
+    mem_every: int | None = None
+    subprocess_timeout_sec: float = 1800.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    max_mask_area_ratio_change: float = 0.0
+    max_bbox_aspect_ratio_change: float = 0.0
+    max_bbox_center_jump_px: float = 0.0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -416,6 +453,7 @@ class MainWindow(QMainWindow):
         self.mftiq_settings = MftiqTrackingSettings()
         self.sam2_settings = Sam2TrackingSettings()
         self.cutie_settings = CutieTrackingSettings()
+        self.xmem2_settings = XMem2TrackingSettings()
         self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
         self.dl_models_dir = self.tracking_models_dir
@@ -428,6 +466,7 @@ class MainWindow(QMainWindow):
         self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
         self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
         self.cutie_models_dir = self.tracking_models_dir / "cutie"
+        self.xmem2_models_dir = self.tracking_models_dir / "xmem2"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
@@ -450,6 +489,9 @@ class MainWindow(QMainWindow):
         default_cutie_repo = Path(__file__).resolve().parents[3] / "cutie"
         if default_cutie_repo.exists():
             self.cutie_settings.repo_path = str(default_cutie_repo.resolve())
+        default_xmem2_repo = Path(__file__).resolve().parents[3] / "xmem2"
+        if default_xmem2_repo.exists():
+            self.xmem2_settings.repo_path = str(default_xmem2_repo.resolve())
         default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
         if default_sam2_repo.exists():
             self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
@@ -464,6 +506,7 @@ class MainWindow(QMainWindow):
         self._pipspp_checkpoint_available = False
         self._mftiq_checkpoint_available = False
         self._cutie_checkpoint_available = False
+        self._xmem2_checkpoint_available = False
         self._sam2_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
@@ -1343,6 +1386,7 @@ class MainWindow(QMainWindow):
             "Offline PIPs++",
             "Offline MFTIQ",
             "Offline Cutie",
+            "Offline XMem2",
             "Offline SAM2",
             "Detection Linking (Hungarian)",
             "Detection Linking (Directional)",
@@ -3573,6 +3617,303 @@ class MainWindow(QMainWindow):
         self._on_cutie_center_mode_changed(self.cutie_center_mode_combo.currentIndex())
         form_layout.addRow(self.cutie_group)
 
+        # --- Offline XMem2 parameters ---
+        self.xmem2_group = QGroupBox("Offline XMem2")
+        xmem2_layout = QFormLayout(self.xmem2_group)
+
+        self.xmem2_repo_path_edit = QLineEdit(self.xmem2_settings.repo_path or "")
+        self.xmem2_repo_path_edit.setPlaceholderText("Path to local xmem2 repo root")
+        self.xmem2_repo_path_edit.setToolTip(
+            "Local clone of the XMem2 / XMem++ repository. Must contain process_video.py and inference/run_on_video.py."
+        )
+        self.xmem2_repo_path_edit.editingFinished.connect(self._refresh_xmem2_checkpoints)
+        xmem2_layout.addRow("Repo path:", self.xmem2_repo_path_edit)
+
+        self.xmem2_python_executable_edit = QLineEdit(self.xmem2_settings.python_executable or "")
+        self.xmem2_python_executable_edit.setPlaceholderText(
+            "Path to python.exe inside the dedicated xmem2 env"
+        )
+        self.xmem2_python_executable_edit.setToolTip(
+            "Used when Backend mode is set to Subprocess. Point it at the interpreter inside the dedicated xmem2 env."
+        )
+        self.xmem2_python_executable_edit.editingFinished.connect(self._refresh_xmem2_checkpoints)
+        xmem2_layout.addRow("Python executable:", self.xmem2_python_executable_edit)
+
+        self.xmem2_backend_mode_combo = QComboBox()
+        self.xmem2_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.xmem2_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        xmem2_backend_mode_idx = self.xmem2_backend_mode_combo.findData(self.xmem2_settings.backend_mode)
+        self.xmem2_backend_mode_combo.setCurrentIndex(
+            xmem2_backend_mode_idx if xmem2_backend_mode_idx >= 0 else 0
+        )
+        self.xmem2_backend_mode_combo.setToolTip(
+            "Use subprocess to run XMem2 from a dedicated env while Trackleed stays in the main app env."
+        )
+        self.xmem2_backend_mode_combo.currentIndexChanged.connect(self._on_xmem2_backend_mode_changed)
+        xmem2_layout.addRow("Backend mode:", self.xmem2_backend_mode_combo)
+
+        xmem2_model_row_widget = QWidget()
+        xmem2_model_row_layout = QHBoxLayout(xmem2_model_row_widget)
+        xmem2_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.xmem2_checkpoint_combo = QComboBox()
+        self.xmem2_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.xmem2_checkpoint_combo.setToolTip(
+            "Select an XMem checkpoint from tracking_models/xmem2 or repo/saves."
+        )
+        self.xmem2_checkpoint_combo.currentIndexChanged.connect(self._on_xmem2_checkpoint_selected)
+        self.xmem2_refresh_button = QPushButton("Refresh")
+        self.xmem2_refresh_button.setToolTip(
+            "Re-scan tracking_models/xmem2 and re-run XMem2 environment diagnostics."
+        )
+        self.xmem2_refresh_button.clicked.connect(self._refresh_xmem2_checkpoints)
+        xmem2_model_row_layout.addWidget(self.xmem2_checkpoint_combo)
+        xmem2_model_row_layout.addWidget(self.xmem2_refresh_button)
+        xmem2_layout.addRow("Checkpoint:", xmem2_model_row_widget)
+
+        self.xmem2_checkpoint_hint_label = QLabel(
+            "Hint: use XMem.pth as the main checkpoint. XMem-s012.pth is an alternate upstream variant. "
+            "For permanent memory, open the visualizer, right-click a point and mark it as an XMem2 permanent reference before re-tracking."
+        )
+        self.xmem2_checkpoint_hint_label.setWordWrap(True)
+        self.xmem2_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        xmem2_layout.addRow(self.xmem2_checkpoint_hint_label)
+
+        self.xmem2_device_combo = QComboBox()
+        self.xmem2_device_combo.addItem("Auto", "auto")
+        self.xmem2_device_combo.addItem("GPU", "cuda")
+        xmem2_device_idx = self.xmem2_device_combo.findData(self.xmem2_settings.device)
+        self.xmem2_device_combo.setCurrentIndex(xmem2_device_idx if xmem2_device_idx >= 0 else 0)
+        self.xmem2_device_combo.setToolTip("Device passed to the XMem2 runtime.")
+        xmem2_layout.addRow("Device:", self.xmem2_device_combo)
+
+        self.xmem2_inference_resolution_combo = QComboBox()
+        self.xmem2_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("256 x 256", 256),
+            ("384 x 384", 384),
+            ("512 x 512", 512),
+        ):
+            self.xmem2_inference_resolution_combo.addItem(label, value)
+        xmem2_res_idx = self.xmem2_inference_resolution_combo.findData(self.xmem2_settings.inference_resolution)
+        self.xmem2_inference_resolution_combo.setCurrentIndex(xmem2_res_idx if xmem2_res_idx >= 0 else 0)
+        self.xmem2_inference_resolution_combo.setToolTip(
+            "Optional square inference size for XMem2. Native keeps the original LEED frame size."
+        )
+        xmem2_layout.addRow("Inference resolution:", self.xmem2_inference_resolution_combo)
+
+        self.xmem2_window_size_spinbox = QSpinBox()
+        self.xmem2_window_size_spinbox.setRange(2, 4096)
+        self.xmem2_window_size_spinbox.setValue(self.xmem2_settings.window_size)
+        self.xmem2_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed XMem2 window. Smaller values reduce memory pressure."
+        )
+        xmem2_layout.addRow("Window size:", self.xmem2_window_size_spinbox)
+
+        self.xmem2_window_overlap_spinbox = QSpinBox()
+        self.xmem2_window_overlap_spinbox.setRange(0, 1024)
+        self.xmem2_window_overlap_spinbox.setValue(self.xmem2_settings.window_overlap)
+        self.xmem2_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive XMem2 windows. "
+            "Trackleed reseeds the next window from this overlap and enforces at least one shared frame when multiple windows are used."
+        )
+        xmem2_layout.addRow("Window overlap:", self.xmem2_window_overlap_spinbox)
+
+        self.xmem2_repr_mode_combo = QComboBox()
+        self.xmem2_repr_mode_combo.addItem("Mask centroid", "mask_centroid")
+        self.xmem2_repr_mode_combo.addItem("Peak in mask", "peak_in_mask")
+        self.xmem2_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.xmem2_repr_mode_combo.addItem("Gaussian in mask", "gaussian_in_mask")
+        xmem2_repr_idx = self.xmem2_repr_mode_combo.findData(self.xmem2_settings.representative_point_mode)
+        self.xmem2_repr_mode_combo.setCurrentIndex(xmem2_repr_idx if xmem2_repr_idx >= 0 else 0)
+        self.xmem2_repr_mode_combo.setToolTip(
+            "How Trackleed converts the propagated XMem2 mask into one representative point."
+        )
+        xmem2_layout.addRow("Representative point:", self.xmem2_repr_mode_combo)
+
+        self.xmem2_bbox_padding_spinbox = QDoubleSpinBox()
+        self.xmem2_bbox_padding_spinbox.setDecimals(1)
+        self.xmem2_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.xmem2_bbox_padding_spinbox.setSingleStep(1.0)
+        self.xmem2_bbox_padding_spinbox.setValue(self.xmem2_settings.initial_bbox_padding_px)
+        self.xmem2_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around roi_rect before building the initial XMem2 mask."
+        )
+        xmem2_layout.addRow("Init bbox padding (px):", self.xmem2_bbox_padding_spinbox)
+
+        self.xmem2_initial_mask_mode_combo = QComboBox()
+        self.xmem2_initial_mask_mode_combo.addItem("Threshold in bbox", "threshold")
+        self.xmem2_initial_mask_mode_combo.addItem("Full bbox mask", "full_bbox")
+        self.xmem2_initial_mask_mode_combo.addItem("Disk in bbox", "disk")
+        xmem2_mask_mode_idx = self.xmem2_initial_mask_mode_combo.findData(self.xmem2_settings.initial_mask_mode)
+        self.xmem2_initial_mask_mode_combo.setCurrentIndex(xmem2_mask_mode_idx if xmem2_mask_mode_idx >= 0 else 0)
+        self.xmem2_initial_mask_mode_combo.setToolTip(
+            "How Trackleed turns the ROI bbox into the initial seed mask for XMem2."
+        )
+        xmem2_layout.addRow("Initial mask mode:", self.xmem2_initial_mask_mode_combo)
+
+        self.xmem2_initial_mask_threshold_spinbox = QDoubleSpinBox()
+        self.xmem2_initial_mask_threshold_spinbox.setDecimals(2)
+        self.xmem2_initial_mask_threshold_spinbox.setRange(0.00, 1.00)
+        self.xmem2_initial_mask_threshold_spinbox.setSingleStep(0.05)
+        self.xmem2_initial_mask_threshold_spinbox.setValue(self.xmem2_settings.initial_mask_threshold_rel)
+        self.xmem2_initial_mask_threshold_spinbox.setToolTip(
+            "Relative threshold used by the default bbox->mask builder. Higher values keep only the brightest core."
+        )
+        xmem2_layout.addRow("Threshold rel.:", self.xmem2_initial_mask_threshold_spinbox)
+
+        self.xmem2_initial_mask_disk_spinbox = QDoubleSpinBox()
+        self.xmem2_initial_mask_disk_spinbox.setDecimals(2)
+        self.xmem2_initial_mask_disk_spinbox.setRange(0.05, 1.00)
+        self.xmem2_initial_mask_disk_spinbox.setSingleStep(0.05)
+        self.xmem2_initial_mask_disk_spinbox.setValue(self.xmem2_settings.initial_mask_disk_radius_ratio)
+        self.xmem2_initial_mask_disk_spinbox.setToolTip(
+            "Disk radius as a fraction of the smaller ROI dimension when the disk seed mode is used."
+        )
+        xmem2_layout.addRow("Disk radius ratio:", self.xmem2_initial_mask_disk_spinbox)
+
+        self.xmem2_mem_every_spinbox = QSpinBox()
+        self.xmem2_mem_every_spinbox.setRange(0, 512)
+        self.xmem2_mem_every_spinbox.setValue(
+            0 if self.xmem2_settings.mem_every in {None, 0} else int(self.xmem2_settings.mem_every)
+        )
+        self.xmem2_mem_every_spinbox.setToolTip(
+            "How often XMem2 stores memory frames. Set 0 to keep the upstream default."
+        )
+        xmem2_layout.addRow("Memory every N frames:", self.xmem2_mem_every_spinbox)
+
+        self.xmem2_max_step_spinbox = QDoubleSpinBox()
+        self.xmem2_max_step_spinbox.setDecimals(1)
+        self.xmem2_max_step_spinbox.setRange(0.0, 10000.0)
+        self.xmem2_max_step_spinbox.setSingleStep(1.0)
+        self.xmem2_max_step_spinbox.setValue(self.xmem2_settings.max_step_distance_px)
+        self.xmem2_max_step_spinbox.setToolTip(
+            "Reject representative points that jump farther than this distance from the last accepted XMem2 point. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max jump (px):", self.xmem2_max_step_spinbox)
+
+        self.xmem2_max_gap_spinbox = QSpinBox()
+        self.xmem2_max_gap_spinbox.setRange(0, 4096)
+        self.xmem2_max_gap_spinbox.setValue(self.xmem2_settings.max_reacquisition_gap)
+        self.xmem2_max_gap_spinbox.setToolTip(
+            "If an XMem2 track stays invalid longer than this gap, later reacquisition attempts are discarded. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max reacquisition gap:", self.xmem2_max_gap_spinbox)
+
+        self.xmem2_terminate_gap_spinbox = QSpinBox()
+        self.xmem2_terminate_gap_spinbox.setRange(0, 4096)
+        self.xmem2_terminate_gap_spinbox.setValue(self.xmem2_settings.terminate_after_invisible_frames)
+        self.xmem2_terminate_gap_spinbox.setToolTip(
+            "Stop writing any more XMem2 points after this many consecutive invalid frames. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Terminate after gap:", self.xmem2_terminate_gap_spinbox)
+
+        self.xmem2_max_area_ratio_spinbox = QDoubleSpinBox()
+        self.xmem2_max_area_ratio_spinbox.setDecimals(2)
+        self.xmem2_max_area_ratio_spinbox.setRange(0.0, 100.0)
+        self.xmem2_max_area_ratio_spinbox.setSingleStep(0.05)
+        self.xmem2_max_area_ratio_spinbox.setValue(self.xmem2_settings.max_mask_area_ratio_change)
+        self.xmem2_max_area_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask area between accepted frames. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max area drift x:", self.xmem2_max_area_ratio_spinbox)
+
+        self.xmem2_max_aspect_ratio_spinbox = QDoubleSpinBox()
+        self.xmem2_max_aspect_ratio_spinbox.setDecimals(2)
+        self.xmem2_max_aspect_ratio_spinbox.setRange(0.0, 100.0)
+        self.xmem2_max_aspect_ratio_spinbox.setSingleStep(0.05)
+        self.xmem2_max_aspect_ratio_spinbox.setValue(self.xmem2_settings.max_bbox_aspect_ratio_change)
+        self.xmem2_max_aspect_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask bbox aspect ratio between accepted frames. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max aspect drift x:", self.xmem2_max_aspect_ratio_spinbox)
+
+        self.xmem2_bbox_jump_spinbox = QDoubleSpinBox()
+        self.xmem2_bbox_jump_spinbox.setDecimals(1)
+        self.xmem2_bbox_jump_spinbox.setRange(0.0, 10000.0)
+        self.xmem2_bbox_jump_spinbox.setSingleStep(1.0)
+        self.xmem2_bbox_jump_spinbox.setValue(self.xmem2_settings.max_bbox_center_jump_px)
+        self.xmem2_bbox_jump_spinbox.setToolTip(
+            "Maximum accepted shift of the propagated mask bbox center between accepted frames. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max bbox jump (px):", self.xmem2_bbox_jump_spinbox)
+
+        self.xmem2_keep_gaps_checkbox = QCheckBox("Keep invisible masks as gaps")
+        self.xmem2_keep_gaps_checkbox.setChecked(self.xmem2_settings.keep_invisible_points_as_gaps)
+        self.xmem2_keep_gaps_checkbox.setToolTip(
+            "If enabled, missing/invalid XMem2 masks leave gaps instead of forcing a representative point."
+        )
+        xmem2_layout.addRow(self.xmem2_keep_gaps_checkbox)
+
+        self.xmem2_center_mode_combo = QComboBox()
+        self.xmem2_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.xmem2_center_mode_combo.addItem("Manual", "manual")
+        xmem2_center_mode_idx = self.xmem2_center_mode_combo.findData(self.xmem2_settings.center_mode)
+        self.xmem2_center_mode_combo.setCurrentIndex(
+            xmem2_center_mode_idx if xmem2_center_mode_idx >= 0 else 0
+        )
+        self.xmem2_center_mode_combo.setToolTip(
+            "Reference center used by XMem2 direction gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.xmem2_center_mode_combo.currentIndexChanged.connect(self._on_xmem2_center_mode_changed)
+        xmem2_layout.addRow("Direction center:", self.xmem2_center_mode_combo)
+
+        xmem2_center_row_widget = QWidget()
+        xmem2_center_row_layout = QHBoxLayout(xmem2_center_row_widget)
+        xmem2_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.xmem2_center_x_spinbox = QDoubleSpinBox()
+        self.xmem2_center_x_spinbox.setRange(0.0, 10000.0)
+        self.xmem2_center_x_spinbox.setDecimals(1)
+        self.xmem2_center_x_spinbox.setValue(self.xmem2_settings.manual_center_x)
+        self.xmem2_center_y_spinbox = QDoubleSpinBox()
+        self.xmem2_center_y_spinbox.setRange(0.0, 10000.0)
+        self.xmem2_center_y_spinbox.setDecimals(1)
+        self.xmem2_center_y_spinbox.setValue(self.xmem2_settings.manual_center_y)
+        xmem2_center_row_layout.addWidget(self.xmem2_center_x_spinbox)
+        xmem2_center_row_layout.addWidget(QLabel(","))
+        xmem2_center_row_layout.addWidget(self.xmem2_center_y_spinbox)
+        xmem2_layout.addRow("Manual center (x, y):", xmem2_center_row_widget)
+
+        self.xmem2_direction_mode_combo = QComboBox()
+        self.xmem2_direction_mode_combo.addItem("None", "none")
+        self.xmem2_direction_mode_combo.addItem("Auto", "auto")
+        self.xmem2_direction_mode_combo.addItem("Inward", "inward")
+        self.xmem2_direction_mode_combo.addItem("Outward", "outward")
+        xmem2_direction_idx = self.xmem2_direction_mode_combo.findData(self.xmem2_settings.direction_mode)
+        self.xmem2_direction_mode_combo.setCurrentIndex(
+            xmem2_direction_idx if xmem2_direction_idx >= 0 else 0
+        )
+        self.xmem2_direction_mode_combo.setToolTip(
+            "Optional directional prior applied to the XMem2 representative point."
+        )
+        xmem2_layout.addRow("Direction mode:", self.xmem2_direction_mode_combo)
+
+        self.xmem2_lateral_tol_spinbox = QDoubleSpinBox()
+        self.xmem2_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.xmem2_lateral_tol_spinbox.setSingleStep(1.0)
+        self.xmem2_lateral_tol_spinbox.setValue(self.xmem2_settings.lateral_angle_tolerance_deg)
+        self.xmem2_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        xmem2_layout.addRow("Angular tol (deg):", self.xmem2_lateral_tol_spinbox)
+
+        self.xmem2_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.xmem2_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.xmem2_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.xmem2_max_radial_jump_spinbox.setValue(self.xmem2_settings.max_radial_jump_px)
+        self.xmem2_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        xmem2_layout.addRow("Max radial jump (px):", self.xmem2_max_radial_jump_spinbox)
+
+        self.xmem2_warning_label = QLabel()
+        self.xmem2_warning_label.setStyleSheet("color: #d9534f;")
+        self.xmem2_warning_label.setWordWrap(True)
+        xmem2_layout.addRow(self.xmem2_warning_label)
+
+        self._on_xmem2_backend_mode_changed(self.xmem2_backend_mode_combo.currentIndex())
+        self._on_xmem2_center_mode_changed(self.xmem2_center_mode_combo.currentIndex())
+        form_layout.addRow(self.xmem2_group)
+
         # --- Offline SAM2 parameters ---
         self.sam2_group = QGroupBox("Offline SAM2")
         sam2_layout = QFormLayout(self.sam2_group)
@@ -4080,6 +4421,7 @@ class MainWindow(QMainWindow):
         self._refresh_pipspp_checkpoints()
         self._refresh_mftiq_checkpoints()
         self._refresh_cutie_checkpoints()
+        self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
 
@@ -5096,6 +5438,111 @@ class MainWindow(QMainWindow):
         self.cutie_settings.checkpoint_path = checkpoint_path
         self._refresh_cutie_checkpoints()
 
+    def _refresh_xmem2_checkpoints(self):
+        repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
+        if repo_path:
+            self.xmem2_settings.repo_path = repo_path
+        self.xmem2_settings.python_executable = self.xmem2_python_executable_edit.text().strip() or None
+        self.xmem2_settings.backend_mode = self.xmem2_backend_mode_combo.currentData()
+
+        status = probe_xmem2_environment(
+            models_dir=self.xmem2_models_dir,
+            checkpoint_path=self.xmem2_settings.checkpoint_path,
+            repo_path=self.xmem2_settings.repo_path,
+        )
+
+        self.xmem2_checkpoint_combo.blockSignals(True)
+        self.xmem2_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.xmem2_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.xmem2_checkpoint_combo.setEnabled(False)
+            self._xmem2_checkpoint_available = False
+            self.xmem2_settings.checkpoint_path = None
+        else:
+            self.xmem2_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.xmem2_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._xmem2_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.xmem2_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.xmem2_checkpoint_combo.setCurrentIndex(idx)
+                    self.xmem2_settings.checkpoint_path = selected_checkpoint
+            if not self.xmem2_settings.checkpoint_path and self.xmem2_checkpoint_combo.count() > 0:
+                self.xmem2_checkpoint_combo.setCurrentIndex(0)
+                self.xmem2_settings.checkpoint_path = self.xmem2_checkpoint_combo.currentData()
+
+        self.xmem2_checkpoint_combo.blockSignals(False)
+        self.xmem2_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.xmem2_settings.repo_path or "")
+        )
+        self.xmem2_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.xmem2_settings.repo_path
+        )
+
+        python_executable = self.xmem2_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            if status.selected_checkpoint is not None:
+                details.append(status.selected_checkpoint.name)
+            self.xmem2_warning_label.setStyleSheet("color: #5cb85c;")
+            self.xmem2_warning_label.setText("XMem2 ready. " + ", ".join(details))
+            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
+        elif (
+            self.xmem2_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.xmem2_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.xmem2_warning_label.setText(
+                "XMem2 subprocess configured. Current app env is not XMem2-ready, "
+                "so Trackleed will use the external Python executable."
+            )
+            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.xmem2_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated xmem2 env, or run Trackleed from that env."
+                )
+            if not summary:
+                summary.append("Configure the dedicated xmem2 env or run Trackleed from that env.")
+            self.xmem2_warning_label.setStyleSheet("color: #d9534f;")
+            self.xmem2_warning_label.setText("\n".join(summary))
+            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
+
+    def _on_xmem2_checkpoint_selected(self, index: int):
+        checkpoint_path = self.xmem2_checkpoint_combo.itemData(index)
+        self.xmem2_settings.checkpoint_path = checkpoint_path
+        self._refresh_xmem2_checkpoints()
+
     def _refresh_sam2_checkpoints(self):
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
         if repo_path:
@@ -5297,6 +5744,8 @@ class MainWindow(QMainWindow):
             self._refresh_mftiq_checkpoints()
         if scenario == "Offline Cutie":
             self._refresh_cutie_checkpoints()
+        if scenario == "Offline XMem2":
+            self._refresh_xmem2_checkpoints()
         if scenario == "Offline SAM2":
             self._refresh_sam2_checkpoints()
 
@@ -5315,6 +5764,7 @@ class MainWindow(QMainWindow):
         show_pipspp = scenario == "Offline PIPs++"
         show_mftiq = scenario == "Offline MFTIQ"
         show_cutie = scenario == "Offline Cutie"
+        show_xmem2 = scenario == "Offline XMem2"
         show_sam2 = scenario == "Offline SAM2"
         show_hungarian = scenario == "Detection Linking (Hungarian)"
         show_dir = scenario == "Detection Linking (Directional)"
@@ -5339,6 +5789,8 @@ class MainWindow(QMainWindow):
             self.mftiq_group.setVisible(show_mftiq)
         if hasattr(self, "cutie_group"):
             self.cutie_group.setVisible(show_cutie)
+        if hasattr(self, "xmem2_group"):
+            self.xmem2_group.setVisible(show_xmem2)
         if hasattr(self, "sam2_group"):
             self.sam2_group.setVisible(show_sam2)
         if hasattr(self, "hungarian_group"):
@@ -5405,6 +5857,17 @@ class MainWindow(QMainWindow):
         self.cutie_python_executable_edit.setEnabled(backend_mode == "subprocess")
         if hasattr(self, "cutie_warning_label"):
             self._refresh_cutie_checkpoints()
+
+    def _on_xmem2_backend_mode_changed(self, idx: int):
+        backend_mode = self.xmem2_backend_mode_combo.itemData(idx)
+        self.xmem2_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "xmem2_warning_label"):
+            self._refresh_xmem2_checkpoints()
+
+    def _on_xmem2_center_mode_changed(self, idx: int):
+        manual = self.xmem2_center_mode_combo.itemData(idx) == "manual"
+        self.xmem2_center_x_spinbox.setEnabled(manual)
+        self.xmem2_center_y_spinbox.setEnabled(manual)
 
     def _on_cutie_center_mode_changed(self, idx: int):
         manual = self.cutie_center_mode_combo.itemData(idx) == "manual"
@@ -6336,6 +6799,51 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_xmem2_tracking_params(self) -> dict:
+        """Collect the current XMem2 tracking settings from the UI."""
+        repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
+        inference_resolution = self.xmem2_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        mem_every = self.xmem2_mem_every_spinbox.value()
+        if mem_every <= 0:
+            mem_every = None
+        return {
+            "xmem2_models_dir": str(self.xmem2_models_dir.resolve()),
+            "xmem2_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.xmem2_settings.checkpoint_path,
+            "python_executable": self.xmem2_python_executable_edit.text().strip() or None,
+            "device": self.xmem2_device_combo.currentData(),
+            "backend_mode": self.xmem2_backend_mode_combo.currentData(),
+            "representative_point_mode": self.xmem2_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.xmem2_window_size_spinbox.value(),
+            "window_overlap": self.xmem2_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.xmem2_bbox_padding_spinbox.value(),
+            "initial_mask_mode": self.xmem2_initial_mask_mode_combo.currentData(),
+            "initial_mask_threshold_rel": self.xmem2_initial_mask_threshold_spinbox.value(),
+            "initial_mask_disk_radius_ratio": self.xmem2_initial_mask_disk_spinbox.value(),
+            "mem_every": mem_every,
+            "subprocess_timeout_sec": self.xmem2_settings.subprocess_timeout_sec,
+            "keep_invisible_points_as_gaps": self.xmem2_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.xmem2_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.xmem2_max_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.xmem2_terminate_gap_spinbox.value(),
+            "max_mask_area_ratio_change": self.xmem2_max_area_ratio_spinbox.value(),
+            "max_bbox_aspect_ratio_change": self.xmem2_max_aspect_ratio_spinbox.value(),
+            "max_bbox_center_jump_px": self.xmem2_bbox_jump_spinbox.value(),
+            "center_mode": self.xmem2_center_mode_combo.currentData(),
+            "manual_center": (
+                self.xmem2_center_x_spinbox.value(),
+                self.xmem2_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.xmem2_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.xmem2_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.xmem2_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _collect_sam2_tracking_params(self) -> dict:
         """Collect the current SAM 2 tracking settings from the UI."""
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
@@ -6900,6 +7408,74 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline XMem2":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline XMem2 requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
+            self.xmem2_settings.repo_path = repo_path
+            self.xmem2_settings.python_executable = self.xmem2_python_executable_edit.text().strip() or None
+            self.xmem2_settings.backend_mode = self.xmem2_backend_mode_combo.currentData()
+
+            status = probe_xmem2_environment(
+                models_dir=self.xmem2_models_dir,
+                checkpoint_path=self.xmem2_settings.checkpoint_path,
+                repo_path=self.xmem2_settings.repo_path,
+            )
+            python_executable = self.xmem2_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+            if self.xmem2_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        format_xmem2_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        format_xmem2_environment_report(status),
+                    )
+                    return
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        format_xmem2_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `xmem2` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
+
+            xmem2_params = self._collect_xmem2_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_xmem2_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                xmem2_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Offline SAM2":
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
@@ -7142,6 +7718,7 @@ class MainWindow(QMainWindow):
             pipspp_params=self._collect_pipspp_tracking_params(),
             mftiq_params=self._collect_mftiq_tracking_params(),
             cutie_params=self._collect_cutie_tracking_params(),
+            xmem2_params=self._collect_xmem2_tracking_params(),
             sam2_params=self._collect_sam2_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),

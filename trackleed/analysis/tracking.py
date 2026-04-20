@@ -86,6 +86,13 @@ from trackleed.analysis.cutie_backend import (
     run_cutie_offline,
     select_default_cutie_checkpoint,
 )
+from trackleed.analysis.xmem2_backend import (
+    DEFAULT_XMEM2_MODELS_DIR,
+    XMem2RuntimeSettings,
+    discover_xmem2_checkpoints,
+    run_xmem2_offline,
+    select_default_xmem2_checkpoint,
+)
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
@@ -860,6 +867,70 @@ def _build_cutie_spot(
     return spot
 
 
+def _build_xmem2_spot(
+    reference_spot: SpotROI,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    mask_area: float,
+    mask_bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+    mask_score: float,
+    representative_point_mode: str,
+    initial_mask_mode: str,
+) -> SpotROI:
+    """Create a SpotROI from XMem2 output using the representative point and mask bbox."""
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+
+    rect = _roi_rect_from_bbox_xyxy(
+        mask_bbox_xyxy if visible else None,
+        image_shape,
+        fallback_center_x=x,
+        fallback_center_y=y,
+        fallback_roi_size=roi_size,
+    )
+    spot = SpotROI(
+        id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        intensity=1.0 if visible else 0.0,
+        source="xmem2_offline",
+    )
+    setattr(spot, "xmem2_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
+    setattr(spot, "xmem2_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
+    setattr(spot, "xmem2_refined_x", float(x))
+    setattr(spot, "xmem2_refined_y", float(y))
+    setattr(spot, "xmem2_visibility", bool(visible))
+    setattr(spot, "xmem2_mask_area", float(mask_area))
+    setattr(spot, "xmem2_mask_score", float(mask_score))
+    if mask_bbox_xyxy is not None:
+        bbox = np.asarray(mask_bbox_xyxy, dtype=np.float32).reshape(-1)
+        if bbox.size >= 4 and np.all(np.isfinite(bbox[:4])):
+            setattr(spot, "xmem2_mask_bbox_xyxy", tuple(float(v) for v in bbox[:4].tolist()))
+            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox[:4])
+            setattr(
+                spot,
+                "xmem2_mask_bbox_aspect_ratio",
+                float(aspect_ratio) if aspect_ratio is not None else None,
+            )
+        else:
+            setattr(spot, "xmem2_mask_bbox_xyxy", None)
+            setattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
+    else:
+        setattr(spot, "xmem2_mask_bbox_xyxy", None)
+        setattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
+    setattr(spot, "xmem2_repr_mode", str(representative_point_mode))
+    setattr(spot, "xmem2_initial_mask_mode", str(initial_mask_mode))
+    return spot
+
+
 def _compute_point_tracker_window_starts(
     total_frames: int,
     window_size: int,
@@ -982,6 +1053,24 @@ def _resolve_cutie_window_overlap(
 ) -> int:
     """
     Cutie windows are restarted independently and reseeded from overlap frames.
+
+    That means multi-window tracking needs at least one shared frame between
+    neighboring windows; otherwise the next window has no already-tracked seed
+    object to continue propagation from.
+    """
+    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
+    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
+        overlap = max(1, overlap)
+    return overlap
+
+
+def _resolve_xmem2_window_overlap(
+    total_frames: int,
+    window_size: int,
+    window_overlap: int,
+) -> int:
+    """
+    XMem2 windows are restarted independently and reseeded from overlap frames.
 
     That means multi-window tracking needs at least one shared frame between
     neighboring windows; otherwise the next window has no already-tracked seed
@@ -2854,6 +2943,282 @@ def _append_cutie_sequence_to_track(
                 setattr(forced_spot, "cutie_filter_rejected", True)
                 setattr(forced_spot, "cutie_filter_rejected_reason", rejection_reason)
                 track.spots_by_image_id[frame_id] = forced_spot
+            continue
+
+        track.spots_by_image_id[frame_id] = candidate_spot
+        last_valid_xy = np.array(
+            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+            dtype=np.float32,
+        )
+        if np.isfinite(mask_area) and mask_area > 0.0:
+            last_valid_mask_area = float(mask_area)
+        if bbox_aspect_ratio is not None and np.isfinite(bbox_aspect_ratio) and bbox_aspect_ratio > 0.0:
+            last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
+        if bbox_center_xy is not None:
+            last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
+        invisible_streak = 0
+
+    state["last_valid_xy"] = last_valid_xy
+    state["last_valid_mask_area"] = last_valid_mask_area
+    state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
+    state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
+    state["invisible_streak"] = invisible_streak
+    state["terminated"] = terminated
+    return True
+
+
+def _append_xmem2_sequence_to_track(
+    track: Track,
+    state: Dict[str, Any],
+    reference_spot: SpotROI,
+    frame_ids: List[int],
+    frame_shapes: List[Tuple[int, int]],
+    query_tracks: np.ndarray,
+    query_visible: np.ndarray,
+    query_mask_areas: np.ndarray,
+    query_mask_bboxes_xyxy: np.ndarray,
+    query_mask_scores: np.ndarray,
+    *,
+    roi_size: int,
+    keep_invisible_as_gaps: bool,
+    representative_point_mode: str,
+    initial_mask_mode: str,
+    max_step_distance_px: float,
+    max_reacquisition_gap: int,
+    terminate_after_invisible_frames: int,
+    max_mask_area_ratio_change: float,
+    max_bbox_aspect_ratio_change: float,
+    max_bbox_center_jump_px: float,
+    direction_center_xy: Tuple[float, float] | None,
+    direction_mode: str,
+    lateral_angle_tolerance_deg: float,
+    max_radial_jump_px: float,
+    min_directional_motion_px: float,
+    cancel_event: Optional[Event] = None,
+    start_local_idx: int = 1,
+    min_global_write_idx: int | None = None,
+    global_start_idx: int = 0,
+) -> bool:
+    """Append XMem2 representative points and mask summaries to one track."""
+    last_valid_xy = state["last_valid_xy"]
+    last_valid_mask_area = state["last_valid_mask_area"]
+    last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
+    last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
+    invisible_streak = int(state["invisible_streak"])
+    terminated = bool(state["terminated"])
+    max_step_distance_px = float(max(0.0, max_step_distance_px))
+    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
+    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
+    max_mask_area_ratio_change = float(max(0.0, max_mask_area_ratio_change))
+    max_bbox_aspect_ratio_change = float(max(0.0, max_bbox_aspect_ratio_change))
+    max_bbox_center_jump_px = float(max(0.0, max_bbox_center_jump_px))
+    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
+    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
+    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
+    direction_mode = str(direction_mode or "none").strip().lower()
+
+    if terminated:
+        return True
+
+    for local_idx in range(start_local_idx, len(frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        global_idx = global_start_idx + local_idx
+        if min_global_write_idx is not None and global_idx <= min_global_write_idx:
+            continue
+
+        frame_id = frame_ids[local_idx]
+        image_h, image_w = frame_shapes[local_idx]
+        visible = bool(query_visible[local_idx])
+        raw_x = float(query_tracks[local_idx, 0])
+        raw_y = float(query_tracks[local_idx, 1])
+        mask_area = float(query_mask_areas[local_idx])
+        mask_bbox_xyxy = query_mask_bboxes_xyxy[local_idx]
+        mask_score = float(query_mask_scores[local_idx])
+        bbox_center_xy, bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(mask_bbox_xyxy)
+
+        candidate_spot: SpotROI | None = None
+        rejection_reason = "invalid_mask"
+        accepted = visible
+        if accepted:
+            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
+                state["terminated"] = True
+                return True
+
+            if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
+                accepted = False
+                rejection_reason = "invalid_mask"
+            elif not (0.0 <= raw_x < float(image_w) and 0.0 <= raw_y < float(image_h)):
+                accepted = False
+                rejection_reason = "out_of_bounds"
+
+        if accepted:
+            candidate_spot = _build_xmem2_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                raw_x,
+                raw_y,
+                True,
+                roi_size,
+                mask_area,
+                mask_bbox_xyxy,
+                mask_score,
+                representative_point_mode,
+                initial_mask_mode,
+            )
+
+            if (
+                accepted
+                and max_mask_area_ratio_change > 1.0
+                and last_valid_mask_area is not None
+                and np.isfinite(last_valid_mask_area)
+                and last_valid_mask_area > 0.0
+                and np.isfinite(mask_area)
+                and mask_area > 0.0
+            ):
+                area_ratio = max(float(mask_area), float(last_valid_mask_area)) / min(
+                    float(mask_area),
+                    float(last_valid_mask_area),
+                )
+                if area_ratio > max_mask_area_ratio_change:
+                    accepted = False
+                    rejection_reason = "mask_area_drift"
+                    setattr(candidate_spot, "xmem2_filter_rejected", True)
+                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and max_bbox_aspect_ratio_change > 1.0
+                and last_valid_bbox_aspect_ratio is not None
+                and np.isfinite(last_valid_bbox_aspect_ratio)
+                and last_valid_bbox_aspect_ratio > 0.0
+                and bbox_aspect_ratio is not None
+                and np.isfinite(bbox_aspect_ratio)
+                and bbox_aspect_ratio > 0.0
+            ):
+                aspect_ratio_change = max(
+                    float(bbox_aspect_ratio),
+                    float(last_valid_bbox_aspect_ratio),
+                ) / min(
+                    float(bbox_aspect_ratio),
+                    float(last_valid_bbox_aspect_ratio),
+                )
+                if aspect_ratio_change > max_bbox_aspect_ratio_change:
+                    accepted = False
+                    rejection_reason = "bbox_aspect_ratio_drift"
+                    setattr(candidate_spot, "xmem2_filter_rejected", True)
+                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and max_bbox_center_jump_px > 0.0
+                and last_valid_bbox_center_xy is not None
+                and bbox_center_xy is not None
+                and float(np.linalg.norm(bbox_center_xy - last_valid_bbox_center_xy)) > max_bbox_center_jump_px
+            ):
+                accepted = False
+                rejection_reason = "bbox_jump"
+                setattr(candidate_spot, "xmem2_filter_rejected", True)
+                setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+            if max_step_distance_px > 0.0 and last_valid_xy is not None:
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
+                    accepted = False
+                    rejection_reason = "max_step_distance"
+                    setattr(candidate_spot, "xmem2_filter_rejected", True)
+                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and direction_center_xy is not None
+                and last_valid_xy is not None
+                and direction_mode != "none"
+            ):
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                delta = candidate_xy - last_valid_xy
+                step_norm = float(np.linalg.norm(delta))
+                radial_unit, last_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
+                )
+                _, candidate_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(candidate_xy[0]), float(candidate_xy[1])),
+                )
+
+                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
+                    accepted = False
+                    rejection_reason = "max_radial_jump"
+                    setattr(candidate_spot, "xmem2_filter_rejected", True)
+                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+                if accepted and step_norm >= min_directional_motion_px:
+                    expected_sign = state.get("expected_direction_sign")
+                    if direction_mode == "inward":
+                        expected_sign = -1.0
+                    elif direction_mode == "outward":
+                        expected_sign = 1.0
+                    else:
+                        if expected_sign is None:
+                            radial_comp_seed = float(np.dot(delta, radial_unit))
+                            if abs(radial_comp_seed) >= min_directional_motion_px:
+                                expected_sign = float(np.sign(radial_comp_seed))
+                                state["expected_direction_sign"] = expected_sign
+
+                    if expected_sign is not None:
+                        expected_vec = radial_unit * float(expected_sign)
+                        angle_deg = angular_offset_deg(expected_vec, delta)
+                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
+                            accepted = False
+                            rejection_reason = "direction_gating"
+                            setattr(candidate_spot, "xmem2_filter_rejected", True)
+                            setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
+
+        if keep_invisible_as_gaps:
+            if not accepted:
+                invisible_streak += 1
+                if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
+                    state["terminated"] = True
+                    return True
+                continue
+
+        if not accepted:
+            invisible_streak += 1
+            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
+                state["terminated"] = True
+                return True
+            fallback_x = raw_x if np.isfinite(raw_x) else (
+                float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
+            )
+            fallback_y = raw_y if np.isfinite(raw_y) else (
+                float(last_valid_xy[1]) if last_valid_xy is not None else float(reference_spot.center_y)
+            )
+            forced_spot = candidate_spot or _build_xmem2_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                fallback_x,
+                fallback_y,
+                False,
+                roi_size,
+                mask_area,
+                mask_bbox_xyxy,
+                mask_score,
+                representative_point_mode,
+                initial_mask_mode,
+            )
+            forced_spot.intensity = 0.0
+            setattr(forced_spot, "xmem2_visibility", False)
+            setattr(forced_spot, "xmem2_filter_rejected", True)
+            setattr(forced_spot, "xmem2_filter_rejected_reason", rejection_reason)
+            track.spots_by_image_id[frame_id] = forced_spot
             continue
 
         track.spots_by_image_id[frame_id] = candidate_spot
@@ -6552,6 +6917,7 @@ def retrack_single_spot_tapir_offline(
         del track_to_update.spots_by_image_id[fid]
 
     start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_rect = start_spot.roi_rect
     start_frame_index = sorted_frame_ids.index(start_frame_id)
     subset_frame_ids = sorted_frame_ids[start_frame_index:]
     if len(subset_frame_ids) < 2:
@@ -9281,6 +9647,377 @@ def track_spots_cutie_offline(
     return converted_tracks
 
 
+def track_spots_xmem2_offline(
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots from a reference frame using offline XMem2 / XMem++ mask propagation.
+
+    Each reference spot becomes one seeded XMem2 object. The returned masks are
+    reduced to one representative point per frame and converted to Track / SpotROI.
+    """
+    ref_file = all_files_map.get(reference_frame_id)
+    if not ref_file or not ref_file.spots:
+        raise ValueError("Reference frame must contain at least one defined spot.")
+    if reference_frame_id not in sorted_frame_ids:
+        raise ValueError("Reference frame is missing from the provided frame list.")
+
+    ref_index = sorted_frame_ids.index(reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[ref_index:]
+    if len(subset_frame_ids) < 2:
+        raise ValueError("Offline XMem2 requires at least two frames starting from the reference.")
+
+    repo_path = params.get("repo_path") or params.get("xmem2_repo_path")
+    xmem2_models_dir = Path(params.get("xmem2_models_dir", DEFAULT_XMEM2_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_xmem2_checkpoints(
+            xmem2_models_dir,
+            repo_path=repo_path,
+        )
+        selected_checkpoint = select_default_xmem2_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No XMem2 checkpoint selected. Place a checkpoint such as `XMem.pth` "
+            "in tracking_models/xmem2 or the local repo/saves and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [
+            [
+                float(spot.roi_rect.left()),
+                float(spot.roi_rect.top()),
+                float(spot.roi_rect.left() + spot.roi_rect.width()),
+                float(spot.roi_rect.top() + spot.roi_rect.height()),
+            ]
+            for spot in ref_file.spots
+        ],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    mem_every_value = params.get("mem_every")
+    xmem2_settings = XMem2RuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        device=params.get("device", "auto"),
+        backend_mode=params.get("backend_mode", "direct"),
+        representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 12.0)),
+        initial_mask_mode=params.get("initial_mask_mode", "threshold"),
+        initial_mask_threshold_rel=float(params.get("initial_mask_threshold_rel", 0.7)),
+        initial_mask_disk_radius_ratio=float(params.get("initial_mask_disk_radius_ratio", 0.35)),
+        mem_every=None if mem_every_value in {None, ""} else int(mem_every_value),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
+    )
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    roi_size = int(params.get("roi_size", 32))
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
+    max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
+    max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_xmem2_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            ref_image = load_tiff(ref_file.filepath)
+            fallback_shape = None
+            if ref_image is not None and np.asarray(ref_image).size:
+                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_xmem2_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=xmem2_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        converted_tracks: List[Track] = []
+        for query_idx, reference_spot in enumerate(ref_file.spots):
+            track = Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            state = {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "last_valid_mask_area": float(reference_spot.roi_rect.width() * reference_spot.roi_rect.height()),
+                "last_valid_bbox_aspect_ratio": (
+                    float(reference_spot.roi_rect.width()) / float(reference_spot.roi_rect.height())
+                    if reference_spot.roi_rect.height() > 0
+                    else None
+                ),
+                "last_valid_bbox_center_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            ok = _append_xmem2_sequence_to_track(
+                track,
+                state,
+                reference_spot,
+                subset_frame_ids,
+                frame_shapes,
+                result.tracks_xy[query_idx],
+                result.visible_mask[query_idx],
+                result.mask_areas[query_idx],
+                result.mask_bboxes_xyxy[query_idx],
+                result.mask_scores[query_idx],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                initial_mask_mode=result.initial_mask_mode,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                max_mask_area_ratio_change=max_mask_area_ratio_change,
+                max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                max_bbox_center_jump_px=max_bbox_center_jump_px,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=None,
+                global_start_idx=0,
+            )
+            if not ok:
+                return None
+            converted_tracks.append(track)
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        track_map: Dict[int, Track] = {
+            reference_spot.id: Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            for reference_spot in ref_file.spots
+        }
+        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
+        track_states: Dict[int, Dict[str, Any]] = {
+            reference_spot.id: {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "last_valid_mask_area": float(reference_spot.roi_rect.width() * reference_spot.roi_rect.height()),
+                "last_valid_bbox_aspect_ratio": (
+                    float(reference_spot.roi_rect.width()) / float(reference_spot.roi_rect.height())
+                    if reference_spot.roi_rect.height() > 0
+                    else None
+                ),
+                "last_valid_bbox_center_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            for reference_spot in ref_file.spots
+        }
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_xmem2_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            query_rows: List[List[float]] = []
+            query_box_rows: List[List[float]] = []
+            query_specs: List[Tuple[SpotROI, int]] = []
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+
+            for track_id, track in track_map.items():
+                reference_spot = reference_spots_by_id[track_id]
+                seed_local_idx = None
+                seed_spot = None
+                for local_idx, frame_id in enumerate(window_frame_ids):
+                    if frame_id not in query_seed_ids:
+                        break
+                    candidate = track.spots_by_image_id.get(frame_id)
+                    if candidate is None:
+                        continue
+                    seed_local_idx = local_idx
+                    seed_spot = candidate
+                    break
+                if seed_spot is None or seed_local_idx is None:
+                    continue
+
+                seed_rect = seed_spot.roi_rect
+                query_rows.append(
+                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
+                )
+                query_box_rows.append(
+                    [
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]
+                )
+                query_specs.append((reference_spot, seed_local_idx))
+
+            if not query_rows:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_xmem2_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
+                settings=xmem2_settings,
+                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
+            )
+
+            write_after_global_idx = covered_until
+            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
+                if cancel_event and cancel_event.is_set():
+                    return None
+
+                track = track_map[reference_spot.id]
+                ok = _append_xmem2_sequence_to_track(
+                    track,
+                    track_states[reference_spot.id],
+                    reference_spot,
+                    window_frame_ids,
+                    window_shapes,
+                    result.tracks_xy[query_idx],
+                    result.visible_mask[query_idx],
+                    result.mask_areas[query_idx],
+                    result.mask_bboxes_xyxy[query_idx],
+                    result.mask_scores[query_idx],
+                    roi_size=roi_size,
+                    keep_invisible_as_gaps=keep_invisible_as_gaps,
+                    representative_point_mode=result.representative_point_mode,
+                    initial_mask_mode=result.initial_mask_mode,
+                    max_step_distance_px=max_step_distance_px,
+                    max_reacquisition_gap=max_reacquisition_gap,
+                    terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    max_mask_area_ratio_change=max_mask_area_ratio_change,
+                    max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                    max_bbox_center_jump_px=max_bbox_center_jump_px,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=direction_mode,
+                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                    max_radial_jump_px=max_radial_jump_px,
+                    min_directional_motion_px=min_directional_motion_px,
+                    cancel_event=cancel_event,
+                    start_local_idx=seed_local_idx + 1,
+                    min_global_write_idx=write_after_global_idx,
+                    global_start_idx=start_idx,
+                )
+                if not ok:
+                    return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+        converted_tracks = list(track_map.values())
+
+    if progress_callback:
+        progress_callback(100)
+    return converted_tracks
+
+
 def retrack_single_spot_sam2_offline(
     track_to_update: Track,
     start_frame_id: int,
@@ -9933,6 +10670,395 @@ def retrack_single_spot_cutie_offline(
             )
 
             ok = _append_cutie_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                window_frame_ids,
+                window_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                result.mask_areas[0],
+                result.mask_bboxes_xyxy[0],
+                result.mask_scores[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                initial_mask_mode=result.initial_mask_mode,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                max_mask_area_ratio_change=max_mask_area_ratio_change,
+                max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                max_bbox_center_jump_px=max_bbox_center_jump_px,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=seed_local_idx + 1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
+
+
+def _collect_xmem2_permanent_reference_spots(
+    track: Track,
+    upto_frame_id: int,
+    sorted_frame_ids: List[int],
+) -> List[Tuple[int, SpotROI]]:
+    """Collect the earliest, current, and explicitly marked XMem2 reference spots."""
+    references: List[Tuple[int, SpotROI]] = []
+    seen_frame_ids: set[int] = set()
+
+    for frame_id in sorted_frame_ids:
+        if frame_id > upto_frame_id:
+            break
+        spot = track.spots_by_image_id.get(frame_id)
+        if spot is None:
+            continue
+
+        is_first_available = not references
+        is_current_frame = frame_id == upto_frame_id
+        is_marked_reference = bool(getattr(spot, "xmem2_permanent_reference", False))
+        if not (is_first_available or is_current_frame or is_marked_reference):
+            continue
+        if frame_id in seen_frame_ids:
+            continue
+
+        references.append((frame_id, spot))
+        seen_frame_ids.add(frame_id)
+
+    if not references and upto_frame_id in track.spots_by_image_id:
+        references.append((upto_frame_id, track.spots_by_image_id[upto_frame_id]))
+    return references
+
+
+def retrack_single_spot_xmem2_offline(
+    track_to_update: Track,
+    start_frame_id: int,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[Track]:
+    """
+    Re-track a single existing track from a chosen frame using offline XMem2 / XMem++.
+
+    The track is trimmed after `start_frame_id`, then XMem2 is rerun from that
+    point to the end of the sequence using the spot center and ROI on the start
+    frame as the seed prompt.
+    """
+    if start_frame_id not in track_to_update.spots_by_image_id:
+        raise ValueError(
+            f"Cannot start XMem2 re-tracking. Track {track_to_update.track_id} "
+            f"has no point on frame {start_frame_id}."
+        )
+    if start_frame_id not in sorted_frame_ids:
+        raise ValueError("Start frame is missing from the provided frame list.")
+
+    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
+    for fid in frames_to_remove:
+        del track_to_update.spots_by_image_id[fid]
+
+    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    reference_entries = _collect_xmem2_permanent_reference_spots(
+        track_to_update,
+        start_frame_id,
+        sorted_frame_ids,
+    )
+    earliest_reference_frame_id = reference_entries[0][0] if reference_entries else start_frame_id
+    subset_start_index = sorted_frame_ids.index(earliest_reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[subset_start_index:]
+    if len(subset_frame_ids) < 2:
+        if progress_callback:
+            progress_callback(100)
+        return track_to_update
+
+    xmem2_models_dir = Path(params.get("xmem2_models_dir", DEFAULT_XMEM2_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_xmem2_checkpoints(
+            xmem2_models_dir,
+            repo_path=params.get("repo_path") or params.get("xmem2_repo_path"),
+        )
+        selected_checkpoint = select_default_xmem2_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No XMem2 checkpoint selected. Place a checkpoint such as `XMem.pth` "
+            "in tracking_models/xmem2 or the local repo/saves and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [
+            [
+                float(sorted_frame_ids.index(reference_frame_id) - subset_start_index),
+                float(reference_spot.center_y),
+                float(reference_spot.center_x),
+            ]
+            for reference_frame_id, reference_spot in reference_entries
+        ],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [
+            [
+                float(reference_spot.roi_rect.left()),
+                float(reference_spot.roi_rect.top()),
+                float(reference_spot.roi_rect.left() + reference_spot.roi_rect.width()),
+                float(reference_spot.roi_rect.top() + reference_spot.roi_rect.height()),
+            ]
+            for _, reference_spot in reference_entries
+        ],
+        dtype=np.float32,
+    )
+    query_object_ids = np.ones((len(reference_entries),), dtype=np.int32)
+
+    mem_every_value = params.get("mem_every")
+    xmem2_settings = XMem2RuntimeSettings(
+        repo_path=params.get("repo_path") or params.get("xmem2_repo_path"),
+        checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        device=params.get("device", "auto"),
+        backend_mode=params.get("backend_mode", "direct"),
+        representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 12.0)),
+        initial_mask_mode=params.get("initial_mask_mode", "threshold"),
+        initial_mask_threshold_rel=float(params.get("initial_mask_threshold_rel", 0.7)),
+        initial_mask_disk_radius_ratio=float(params.get("initial_mask_disk_radius_ratio", 0.35)),
+        mem_every=None if mem_every_value in {None, ""} else int(mem_every_value),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
+    )
+
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
+    max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
+    max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    roi_size = int(params.get("roi_size", 32))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_xmem2_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    force_full_sequence = len(reference_entries) > 1
+    start_local_idx = int(start_frame_index - subset_start_index + 1)
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            start_file = all_files_map.get(start_frame_id)
+            start_image = load_tiff(start_file.filepath) if start_file is not None else None
+            fallback_shape = None
+            if start_image is not None and np.asarray(start_image).size:
+                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    start_mask_area = getattr(start_spot, "xmem2_mask_area", None)
+    if not (start_mask_area is not None and np.isfinite(float(start_mask_area)) and float(start_mask_area) > 0.0):
+        start_mask_area = float(start_rect.width() * start_rect.height())
+    start_bbox_xyxy = getattr(start_spot, "xmem2_mask_bbox_xyxy", None)
+    start_bbox_center_xy, start_bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(start_bbox_xyxy)
+    if start_bbox_aspect_ratio is None:
+        start_bbox_aspect_ratio = (
+            float(start_rect.width()) / float(start_rect.height())
+            if start_rect.height() > 0
+            else None
+        )
+    if start_bbox_center_xy is None:
+        start_bbox_center_xy = np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        )
+
+    state = {
+        "last_valid_xy": np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        ),
+        "last_valid_mask_area": float(start_mask_area),
+        "last_valid_bbox_aspect_ratio": start_bbox_aspect_ratio,
+        "last_valid_bbox_center_xy": np.asarray(start_bbox_center_xy, dtype=np.float32),
+        "invisible_streak": 0,
+        "terminated": False,
+        "expected_direction_sign": None,
+    }
+
+    if force_full_sequence or window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_xmem2_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=xmem2_settings,
+            query_boxes_xyxy=query_boxes,
+            query_object_ids=query_object_ids,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = _append_xmem2_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            result.mask_areas[0],
+            result.mask_bboxes_xyxy[0],
+            result.mask_scores[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            representative_point_mode=result.representative_point_mode,
+            initial_mask_mode=result.initial_mask_mode,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            max_mask_area_ratio_change=max_mask_area_ratio_change,
+            max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+            max_bbox_center_jump_px=max_bbox_center_jump_px,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=max(1, start_local_idx),
+            min_global_write_idx=start_frame_index,
+            global_start_idx=subset_start_index,
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_xmem2_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            seed_rect = seed_spot.roi_rect
+            result = run_xmem2_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(
+                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=xmem2_settings,
+                query_boxes_xyxy=np.asarray(
+                    [[
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]],
+                    dtype=np.float32,
+                ),
+            )
+
+            ok = _append_xmem2_sequence_to_track(
                 track_to_update,
                 state,
                 start_spot,
