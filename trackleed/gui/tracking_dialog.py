@@ -53,6 +53,10 @@ from trackleed.analysis.xmem2_backend import (
     format_xmem2_environment_report,
     probe_xmem2_environment,
 )
+from trackleed.analysis.tomp_backend import (
+    format_tomp_environment_report,
+    probe_tomp_environment,
+)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
@@ -64,6 +68,7 @@ from trackleed.analysis.tracking import (
     retrack_single_spot_optical_flow,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_pipspp_offline,
+    retrack_single_spot_tomp_offline,
     retrack_single_spot_xmem2_offline,
     retrack_single_spot_sam2_offline,
     retrack_single_spot_trackonr_offline,
@@ -95,6 +100,7 @@ class TrackingDialog(QDialog):
         mftiq_params: dict | None = None,
         cutie_params: dict | None = None,
         xmem2_params: dict | None = None,
+        tomp_params: dict | None = None,
         sam2_params: dict | None = None,
         parent=None,
         save_session_callback=None,
@@ -124,6 +130,7 @@ class TrackingDialog(QDialog):
         self.mftiq_params = dict(mftiq_params or {})
         self.cutie_params = dict(cutie_params or {})
         self.xmem2_params = dict(xmem2_params or {})
+        self.tomp_params = dict(tomp_params or {})
         self.sam2_params = dict(sam2_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
@@ -475,6 +482,10 @@ class TrackingDialog(QDialog):
             return "Cutie"
         if sources == {"xmem2_offline"}:
             return "XMem2"
+        if sources == {"tomp_offline"}:
+            return "ToMP"
+        if sources == {"tamos_offline"}:
+            return "TaMOs"
         if sources == {"sam2_offline"}:
             return "SAM2"
         if sources.issubset(manual_sources):
@@ -499,6 +510,10 @@ class TrackingDialog(QDialog):
             return "Cutie + Manual"
         if "xmem2_offline" in sources and sources.issubset({"xmem2_offline"} | manual_sources):
             return "XMem2 + Manual"
+        if "tomp_offline" in sources and sources.issubset({"tomp_offline"} | manual_sources):
+            return "ToMP + Manual"
+        if "tamos_offline" in sources and sources.issubset({"tamos_offline"} | manual_sources):
+            return "TaMOs + Manual"
         if "sam2_offline" in sources and sources.issubset({"sam2_offline"} | manual_sources):
             return "SAM2 + Manual"
         if any("optical" in src or "flow" in src for src in sources):
@@ -784,6 +799,49 @@ class TrackingDialog(QDialog):
                 lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
             if rejected_reason:
                 lines.append(f"Filter: rejected ({rejected_reason})")
+        elif source in {"tomp_offline", "tamos_offline"}:
+            raw_x = getattr(spot, "tomp_raw_x", None)
+            raw_y = getattr(spot, "tomp_raw_y", None)
+            refined_x = getattr(spot, "tomp_refined_x", None)
+            refined_y = getattr(spot, "tomp_refined_y", None)
+            visibility = getattr(spot, "tomp_visibility", None)
+            bbox_score = getattr(spot, "tomp_bbox_score", None)
+            bbox_xywh = getattr(spot, "tomp_bbox_xywh", None)
+            bbox_xyxy = getattr(spot, "tomp_bbox_xyxy", None)
+            bbox_aspect_ratio = getattr(spot, "tomp_bbox_aspect_ratio", None)
+            repr_mode = getattr(spot, "tomp_repr_mode", None)
+            model_variant = getattr(spot, "tomp_model_variant", None)
+            rejected_reason = getattr(spot, "tomp_filter_rejected_reason", None)
+            if raw_x is not None and raw_y is not None:
+                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+            if refined_x is not None and refined_y is not None:
+                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+            if visibility is not None:
+                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+            if model_variant:
+                lines.append(f"Model variant: {model_variant}")
+            if repr_mode:
+                lines.append(f"Representative mode: {repr_mode}")
+            if bbox_score is not None:
+                lines.append(f"BBox score: {float(bbox_score):.3f}")
+            if bbox_xywh is not None:
+                try:
+                    x, y, w, h = [float(v) for v in bbox_xywh]
+                    lines.append(f"BBox xywh: x={x:.1f}, y={y:.1f}, w={w:.1f}, h={h:.1f}")
+                except Exception:
+                    pass
+            if bbox_xyxy is not None:
+                try:
+                    x0, y0, x1, y1 = [float(v) for v in bbox_xyxy]
+                    lines.append(
+                        f"BBox xyxy: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
+                    )
+                except Exception:
+                    pass
+            if bbox_aspect_ratio is not None:
+                lines.append(f"BBox aspect ratio: {float(bbox_aspect_ratio):.3f}")
+            if rejected_reason:
+                lines.append(f"Filter: rejected ({rejected_reason})")
         elif source == "sam2_offline":
             raw_x = getattr(spot, "sam2_raw_x", None)
             raw_y = getattr(spot, "sam2_raw_y", None)
@@ -896,6 +954,14 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "xmem2_raw_x", None)
             raw_y = getattr(spot, "xmem2_raw_y", None)
             label = f"XMEM2 T{selected_track.track_id}"
+        elif source in {"tomp_offline", "tamos_offline"}:
+            raw_x = getattr(spot, "tomp_raw_x", None)
+            raw_y = getattr(spot, "tomp_raw_y", None)
+            label = (
+                f"TAMOS T{selected_track.track_id}"
+                if source == "tamos_offline"
+                else f"TOMP T{selected_track.track_id}"
+            )
         elif source == "sam2_offline":
             raw_x = getattr(spot, "sam2_raw_x", None)
             raw_y = getattr(spot, "sam2_raw_y", None)
@@ -989,6 +1055,7 @@ class TrackingDialog(QDialog):
         retrack_mftiq_action = menu.addAction("Re-track from this point (MFTIQ)")
         retrack_cutie_action = menu.addAction("Re-track from this point (Cutie)")
         retrack_xmem2_action = menu.addAction("Re-track from this point (XMem2)")
+        retrack_tomp_action = menu.addAction("Re-track from this point (ToMP)")
         retrack_sam2_action = menu.addAction("Re-track from this point (SAM2)")
         
         action = menu.exec(global_pos)
@@ -1021,6 +1088,8 @@ class TrackingDialog(QDialog):
             self.initiate_retrack_cutie(spot_id)
         elif action == retrack_xmem2_action:
             self.initiate_retrack_xmem2(spot_id)
+        elif action == retrack_tomp_action:
+            self.initiate_retrack_tomp(spot_id)
         elif action == retrack_sam2_action:
             self.initiate_retrack_sam2(spot_id)
 
@@ -1816,6 +1885,119 @@ class TrackingDialog(QDialog):
             title="Re-tracking spot with SAM2...",
             cancel_event=cancel_event,
             method_label="SAM2 re-tracking",
+        )
+
+    def initiate_retrack_tomp(self, spot_id: int):
+        """Prepares and launches ToMP / TaMOs re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+
+        if not self.tomp_params:
+            QMessageBox.warning(
+                self,
+                "ToMP Settings Missing",
+                "ToMP / TaMOs parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None:
+            return
+
+        variant_value = (
+            self.tomp_params.get("model_variant")
+            or getattr(start_spot, "tomp_model_variant", None)
+            or ("tamos_resnet50" if str(getattr(start_spot, "source", "")).strip().lower() == "tamos_offline" else "tomp50")
+        )
+        variant_key = str(variant_value or "tomp50").strip().lower()
+        if variant_key in {"tamos", "tamos_resnet50", "tamos-resnet50", "tamos_50"}:
+            model_variant = "tamos_resnet50"
+            variant_label = "TaMOs"
+        else:
+            model_variant = "tomp50"
+            variant_label = "ToMP"
+
+        status = probe_tomp_environment(
+            tomp_models_dir=self.tomp_params.get("tomp_models_dir"),
+            tamos_models_dir=self.tomp_params.get("tamos_models_dir"),
+            tomp_checkpoint_path=(
+                self.tomp_params.get("checkpoint_path")
+                if model_variant != "tamos_resnet50"
+                else None
+            ),
+            tamos_checkpoint_path=(
+                self.tomp_params.get("checkpoint_path")
+                if model_variant == "tamos_resnet50"
+                else None
+            ),
+            repo_path=(
+                self.tomp_params.get("repo_path")
+                or self.tomp_params.get("tomp_repo_path")
+                or self.tomp_params.get("pytracking_repo_path")
+            ),
+        )
+
+        backend_mode = str(self.tomp_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = self.tomp_params.get("python_executable")
+        python_path_ok = bool(
+            python_executable and Path(str(python_executable)).expanduser().exists()
+        )
+        variant_ready = status.tamos_ready if model_variant == "tamos_resnet50" else status.tomp_ready
+        selected_checkpoint_obj = (
+            status.selected_tamos_checkpoint if model_variant == "tamos_resnet50" else status.selected_tomp_checkpoint
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and selected_checkpoint_obj is not None
+            and selected_checkpoint_obj.exists()
+        )
+        if backend_mode == "direct":
+            if not variant_ready:
+                QMessageBox.warning(
+                    self,
+                    f"{variant_label} Unavailable",
+                    format_tomp_environment_report(status),
+                )
+                return
+        else:
+            if not structural_ready:
+                QMessageBox.warning(
+                    self,
+                    f"{variant_label} Unavailable",
+                    format_tomp_environment_report(status),
+                )
+                return
+            if not (variant_ready or python_path_ok):
+                QMessageBox.warning(
+                    self,
+                    f"{variant_label} Unavailable",
+                    format_tomp_environment_report(status)
+                    + "\n\nSet the Python executable of the dedicated `tomp` env "
+                    "or run Trackleed from that environment.",
+                )
+                return
+
+        tomp_params = dict(self.tomp_params)
+        tomp_params["roi_size"] = self.roi_size
+        tomp_params["model_variant"] = model_variant
+
+        cancel_event = Event()
+        worker = GenericWorker(
+            retrack_single_spot_tomp_offline,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            tomp_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title=f"Re-tracking spot with {variant_label}...",
+            cancel_event=cancel_event,
+            method_label=f"{variant_label} re-tracking",
         )
 
     def launch_retrack_worker(

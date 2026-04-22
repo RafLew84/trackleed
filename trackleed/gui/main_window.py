@@ -61,6 +61,10 @@ from trackleed.analysis.xmem2_backend import (
     format_xmem2_environment_report,
     probe_xmem2_environment,
 )
+from trackleed.analysis.tomp_backend import (
+    format_tomp_environment_report,
+    probe_tomp_environment,
+)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
@@ -86,6 +90,7 @@ from trackleed.analysis.tracking import (
     track_spots_trackonr_offline,
     track_spots_pipspp_offline,
     track_spots_mftiq_offline,
+    track_spots_tomp_offline,
     track_spots_cutie_offline,
     track_spots_xmem2_offline,
     track_spots_sam2_offline,
@@ -426,6 +431,32 @@ class XMem2TrackingSettings:
     max_radial_jump_px: float = 0.0
 
 
+@dataclass
+class TompTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    backend_mode: str = "subprocess"
+    model_variant: str = "tomp50"
+    device: str = "auto"
+    representative_point_mode: str = "bbox_center"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 0.0
+    subprocess_timeout_sec: float = 1800.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -452,6 +483,7 @@ class MainWindow(QMainWindow):
         self.trackonr_settings = TrackonrTrackingSettings()
         self.pipspp_settings = PipsppTrackingSettings()
         self.mftiq_settings = MftiqTrackingSettings()
+        self.tomp_settings = TompTrackingSettings()
         self.sam2_settings = Sam2TrackingSettings()
         self.cutie_settings = CutieTrackingSettings()
         self.xmem2_settings = XMem2TrackingSettings()
@@ -466,6 +498,8 @@ class MainWindow(QMainWindow):
         self.trackonr_models_dir = self.tracking_models_dir / "trackonr"
         self.pipspp_models_dir = self.tracking_models_dir / "pipspp"
         self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
+        self.tomp_models_dir = self.tracking_models_dir / "tomp"
+        self.tamos_models_dir = self.tracking_models_dir / "tamos"
         self.cutie_models_dir = self.tracking_models_dir / "cutie"
         self.xmem2_models_dir = self.tracking_models_dir / "xmem2"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
@@ -487,6 +521,9 @@ class MainWindow(QMainWindow):
         default_mftiq_repo = Path(__file__).resolve().parents[3] / "mftiq"
         if default_mftiq_repo.exists():
             self.mftiq_settings.repo_path = str(default_mftiq_repo.resolve())
+        default_pytracking_repo = Path(__file__).resolve().parents[3] / "pytracking"
+        if default_pytracking_repo.exists():
+            self.tomp_settings.repo_path = str(default_pytracking_repo.resolve())
         default_cutie_repo = Path(__file__).resolve().parents[3] / "cutie"
         if default_cutie_repo.exists():
             self.cutie_settings.repo_path = str(default_cutie_repo.resolve())
@@ -506,6 +543,7 @@ class MainWindow(QMainWindow):
         self._trackonr_checkpoint_available = False
         self._pipspp_checkpoint_available = False
         self._mftiq_checkpoint_available = False
+        self._tomp_checkpoint_available = False
         self._cutie_checkpoint_available = False
         self._xmem2_checkpoint_available = False
         self._sam2_checkpoint_available = False
@@ -1386,6 +1424,7 @@ class MainWindow(QMainWindow):
             "Offline Track-On-R",
             "Offline PIPs++",
             "Offline MFTIQ",
+            "Offline ToMP",
             "Offline Cutie",
             "Offline XMem2",
             "Offline SAM2",
@@ -3327,6 +3366,242 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.mftiq_group)
 
+        # --- Offline ToMP / TaMOs parameters ---
+        self.tomp_group = QGroupBox("Offline ToMP / TaMOs")
+        tomp_layout = QFormLayout(self.tomp_group)
+
+        self.tomp_repo_path_edit = QLineEdit(self.tomp_settings.repo_path or "")
+        self.tomp_repo_path_edit.setPlaceholderText("Path to local pytracking repo root")
+        self.tomp_repo_path_edit.setToolTip(
+            "Local clone of the PyTracking repository. Must contain pytracking/evaluation/tracker.py "
+            "and parameter files for both ToMP and TaMOs."
+        )
+        self.tomp_repo_path_edit.editingFinished.connect(self._refresh_tomp_checkpoints)
+        tomp_layout.addRow("Repo path:", self.tomp_repo_path_edit)
+
+        self.tomp_python_executable_edit = QLineEdit(self.tomp_settings.python_executable or "")
+        self.tomp_python_executable_edit.setPlaceholderText(
+            "Path to the dedicated tomp env Python executable"
+        )
+        self.tomp_python_executable_edit.setToolTip(
+            "Used only in subprocess mode. Point this to the interpreter of the dedicated "
+            "ToMP / TaMOs environment."
+        )
+        self.tomp_python_executable_edit.editingFinished.connect(self._refresh_tomp_checkpoints)
+        tomp_layout.addRow("Python executable:", self.tomp_python_executable_edit)
+
+        self.tomp_backend_mode_combo = QComboBox()
+        self.tomp_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.tomp_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        tomp_backend_idx = self.tomp_backend_mode_combo.findData(self.tomp_settings.backend_mode)
+        self.tomp_backend_mode_combo.setCurrentIndex(tomp_backend_idx if tomp_backend_idx >= 0 else 0)
+        self.tomp_backend_mode_combo.setToolTip(
+            "Subprocess mode is the recommended production path when Trackleed runs outside the "
+            "dedicated PyTracking env. Direct import requires the current env to be ToMP/TaMOs-ready."
+        )
+        self.tomp_backend_mode_combo.currentIndexChanged.connect(self._on_tomp_backend_mode_changed)
+        tomp_layout.addRow("Backend mode:", self.tomp_backend_mode_combo)
+
+        self.tomp_model_variant_combo = QComboBox()
+        self.tomp_model_variant_combo.addItem("ToMP-50", "tomp50")
+        self.tomp_model_variant_combo.addItem("TaMOs-resnet50", "tamos_resnet50")
+        tomp_variant_idx = self.tomp_model_variant_combo.findData(self.tomp_settings.model_variant)
+        self.tomp_model_variant_combo.setCurrentIndex(tomp_variant_idx if tomp_variant_idx >= 0 else 0)
+        self.tomp_model_variant_combo.setToolTip(
+            "Choose which PyTracking bbox tracker Trackleed should run."
+        )
+        self.tomp_model_variant_combo.currentIndexChanged.connect(self._on_tomp_variant_changed)
+        tomp_layout.addRow("Model variant:", self.tomp_model_variant_combo)
+
+        tomp_model_row_widget = QWidget()
+        tomp_model_row_layout = QHBoxLayout(tomp_model_row_widget)
+        tomp_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tomp_checkpoint_combo = QComboBox()
+        self.tomp_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.tomp_checkpoint_combo.setToolTip(
+            "Select a checkpoint for the currently selected ToMP / TaMOs variant."
+        )
+        self.tomp_checkpoint_combo.currentIndexChanged.connect(self._on_tomp_checkpoint_selected)
+        self.tomp_refresh_button = QPushButton("Refresh")
+        self.tomp_refresh_button.setToolTip(
+            "Re-scan tracking_models/tomp, tracking_models/tamos and re-run PyTracking environment diagnostics."
+        )
+        self.tomp_refresh_button.clicked.connect(self._refresh_tomp_checkpoints)
+        tomp_model_row_layout.addWidget(self.tomp_checkpoint_combo)
+        tomp_model_row_layout.addWidget(self.tomp_refresh_button)
+        tomp_layout.addRow("Checkpoint:", tomp_model_row_widget)
+
+        self.tomp_checkpoint_hint_label = QLabel()
+        self.tomp_checkpoint_hint_label.setWordWrap(True)
+        self.tomp_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        tomp_layout.addRow(self.tomp_checkpoint_hint_label)
+
+        self.tomp_device_combo = QComboBox()
+        self.tomp_device_combo.addItem("Auto", "auto")
+        self.tomp_device_combo.addItem("GPU", "cuda")
+        self.tomp_device_combo.addItem("CPU", "cpu")
+        tomp_device_idx = self.tomp_device_combo.findData(self.tomp_settings.device)
+        self.tomp_device_combo.setCurrentIndex(tomp_device_idx if tomp_device_idx >= 0 else 0)
+        self.tomp_device_combo.setToolTip("Device passed to the ToMP / TaMOs runtime.")
+        tomp_layout.addRow("Device:", self.tomp_device_combo)
+
+        self.tomp_inference_resolution_combo = QComboBox()
+        self.tomp_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("256 x 256", 256),
+            ("384 x 384", 384),
+            ("512 x 512", 512),
+        ):
+            self.tomp_inference_resolution_combo.addItem(label, value)
+        tomp_res_idx = self.tomp_inference_resolution_combo.findData(self.tomp_settings.inference_resolution)
+        self.tomp_inference_resolution_combo.setCurrentIndex(tomp_res_idx if tomp_res_idx >= 0 else 0)
+        self.tomp_inference_resolution_combo.setToolTip(
+            "Optional square inference size for ToMP / TaMOs. Native keeps the original LEED frame size."
+        )
+        tomp_layout.addRow("Inference resolution:", self.tomp_inference_resolution_combo)
+
+        self.tomp_window_size_spinbox = QSpinBox()
+        self.tomp_window_size_spinbox.setRange(2, 4096)
+        self.tomp_window_size_spinbox.setValue(self.tomp_settings.window_size)
+        self.tomp_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed ToMP/TaMOs window. "
+            "Smaller values reduce temporal context and reseed more often."
+        )
+        tomp_layout.addRow("Window size:", self.tomp_window_size_spinbox)
+
+        self.tomp_window_overlap_spinbox = QSpinBox()
+        self.tomp_window_overlap_spinbox.setRange(0, 1024)
+        self.tomp_window_overlap_spinbox.setValue(self.tomp_settings.window_overlap)
+        self.tomp_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive ToMP/TaMOs windows. "
+            "In multi-window mode the backend clamps this to at least 1 shared frame."
+        )
+        tomp_layout.addRow("Window overlap:", self.tomp_window_overlap_spinbox)
+
+        self.tomp_repr_mode_combo = QComboBox()
+        self.tomp_repr_mode_combo.addItem("BBox center", "bbox_center")
+        tomp_repr_idx = self.tomp_repr_mode_combo.findData(self.tomp_settings.representative_point_mode)
+        self.tomp_repr_mode_combo.setCurrentIndex(tomp_repr_idx if tomp_repr_idx >= 0 else 0)
+        self.tomp_repr_mode_combo.setToolTip(
+            "How Trackleed converts the tracked bbox into one representative point."
+        )
+        tomp_layout.addRow("Representative point:", self.tomp_repr_mode_combo)
+
+        self.tomp_bbox_padding_spinbox = QDoubleSpinBox()
+        self.tomp_bbox_padding_spinbox.setDecimals(1)
+        self.tomp_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.tomp_bbox_padding_spinbox.setSingleStep(1.0)
+        self.tomp_bbox_padding_spinbox.setValue(self.tomp_settings.initial_bbox_padding_px)
+        self.tomp_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around roi_rect before the initial bbox is passed to ToMP / TaMOs."
+        )
+        tomp_layout.addRow("Init bbox padding (px):", self.tomp_bbox_padding_spinbox)
+
+        self.tomp_keep_gaps_checkbox = QCheckBox("Keep invisible bboxes as gaps")
+        self.tomp_keep_gaps_checkbox.setChecked(self.tomp_settings.keep_invisible_points_as_gaps)
+        self.tomp_keep_gaps_checkbox.setToolTip(
+            "If enabled, frames where ToMP / TaMOs return no accepted bbox leave gaps instead of forcing a point."
+        )
+        tomp_layout.addRow(self.tomp_keep_gaps_checkbox)
+
+        self.tomp_max_step_spinbox = QDoubleSpinBox()
+        self.tomp_max_step_spinbox.setDecimals(1)
+        self.tomp_max_step_spinbox.setRange(0.0, 500.0)
+        self.tomp_max_step_spinbox.setSingleStep(1.0)
+        self.tomp_max_step_spinbox.setValue(self.tomp_settings.max_step_distance_px)
+        self.tomp_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        tomp_layout.addRow("Max jump (px):", self.tomp_max_step_spinbox)
+
+        self.tomp_max_reacquisition_gap_spinbox = QSpinBox()
+        self.tomp_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.tomp_max_reacquisition_gap_spinbox.setValue(self.tomp_settings.max_reacquisition_gap)
+        self.tomp_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible bbox is still accepted. Set 0 to disable."
+        )
+        tomp_layout.addRow("Max reacquisition gap:", self.tomp_max_reacquisition_gap_spinbox)
+
+        self.tomp_terminate_after_invisible_spinbox = QSpinBox()
+        self.tomp_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.tomp_terminate_after_invisible_spinbox.setValue(
+            self.tomp_settings.terminate_after_invisible_frames
+        )
+        self.tomp_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        tomp_layout.addRow("Terminate after gap:", self.tomp_terminate_after_invisible_spinbox)
+
+        self.tomp_center_mode_combo = QComboBox()
+        self.tomp_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.tomp_center_mode_combo.addItem("Manual", "manual")
+        tomp_center_mode_idx = self.tomp_center_mode_combo.findData(self.tomp_settings.center_mode)
+        self.tomp_center_mode_combo.setCurrentIndex(
+            tomp_center_mode_idx if tomp_center_mode_idx >= 0 else 0
+        )
+        self.tomp_center_mode_combo.setToolTip(
+            "Reference center used by directional gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.tomp_center_mode_combo.currentIndexChanged.connect(self._on_tomp_center_mode_changed)
+        tomp_layout.addRow("Direction center:", self.tomp_center_mode_combo)
+
+        tomp_center_row_widget = QWidget()
+        tomp_center_row_layout = QHBoxLayout(tomp_center_row_widget)
+        tomp_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.tomp_center_x_spinbox = QDoubleSpinBox()
+        self.tomp_center_x_spinbox.setRange(0.0, 10000.0)
+        self.tomp_center_x_spinbox.setDecimals(1)
+        self.tomp_center_x_spinbox.setValue(self.tomp_settings.manual_center_x)
+        self.tomp_center_y_spinbox = QDoubleSpinBox()
+        self.tomp_center_y_spinbox.setRange(0.0, 10000.0)
+        self.tomp_center_y_spinbox.setDecimals(1)
+        self.tomp_center_y_spinbox.setValue(self.tomp_settings.manual_center_y)
+        tomp_center_row_layout.addWidget(self.tomp_center_x_spinbox)
+        tomp_center_row_layout.addWidget(QLabel(","))
+        tomp_center_row_layout.addWidget(self.tomp_center_y_spinbox)
+        tomp_layout.addRow("Manual center (x, y):", tomp_center_row_widget)
+
+        self.tomp_direction_mode_combo = QComboBox()
+        self.tomp_direction_mode_combo.addItem("None", "none")
+        self.tomp_direction_mode_combo.addItem("Auto", "auto")
+        self.tomp_direction_mode_combo.addItem("Inward", "inward")
+        self.tomp_direction_mode_combo.addItem("Outward", "outward")
+        tomp_direction_idx = self.tomp_direction_mode_combo.findData(self.tomp_settings.direction_mode)
+        self.tomp_direction_mode_combo.setCurrentIndex(
+            tomp_direction_idx if tomp_direction_idx >= 0 else 0
+        )
+        self.tomp_direction_mode_combo.setToolTip(
+            "Optional directional prior for radial motion relative to the LEED center."
+        )
+        tomp_layout.addRow("Direction mode:", self.tomp_direction_mode_combo)
+
+        self.tomp_lateral_tol_spinbox = QDoubleSpinBox()
+        self.tomp_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.tomp_lateral_tol_spinbox.setSingleStep(1.0)
+        self.tomp_lateral_tol_spinbox.setValue(self.tomp_settings.lateral_angle_tolerance_deg)
+        self.tomp_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        tomp_layout.addRow("Angular tol (deg):", self.tomp_lateral_tol_spinbox)
+
+        self.tomp_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.tomp_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.tomp_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.tomp_max_radial_jump_spinbox.setValue(self.tomp_settings.max_radial_jump_px)
+        self.tomp_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        tomp_layout.addRow("Max radial jump (px):", self.tomp_max_radial_jump_spinbox)
+
+        self.tomp_warning_label = QLabel()
+        self.tomp_warning_label.setStyleSheet("color: #d9534f;")
+        self.tomp_warning_label.setWordWrap(True)
+        tomp_layout.addRow(self.tomp_warning_label)
+
+        self._on_tomp_backend_mode_changed(self.tomp_backend_mode_combo.currentIndex())
+        self._on_tomp_center_mode_changed(self.tomp_center_mode_combo.currentIndex())
+        form_layout.addRow(self.tomp_group)
+
         # --- Offline Cutie parameters ---
         self.cutie_group = QGroupBox("Offline Cutie")
         cutie_layout = QFormLayout(self.cutie_group)
@@ -4450,6 +4725,7 @@ class MainWindow(QMainWindow):
         self._refresh_trackonr_checkpoints()
         self._refresh_pipspp_checkpoints()
         self._refresh_mftiq_checkpoints()
+        self._refresh_tomp_checkpoints()
         self._refresh_cutie_checkpoints()
         self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
@@ -5803,6 +6079,8 @@ class MainWindow(QMainWindow):
             self._refresh_pipspp_checkpoints()
         if scenario == "Offline MFTIQ":
             self._refresh_mftiq_checkpoints()
+        if scenario == "Offline ToMP":
+            self._refresh_tomp_checkpoints()
         if scenario == "Offline Cutie":
             self._refresh_cutie_checkpoints()
         if scenario == "Offline XMem2":
@@ -5846,6 +6124,7 @@ class MainWindow(QMainWindow):
         show_trackonr = scenario == "Offline Track-On-R"
         show_pipspp = scenario == "Offline PIPs++"
         show_mftiq = scenario == "Offline MFTIQ"
+        show_tomp = scenario == "Offline ToMP"
         show_cutie = scenario == "Offline Cutie"
         show_xmem2 = scenario == "Offline XMem2"
         show_sam2 = scenario == "Offline SAM2"
@@ -5870,6 +6149,8 @@ class MainWindow(QMainWindow):
             self.pipspp_group.setVisible(show_pipspp)
         if hasattr(self, "mftiq_group"):
             self.mftiq_group.setVisible(show_mftiq)
+        if hasattr(self, "tomp_group"):
+            self.tomp_group.setVisible(show_tomp)
         if hasattr(self, "cutie_group"):
             self.cutie_group.setVisible(show_cutie)
         if hasattr(self, "xmem2_group"):
@@ -5949,6 +6230,17 @@ class MainWindow(QMainWindow):
         if hasattr(self, "xmem2_warning_label"):
             self._refresh_xmem2_checkpoints()
 
+    def _on_tomp_backend_mode_changed(self, idx: int):
+        backend_mode = self.tomp_backend_mode_combo.itemData(idx)
+        self.tomp_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "tomp_warning_label"):
+            self._refresh_tomp_checkpoints()
+
+    def _on_tomp_center_mode_changed(self, idx: int):
+        manual = self.tomp_center_mode_combo.itemData(idx) == "manual"
+        self.tomp_center_x_spinbox.setEnabled(manual)
+        self.tomp_center_y_spinbox.setEnabled(manual)
+
     def _on_xmem2_center_mode_changed(self, idx: int):
         manual = self.xmem2_center_mode_combo.itemData(idx) == "manual"
         self.xmem2_center_x_spinbox.setEnabled(manual)
@@ -5958,6 +6250,146 @@ class MainWindow(QMainWindow):
         manual = self.cutie_center_mode_combo.itemData(idx) == "manual"
         self.cutie_center_x_spinbox.setEnabled(manual)
         self.cutie_center_y_spinbox.setEnabled(manual)
+
+    def _current_tomp_variant_key(self) -> str:
+        return str(self.tomp_model_variant_combo.currentData() or self.tomp_settings.model_variant or "tomp50")
+
+    def _current_tomp_variant_label(self) -> str:
+        return "TaMOs-resnet50" if self._current_tomp_variant_key() == "tamos_resnet50" else "ToMP-50"
+
+    def _refresh_tomp_checkpoints(self):
+        repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
+        if repo_path:
+            self.tomp_settings.repo_path = repo_path
+        self.tomp_settings.python_executable = self.tomp_python_executable_edit.text().strip() or None
+        self.tomp_settings.backend_mode = self.tomp_backend_mode_combo.currentData()
+        self.tomp_settings.model_variant = self._current_tomp_variant_key()
+
+        current_variant = self.tomp_settings.model_variant
+        status = probe_tomp_environment(
+            tomp_models_dir=self.tomp_models_dir,
+            tamos_models_dir=self.tamos_models_dir,
+            tomp_checkpoint_path=(
+                self.tomp_settings.checkpoint_path if current_variant == "tomp50" else None
+            ),
+            tamos_checkpoint_path=(
+                self.tomp_settings.checkpoint_path if current_variant == "tamos_resnet50" else None
+            ),
+            repo_path=self.tomp_settings.repo_path,
+        )
+
+        if current_variant == "tamos_resnet50":
+            available_checkpoints = status.available_tamos_checkpoints
+            selected_checkpoint_obj = status.selected_tamos_checkpoint
+            variant_ready = status.tamos_ready
+            hint_text = (
+                "Hint: use tamos_resnet50.pth.tar. This is the TaMOs-resnet50 checkpoint from PyTracking."
+            )
+        else:
+            available_checkpoints = status.available_tomp_checkpoints
+            selected_checkpoint_obj = status.selected_tomp_checkpoint
+            variant_ready = status.tomp_ready
+            hint_text = (
+                "Hint: use tomp50.pth.tar. This is the recommended ToMP-50 checkpoint for the first Trackleed integration."
+            )
+        self.tomp_checkpoint_hint_label.setText(hint_text)
+
+        self.tomp_checkpoint_combo.blockSignals(True)
+        self.tomp_checkpoint_combo.clear()
+
+        if not available_checkpoints:
+            self.tomp_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.tomp_checkpoint_combo.setEnabled(False)
+            self._tomp_checkpoint_available = False
+            self.tomp_settings.checkpoint_path = None
+        else:
+            self.tomp_checkpoint_combo.setEnabled(True)
+            for path in available_checkpoints:
+                self.tomp_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._tomp_checkpoint_available = True
+            selected_checkpoint = (
+                str(selected_checkpoint_obj.resolve())
+                if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.tomp_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.tomp_checkpoint_combo.setCurrentIndex(idx)
+                    self.tomp_settings.checkpoint_path = selected_checkpoint
+            if not self.tomp_settings.checkpoint_path and self.tomp_checkpoint_combo.count() > 0:
+                self.tomp_checkpoint_combo.setCurrentIndex(0)
+                self.tomp_settings.checkpoint_path = self.tomp_checkpoint_combo.currentData()
+
+        self.tomp_checkpoint_combo.blockSignals(False)
+        self.tomp_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.tomp_settings.repo_path or "")
+        )
+        self.tomp_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.tomp_settings.repo_path
+        )
+
+        python_executable = self.tomp_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and selected_checkpoint_obj is not None
+            and selected_checkpoint_obj.exists()
+        )
+
+        if variant_ready:
+            details = [self._current_tomp_variant_label()]
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            if selected_checkpoint_obj is not None:
+                details.append(selected_checkpoint_obj.name)
+            self.tomp_warning_label.setStyleSheet("color: #5cb85c;")
+            self.tomp_warning_label.setText(f"{self._current_tomp_variant_label()} ready. " + ", ".join(details[1:]))
+            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
+        elif (
+            self.tomp_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self.tomp_warning_label.setStyleSheet("color: #f0ad4e;")
+            self.tomp_warning_label.setText(
+                f"{self._current_tomp_variant_label()} subprocess configured. "
+                "Current app env is not PyTracking-ready, so Trackleed will use the external Python executable."
+            )
+            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.tomp_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not variant_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated tomp env, or run Trackleed from that env."
+                )
+            if not summary:
+                summary.append("Configure the dedicated tomp env or run Trackleed from that env.")
+            self.tomp_warning_label.setStyleSheet("color: #d9534f;")
+            self.tomp_warning_label.setText("\n".join(summary))
+            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
+
+    def _on_tomp_variant_changed(self, index: int):
+        self.tomp_settings.model_variant = self.tomp_model_variant_combo.itemData(index) or "tomp50"
+        self.tomp_settings.checkpoint_path = None
+        self._refresh_tomp_checkpoints()
+
+    def _on_tomp_checkpoint_selected(self, index: int):
+        checkpoint_path = self.tomp_checkpoint_combo.itemData(index)
+        self.tomp_settings.checkpoint_path = checkpoint_path
+        self._refresh_tomp_checkpoints()
 
     def _on_sam2_backend_mode_changed(self, idx: int):
         backend_mode = self.sam2_backend_mode_combo.itemData(idx)
@@ -7000,6 +7432,44 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_tomp_tracking_params(self) -> dict:
+        """Collect the current ToMP / TaMOs tracking settings from the UI."""
+        repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
+        inference_resolution = self.tomp_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        return {
+            "tomp_models_dir": str(self.tomp_models_dir.resolve()),
+            "tamos_models_dir": str(self.tamos_models_dir.resolve()),
+            "tomp_repo_path": repo_path,
+            "pytracking_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.tomp_settings.checkpoint_path,
+            "python_executable": self.tomp_python_executable_edit.text().strip() or None,
+            "backend_mode": self.tomp_backend_mode_combo.currentData(),
+            "model_variant": self.tomp_model_variant_combo.currentData(),
+            "device": self.tomp_device_combo.currentData(),
+            "representative_point_mode": self.tomp_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.tomp_window_size_spinbox.value(),
+            "window_overlap": self.tomp_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.tomp_bbox_padding_spinbox.value(),
+            "subprocess_timeout_sec": self.tomp_settings.subprocess_timeout_sec,
+            "keep_invisible_points_as_gaps": self.tomp_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.tomp_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.tomp_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.tomp_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.tomp_center_mode_combo.currentData(),
+            "manual_center": (
+                self.tomp_center_x_spinbox.value(),
+                self.tomp_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.tomp_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.tomp_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.tomp_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _collect_xmem2_tracking_params(self) -> dict:
         """Collect the current XMem2 tracking settings from the UI."""
         repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
@@ -7650,6 +8120,86 @@ class MainWindow(QMainWindow):
                 cancel_event=cancel_event,
             )
 
+        elif selected_scenario == "Offline ToMP":
+            ref_item = self.file_list_widget.currentItem()
+            if not ref_item:
+                QMessageBox.warning(self, "No Reference", "Offline ToMP requires selecting a reference frame.")
+                return
+            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+            if not ref_file.spots:
+                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+                return
+
+            repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
+            self.tomp_settings.repo_path = repo_path
+            self.tomp_settings.python_executable = self.tomp_python_executable_edit.text().strip() or None
+            self.tomp_settings.backend_mode = self.tomp_backend_mode_combo.currentData()
+            self.tomp_settings.model_variant = self._current_tomp_variant_key()
+
+            current_variant = self.tomp_settings.model_variant
+            status = probe_tomp_environment(
+                tomp_models_dir=self.tomp_models_dir,
+                tamos_models_dir=self.tamos_models_dir,
+                tomp_checkpoint_path=(
+                    self.tomp_settings.checkpoint_path if current_variant == "tomp50" else None
+                ),
+                tamos_checkpoint_path=(
+                    self.tomp_settings.checkpoint_path if current_variant == "tamos_resnet50" else None
+                ),
+                repo_path=self.tomp_settings.repo_path,
+            )
+            variant_ready = status.tamos_ready if current_variant == "tamos_resnet50" else status.tomp_ready
+            python_executable = self.tomp_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            selected_checkpoint_obj = (
+                status.selected_tamos_checkpoint if current_variant == "tamos_resnet50" else status.selected_tomp_checkpoint
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and selected_checkpoint_obj is not None
+                and selected_checkpoint_obj.exists()
+            )
+            if self.tomp_settings.backend_mode == "direct":
+                if not variant_ready:
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        format_tomp_environment_report(status),
+                    )
+                    return
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        format_tomp_environment_report(status),
+                    )
+                    return
+                if not (variant_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        format_tomp_environment_report(status)
+                        + "\n\nSet the Python executable of the dedicated `tomp` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return
+
+            tomp_params = self._collect_tomp_tracking_params()
+
+            file_map = {f.id: f for f in self.data_files if f.id is not None}
+            sorted_ids = sorted(file_map.keys())
+            worker = GenericWorker(
+                track_spots_tomp_offline,
+                file_map,
+                sorted_ids,
+                ref_file.id,
+                tomp_params,
+                cancel_event=cancel_event,
+            )
+
         elif selected_scenario == "Offline XMem2":
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
@@ -7975,6 +8525,7 @@ class MainWindow(QMainWindow):
             mftiq_params=self._collect_mftiq_tracking_params(),
             cutie_params=self._collect_cutie_tracking_params(),
             xmem2_params=self._collect_xmem2_tracking_params(),
+            tomp_params=self._collect_tomp_tracking_params(),
             sam2_params=self._collect_sam2_tracking_params(),
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),

@@ -93,6 +93,16 @@ from trackleed.analysis.xmem2_backend import (
     run_xmem2_offline,
     select_default_xmem2_checkpoint,
 )
+from trackleed.analysis.tomp_backend import (
+    DEFAULT_TAMOS_MODELS_DIR,
+    DEFAULT_TOMP_MODELS_DIR,
+    TompRuntimeSettings,
+    discover_tamos_checkpoints,
+    discover_tomp_checkpoints,
+    run_tomp_offline,
+    select_default_tamos_checkpoint,
+    select_default_tomp_checkpoint,
+)
 from trackleed.analysis.polygon_mask import (
     normalize_polygon_points,
     polygon_points_are_valid,
@@ -272,6 +282,24 @@ def _collect_missing_polygon_seed_spot_ids(
         if not polygon_points_are_valid(spot.polygon_seed_points, image_shape=image_shape):
             missing.append(int(spot.id))
     return missing
+
+
+def _normalize_tomp_model_variant_key(model_variant: str | None) -> str:
+    normalized = str(model_variant or "tomp50").strip().lower().replace("-", "_")
+    if normalized in {"tomp", "tomp50", "tomp_50"}:
+        return "tomp50"
+    if normalized in {"tamos", "tamos50", "tamos_resnet50"}:
+        return "tamos_resnet50"
+    raise ValueError(
+        "Unsupported ToMP / TaMOs model variant. "
+        "Expected `tomp50`/`tomp` or `tamos_resnet50`/`tamos`."
+    )
+
+
+def _tomp_tracker_source_name(model_variant: str | None) -> str:
+    if _normalize_tomp_model_variant_key(model_variant) == "tamos_resnet50":
+        return "tamos_offline"
+    return "tomp_offline"
 
 
 def _frame_to_normalized_gray(frame: np.ndarray) -> np.ndarray:
@@ -996,6 +1024,79 @@ def _build_xmem2_spot(
     return spot
 
 
+def _build_tomp_spot(
+    reference_spot: SpotROI,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    bbox_xywh: np.ndarray | tuple[float, float, float, float] | None,
+    bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+    bbox_score: float,
+    representative_point_mode: str,
+    model_variant: str,
+) -> SpotROI:
+    """Create a SpotROI from ToMP / TaMOs bbox output."""
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+
+    rect = _roi_rect_from_bbox_xyxy(
+        bbox_xyxy if visible else None,
+        image_shape,
+        fallback_center_x=x,
+        fallback_center_y=y,
+        fallback_roi_size=roi_size,
+    )
+    spot = SpotROI(
+        id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        intensity=1.0 if visible else 0.0,
+        source=_tomp_tracker_source_name(model_variant),
+    )
+    setattr(spot, "tomp_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
+    setattr(spot, "tomp_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
+    setattr(spot, "tomp_refined_x", float(x))
+    setattr(spot, "tomp_refined_y", float(y))
+    setattr(spot, "tomp_visibility", bool(visible))
+    setattr(spot, "tomp_bbox_score", float(bbox_score) if np.isfinite(bbox_score) else float("nan"))
+    setattr(spot, "tomp_model_variant", str(model_variant))
+    setattr(spot, "tomp_repr_mode", str(representative_point_mode))
+
+    if bbox_xywh is not None:
+        bbox_xywh_arr = np.asarray(bbox_xywh, dtype=np.float32).reshape(-1)
+        if bbox_xywh_arr.size >= 4 and np.all(np.isfinite(bbox_xywh_arr[:4])):
+            setattr(spot, "tomp_bbox_xywh", tuple(float(v) for v in bbox_xywh_arr[:4].tolist()))
+        else:
+            setattr(spot, "tomp_bbox_xywh", None)
+    else:
+        setattr(spot, "tomp_bbox_xywh", None)
+
+    if bbox_xyxy is not None:
+        bbox_xyxy_arr = np.asarray(bbox_xyxy, dtype=np.float32).reshape(-1)
+        if bbox_xyxy_arr.size >= 4 and np.all(np.isfinite(bbox_xyxy_arr[:4])):
+            setattr(spot, "tomp_bbox_xyxy", tuple(float(v) for v in bbox_xyxy_arr[:4].tolist()))
+            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox_xyxy_arr[:4])
+            setattr(
+                spot,
+                "tomp_bbox_aspect_ratio",
+                float(aspect_ratio) if aspect_ratio is not None else None,
+            )
+        else:
+            setattr(spot, "tomp_bbox_xyxy", None)
+            setattr(spot, "tomp_bbox_aspect_ratio", None)
+    else:
+        setattr(spot, "tomp_bbox_xyxy", None)
+        setattr(spot, "tomp_bbox_aspect_ratio", None)
+    return spot
+
+
 def _compute_point_tracker_window_starts(
     total_frames: int,
     window_size: int,
@@ -1140,6 +1241,24 @@ def _resolve_xmem2_window_overlap(
     That means multi-window tracking needs at least one shared frame between
     neighboring windows; otherwise the next window has no already-tracked seed
     object to continue propagation from.
+    """
+    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
+    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
+        overlap = max(1, overlap)
+    return overlap
+
+
+def _resolve_tomp_window_overlap(
+    total_frames: int,
+    window_size: int,
+    window_overlap: int,
+) -> int:
+    """
+    ToMP / TaMOs windows are restarted independently and reseeded from overlap frames.
+
+    That means multi-window tracking needs at least one shared frame between
+    neighboring windows; otherwise the next window has no already-tracked bbox
+    on its first frame to seed from.
     """
     overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
     if total_frames > 1 and 1 < int(window_size) < int(total_frames):
@@ -3303,6 +3422,203 @@ def _append_xmem2_sequence_to_track(
     state["last_valid_mask_area"] = last_valid_mask_area
     state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
     state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
+    state["invisible_streak"] = invisible_streak
+    state["terminated"] = terminated
+    return True
+
+
+def _append_tomp_sequence_to_track(
+    track: Track,
+    state: Dict[str, Any],
+    reference_spot: SpotROI,
+    frame_ids: List[int],
+    frame_shapes: List[Tuple[int, int]],
+    query_tracks: np.ndarray,
+    query_visible: np.ndarray,
+    query_bboxes_xywh: np.ndarray,
+    query_bboxes_xyxy: np.ndarray,
+    query_bbox_scores: np.ndarray,
+    *,
+    roi_size: int,
+    keep_invisible_as_gaps: bool,
+    representative_point_mode: str,
+    model_variant: str,
+    max_step_distance_px: float,
+    max_reacquisition_gap: int,
+    terminate_after_invisible_frames: int,
+    direction_center_xy: Tuple[float, float] | None,
+    direction_mode: str,
+    lateral_angle_tolerance_deg: float,
+    max_radial_jump_px: float,
+    min_directional_motion_px: float,
+    cancel_event: Optional[Event] = None,
+    start_local_idx: int = 1,
+    min_global_write_idx: int | None = None,
+    global_start_idx: int = 0,
+) -> bool:
+    """Append ToMP / TaMOs bbox summaries to one track."""
+    last_valid_xy = state["last_valid_xy"]
+    invisible_streak = int(state["invisible_streak"])
+    terminated = bool(state["terminated"])
+    max_step_distance_px = float(max(0.0, max_step_distance_px))
+    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
+    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
+    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
+    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
+    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
+    direction_mode = str(direction_mode or "none").strip().lower()
+
+    if terminated:
+        return True
+
+    for local_idx in range(start_local_idx, len(frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        global_idx = global_start_idx + local_idx
+        if min_global_write_idx is not None and global_idx <= min_global_write_idx:
+            continue
+
+        frame_id = frame_ids[local_idx]
+        image_h, image_w = frame_shapes[local_idx]
+        visible = bool(query_visible[local_idx])
+        raw_x = float(query_tracks[local_idx, 0])
+        raw_y = float(query_tracks[local_idx, 1])
+        bbox_xywh = query_bboxes_xywh[local_idx]
+        bbox_xyxy = query_bboxes_xyxy[local_idx]
+        bbox_score = float(query_bbox_scores[local_idx])
+
+        candidate_spot: SpotROI | None = None
+        rejection_reason = "not_visible"
+        accepted = visible
+        if accepted:
+            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
+                state["terminated"] = True
+                return True
+
+            if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
+                accepted = False
+                rejection_reason = "invalid_bbox"
+            elif not (0.0 <= raw_x < float(image_w) and 0.0 <= raw_y < float(image_h)):
+                accepted = False
+                rejection_reason = "out_of_bounds"
+
+        if accepted:
+            candidate_spot = _build_tomp_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                raw_x,
+                raw_y,
+                True,
+                roi_size,
+                bbox_xywh,
+                bbox_xyxy,
+                bbox_score,
+                representative_point_mode,
+                model_variant,
+            )
+
+            if max_step_distance_px > 0.0 and last_valid_xy is not None:
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
+                    accepted = False
+                    rejection_reason = "max_step_distance"
+                    setattr(candidate_spot, "tomp_filter_rejected", True)
+                    setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
+
+            if (
+                accepted
+                and direction_center_xy is not None
+                and last_valid_xy is not None
+                and direction_mode != "none"
+            ):
+                candidate_xy = np.array(
+                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+                    dtype=np.float32,
+                )
+                delta = candidate_xy - last_valid_xy
+                step_norm = float(np.linalg.norm(delta))
+                radial_unit, last_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
+                )
+                _, candidate_radius = radial_unit_and_radius(
+                    direction_center_xy,
+                    (float(candidate_xy[0]), float(candidate_xy[1])),
+                )
+
+                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
+                    accepted = False
+                    rejection_reason = "max_radial_jump"
+                    setattr(candidate_spot, "tomp_filter_rejected", True)
+                    setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
+
+                if accepted and step_norm >= min_directional_motion_px:
+                    expected_sign = state.get("expected_direction_sign")
+                    if direction_mode == "inward":
+                        expected_sign = -1.0
+                    elif direction_mode == "outward":
+                        expected_sign = 1.0
+                    else:
+                        if expected_sign is None:
+                            radial_comp_seed = float(np.dot(delta, radial_unit))
+                            if abs(radial_comp_seed) >= min_directional_motion_px:
+                                expected_sign = float(np.sign(radial_comp_seed))
+                                state["expected_direction_sign"] = expected_sign
+
+                    if expected_sign is not None:
+                        expected_vec = radial_unit * float(expected_sign)
+                        angle_deg = angular_offset_deg(expected_vec, delta)
+                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
+                            accepted = False
+                            rejection_reason = "direction_gating"
+                            setattr(candidate_spot, "tomp_filter_rejected", True)
+                            setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
+
+        if not accepted:
+            invisible_streak += 1
+            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
+                state["terminated"] = True
+                return True
+            if keep_invisible_as_gaps:
+                continue
+            fallback_x = raw_x if np.isfinite(raw_x) else (
+                float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
+            )
+            fallback_y = raw_y if np.isfinite(raw_y) else (
+                float(last_valid_xy[1]) if last_valid_xy is not None else float(reference_spot.center_y)
+            )
+            forced_spot = candidate_spot or _build_tomp_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                fallback_x,
+                fallback_y,
+                False,
+                roi_size,
+                bbox_xywh,
+                bbox_xyxy,
+                bbox_score,
+                representative_point_mode,
+                model_variant,
+            )
+            forced_spot.intensity = 0.0
+            setattr(forced_spot, "tomp_visibility", False)
+            setattr(forced_spot, "tomp_filter_rejected", True)
+            setattr(forced_spot, "tomp_filter_rejected_reason", rejection_reason)
+            track.spots_by_image_id[frame_id] = forced_spot
+            continue
+
+        track.spots_by_image_id[frame_id] = candidate_spot
+        last_valid_xy = np.array(
+            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
+            dtype=np.float32,
+        )
+        invisible_streak = 0
+
+    state["last_valid_xy"] = last_valid_xy
     state["invisible_streak"] = invisible_streak
     state["terminated"] = terminated
     return True
@@ -10067,6 +10383,696 @@ def track_spots_xmem2_offline(
     if progress_callback:
         progress_callback(100)
     return converted_tracks
+
+
+def track_spots_tomp_offline(
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[List[Track]]:
+    """
+    Track spots from a reference frame using offline ToMP / TaMOs.
+
+    Each reference spot ROI becomes one seeded bbox. The returned bbox centers
+    are converted to Track / SpotROI objects while preserving bbox metadata.
+    """
+    ref_file = all_files_map.get(reference_frame_id)
+    if not ref_file or not ref_file.spots:
+        raise ValueError("Reference frame must contain at least one defined spot.")
+    if reference_frame_id not in sorted_frame_ids:
+        raise ValueError("Reference frame is missing from the provided frame list.")
+
+    ref_index = sorted_frame_ids.index(reference_frame_id)
+    subset_frame_ids = sorted_frame_ids[ref_index:]
+    if len(subset_frame_ids) < 2:
+        raise ValueError("Offline ToMP / TaMOs requires at least two frames starting from the reference.")
+
+    model_variant_key = _normalize_tomp_model_variant_key(params.get("model_variant", "tomp50"))
+    repo_path = (
+        params.get("repo_path")
+        or params.get("tomp_repo_path")
+        or params.get("pytracking_repo_path")
+    )
+    checkpoint_path = params.get("checkpoint_path")
+    if model_variant_key == "tamos_resnet50":
+        tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
+        if not checkpoint_path:
+            detected_checkpoints = discover_tamos_checkpoints(
+                tamos_models_dir,
+                repo_path=repo_path,
+            )
+            selected_checkpoint = select_default_tamos_checkpoint(detected_checkpoints)
+            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+        if not checkpoint_path:
+            raise ValueError(
+                "No TaMOs checkpoint selected. Place `tamos_resnet50.pth.tar` in "
+                "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
+            )
+    else:
+        tomp_models_dir = Path(params.get("tomp_models_dir", DEFAULT_TOMP_MODELS_DIR))
+        if not checkpoint_path:
+            detected_checkpoints = discover_tomp_checkpoints(
+                tomp_models_dir,
+                repo_path=repo_path,
+            )
+            selected_checkpoint = select_default_tomp_checkpoint(detected_checkpoints)
+            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+        if not checkpoint_path:
+            raise ValueError(
+                "No ToMP checkpoint selected. Place `tomp50.pth.tar` in "
+                "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
+            )
+
+    query_points = np.array(
+        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [
+            [
+                float(spot.roi_rect.left()),
+                float(spot.roi_rect.top()),
+                float(spot.roi_rect.left() + spot.roi_rect.width()),
+                float(spot.roi_rect.top() + spot.roi_rect.height()),
+            ]
+            for spot in ref_file.spots
+        ],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    tomp_settings = TompRuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
+        model_variant=model_variant_key,
+        device=params.get("device", "auto"),
+        representative_point_mode=params.get("representative_point_mode", "bbox_center"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 0.0)),
+        use_presence_score_gating=bool(params.get("use_presence_score_gating", False)),
+        presence_threshold=float(params.get("presence_threshold", 0.0) or 0.0),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
+    )
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_tomp_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            ref_image = load_tiff(ref_file.filepath)
+            fallback_shape = None
+            if ref_image is not None and np.asarray(ref_image).size:
+                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_tomp_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=tomp_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        converted_tracks: List[Track] = []
+        for query_idx, reference_spot in enumerate(ref_file.spots):
+            track = Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            state = {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            ok = _append_tomp_sequence_to_track(
+                track,
+                state,
+                reference_spot,
+                subset_frame_ids,
+                frame_shapes,
+                result.tracks_xy[query_idx],
+                result.visible_mask[query_idx],
+                result.tracked_bboxes_xywh[query_idx],
+                result.tracked_bboxes_xyxy[query_idx],
+                result.bbox_scores[query_idx],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                model_variant=result.model_variant,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=None,
+                global_start_idx=0,
+            )
+            if not ok:
+                return None
+            converted_tracks.append(track)
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        track_map: Dict[int, Track] = {
+            reference_spot.id: Track(
+                track_id=reference_spot.id,
+                spots_by_image_id={reference_frame_id: reference_spot},
+            )
+            for reference_spot in ref_file.spots
+        }
+        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
+        track_states: Dict[int, Dict[str, Any]] = {
+            reference_spot.id: {
+                "last_valid_xy": np.array(
+                    [float(reference_spot.center_x), float(reference_spot.center_y)],
+                    dtype=np.float32,
+                ),
+                "invisible_streak": 0,
+                "terminated": False,
+                "expected_direction_sign": None,
+            }
+            for reference_spot in ref_file.spots
+        }
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_tomp_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            query_rows: List[List[float]] = []
+            query_box_rows: List[List[float]] = []
+            query_specs: List[Tuple[SpotROI, int]] = []
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+
+            for track_id, track in track_map.items():
+                reference_spot = reference_spots_by_id[track_id]
+                seed_local_idx = None
+                seed_spot = None
+                for local_idx, frame_id in enumerate(window_frame_ids):
+                    if frame_id not in query_seed_ids:
+                        break
+                    candidate = track.spots_by_image_id.get(frame_id)
+                    if candidate is None:
+                        continue
+                    seed_local_idx = local_idx
+                    seed_spot = candidate
+                    break
+                if seed_spot is None or seed_local_idx is None:
+                    continue
+
+                seed_rect = seed_spot.roi_rect
+                query_rows.append(
+                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
+                )
+                query_box_rows.append(
+                    [
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]
+                )
+                query_specs.append((reference_spot, seed_local_idx))
+
+            if not query_rows:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            result = run_tomp_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
+                settings=tomp_settings,
+                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
+            )
+
+            write_after_global_idx = covered_until
+            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
+                if cancel_event and cancel_event.is_set():
+                    return None
+
+                track = track_map[reference_spot.id]
+                ok = _append_tomp_sequence_to_track(
+                    track,
+                    track_states[reference_spot.id],
+                    reference_spot,
+                    window_frame_ids,
+                    window_shapes,
+                    result.tracks_xy[query_idx],
+                    result.visible_mask[query_idx],
+                    result.tracked_bboxes_xywh[query_idx],
+                    result.tracked_bboxes_xyxy[query_idx],
+                    result.bbox_scores[query_idx],
+                    roi_size=roi_size,
+                    keep_invisible_as_gaps=keep_invisible_as_gaps,
+                    representative_point_mode=result.representative_point_mode,
+                    model_variant=result.model_variant,
+                    max_step_distance_px=max_step_distance_px,
+                    max_reacquisition_gap=max_reacquisition_gap,
+                    terminate_after_invisible_frames=terminate_after_invisible_frames,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=direction_mode,
+                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                    max_radial_jump_px=max_radial_jump_px,
+                    min_directional_motion_px=min_directional_motion_px,
+                    cancel_event=cancel_event,
+                    start_local_idx=seed_local_idx + 1,
+                    min_global_write_idx=write_after_global_idx,
+                    global_start_idx=start_idx,
+                )
+                if not ok:
+                    return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+        converted_tracks = list(track_map.values())
+
+    if progress_callback:
+        progress_callback(100)
+    return converted_tracks
+
+
+def retrack_single_spot_tomp_offline(
+    track_to_update: Track,
+    start_frame_id: int,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    params: dict,
+    progress_callback: Callable[[int], None] | None = None,
+    cancel_event: Optional[Event] = None,
+) -> Optional[Track]:
+    """
+    Re-track a single existing track from a chosen frame using ToMP / TaMOs.
+
+    The track is trimmed after `start_frame_id`, then the selected bbox tracker
+    is rerun from that point using the current ROI rectangle as the seed bbox.
+    """
+    if start_frame_id not in track_to_update.spots_by_image_id:
+        raise ValueError(
+            f"Cannot start ToMP / TaMOs re-tracking. Track {track_to_update.track_id} "
+            f"has no point on frame {start_frame_id}."
+        )
+    if start_frame_id not in sorted_frame_ids:
+        raise ValueError("Start frame is missing from the provided frame list.")
+
+    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
+    for fid in frames_to_remove:
+        del track_to_update.spots_by_image_id[fid]
+
+    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    subset_frame_ids = sorted_frame_ids[start_frame_index:]
+    if len(subset_frame_ids) < 2:
+        if progress_callback:
+            progress_callback(100)
+        return track_to_update
+
+    start_variant = (
+        params.get("model_variant")
+        or getattr(start_spot, "tomp_model_variant", None)
+        or ("tamos_resnet50" if str(getattr(start_spot, "source", "")).strip().lower() == "tamos_offline" else "tomp50")
+    )
+    model_variant_key = _normalize_tomp_model_variant_key(start_variant)
+    repo_path = (
+        params.get("repo_path")
+        or params.get("tomp_repo_path")
+        or params.get("pytracking_repo_path")
+    )
+    checkpoint_path = params.get("checkpoint_path")
+    if model_variant_key == "tamos_resnet50":
+        tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
+        if not checkpoint_path:
+            detected_checkpoints = discover_tamos_checkpoints(
+                tamos_models_dir,
+                repo_path=repo_path,
+            )
+            selected_checkpoint = select_default_tamos_checkpoint(detected_checkpoints)
+            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+        if not checkpoint_path:
+            raise ValueError(
+                "No TaMOs checkpoint selected. Place `tamos_resnet50.pth.tar` in "
+                "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
+            )
+    else:
+        tomp_models_dir = Path(params.get("tomp_models_dir", DEFAULT_TOMP_MODELS_DIR))
+        if not checkpoint_path:
+            detected_checkpoints = discover_tomp_checkpoints(
+                tomp_models_dir,
+                repo_path=repo_path,
+            )
+            selected_checkpoint = select_default_tomp_checkpoint(detected_checkpoints)
+            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+        if not checkpoint_path:
+            raise ValueError(
+                "No ToMP checkpoint selected. Place `tomp50.pth.tar` in "
+                "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
+            )
+
+    start_rect = start_spot.roi_rect
+    query_points = np.array(
+        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
+        dtype=np.float32,
+    )
+    query_boxes = np.array(
+        [[
+            float(start_rect.left()),
+            float(start_rect.top()),
+            float(start_rect.left() + start_rect.width()),
+            float(start_rect.top() + start_rect.height()),
+        ]],
+        dtype=np.float32,
+    )
+
+    if progress_callback:
+        progress_callback(5)
+    if cancel_event and cancel_event.is_set():
+        return None
+
+    tomp_settings = TompRuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        backend_mode=params.get("backend_mode", "subprocess"),
+        model_variant=model_variant_key,
+        device=params.get("device", "auto"),
+        representative_point_mode=params.get("representative_point_mode", "bbox_center"),
+        inference_resolution=params.get("inference_resolution"),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 0.0)),
+        use_presence_score_gating=bool(params.get("use_presence_score_gating", False)),
+        presence_threshold=float(params.get("presence_threshold", 0.0) or 0.0),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
+    )
+    roi_size = int(params.get("roi_size", 32))
+    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
+    window_size = int(params.get("window_size", 64))
+    window_overlap = _resolve_tomp_window_overlap(
+        len(subset_frame_ids),
+        window_size,
+        int(params.get("window_overlap", 8)),
+    )
+    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
+    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
+    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
+    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
+    center_mode = str(params.get("center_mode", "auto")).strip().lower()
+    manual_center = params.get("manual_center")
+    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
+    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
+    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+
+    direction_center_xy: Tuple[float, float] | None = None
+    if direction_mode != "none":
+        if center_mode == "manual" and manual_center is not None:
+            try:
+                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
+            except Exception:
+                direction_center_xy = None
+        if direction_center_xy is None:
+            start_file = all_files_map.get(start_frame_id)
+            start_image = load_tiff(start_file.filepath) if start_file is not None else None
+            fallback_shape = None
+            if start_image is not None and np.asarray(start_image).size:
+                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
+            estimated_center = estimate_pattern_center_from_detections(
+                all_files_map,
+                frame_ids=subset_frame_ids,
+                fallback_shape=fallback_shape,
+            )
+            if estimated_center is not None:
+                direction_center_xy = (
+                    float(estimated_center["center_x"]),
+                    float(estimated_center["center_y"]),
+                )
+
+    state = {
+        "last_valid_xy": np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        ),
+        "invisible_streak": 0,
+        "terminated": False,
+        "expected_direction_sign": None,
+    }
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = _load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_tomp_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=tomp_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = _append_tomp_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            result.tracked_bboxes_xywh[0],
+            result.tracked_bboxes_xyxy[0],
+            result.bbox_scores[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            representative_point_mode=result.representative_point_mode,
+            model_variant=result.model_variant,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=1,
+            min_global_write_idx=None,
+            global_start_idx=0,
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_starts = _compute_point_tracker_window_starts(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        overlap = _resolve_tomp_window_overlap(
+            len(subset_frame_ids),
+            window_size,
+            window_overlap,
+        )
+        covered_until = 0
+
+        for window_idx, start_idx in enumerate(window_starts):
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            end_idx = min(len(subset_frame_ids), start_idx + window_size)
+            window_frame_ids = subset_frame_ids[start_idx:end_idx]
+            if len(window_frame_ids) < 2:
+                continue
+
+            loaded_window = _load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = max(covered_until, end_idx - 1)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                progress_callback(int(base))
+
+            seed_rect = seed_spot.roi_rect
+            result = run_tomp_offline(
+                frames=window_frames,
+                query_points_tyx=np.asarray(
+                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=tomp_settings,
+                query_boxes_xyxy=np.asarray(
+                    [[
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]],
+                    dtype=np.float32,
+                ),
+            )
+
+            ok = _append_tomp_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                window_frame_ids,
+                window_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                result.tracked_bboxes_xywh[0],
+                result.tracked_bboxes_xyxy[0],
+                result.bbox_scores[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                model_variant=result.model_variant,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=seed_local_idx + 1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = max(covered_until, end_idx - 1)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
 
 
 def retrack_single_spot_sam2_offline(
