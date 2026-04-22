@@ -26,15 +26,17 @@ DEFAULT_PYTRACKING_REPO_CANDIDATES = (
     Path(__file__).resolve().parents[2] / "pytracking",
 )
 DEFAULT_TOMP_CHECKPOINT = "tomp50.pth.tar"
+DEFAULT_TOMP101_CHECKPOINT = "tomp101.pth.tar"
 DEFAULT_TAMOS_CHECKPOINT = "tamos_resnet50.pth.tar"
+DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT = "tamos_swin_base.pth.tar"
 DEFAULT_TOMP_BBOX_PADDING_CANDIDATES = (0, 4, 8, 12, 16)
 TOMP_CHECKPOINT_PRIORITY = (
     DEFAULT_TOMP_CHECKPOINT,
-    "tomp101.pth.tar",
+    DEFAULT_TOMP101_CHECKPOINT,
 )
 TAMOS_CHECKPOINT_PRIORITY = (
     DEFAULT_TAMOS_CHECKPOINT,
-    "tamos_swin_base.pth.tar",
+    DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT,
 )
 PYTRACKING_IMPORT_ROOTS = ("pytracking", "ltr")
 
@@ -256,6 +258,41 @@ def select_default_tamos_checkpoint(checkpoints: list[Path]) -> Optional[Path]:
     return _select_default_checkpoint(checkpoints, TAMOS_CHECKPOINT_PRIORITY)
 
 
+def expected_tomp_checkpoint_name_for_variant(variant: str) -> str:
+    key = _normalize_tomp_variant_key(variant)
+    if key == "tomp101":
+        return DEFAULT_TOMP101_CHECKPOINT
+    if key == "tamos_resnet50":
+        return DEFAULT_TAMOS_CHECKPOINT
+    if key == "tamos_swin_base":
+        return DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT
+    return DEFAULT_TOMP_CHECKPOINT
+
+
+def select_default_tomp_checkpoint_for_variant(
+    checkpoints: list[Path],
+    variant: str,
+) -> Optional[Path]:
+    key = _normalize_tomp_variant_key(variant)
+    if key == "tomp101":
+        priority = (DEFAULT_TOMP101_CHECKPOINT, DEFAULT_TOMP_CHECKPOINT)
+    else:
+        priority = (DEFAULT_TOMP_CHECKPOINT, DEFAULT_TOMP101_CHECKPOINT)
+    return _select_default_checkpoint(checkpoints, priority)
+
+
+def select_default_tamos_checkpoint_for_variant(
+    checkpoints: list[Path],
+    variant: str,
+) -> Optional[Path]:
+    key = _normalize_tomp_variant_key(variant)
+    if key == "tamos_swin_base":
+        priority = (DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT, DEFAULT_TAMOS_CHECKPOINT)
+    else:
+        priority = (DEFAULT_TAMOS_CHECKPOINT, DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT)
+    return _select_default_checkpoint(checkpoints, priority)
+
+
 def probe_tomp_environment(
     *,
     tomp_models_dir: str | Path | None = None,
@@ -365,7 +402,8 @@ def probe_tomp_environment(
         )
         status.hints.append(
             "Expected repo root containing `pytracking/evaluation/tracker.py`, "
-            "`pytracking/parameter/tomp/tomp50.py`, and `pytracking/parameter/tamos/tamos_resnet50.py`."
+            "`pytracking/parameter/tomp/tomp50.py` or `tomp101.py`, and "
+            "`pytracking/parameter/tamos/tamos_resnet50.py` or `tamos_swin_base.py`."
         )
     else:
         if not status.precise_roi_pooling_submodule_present:
@@ -604,13 +642,13 @@ def probe_tomp_initial_bbox_padding(
     aggregate_scores: dict[int, list[float]] = {padding_px: [] for padding_px in padding_candidates}
     sample_results: list[TompInitialBBoxSampleResult] = []
 
-    checkpoint_map = {
-        "tomp": tomp_checkpoint_path,
-        "tamos": tamos_checkpoint_path,
-    }
     variant_checkpoint_names: dict[str, str] = {}
     for variant in normalized_variants:
-        checkpoint_path = checkpoint_map.get(variant)
+        checkpoint_path = (
+            tamos_checkpoint_path
+            if str(variant).startswith("tamos")
+            else tomp_checkpoint_path
+        )
         if checkpoint_path is None:
             raise FileNotFoundError(
                 f"Missing checkpoint path for `{variant}` in ToMP bbox probe."
@@ -623,7 +661,11 @@ def probe_tomp_initial_bbox_padding(
         variant_results: list[TompInitialBBoxVariantResult] = []
         for variant in normalized_variants:
             variant_padding_results: list[TompInitialBBoxPaddingResult] = []
-            checkpoint_path = checkpoint_map[variant]
+            checkpoint_path = (
+                tamos_checkpoint_path
+                if str(variant).startswith("tamos")
+                else tomp_checkpoint_path
+            )
             assert checkpoint_path is not None
             tracker_name, parameter_name, variant_display_name = _normalize_tomp_variant(variant)
 
@@ -1325,13 +1367,18 @@ def _format_bool(value: bool) -> str:
 
 
 def _normalize_tomp_variant(variant: str) -> tuple[str, str, str]:
-    key = str(variant or "tomp").strip().lower().replace("-", "_")
-    if key in {"tomp", "tomp50"}:
+    key = _normalize_tomp_variant_key(variant)
+    if key == "tomp50":
         return "tomp", "tomp50", "ToMP-50"
-    if key in {"tamos", "tamos_resnet50", "tamos50"}:
+    if key == "tomp101":
+        return "tomp", "tomp101", "ToMP-101"
+    if key == "tamos_resnet50":
         return "tamos", "tamos_resnet50", "TaMOs-resnet50"
+    if key == "tamos_swin_base":
+        return "tamos", "tamos_swin_base", "TaMOs-swin-base"
     raise ValueError(
-        f"Unsupported ToMP/TaMOs variant: {variant}. Expected `tomp`/`tomp50` or `tamos`/`tamos_resnet50`."
+        "Unsupported ToMP/TaMOs variant: "
+        f"{variant}. Expected `tomp50`, `tomp101`, `tamos_resnet50`, or `tamos_swin_base`."
     )
 
 
@@ -1340,12 +1387,28 @@ def _normalize_tomp_probe_variants(
 ) -> list[str]:
     normalized: list[str] = []
     for variant in variants:
-        tracker_name, _, _ = _normalize_tomp_variant(variant)
-        if tracker_name not in normalized:
-            normalized.append(tracker_name)
+        variant_key = _normalize_tomp_variant_key(variant)
+        if variant_key not in normalized:
+            normalized.append(variant_key)
     if not normalized:
         raise ValueError("No ToMP/TaMOs variants selected for the bbox probe.")
     return normalized
+
+
+def _normalize_tomp_variant_key(variant: str | None) -> str:
+    key = str(variant or "tomp50").strip().lower().replace("-", "_")
+    if key in {"tomp", "tomp50", "tomp_50"}:
+        return "tomp50"
+    if key in {"tomp101", "tomp_101"}:
+        return "tomp101"
+    if key in {"tamos", "tamos50", "tamos_resnet50", "tamos_resnet_50"}:
+        return "tamos_resnet50"
+    if key in {"tamos_swin", "tamos_swin_base", "tamos_swinbase"}:
+        return "tamos_swin_base"
+    raise ValueError(
+        "Unsupported ToMP/TaMOs variant: "
+        f"{variant}. Expected `tomp50`, `tomp101`, `tamos_resnet50`, or `tamos_swin_base`."
+    )
 
 
 def _normalize_tomp_padding_candidates(

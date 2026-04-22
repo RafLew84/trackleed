@@ -99,9 +99,12 @@ from trackleed.analysis.tomp_backend import (
     TompRuntimeSettings,
     discover_tamos_checkpoints,
     discover_tomp_checkpoints,
+    expected_tomp_checkpoint_name_for_variant,
     run_tomp_offline,
     select_default_tamos_checkpoint,
+    select_default_tamos_checkpoint_for_variant,
     select_default_tomp_checkpoint,
+    select_default_tomp_checkpoint_for_variant,
 )
 from trackleed.analysis.polygon_mask import (
     normalize_polygon_points,
@@ -288,16 +291,20 @@ def _normalize_tomp_model_variant_key(model_variant: str | None) -> str:
     normalized = str(model_variant or "tomp50").strip().lower().replace("-", "_")
     if normalized in {"tomp", "tomp50", "tomp_50"}:
         return "tomp50"
+    if normalized in {"tomp101", "tomp_101"}:
+        return "tomp101"
     if normalized in {"tamos", "tamos50", "tamos_resnet50"}:
         return "tamos_resnet50"
+    if normalized in {"tamos_swin", "tamos_swin_base", "tamos_swinbase"}:
+        return "tamos_swin_base"
     raise ValueError(
         "Unsupported ToMP / TaMOs model variant. "
-        "Expected `tomp50`/`tomp` or `tamos_resnet50`/`tamos`."
+        "Expected `tomp50`/`tomp`, `tomp101`, `tamos_resnet50`/`tamos`, or `tamos_swin_base`."
     )
 
 
 def _tomp_tracker_source_name(model_variant: str | None) -> str:
-    if _normalize_tomp_model_variant_key(model_variant) == "tamos_resnet50":
+    if _normalize_tomp_model_variant_key(model_variant) in {"tamos_resnet50", "tamos_swin_base"}:
         return "tamos_offline"
     return "tomp_offline"
 
@@ -10417,18 +10424,22 @@ def track_spots_tomp_offline(
         or params.get("pytracking_repo_path")
     )
     checkpoint_path = params.get("checkpoint_path")
-    if model_variant_key == "tamos_resnet50":
+    if model_variant_key in {"tamos_resnet50", "tamos_swin_base"}:
         tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
         if not checkpoint_path:
             detected_checkpoints = discover_tamos_checkpoints(
                 tamos_models_dir,
                 repo_path=repo_path,
             )
-            selected_checkpoint = select_default_tamos_checkpoint(detected_checkpoints)
+            selected_checkpoint = select_default_tamos_checkpoint_for_variant(
+                detected_checkpoints,
+                model_variant_key,
+            )
             checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
         if not checkpoint_path:
             raise ValueError(
-                "No TaMOs checkpoint selected. Place `tamos_resnet50.pth.tar` in "
+                "No TaMOs checkpoint selected. Place "
+                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
                 "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
             )
     else:
@@ -10438,11 +10449,15 @@ def track_spots_tomp_offline(
                 tomp_models_dir,
                 repo_path=repo_path,
             )
-            selected_checkpoint = select_default_tomp_checkpoint(detected_checkpoints)
+            selected_checkpoint = select_default_tomp_checkpoint_for_variant(
+                detected_checkpoints,
+                model_variant_key,
+            )
             checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
         if not checkpoint_path:
             raise ValueError(
-                "No ToMP checkpoint selected. Place `tomp50.pth.tar` in "
+                "No ToMP checkpoint selected. Place "
+                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
                 "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
             )
 
@@ -10792,18 +10807,22 @@ def retrack_single_spot_tomp_offline(
         or params.get("pytracking_repo_path")
     )
     checkpoint_path = params.get("checkpoint_path")
-    if model_variant_key == "tamos_resnet50":
+    if model_variant_key in {"tamos_resnet50", "tamos_swin_base"}:
         tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
         if not checkpoint_path:
             detected_checkpoints = discover_tamos_checkpoints(
                 tamos_models_dir,
                 repo_path=repo_path,
             )
-            selected_checkpoint = select_default_tamos_checkpoint(detected_checkpoints)
+            selected_checkpoint = select_default_tamos_checkpoint_for_variant(
+                detected_checkpoints,
+                model_variant_key,
+            )
             checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
         if not checkpoint_path:
             raise ValueError(
-                "No TaMOs checkpoint selected. Place `tamos_resnet50.pth.tar` in "
+                "No TaMOs checkpoint selected. Place "
+                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
                 "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
             )
     else:
@@ -10813,11 +10832,15 @@ def retrack_single_spot_tomp_offline(
                 tomp_models_dir,
                 repo_path=repo_path,
             )
-            selected_checkpoint = select_default_tomp_checkpoint(detected_checkpoints)
+            selected_checkpoint = select_default_tomp_checkpoint_for_variant(
+                detected_checkpoints,
+                model_variant_key,
+            )
             checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
         if not checkpoint_path:
             raise ValueError(
-                "No ToMP checkpoint selected. Place `tomp50.pth.tar` in "
+                "No ToMP checkpoint selected. Place "
+                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
                 "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
             )
 

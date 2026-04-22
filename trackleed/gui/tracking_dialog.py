@@ -56,6 +56,8 @@ from trackleed.analysis.xmem2_backend import (
 from trackleed.analysis.tomp_backend import (
     format_tomp_environment_report,
     probe_tomp_environment,
+    select_default_tamos_checkpoint_for_variant,
+    select_default_tomp_checkpoint_for_variant,
 )
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
@@ -1912,9 +1914,15 @@ class TrackingDialog(QDialog):
             or ("tamos_resnet50" if str(getattr(start_spot, "source", "")).strip().lower() == "tamos_offline" else "tomp50")
         )
         variant_key = str(variant_value or "tomp50").strip().lower()
-        if variant_key in {"tamos", "tamos_resnet50", "tamos-resnet50", "tamos_50"}:
+        if variant_key in {"tamos_swin", "tamos_swin_base", "tamos-swin-base", "tamos_swinbase"}:
+            model_variant = "tamos_swin_base"
+            variant_label = "TaMOs"
+        elif variant_key in {"tamos", "tamos_resnet50", "tamos-resnet50", "tamos_50"}:
             model_variant = "tamos_resnet50"
             variant_label = "TaMOs"
+        elif variant_key in {"tomp101", "tomp_101"}:
+            model_variant = "tomp101"
+            variant_label = "ToMP"
         else:
             model_variant = "tomp50"
             variant_label = "ToMP"
@@ -1924,12 +1932,12 @@ class TrackingDialog(QDialog):
             tamos_models_dir=self.tomp_params.get("tamos_models_dir"),
             tomp_checkpoint_path=(
                 self.tomp_params.get("checkpoint_path")
-                if model_variant != "tamos_resnet50"
+                if model_variant not in {"tamos_resnet50", "tamos_swin_base"}
                 else None
             ),
             tamos_checkpoint_path=(
                 self.tomp_params.get("checkpoint_path")
-                if model_variant == "tamos_resnet50"
+                if model_variant in {"tamos_resnet50", "tamos_swin_base"}
                 else None
             ),
             repo_path=(
@@ -1944,10 +1952,18 @@ class TrackingDialog(QDialog):
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
-        variant_ready = status.tamos_ready if model_variant == "tamos_resnet50" else status.tomp_ready
-        selected_checkpoint_obj = (
-            status.selected_tamos_checkpoint if model_variant == "tamos_resnet50" else status.selected_tomp_checkpoint
-        )
+        if model_variant in {"tamos_resnet50", "tamos_swin_base"}:
+            variant_ready = status.tamos_ready
+            selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
+                status.available_tamos_checkpoints,
+                model_variant,
+            )
+        else:
+            variant_ready = status.tomp_ready
+            selected_checkpoint_obj = select_default_tomp_checkpoint_for_variant(
+                status.available_tomp_checkpoints,
+                model_variant,
+            )
         structural_ready = bool(
             status.repo_path is not None
             and selected_checkpoint_obj is not None

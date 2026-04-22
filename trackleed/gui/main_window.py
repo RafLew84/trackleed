@@ -62,8 +62,11 @@ from trackleed.analysis.xmem2_backend import (
     probe_xmem2_environment,
 )
 from trackleed.analysis.tomp_backend import (
+    expected_tomp_checkpoint_name_for_variant,
     format_tomp_environment_report,
     probe_tomp_environment,
+    select_default_tamos_checkpoint_for_variant,
+    select_default_tomp_checkpoint_for_variant,
 )
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
@@ -3404,7 +3407,9 @@ class MainWindow(QMainWindow):
 
         self.tomp_model_variant_combo = QComboBox()
         self.tomp_model_variant_combo.addItem("ToMP-50", "tomp50")
+        self.tomp_model_variant_combo.addItem("ToMP-101", "tomp101")
         self.tomp_model_variant_combo.addItem("TaMOs-resnet50", "tamos_resnet50")
+        self.tomp_model_variant_combo.addItem("TaMOs-swin-base", "tamos_swin_base")
         tomp_variant_idx = self.tomp_model_variant_combo.findData(self.tomp_settings.model_variant)
         self.tomp_model_variant_combo.setCurrentIndex(tomp_variant_idx if tomp_variant_idx >= 0 else 0)
         self.tomp_model_variant_combo.setToolTip(
@@ -6255,7 +6260,14 @@ class MainWindow(QMainWindow):
         return str(self.tomp_model_variant_combo.currentData() or self.tomp_settings.model_variant or "tomp50")
 
     def _current_tomp_variant_label(self) -> str:
-        return "TaMOs-resnet50" if self._current_tomp_variant_key() == "tamos_resnet50" else "ToMP-50"
+        variant_key = self._current_tomp_variant_key()
+        if variant_key == "tomp101":
+            return "ToMP-101"
+        if variant_key == "tamos_resnet50":
+            return "TaMOs-resnet50"
+        if variant_key == "tamos_swin_base":
+            return "TaMOs-swin-base"
+        return "ToMP-50"
 
     def _refresh_tomp_checkpoints(self):
         repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
@@ -6270,28 +6282,55 @@ class MainWindow(QMainWindow):
             tomp_models_dir=self.tomp_models_dir,
             tamos_models_dir=self.tamos_models_dir,
             tomp_checkpoint_path=(
-                self.tomp_settings.checkpoint_path if current_variant == "tomp50" else None
+                self.tomp_settings.checkpoint_path
+                if current_variant in {"tomp50", "tomp101"}
+                else None
             ),
             tamos_checkpoint_path=(
-                self.tomp_settings.checkpoint_path if current_variant == "tamos_resnet50" else None
+                self.tomp_settings.checkpoint_path
+                if current_variant in {"tamos_resnet50", "tamos_swin_base"}
+                else None
             ),
             repo_path=self.tomp_settings.repo_path,
         )
 
-        if current_variant == "tamos_resnet50":
-            available_checkpoints = status.available_tamos_checkpoints
-            selected_checkpoint_obj = status.selected_tamos_checkpoint
-            variant_ready = status.tamos_ready
-            hint_text = (
-                "Hint: use tamos_resnet50.pth.tar. This is the TaMOs-resnet50 checkpoint from PyTracking."
+        expected_checkpoint_name = expected_tomp_checkpoint_name_for_variant(current_variant)
+        if current_variant in {"tamos_resnet50", "tamos_swin_base"}:
+            family_checkpoints = status.available_tamos_checkpoints
+            selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
+                family_checkpoints,
+                current_variant,
             )
+            available_checkpoints = [
+                path for path in family_checkpoints if path.name.lower() == expected_checkpoint_name.lower()
+            ]
+            variant_ready = bool(status.tamos_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
+            if current_variant == "tamos_swin_base":
+                hint_text = (
+                    "Hint: use tamos_swin_base.pth.tar. This is the stronger TaMOs-swin-base checkpoint from PyTracking."
+                )
+            else:
+                hint_text = (
+                    "Hint: use tamos_resnet50.pth.tar. This is the TaMOs-resnet50 checkpoint from PyTracking."
+                )
         else:
-            available_checkpoints = status.available_tomp_checkpoints
-            selected_checkpoint_obj = status.selected_tomp_checkpoint
-            variant_ready = status.tomp_ready
-            hint_text = (
-                "Hint: use tomp50.pth.tar. This is the recommended ToMP-50 checkpoint for the first Trackleed integration."
+            family_checkpoints = status.available_tomp_checkpoints
+            selected_checkpoint_obj = select_default_tomp_checkpoint_for_variant(
+                family_checkpoints,
+                current_variant,
             )
+            available_checkpoints = [
+                path for path in family_checkpoints if path.name.lower() == expected_checkpoint_name.lower()
+            ]
+            variant_ready = bool(status.tomp_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
+            if current_variant == "tomp101":
+                hint_text = (
+                    "Hint: use tomp101.pth.tar. This is the stronger ToMP-101 checkpoint from PyTracking."
+                )
+            else:
+                hint_text = (
+                    "Hint: use tomp50.pth.tar. This is the recommended ToMP-50 checkpoint for the first Trackleed integration."
+                )
         self.tomp_checkpoint_hint_label.setText(hint_text)
 
         self.tomp_checkpoint_combo.blockSignals(True)
@@ -8141,20 +8180,28 @@ class MainWindow(QMainWindow):
                 tomp_models_dir=self.tomp_models_dir,
                 tamos_models_dir=self.tamos_models_dir,
                 tomp_checkpoint_path=(
-                    self.tomp_settings.checkpoint_path if current_variant == "tomp50" else None
+                    self.tomp_settings.checkpoint_path if current_variant in {"tomp50", "tomp101"} else None
                 ),
                 tamos_checkpoint_path=(
-                    self.tomp_settings.checkpoint_path if current_variant == "tamos_resnet50" else None
+                    self.tomp_settings.checkpoint_path if current_variant in {"tamos_resnet50", "tamos_swin_base"} else None
                 ),
                 repo_path=self.tomp_settings.repo_path,
             )
-            variant_ready = status.tamos_ready if current_variant == "tamos_resnet50" else status.tomp_ready
+            if current_variant in {"tamos_resnet50", "tamos_swin_base"}:
+                selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
+                    status.available_tamos_checkpoints,
+                    current_variant,
+                )
+                variant_ready = bool(status.tamos_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
+            else:
+                selected_checkpoint_obj = select_default_tomp_checkpoint_for_variant(
+                    status.available_tomp_checkpoints,
+                    current_variant,
+                )
+                variant_ready = bool(status.tomp_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
             python_executable = self.tomp_settings.python_executable
             python_path_ok = bool(
                 python_executable and Path(python_executable).expanduser().exists()
-            )
-            selected_checkpoint_obj = (
-                status.selected_tamos_checkpoint if current_variant == "tamos_resnet50" else status.selected_tomp_checkpoint
             )
             structural_ready = bool(
                 status.repo_path is not None
