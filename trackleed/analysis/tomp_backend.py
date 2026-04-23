@@ -932,6 +932,7 @@ def _run_tomp_direct_offline(
                 frame_index=seed_frame,
                 bbox_xywh=seed_bbox_xywh,
                 score=1.0,
+                frame=resized_frames[seed_frame],
                 frame_resolution=inference_resolution,
                 representative_point_mode=representative_point_mode,
                 use_presence_score_gating=bool(settings.use_presence_score_gating),
@@ -963,6 +964,7 @@ def _run_tomp_direct_offline(
                     frame_index=frame_index,
                     bbox_xywh=bbox_xywh,
                     score=score,
+                    frame=resized_frames[frame_index],
                     frame_resolution=inference_resolution,
                     representative_point_mode=representative_point_mode,
                     use_presence_score_gating=bool(settings.use_presence_score_gating),
@@ -1439,8 +1441,13 @@ def _normalize_tomp_representative_point_mode(mode: str) -> str:
     normalized = str(mode or "bbox_center").strip().lower()
     if normalized in {"bbox_center", "center", "bbox-centre", "bbox_centre"}:
         return "bbox_center"
+    if normalized in {"peak_in_bbox", "peak", "bbox_peak"}:
+        return "peak_in_bbox"
+    if normalized in {"gaussian_in_bbox", "gaussian", "bbox_gaussian", "2d_gauss"}:
+        return "gaussian_in_bbox"
     raise ValueError(
-        f"Unsupported ToMP representative point mode: {mode}. Expected `bbox_center`."
+        "Unsupported ToMP representative point mode: "
+        f"{mode}. Expected `bbox_center`, `peak_in_bbox`, or `gaussian_in_bbox`."
     )
 
 
@@ -1667,6 +1674,7 @@ def _record_tomp_frame_output(
     frame_index: int,
     bbox_xywh: tuple[float, float, float, float] | None,
     score: float,
+    frame: np.ndarray,
     frame_resolution: tuple[int, int],
     representative_point_mode: str,
     use_presence_score_gating: bool,
@@ -1683,6 +1691,7 @@ def _record_tomp_frame_output(
     tracked_bboxes_xywh[query_index, frame_index, :] = bbox_arr
     representative_point = _representative_point_from_bbox_xywh(
         bbox_arr,
+        frame=frame,
         mode=representative_point_mode,
     )
     if representative_point is None:
@@ -1715,13 +1724,106 @@ def _bbox_xywh_is_valid(
 def _representative_point_from_bbox_xywh(
     bbox_xywh: np.ndarray,
     *,
+    frame: np.ndarray,
     mode: str,
 ) -> tuple[float, float] | None:
     normalized_mode = _normalize_tomp_representative_point_mode(mode)
-    if normalized_mode != "bbox_center":
-        return None
+    if normalized_mode == "gaussian_in_bbox":
+        gaussian_point = _gaussian_point_in_bbox_xywh(frame, bbox_xywh)
+        if gaussian_point is not None:
+            return gaussian_point
+    if normalized_mode == "peak_in_bbox":
+        peak_point = _peak_point_in_bbox_xywh(frame, bbox_xywh)
+        if peak_point is not None:
+            return peak_point
+    if normalized_mode == "gaussian_in_bbox":
+        peak_point = _peak_point_in_bbox_xywh(frame, bbox_xywh)
+        if peak_point is not None:
+            return peak_point
     x, y, w, h = [float(v) for v in bbox_xywh]
     return (x + w * 0.5, y + h * 0.5)
+
+
+def _peak_point_in_bbox_xywh(
+    frame: np.ndarray,
+    bbox_xywh: np.ndarray,
+) -> tuple[float, float] | None:
+    frame_np = np.asarray(frame)
+    if frame_np.ndim not in (2, 3) or frame_np.size == 0:
+        return None
+
+    x, y, w, h = [float(v) for v in np.asarray(bbox_xywh, dtype=np.float32).reshape(4)]
+    if not np.all(np.isfinite([x, y, w, h])) or w <= 0.0 or h <= 0.0:
+        return None
+
+    frame_h, frame_w = int(frame_np.shape[0]), int(frame_np.shape[1])
+    x0 = max(0, min(frame_w, int(np.floor(x))))
+    y0 = max(0, min(frame_h, int(np.floor(y))))
+    x1 = max(0, min(frame_w, int(np.ceil(x + w))))
+    y1 = max(0, min(frame_h, int(np.ceil(y + h))))
+    if x1 <= x0 or y1 <= y0:
+        return None
+
+    roi = frame_np[y0:y1, x0:x1]
+    if roi.size == 0:
+        return None
+    if roi.ndim == 3:
+        roi = np.mean(roi.astype(np.float32, copy=False), axis=-1)
+    else:
+        roi = roi.astype(np.float32, copy=False)
+
+    finite_mask = np.isfinite(roi)
+    if not np.any(finite_mask):
+        return None
+
+    safe_roi = np.where(finite_mask, roi, -np.inf)
+    peak_row, peak_col = np.unravel_index(int(np.argmax(safe_roi)), safe_roi.shape)
+    return (float(x0 + peak_col) + 0.5, float(y0 + peak_row) + 0.5)
+
+
+def _gaussian_point_in_bbox_xywh(
+    frame: np.ndarray,
+    bbox_xywh: np.ndarray,
+) -> tuple[float, float] | None:
+    try:
+        from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian
+    except Exception:
+        return None
+
+    frame_np = np.asarray(frame)
+    if frame_np.ndim not in (2, 3) or frame_np.size == 0:
+        return None
+
+    x, y, w, h = [float(v) for v in np.asarray(bbox_xywh, dtype=np.float32).reshape(4)]
+    if not np.all(np.isfinite([x, y, w, h])) or w <= 0.0 or h <= 0.0:
+        return None
+
+    frame_h, frame_w = int(frame_np.shape[0]), int(frame_np.shape[1])
+    x0 = max(0, min(frame_w, int(np.floor(x))))
+    y0 = max(0, min(frame_h, int(np.floor(y))))
+    x1 = max(0, min(frame_w, int(np.ceil(x + w))))
+    y1 = max(0, min(frame_h, int(np.ceil(y + h))))
+    if x1 <= x0 or y1 <= y0:
+        return None
+
+    roi = frame_np[y0:y1, x0:x1]
+    if roi.size == 0:
+        return None
+
+    fit = fit_spot_to_gaussian(
+        roi,
+        center_preference_factor=0.35,
+    )
+    if not fit:
+        return None
+
+    center_x = float(fit.get("center_x", np.nan))
+    center_y = float(fit.get("center_y", np.nan))
+    if not np.isfinite(center_x) or not np.isfinite(center_y):
+        return None
+    if not (0.0 <= center_x < float(max(1, x1 - x0)) and 0.0 <= center_y < float(max(1, y1 - y0))):
+        return None
+    return (float(x0 + center_x), float(y0 + center_y))
 
 
 def _boxes_xywh_to_xyxy(boxes_xywh: np.ndarray) -> np.ndarray:

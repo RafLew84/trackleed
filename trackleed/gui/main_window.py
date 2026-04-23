@@ -3485,6 +3485,8 @@ class MainWindow(QMainWindow):
 
         self.tomp_repr_mode_combo = QComboBox()
         self.tomp_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.tomp_repr_mode_combo.addItem("Peak in bbox", "peak_in_bbox")
+        self.tomp_repr_mode_combo.addItem("Gaussian in bbox", "gaussian_in_bbox")
         tomp_repr_idx = self.tomp_repr_mode_combo.findData(self.tomp_settings.representative_point_mode)
         self.tomp_repr_mode_combo.setCurrentIndex(tomp_repr_idx if tomp_repr_idx >= 0 else 0)
         self.tomp_repr_mode_combo.setToolTip(
