@@ -448,6 +448,8 @@ class TompTrackingSettings:
     window_overlap: int = 8
     initial_bbox_padding_px: float = 0.0
     subprocess_timeout_sec: float = 1800.0
+    use_presence_score_gating: bool = False
+    presence_threshold: float = 0.0
     keep_invisible_points_as_gaps: bool = True
     max_step_distance_px: float = 0.0
     max_reacquisition_gap: int = 0
@@ -458,6 +460,54 @@ class TompTrackingSettings:
     direction_mode: str = "none"
     lateral_angle_tolerance_deg: float = 20.0
     max_radial_jump_px: float = 0.0
+
+
+TOMP_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
+    "tomp50": {
+        "representative_point_mode": "peak_in_bbox",
+        "window_size": 64,
+        "window_overlap": 8,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": False,
+        "presence_threshold": 0.0,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+    "tomp101": {
+        "representative_point_mode": "peak_in_bbox",
+        "window_size": 64,
+        "window_overlap": 8,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": True,
+        "presence_threshold": 0.25,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+    "tamos_resnet50": {
+        "representative_point_mode": "peak_in_bbox",
+        "window_size": 96,
+        "window_overlap": 12,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": True,
+        "presence_threshold": 0.35,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+    "tamos_swin_base": {
+        "representative_point_mode": "peak_in_bbox",
+        "window_size": 96,
+        "window_overlap": 12,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": True,
+        "presence_threshold": 0.45,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+}
 
 
 class MainWindow(QMainWindow):
@@ -3418,6 +3468,11 @@ class MainWindow(QMainWindow):
         self.tomp_model_variant_combo.currentIndexChanged.connect(self._on_tomp_variant_changed)
         tomp_layout.addRow("Model variant:", self.tomp_model_variant_combo)
 
+        self.tomp_preset_hint_label = QLabel()
+        self.tomp_preset_hint_label.setWordWrap(True)
+        self.tomp_preset_hint_label.setStyleSheet("color: #6c757d;")
+        tomp_layout.addRow(self.tomp_preset_hint_label)
+
         tomp_model_row_widget = QWidget()
         tomp_model_row_layout = QHBoxLayout(tomp_model_row_widget)
         tomp_model_row_layout.setContentsMargins(0, 0, 0, 0)
@@ -3503,6 +3558,24 @@ class MainWindow(QMainWindow):
             "Extra padding in pixels added around roi_rect before the initial bbox is passed to ToMP / TaMOs."
         )
         tomp_layout.addRow("Init bbox padding (px):", self.tomp_bbox_padding_spinbox)
+
+        self.tomp_presence_gating_checkbox = QCheckBox("Use presence score gating")
+        self.tomp_presence_gating_checkbox.setChecked(self.tomp_settings.use_presence_score_gating)
+        self.tomp_presence_gating_checkbox.setToolTip(
+            "Drop bbox detections whose ToMP / TaMOs object-presence score falls below the threshold."
+        )
+        self.tomp_presence_gating_checkbox.toggled.connect(self._on_tomp_presence_gating_changed)
+        tomp_layout.addRow(self.tomp_presence_gating_checkbox)
+
+        self.tomp_presence_threshold_spinbox = QDoubleSpinBox()
+        self.tomp_presence_threshold_spinbox.setDecimals(2)
+        self.tomp_presence_threshold_spinbox.setRange(0.00, 1.00)
+        self.tomp_presence_threshold_spinbox.setSingleStep(0.05)
+        self.tomp_presence_threshold_spinbox.setValue(self.tomp_settings.presence_threshold)
+        self.tomp_presence_threshold_spinbox.setToolTip(
+            "Minimum object-presence score required to keep a ToMP / TaMOs bbox when gating is enabled."
+        )
+        tomp_layout.addRow("Presence threshold:", self.tomp_presence_threshold_spinbox)
 
         self.tomp_keep_gaps_checkbox = QCheckBox("Keep invisible bboxes as gaps")
         self.tomp_keep_gaps_checkbox.setChecked(self.tomp_settings.keep_invisible_points_as_gaps)
@@ -3607,6 +3680,8 @@ class MainWindow(QMainWindow):
 
         self._on_tomp_backend_mode_changed(self.tomp_backend_mode_combo.currentIndex())
         self._on_tomp_center_mode_changed(self.tomp_center_mode_combo.currentIndex())
+        self._on_tomp_presence_gating_changed(self.tomp_presence_gating_checkbox.isChecked())
+        self._apply_tomp_variant_preset(self._current_tomp_variant_key())
         form_layout.addRow(self.tomp_group)
 
         # --- Offline Cutie parameters ---
@@ -6271,6 +6346,80 @@ class MainWindow(QMainWindow):
             return "TaMOs-swin-base"
         return "ToMP-50"
 
+    def _update_tomp_preset_hint(self, variant_key: str):
+        preset = TOMP_VARIANT_PRESETS.get(str(variant_key or "tomp50"))
+        if not hasattr(self, "tomp_preset_hint_label") or preset is None:
+            return
+        gating_text = (
+            f"on >= {float(preset.get('presence_threshold', 0.0)):.2f}"
+            if bool(preset.get("use_presence_score_gating", False))
+            else "off"
+        )
+        self.tomp_preset_hint_label.setText(
+            "Preset for "
+            f"{self._current_tomp_variant_label()}: "
+            f"repr={preset.get('representative_point_mode', 'bbox_center')}, "
+            f"window={int(preset.get('window_size', 64))}/{int(preset.get('window_overlap', 8))}, "
+            f"presence gating={gating_text}."
+        )
+
+    def _apply_tomp_variant_preset(self, variant_key: str):
+        preset = TOMP_VARIANT_PRESETS.get(str(variant_key or "tomp50"))
+        if preset is None:
+            return
+
+        if hasattr(self, "tomp_repr_mode_combo"):
+            repr_idx = self.tomp_repr_mode_combo.findData(preset.get("representative_point_mode"))
+            if repr_idx >= 0:
+                self.tomp_repr_mode_combo.setCurrentIndex(repr_idx)
+        if hasattr(self, "tomp_window_size_spinbox"):
+            self.tomp_window_size_spinbox.setValue(int(preset.get("window_size", 64)))
+        if hasattr(self, "tomp_window_overlap_spinbox"):
+            self.tomp_window_overlap_spinbox.setValue(int(preset.get("window_overlap", 8)))
+        if hasattr(self, "tomp_bbox_padding_spinbox"):
+            self.tomp_bbox_padding_spinbox.setValue(float(preset.get("initial_bbox_padding_px", 0.0)))
+        if hasattr(self, "tomp_presence_gating_checkbox"):
+            self.tomp_presence_gating_checkbox.setChecked(
+                bool(preset.get("use_presence_score_gating", False))
+            )
+        if hasattr(self, "tomp_presence_threshold_spinbox"):
+            self.tomp_presence_threshold_spinbox.setValue(
+                float(preset.get("presence_threshold", 0.0))
+            )
+        if hasattr(self, "tomp_max_step_spinbox"):
+            self.tomp_max_step_spinbox.setValue(float(preset.get("max_step_distance_px", 0.0)))
+        if hasattr(self, "tomp_max_reacquisition_gap_spinbox"):
+            self.tomp_max_reacquisition_gap_spinbox.setValue(
+                int(preset.get("max_reacquisition_gap", 0))
+            )
+        if hasattr(self, "tomp_terminate_after_invisible_spinbox"):
+            self.tomp_terminate_after_invisible_spinbox.setValue(
+                int(preset.get("terminate_after_invisible_frames", 0))
+            )
+
+        self.tomp_settings.representative_point_mode = str(
+            preset.get("representative_point_mode", "bbox_center")
+        )
+        self.tomp_settings.window_size = int(preset.get("window_size", 64))
+        self.tomp_settings.window_overlap = int(preset.get("window_overlap", 8))
+        self.tomp_settings.initial_bbox_padding_px = float(
+            preset.get("initial_bbox_padding_px", 0.0)
+        )
+        self.tomp_settings.use_presence_score_gating = bool(
+            preset.get("use_presence_score_gating", False)
+        )
+        self.tomp_settings.presence_threshold = float(preset.get("presence_threshold", 0.0))
+        self.tomp_settings.max_step_distance_px = float(
+            preset.get("max_step_distance_px", 0.0)
+        )
+        self.tomp_settings.max_reacquisition_gap = int(
+            preset.get("max_reacquisition_gap", 0)
+        )
+        self.tomp_settings.terminate_after_invisible_frames = int(
+            preset.get("terminate_after_invisible_frames", 0)
+        )
+        self._update_tomp_preset_hint(variant_key)
+
     def _refresh_tomp_checkpoints(self):
         repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
         if repo_path:
@@ -6424,6 +6573,7 @@ class MainWindow(QMainWindow):
 
     def _on_tomp_variant_changed(self, index: int):
         self.tomp_settings.model_variant = self.tomp_model_variant_combo.itemData(index) or "tomp50"
+        self._apply_tomp_variant_preset(self.tomp_settings.model_variant)
         self.tomp_settings.checkpoint_path = None
         self._refresh_tomp_checkpoints()
 
@@ -6431,6 +6581,10 @@ class MainWindow(QMainWindow):
         checkpoint_path = self.tomp_checkpoint_combo.itemData(index)
         self.tomp_settings.checkpoint_path = checkpoint_path
         self._refresh_tomp_checkpoints()
+
+    def _on_tomp_presence_gating_changed(self, enabled: bool):
+        if hasattr(self, "tomp_presence_threshold_spinbox"):
+            self.tomp_presence_threshold_spinbox.setEnabled(bool(enabled))
 
     def _on_sam2_backend_mode_changed(self, idx: int):
         backend_mode = self.sam2_backend_mode_combo.itemData(idx)
@@ -7496,6 +7650,8 @@ class MainWindow(QMainWindow):
             "window_overlap": self.tomp_window_overlap_spinbox.value(),
             "initial_bbox_padding_px": self.tomp_bbox_padding_spinbox.value(),
             "subprocess_timeout_sec": self.tomp_settings.subprocess_timeout_sec,
+            "use_presence_score_gating": self.tomp_presence_gating_checkbox.isChecked(),
+            "presence_threshold": self.tomp_presence_threshold_spinbox.value(),
             "keep_invisible_points_as_gaps": self.tomp_keep_gaps_checkbox.isChecked(),
             "max_step_distance_px": self.tomp_max_step_spinbox.value(),
             "max_reacquisition_gap": self.tomp_max_reacquisition_gap_spinbox.value(),
