@@ -513,6 +513,10 @@ class MainWindow(QMainWindow):
         self.analysis_circle: tuple[int, int, int] | None = None  # (cx, cy, r)
         self.analysis_ellipse: tuple[int, int, int, int, float] | None = None  # (cx, cy, rx, ry, angle_deg)
         self.tracking_results: List[Track] = []
+        self.thread: QThread | None = None
+        self.worker: GenericWorker | None = None
+        self._tracking_progress_dialog: QProgressDialog | None = None
+        self._active_tracking_cancel_requested = False
         self.dl_settings = DLSpotSettings()
         self.yolo_settings = YOLOSpotSettings()
         self.tapir_settings = TapirTrackingSettings()
@@ -8041,6 +8045,34 @@ class MainWindow(QMainWindow):
         file_map = {f.id: f for f in self.data_files if f.id is not None}
         return file_map, sorted(file_map.keys())
 
+    def _tracking_worker_is_active(self) -> bool:
+        thread = getattr(self, "thread", None)
+        if thread is None:
+            return False
+        is_running = getattr(thread, "isRunning", None)
+        if callable(is_running):
+            try:
+                return bool(is_running())
+            except RuntimeError:
+                return False
+        return True
+
+    def _clear_active_tracking_worker(
+        self,
+        *,
+        worker_thread=None,
+        worker=None,
+        progress_dialog=None,
+    ) -> None:
+        if worker_thread is None or getattr(self, "thread", None) is worker_thread:
+            self.thread = None
+        if worker is None or getattr(self, "worker", None) is worker:
+            self.worker = None
+        if progress_dialog is None or getattr(self, "_tracking_progress_dialog", None) is progress_dialog:
+            self._tracking_progress_dialog = None
+        if self.thread is None and self.worker is None:
+            self._active_tracking_cancel_requested = False
+
     def _create_registered_tracker_worker(self, tracker_spec, ref_file, tracker_params, cancel_event):
         file_map, sorted_ids = self._tracking_file_map_and_ids()
         return GenericWorker(
@@ -8479,6 +8511,21 @@ class MainWindow(QMainWindow):
 
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
+        if self._tracking_worker_is_active():
+            if self._active_tracking_cancel_requested:
+                QMessageBox.information(
+                    self,
+                    "Tracking Still Cancelling",
+                    "The previous tracking task is still cancelling. Wait for it to finish before starting a new run.",
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    "Tracking Already Running",
+                    "A tracking task is already running. Wait for it to finish before starting a new run.",
+                )
+            return
+
         selected_scenario = self.tracking_scenario_combo.currentText()
         selected_tracker_spec = self._tracker_spec_for_scenario(selected_scenario)
         worker = None
@@ -8622,11 +8669,16 @@ class MainWindow(QMainWindow):
         """Helper method to run any worker with a progress dialog."""
         progress_dialog = QProgressDialog(title, "Cancel", 0, 100, self)
         progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setAutoClose(False)
+        progress_dialog.setAutoReset(False)
         progress_dialog.show()
 
-        self.thread = QThread()
+        thread = QThread()
+        self.thread = thread
         self.worker = worker
-        self.worker.moveToThread(self.thread)
+        self._tracking_progress_dialog = progress_dialog
+        self._active_tracking_cancel_requested = False
+        self.worker.moveToThread(thread)
 
         progress_dialog.canceled.connect(lambda: self._handle_worker_cancel(cancel_event, progress_dialog))
         self.worker.progress.connect(progress_dialog.setValue)
@@ -8635,24 +8687,45 @@ class MainWindow(QMainWindow):
 
         # Cleanup
         self.worker.finished.connect(progress_dialog.accept)
-        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.worker.error.connect(progress_dialog.accept)
-        self.worker.error.connect(self.thread.quit)
+        self.worker.error.connect(thread.quit)
         self.worker.error.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.finished.connect(lambda: setattr(self, "thread", None))
-        self.thread.finished.connect(lambda: setattr(self, "worker", None))
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(
+            lambda worker_thread=thread, current_worker=self.worker, current_dialog=progress_dialog: (
+                self._clear_active_tracking_worker(
+                    worker_thread=worker_thread,
+                    worker=current_worker,
+                    progress_dialog=current_dialog,
+                )
+            )
+        )
 
-        self.thread.started.connect(self.worker.run)
-        self.thread.start()
+        thread.started.connect(self.worker.run)
+        thread.start()
+
+    def _set_tracking_cancel_progress_state(self, dialog: QProgressDialog) -> None:
+        """Convert the active progress dialog into an indeterminate cancel-wait state."""
+        dialog.setWindowTitle("Cancelling Tracking")
+        dialog.setLabelText("Cancelling tracking, please wait...")
+        dialog.setRange(0, 0)
+        dialog.setValue(0)
+        try:
+            dialog.setCancelButton(None)
+        except Exception:
+            # Some test doubles and styles may not expose a cancel button API.
+            pass
+        dialog.setEnabled(True)
+        QApplication.processEvents()
 
     def _handle_worker_cancel(self, cancel_event: Event, dialog: QProgressDialog):
         """Signal handler invoked when the user clicks Cancel on a progress dialog."""
         if cancel_event:
             cancel_event.set()
-        dialog.setLabelText("Cancelling, please wait...")
-        dialog.setEnabled(False)
+        self._active_tracking_cancel_requested = True
+        self._set_tracking_cancel_progress_state(dialog)
         if self.thread:
             try:
                 self.thread.requestInterruption()

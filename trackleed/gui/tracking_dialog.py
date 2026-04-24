@@ -1809,6 +1809,8 @@ class TrackingDialog(QDialog):
         self._active_retrack_label = method_label
         self.progress_dialog = QProgressDialog(title, "Cancel", 0, 100, self)
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setAutoClose(False)
+        self.progress_dialog.setAutoReset(False)
         self.progress_dialog.show()
 
         self.worker_thread = QThread()

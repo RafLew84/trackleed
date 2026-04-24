@@ -494,9 +494,14 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         recorded: dict[str, object] = {}
         fake = SimpleNamespace(
             tracking_scenario_combo=_DummyCombo("Offline TAPIR"),
+            thread=None,
         )
         fake._tracker_spec_for_scenario = types.MethodType(
             self.main_window.MainWindow._tracker_spec_for_scenario,
+            fake,
+        )
+        fake._tracking_worker_is_active = types.MethodType(
+            self.main_window.MainWindow._tracking_worker_is_active,
             fake,
         )
 
@@ -527,9 +532,14 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         recorded: dict[str, object] = {}
         fake = SimpleNamespace(
             tracking_scenario_combo=_DummyCombo("Offline TAPIR"),
+            thread=None,
         )
         fake._tracker_spec_for_scenario = types.MethodType(
             self.main_window.MainWindow._tracker_spec_for_scenario,
+            fake,
+        )
+        fake._tracking_worker_is_active = types.MethodType(
+            self.main_window.MainWindow._tracking_worker_is_active,
             fake,
         )
         fake._build_registered_tracking_worker = lambda tracker_spec, cancel_event: None
@@ -538,3 +548,220 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.main_window.MainWindow.run_tracking(fake)
 
         self.assertNotIn("launched", recorded)
+
+    def test_run_tracking_blocks_when_previous_tracking_is_still_active(self) -> None:
+        recorded: dict[str, object] = {}
+        original_information = self.main_window.QMessageBox.information
+        self.addCleanup(setattr, self.main_window.QMessageBox, "information", original_information)
+        self.main_window.QMessageBox.information = (
+            lambda *_args: recorded.setdefault("message", _args[2])
+        )
+
+        fake = SimpleNamespace(
+            thread=SimpleNamespace(isRunning=lambda: True),
+            worker=object(),
+            _active_tracking_cancel_requested=True,
+        )
+        fake._tracking_worker_is_active = types.MethodType(
+            self.main_window.MainWindow._tracking_worker_is_active,
+            fake,
+        )
+
+        self.main_window.MainWindow.run_tracking(fake)
+
+        self.assertIn("still cancelling", recorded["message"])
+
+    def test_clear_active_tracking_worker_only_clears_matching_objects(self) -> None:
+        fake = SimpleNamespace(
+            thread="new-thread",
+            worker="new-worker",
+            _tracking_progress_dialog="new-dialog",
+            _active_tracking_cancel_requested=True,
+        )
+
+        self.main_window.MainWindow._clear_active_tracking_worker(
+            fake,
+            worker_thread="old-thread",
+            worker="old-worker",
+            progress_dialog="old-dialog",
+        )
+        self.assertEqual(fake.thread, "new-thread")
+        self.assertEqual(fake.worker, "new-worker")
+        self.assertEqual(fake._tracking_progress_dialog, "new-dialog")
+        self.assertTrue(fake._active_tracking_cancel_requested)
+
+        self.main_window.MainWindow._clear_active_tracking_worker(
+            fake,
+            worker_thread="new-thread",
+            worker="new-worker",
+            progress_dialog="new-dialog",
+        )
+        self.assertIsNone(fake.thread)
+        self.assertIsNone(fake.worker)
+        self.assertIsNone(fake._tracking_progress_dialog)
+        self.assertFalse(fake._active_tracking_cancel_requested)
+
+    def test_handle_worker_cancel_switches_dialog_into_busy_cancelling_state(self) -> None:
+        calls: list[tuple[str, object]] = []
+        original_process_events = getattr(self.main_window.QApplication, "processEvents", None)
+        self.addCleanup(
+            setattr,
+            self.main_window.QApplication,
+            "processEvents",
+            original_process_events if original_process_events is not None else _Dummy,
+        )
+        self.main_window.QApplication.processEvents = lambda: calls.append(("process_events", True))
+
+        class _CancelEvent:
+            def __init__(self) -> None:
+                self.was_set = False
+
+            def set(self) -> None:
+                self.was_set = True
+
+        class _Dialog:
+            def setWindowTitle(self, value):
+                calls.append(("title", value))
+
+            def setLabelText(self, value):
+                calls.append(("label", value))
+
+            def setRange(self, minimum, maximum):
+                calls.append(("range", (minimum, maximum)))
+
+            def setValue(self, value):
+                calls.append(("value", value))
+
+            def setCancelButton(self, value):
+                calls.append(("cancel_button", value))
+
+            def setEnabled(self, value):
+                calls.append(("enabled", value))
+
+        fake = SimpleNamespace(
+            thread=SimpleNamespace(requestInterruption=lambda: calls.append(("interrupt", True))),
+            _active_tracking_cancel_requested=False,
+        )
+        fake._set_tracking_cancel_progress_state = types.MethodType(
+            self.main_window.MainWindow._set_tracking_cancel_progress_state,
+            fake,
+        )
+
+        cancel_event = _CancelEvent()
+        dialog = _Dialog()
+
+        self.main_window.MainWindow._handle_worker_cancel(fake, cancel_event, dialog)
+
+        self.assertTrue(cancel_event.was_set)
+        self.assertTrue(fake._active_tracking_cancel_requested)
+        self.assertIn(("title", "Cancelling Tracking"), calls)
+        self.assertIn(("label", "Cancelling tracking, please wait..."), calls)
+        self.assertIn(("range", (0, 0)), calls)
+        self.assertIn(("value", 0), calls)
+        self.assertIn(("cancel_button", None), calls)
+        self.assertIn(("enabled", True), calls)
+        self.assertIn(("process_events", True), calls)
+        self.assertIn(("interrupt", True), calls)
+
+    def test_launch_worker_with_progress_disables_qprogressdialog_autoclose(self) -> None:
+        calls: list[tuple[str, object]] = []
+
+        class _Signal:
+            def __init__(self) -> None:
+                self.callbacks = []
+
+            def connect(self, callback):
+                self.callbacks.append(callback)
+
+        class _ProgressDialog:
+            def __init__(self, title, cancel_text, minimum, maximum, parent):
+                calls.append(("init", (title, cancel_text, minimum, maximum, parent)))
+                self.canceled = _Signal()
+
+            def setWindowModality(self, value):
+                calls.append(("modality", value))
+
+            def setAutoClose(self, value):
+                calls.append(("auto_close", value))
+
+            def setAutoReset(self, value):
+                calls.append(("auto_reset", value))
+
+            def show(self):
+                calls.append(("show", True))
+
+            def accept(self):
+                calls.append(("accept", True))
+
+            def setValue(self, value):
+                calls.append(("value", value))
+
+        class _Thread:
+            def __init__(self) -> None:
+                self.started = _Signal()
+                self.finished = _Signal()
+
+            def start(self):
+                calls.append(("thread_start", True))
+
+            def quit(self):
+                calls.append(("thread_quit", True))
+
+            def deleteLater(self):
+                calls.append(("thread_delete_later", True))
+
+        class _Worker:
+            def __init__(self) -> None:
+                self.progress = _Signal()
+                self.finished = _Signal()
+                self.error = _Signal()
+
+            def moveToThread(self, thread):
+                calls.append(("move_to_thread", thread))
+
+            def deleteLater(self):
+                calls.append(("worker_delete_later", True))
+
+            def run(self):
+                calls.append(("worker_run", True))
+
+        original_progress_dialog = self.main_window.QProgressDialog
+        original_qthread = self.main_window.QThread
+        self.addCleanup(setattr, self.main_window, "QProgressDialog", original_progress_dialog)
+        self.addCleanup(setattr, self.main_window, "QThread", original_qthread)
+        self.main_window.QProgressDialog = _ProgressDialog
+        self.main_window.QThread = _Thread
+
+        fake = SimpleNamespace(
+            thread=None,
+            worker=None,
+            _tracking_progress_dialog=None,
+            _active_tracking_cancel_requested=False,
+            on_tracking_finished=lambda *_args, **_kwargs: None,
+            on_tracking_error=lambda *_args, **_kwargs: None,
+        )
+        fake._handle_worker_cancel = types.MethodType(
+            self.main_window.MainWindow._handle_worker_cancel,
+            fake,
+        )
+        fake._clear_active_tracking_worker = types.MethodType(
+            self.main_window.MainWindow._clear_active_tracking_worker,
+            fake,
+        )
+
+        worker = _Worker()
+        cancel_event = SimpleNamespace(set=lambda: calls.append(("cancel_set", True)))
+
+        self.main_window.MainWindow._launch_worker_with_progress(
+            fake,
+            worker,
+            "Running tracking...",
+            cancel_event,
+        )
+
+        self.assertIn(("auto_close", False), calls)
+        self.assertIn(("auto_reset", False), calls)
+        self.assertIn(("show", True), calls)
+        self.assertIs(fake.worker, worker)
+        self.assertIsNotNone(fake.thread)
+        self.assertIsNotNone(fake._tracking_progress_dialog)
