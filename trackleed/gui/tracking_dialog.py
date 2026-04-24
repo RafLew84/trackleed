@@ -62,6 +62,47 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
     "sam2_offline": "SAM2 + Manual",
 }
 
+TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
+    "tapir_offline": "initiate_retrack_tapir",
+    "tapir_online": "initiate_retrack_tapir",
+    "locotrack_offline": "initiate_retrack_locotrack",
+    "cotracker3_offline": "initiate_retrack_cotracker3",
+    "tapnext_offline": "initiate_retrack_tapnext",
+    "trackonr_offline": "initiate_retrack_trackonr",
+    "pipspp_offline": "initiate_retrack_pipspp",
+    "mftiq_offline": "initiate_retrack_mftiq",
+    "cutie_offline": "initiate_retrack_cutie",
+    "xmem2_offline": "initiate_retrack_xmem2",
+    "tomp_offline": "initiate_retrack_tomp",
+    "sam2_offline": "initiate_retrack_sam2",
+}
+
+TRACKER_UNAVAILABLE_TITLE_BY_ID = {
+    "tapir_offline": "TAPIR Unavailable",
+    "tapir_online": "TAPIR Unavailable",
+    "locotrack_offline": "LocoTrack Unavailable",
+    "cotracker3_offline": "CoTracker3 Unavailable",
+    "tapnext_offline": "TAPNext Unavailable",
+    "trackonr_offline": "Track-On-R Unavailable",
+    "pipspp_offline": "PIPs++ Unavailable",
+    "mftiq_offline": "MFTIQ Unavailable",
+    "cutie_offline": "Cutie Unavailable",
+    "xmem2_offline": "XMem2 Unavailable",
+    "tomp_offline": "ToMP / TaMOs Unavailable",
+    "sam2_offline": "SAM2 Unavailable",
+}
+
+TRACKER_ENV_HINT_BY_ID = {
+    "locotrack_offline": "locotrack",
+    "trackonr_offline": "trackonr",
+    "pipspp_offline": "pipspp",
+    "mftiq_offline": "mftiq",
+    "cutie_offline": "cutie",
+    "xmem2_offline": "xmem2",
+    "tomp_offline": "tomp",
+    "sam2_offline": "sam2",
+}
+
 POINT_TRACKER_DETAIL_SPECS = {
     "tapir_offline": {"prefix": "tapir", "raw_label": "Raw TAPIR", "focus_label": "TAPIR"},
     "tapir_online": {"prefix": "tapir", "raw_label": "Raw BootsTAPIR Online", "focus_label": "BOOTSTAPIR"},
@@ -627,31 +668,16 @@ class TrackingDialog(QDialog):
         return f"Re-track from this point ({method_label})"
 
     def _initiate_retrack_for_tracker_spec(self, tracker_spec, spot_id: int) -> None:
-        tracker_id = tracker_spec.tracker_id
-        if tracker_id in {"tapir_offline", "tapir_online"}:
-            self.initiate_retrack_tapir(spot_id)
-        elif tracker_id == "locotrack_offline":
-            self.initiate_retrack_locotrack(spot_id)
-        elif tracker_id == "cotracker3_offline":
-            self.initiate_retrack_cotracker3(spot_id)
-        elif tracker_id == "tapnext_offline":
-            self.initiate_retrack_tapnext(spot_id)
-        elif tracker_id == "trackonr_offline":
-            self.initiate_retrack_trackonr(spot_id)
-        elif tracker_id == "pipspp_offline":
-            self.initiate_retrack_pipspp(spot_id)
-        elif tracker_id == "mftiq_offline":
-            self.initiate_retrack_mftiq(spot_id)
-        elif tracker_id == "cutie_offline":
-            self.initiate_retrack_cutie(spot_id)
-        elif tracker_id == "xmem2_offline":
-            self.initiate_retrack_xmem2(spot_id)
-        elif tracker_id == "tomp_offline":
-            self.initiate_retrack_tomp(spot_id)
-        elif tracker_id == "sam2_offline":
-            self.initiate_retrack_sam2(spot_id)
-        else:
+        tracker_id = str(getattr(tracker_spec, "tracker_id", "") or "").strip().lower()
+        method_name = TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID.get(tracker_id)
+        if not method_name:
             raise ValueError(f"Unsupported tracker for visualizer retrack: {tracker_id}")
+        retrack_method = getattr(self, method_name, None)
+        if not callable(retrack_method):
+            raise AttributeError(
+                f"TrackingDialog does not expose retrack handler `{method_name}` for `{tracker_id}`."
+            )
+        retrack_method(spot_id)
 
     def _track_supports_polygon_seed(self, track: Track | None) -> bool:
         """Polygon seed workflow is currently available only for Cutie and XMem2."""
@@ -1008,6 +1034,75 @@ class TrackingDialog(QDialog):
             raise AttributeError(f"Tracker '{tracker_spec.tracker_id}' does not define format_environment_report")
         return format_fn(status)
 
+    def _tracker_unavailable_title_for_spec(self, tracker_spec, *, default: str = "Tracker Unavailable") -> str:
+        tracker_id = str(getattr(tracker_spec, "tracker_id", "") or "").strip().lower()
+        return TRACKER_UNAVAILABLE_TITLE_BY_ID.get(tracker_id, default)
+
+    def _python_executable_path_ok(self, python_executable: str | None) -> bool:
+        return bool(python_executable and Path(str(python_executable)).expanduser().exists())
+
+    def _warn_tracker_unavailable(
+        self,
+        tracker_spec,
+        status,
+        *,
+        title: str | None = None,
+        extra_message: str = "",
+    ) -> None:
+        message = self._format_tracker_environment_report_for_spec(tracker_spec, status)
+        if extra_message:
+            message += extra_message
+        QMessageBox.warning(
+            self,
+            title or self._tracker_unavailable_title_for_spec(tracker_spec),
+            message,
+        )
+
+    def _ensure_registered_retrack_runtime_ready(
+        self,
+        tracker_spec,
+        status,
+        tracker_params: dict,
+        *,
+        ready_for_direct: bool,
+        structural_ready: bool,
+        title: str | None = None,
+        env_name: str | None = None,
+    ) -> bool:
+        if not tracker_spec.supports_subprocess:
+            if not ready_for_direct:
+                self._warn_tracker_unavailable(tracker_spec, status, title=title)
+                return False
+            return True
+
+        backend_mode = str(tracker_params.get("backend_mode") or "subprocess").strip().lower()
+        if backend_mode == "direct":
+            if not ready_for_direct:
+                self._warn_tracker_unavailable(tracker_spec, status, title=title)
+                return False
+            return True
+
+        if not structural_ready:
+            self._warn_tracker_unavailable(tracker_spec, status, title=title)
+            return False
+
+        if ready_for_direct or self._python_executable_path_ok(tracker_params.get("python_executable")):
+            return True
+
+        extra_message = ""
+        if env_name:
+            extra_message = (
+                f"\n\nSet the Python executable of the dedicated `{env_name}` env "
+                "or run Trackleed from that environment."
+            )
+        self._warn_tracker_unavailable(
+            tracker_spec,
+            status,
+            title=title,
+            extra_message=extra_message,
+        )
+        return False
+
     def _launch_registered_retrack(
         self,
         tracker_spec,
@@ -1162,42 +1257,20 @@ class TrackingDialog(QDialog):
             checkpoint_path=locotrack_params.get("checkpoint_path"),
             repo_path=locotrack_params.get("repo_path") or locotrack_params.get("locotrack_repo_path"),
         )
-        backend_mode = str(locotrack_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = locotrack_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(str(python_executable)).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
         )
-
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "LocoTrack Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "LocoTrack Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "LocoTrack Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `locotrack` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            locotrack_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         locotrack_params["roi_size"] = self.roi_size
 
@@ -1323,42 +1396,20 @@ class TrackingDialog(QDialog):
                 or trackonr_params.get("track_on_repo_path")
             ),
         )
-        backend_mode = str(trackonr_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = trackonr_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(str(python_executable)).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
         )
-
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "Track-On-R Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "Track-On-R Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "Track-On-R Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `trackonr` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            trackonr_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         trackonr_params["roi_size"] = self.roi_size
 
@@ -1394,43 +1445,21 @@ class TrackingDialog(QDialog):
             checkpoint_path=pipspp_params.get("checkpoint_path"),
             repo_path=pipspp_params.get("repo_path") or pipspp_params.get("pipspp_repo_path"),
         )
-        backend_mode = str(pipspp_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = pipspp_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(str(python_executable)).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
             and status.selected_checkpoint_file is not None
         )
-
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "PIPs++ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "PIPs++ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "PIPs++ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `pipspp` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            pipspp_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         pipspp_params["roi_size"] = self.roi_size
 
@@ -1467,43 +1496,21 @@ class TrackingDialog(QDialog):
             repo_path=mftiq_params.get("repo_path") or mftiq_params.get("mftiq_repo_path"),
             config_path=mftiq_params.get("config_path"),
         )
-        backend_mode = str(mftiq_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = mftiq_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(str(python_executable)).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
             and status.config_exists
         )
-
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "MFTIQ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "MFTIQ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "MFTIQ Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `mftiq` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            mftiq_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         mftiq_params["roi_size"] = self.roi_size
 
@@ -1547,41 +1554,20 @@ class TrackingDialog(QDialog):
             checkpoint_path=cutie_params.get("checkpoint_path"),
             repo_path=cutie_params.get("repo_path") or cutie_params.get("cutie_repo_path"),
         )
-        backend_mode = str(cutie_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = cutie_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(python_executable).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
         )
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "Cutie Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "Cutie Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "Cutie Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `cutie` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            cutie_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         cutie_params["roi_size"] = self.roi_size
 
@@ -1625,41 +1611,20 @@ class TrackingDialog(QDialog):
             checkpoint_path=xmem2_params.get("checkpoint_path"),
             repo_path=xmem2_params.get("repo_path") or xmem2_params.get("xmem2_repo_path"),
         )
-        backend_mode = str(xmem2_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = xmem2_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(python_executable).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
             and status.checkpoint_exists
         )
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "XMem2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "XMem2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "XMem2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `xmem2` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            xmem2_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         xmem2_params["roi_size"] = self.roi_size
 
@@ -1704,11 +1669,6 @@ class TrackingDialog(QDialog):
                 repo_path=sam2_params.get("repo_path") or sam2_params.get("sam2_repo_path"),
                 config_path=None,
             )
-        backend_mode = str(sam2_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = sam2_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(python_executable).expanduser().exists()
-        )
         structural_ready = bool(
             status.repo_path is not None
             and status.selected_checkpoint is not None
@@ -1716,31 +1676,15 @@ class TrackingDialog(QDialog):
             and status.config_exists
             and status.config_identifier is not None
         )
-        if backend_mode == "direct":
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "SAM2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    "SAM2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (status.is_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    "SAM2 Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `sam2` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            sam2_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         sam2_params["roi_size"] = self.roi_size
 
@@ -1814,11 +1758,6 @@ class TrackingDialog(QDialog):
             ),
         )
 
-        backend_mode = str(tomp_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = tomp_params.get("python_executable")
-        python_path_ok = bool(
-            python_executable and Path(str(python_executable)).expanduser().exists()
-        )
         if model_variant in {"tamos_resnet50", "tamos_swin_base"}:
             variant_ready = status.tamos_ready
             selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
@@ -1836,31 +1775,16 @@ class TrackingDialog(QDialog):
             and selected_checkpoint_obj is not None
             and selected_checkpoint_obj.exists()
         )
-        if backend_mode == "direct":
-            if not variant_ready:
-                QMessageBox.warning(
-                    self,
-                    f"{variant_label} Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-        else:
-            if not structural_ready:
-                QMessageBox.warning(
-                    self,
-                    f"{variant_label} Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
-                )
-                return
-            if not (variant_ready or python_path_ok):
-                QMessageBox.warning(
-                    self,
-                    f"{variant_label} Unavailable",
-                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
-                    + "\n\nSet the Python executable of the dedicated `tomp` env "
-                    "or run Trackleed from that environment.",
-                )
-                return
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            tomp_params,
+            ready_for_direct=variant_ready,
+            structural_ready=structural_ready,
+            title=f"{variant_label} Unavailable",
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
 
         tomp_params["roi_size"] = self.roi_size
         tomp_params["model_variant"] = model_variant

@@ -149,3 +149,7 @@ When you click **Export Results**, the following are written:
 - YOLO models: place `.pt` checkpoints in `tracking_models/yolo/` and click **Refresh**.
 - Legacy fallback: the app also scans `segmentation_models/` for backwards compatibility.
 - The quick-save file is independent from standard session save/load dialogs.
+
+## Developer Notes
+
+- Tracker integration guide: [docs/tracker_integration.md](docs/tracker_integration.md)

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 # stal/analysis/tracking.py
 # Compatibility shim:
-# public Trackleed tracking entrypoints are re-exported from family modules,
-# while legacy implementations remain below during the staged refactor.
+# public Trackleed tracking entrypoints are resolved lazily from family modules,
+# while the legacy runtime remains below during the staged refactor.
 
+from importlib import import_module
 from pathlib import Path
 from typing import Any, List, Dict, Callable, Tuple, Optional
 from threading import Event
@@ -96,39 +97,6 @@ from trackleed.analysis.xmem2_backend import (
     run_xmem2_offline,
     select_default_xmem2_checkpoint,
 )
-from trackleed.analysis.tracking_bbox_backends import (
-    track_spots_tomp_offline,
-)
-from trackleed.analysis.tracking_mask_backends import (
-    track_spots_cutie_offline,
-    track_spots_sam2_offline,
-    track_spots_xmem2_offline,
-)
-from trackleed.analysis.tracking_point_backends import (
-    track_spots_cotracker3_offline,
-    track_spots_locotrack_offline,
-    track_spots_mftiq_offline,
-    track_spots_pipspp_offline,
-    track_spots_tapir_offline,
-    track_spots_tapir_online,
-    track_spots_tapnext_offline,
-    track_spots_trackonr_offline,
-)
-from trackleed.analysis.tracking_retrack import (
-    retrack_single_spot_cotracker3_offline,
-    retrack_single_spot_cutie_offline,
-    retrack_single_spot_locotrack_offline,
-    retrack_single_spot_mftiq_offline,
-    retrack_single_spot_optical_flow,
-    retrack_single_spot_pipspp_offline,
-    retrack_single_spot_sam2_offline,
-    retrack_single_spot_tapir_offline,
-    retrack_single_spot_tapir_online,
-    retrack_single_spot_tapnext_offline,
-    retrack_single_spot_tomp_offline,
-    retrack_single_spot_trackonr_offline,
-    retrack_single_spot_xmem2_offline,
-)
 from trackleed.analysis.polygon_mask import (
     normalize_polygon_points,
     polygon_points_are_valid,
@@ -149,30 +117,21 @@ from trackleed.analysis.tracking_retrack_utils import (
     prepare_retrack_start_context,
 )
 from trackleed.analysis.tracking_filter_utils import (
-    advance_invisible_streak,
     append_motion_accepted_spot,
     build_bbox_quality_filter_context,
     build_direction_filter_context,
     build_mask_quality_filter_context,
     build_motion_filter_context,
     commit_motion_filter_context,
-    exceeds_reacquisition_gap,
     gate_bbox_quality,
-    gate_by_bbox_aspect_ratio,
-    gate_by_bbox_center_jump,
     gate_by_direction,
-    gate_by_mask_area_ratio,
     gate_by_max_step_distance,
     gate_mask_quality,
-    normalize_bbox_mask_filter_params,
-    normalize_motion_filter_params,
     register_motion_rejection,
     should_terminate_before_visible_candidate,
 )
 from trackleed.analysis.tracking_visibility_utils import (
     append_invisible_track_frame,
-    append_visible_track_spot,
-    commit_tracking_visibility_state,
 )
 from trackleed.analysis.tracking_windowing_utils import (
     advance_window_coverage,
@@ -180,6 +139,139 @@ from trackleed.analysis.tracking_windowing_utils import (
     build_plain_tracking_window_context,
     build_reseed_tracking_window_context,
 )
+
+_PUBLIC_TRACKING_SHIM_EXPORTS = {
+    "track_spots_tapir_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_tapir_offline",
+    ),
+    "track_spots_tapir_online": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_tapir_online",
+    ),
+    "track_spots_locotrack_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_locotrack_offline",
+    ),
+    "track_spots_cotracker3_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_cotracker3_offline",
+    ),
+    "track_spots_tapnext_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_tapnext_offline",
+    ),
+    "track_spots_trackonr_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_trackonr_offline",
+    ),
+    "track_spots_pipspp_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_pipspp_offline",
+    ),
+    "track_spots_mftiq_offline": (
+        "trackleed.analysis.tracking_point_backends",
+        "track_spots_mftiq_offline",
+    ),
+    "track_spots_tomp_offline": (
+        "trackleed.analysis.tracking_bbox_backends",
+        "track_spots_tomp_offline",
+    ),
+    "track_spots_cutie_offline": (
+        "trackleed.analysis.tracking_mask_backends",
+        "track_spots_cutie_offline",
+    ),
+    "track_spots_xmem2_offline": (
+        "trackleed.analysis.tracking_mask_backends",
+        "track_spots_xmem2_offline",
+    ),
+    "track_spots_sam2_offline": (
+        "trackleed.analysis.tracking_mask_backends",
+        "track_spots_sam2_offline",
+    ),
+}
+
+_PUBLIC_RETRACK_SHIM_EXPORTS = {
+    "retrack_single_spot_tapir_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_tapir_offline",
+    ),
+    "retrack_single_spot_tapir_online": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_tapir_online",
+    ),
+    "retrack_single_spot_locotrack_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_locotrack_offline",
+    ),
+    "retrack_single_spot_cotracker3_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_cotracker3_offline",
+    ),
+    "retrack_single_spot_tapnext_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_tapnext_offline",
+    ),
+    "retrack_single_spot_trackonr_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_trackonr_offline",
+    ),
+    "retrack_single_spot_pipspp_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_pipspp_offline",
+    ),
+    "retrack_single_spot_mftiq_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_mftiq_offline",
+    ),
+    "retrack_single_spot_tomp_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_tomp_offline",
+    ),
+    "retrack_single_spot_cutie_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_cutie_offline",
+    ),
+    "retrack_single_spot_xmem2_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_xmem2_offline",
+    ),
+    "retrack_single_spot_sam2_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_sam2_offline",
+    ),
+    "retrack_single_spot_optical_flow": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_optical_flow",
+    ),
+}
+
+_PUBLIC_SHIM_EXPORTS = {
+    **_PUBLIC_TRACKING_SHIM_EXPORTS,
+    **_PUBLIC_RETRACK_SHIM_EXPORTS,
+}
+
+__all__ = [
+    "track_spots_optical_flow",
+    "track_spots_optical_flow_skip_anchor",
+    "track_spots_hungarian",
+    "track_spots_hungarian_directional",
+    *_PUBLIC_SHIM_EXPORTS.keys(),
+]
+
+
+def __getattr__(name: str):
+    target = _PUBLIC_SHIM_EXPORTS.get(str(name))
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr_name = target
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
 
 
 def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None, subtract_background: bool = False):
