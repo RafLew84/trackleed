@@ -93,8 +93,8 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
 }
 
 TRACKER_ENV_HINT_BY_ID = {
-    "locotrack_offline": "locotrack",
-    "trackonr_offline": "trackonr",
+    "locotrack_offline": "locotrack-pytorch",
+    "trackonr_offline": "trackonr2",
     "pipspp_offline": "pipspp",
     "mftiq_offline": "mftiq",
     "cutie_offline": "cutie",

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 import sys
+import tempfile
 import types
 import unittest
 from types import SimpleNamespace
@@ -765,3 +767,40 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.assertIs(fake.worker, worker)
         self.assertIsNotNone(fake.thread)
         self.assertIsNotNone(fake._tracking_progress_dialog)
+
+    def test_default_subprocess_python_executables_are_filled_from_conda_envs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            conda_root = Path(temp_dir)
+            locotrack_python = conda_root / "envs" / "locotrack-pytorch" / "python.exe"
+            sam2_python = conda_root / "envs" / "sam2" / "python.exe"
+            locotrack_python.parent.mkdir(parents=True)
+            sam2_python.parent.mkdir(parents=True)
+            locotrack_python.touch()
+            sam2_python.touch()
+
+            fake = SimpleNamespace(
+                locotrack_settings=self.main_window.LocotrackTrackingSettings(),
+                sam2_settings=self.main_window.Sam2TrackingSettings(
+                    python_executable="C:/custom/sam2/python.exe"
+                ),
+            )
+            fake._tracker_settings_for_spec = types.MethodType(
+                self.main_window.MainWindow._tracker_settings_for_spec,
+                fake,
+            )
+            fake._candidate_conda_roots = lambda: [conda_root]
+            fake._default_conda_python_executable = types.MethodType(
+                self.main_window.MainWindow._default_conda_python_executable,
+                fake,
+            )
+
+            self.main_window.MainWindow._apply_default_subprocess_python_executables(fake)
+
+            self.assertEqual(
+                fake.locotrack_settings.python_executable,
+                str(locotrack_python.resolve()),
+            )
+            self.assertEqual(
+                fake.sam2_settings.python_executable,
+                "C:/custom/sam2/python.exe",
+            )

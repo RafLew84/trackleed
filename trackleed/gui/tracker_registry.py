@@ -109,6 +109,7 @@ class TrackerSpec:
     backend_mode_widget_attr: str | None = None
     repo_path_attr: str | None = None
     python_executable_attr: str | None = None
+    default_conda_env_name: str | None = None
     checkpoint_selector_attr: str | None = None
     variant_selector_attr: str | None = None
 
@@ -178,6 +179,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="locotrack_backend_mode_combo",
         repo_path_attr="locotrack_repo_path_edit",
         python_executable_attr="locotrack_python_executable_edit",
+        default_conda_env_name="locotrack-pytorch",
         checkpoint_selector_attr="locotrack_checkpoint_combo",
     ),
     TrackerSpec(
@@ -244,6 +246,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="trackonr_backend_mode_combo",
         repo_path_attr="trackonr_repo_path_edit",
         python_executable_attr="trackonr_python_executable_edit",
+        default_conda_env_name="trackonr2",
         checkpoint_selector_attr="trackonr_checkpoint_combo",
     ),
     TrackerSpec(
@@ -268,6 +271,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="pipspp_backend_mode_combo",
         repo_path_attr="pipspp_repo_path_edit",
         python_executable_attr="pipspp_python_executable_edit",
+        default_conda_env_name="pipspp",
         checkpoint_selector_attr="pipspp_checkpoint_combo",
     ),
     TrackerSpec(
@@ -292,6 +296,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="mftiq_backend_mode_combo",
         repo_path_attr="mftiq_repo_path_edit",
         python_executable_attr="mftiq_python_executable_edit",
+        default_conda_env_name="mftiq",
         checkpoint_selector_attr="mftiq_checkpoint_combo",
     ),
     TrackerSpec(
@@ -316,6 +321,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="tomp_backend_mode_combo",
         repo_path_attr="tomp_repo_path_edit",
         python_executable_attr="tomp_python_executable_edit",
+        default_conda_env_name="tomp",
         checkpoint_selector_attr="tomp_checkpoint_combo",
         variant_selector_attr="tomp_model_variant_combo",
     ),
@@ -341,6 +347,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="cutie_backend_mode_combo",
         repo_path_attr="cutie_repo_path_edit",
         python_executable_attr="cutie_python_executable_edit",
+        default_conda_env_name="cutie",
         checkpoint_selector_attr="cutie_checkpoint_combo",
     ),
     TrackerSpec(
@@ -365,6 +372,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="xmem2_backend_mode_combo",
         repo_path_attr="xmem2_repo_path_edit",
         python_executable_attr="xmem2_python_executable_edit",
+        default_conda_env_name="xmem2",
         checkpoint_selector_attr="xmem2_checkpoint_combo",
     ),
     TrackerSpec(
@@ -389,6 +397,7 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         backend_mode_widget_attr="sam2_backend_mode_combo",
         repo_path_attr="sam2_repo_path_edit",
         python_executable_attr="sam2_python_executable_edit",
+        default_conda_env_name="sam2",
         checkpoint_selector_attr="sam2_checkpoint_combo",
     ),
 )

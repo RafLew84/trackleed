@@ -162,6 +162,11 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
             self.assertIsNotNone(spec.params_argument_name)
             self.assertIsNotNone(spec.panel_group_attr)
             self.assertIsNotNone(spec.warning_label_attr)
+            if spec.supports_subprocess:
+                self.assertTrue(
+                    spec.default_conda_env_name,
+                    msg=f"Subprocess tracker `{spec.tracker_id}` missing default conda env name.",
+                )
 
     def test_registry_lookups_normalize_case_and_whitespace(self) -> None:
         for spec in self.registry.TRACKER_SPECS:
@@ -221,4 +226,3 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
                 [("dup", spec_a), (" DUP ", spec_b)],
                 index_name="collision",
             )
-

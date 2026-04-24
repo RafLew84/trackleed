@@ -2,7 +2,9 @@ from __future__ import annotations
 
 # stal/gui/main_window.py
 
+import os
 from pathlib import Path
+import sys
 from dataclasses import dataclass
 
 from typing import Any, List
@@ -81,8 +83,8 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
 }
 
 TRACKER_ENV_HINT_BY_ID = {
-    "locotrack_offline": "locotrack",
-    "trackonr_offline": "trackonr",
+    "locotrack_offline": "locotrack-pytorch",
+    "trackonr_offline": "trackonr2",
     "pipspp_offline": "pipspp",
     "mftiq_offline": "mftiq",
     "cutie_offline": "cutie",
@@ -576,6 +578,7 @@ class MainWindow(QMainWindow):
         default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
         if default_sam2_repo.exists():
             self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
+        self._apply_default_subprocess_python_executables()
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
         self._yolo_models_available = False
@@ -6288,6 +6291,73 @@ class MainWindow(QMainWindow):
 
     def _python_executable_path_ok(self, python_executable: str | None) -> bool:
         return bool(python_executable and Path(str(python_executable)).expanduser().exists())
+
+    def _conda_root_from_path(self, path: str | Path | None) -> Path | None:
+        if not path:
+            return None
+        candidate = Path(path).expanduser()
+        if candidate.name.lower() in {"python.exe", "python", "conda.exe", "conda"}:
+            candidate = candidate.parent
+        if candidate.name.lower() in {"scripts", "bin"}:
+            candidate = candidate.parent
+        if candidate.parent.name.lower() == "envs":
+            return candidate.parent.parent
+        if (candidate / "envs").exists():
+            return candidate
+        return None
+
+    def _candidate_conda_roots(self) -> list[Path]:
+        raw_candidates = (
+            os.environ.get("CONDA_PREFIX"),
+            os.environ.get("CONDA_EXE"),
+            sys.executable,
+            Path.home() / "anaconda3",
+            Path.home() / "miniconda3",
+        )
+        roots: list[Path] = []
+        seen: set[str] = set()
+        for raw_candidate in raw_candidates:
+            root = self._conda_root_from_path(raw_candidate)
+            if root is None:
+                continue
+            root_key = str(root).lower()
+            if root_key in seen:
+                continue
+            seen.add(root_key)
+            roots.append(root)
+        return roots
+
+    def _default_conda_python_executable(self, env_name: str | None) -> str | None:
+        env_name = str(env_name or "").strip()
+        if not env_name:
+            return None
+        for conda_root in self._candidate_conda_roots():
+            env_dir = conda_root / "envs" / env_name
+            for candidate in (
+                env_dir / "python.exe",
+                env_dir / "python",
+                env_dir / "Scripts" / "python.exe",
+                env_dir / "bin" / "python",
+            ):
+                if candidate.exists():
+                    return str(candidate.resolve())
+        return None
+
+    def _apply_default_subprocess_python_executables(self) -> None:
+        for tracker_spec in iter_tracker_specs():
+            if not getattr(tracker_spec, "supports_subprocess", False):
+                continue
+            env_name = str(getattr(tracker_spec, "default_conda_env_name", "") or "").strip()
+            if not env_name:
+                continue
+            settings = self._tracker_settings_for_spec(tracker_spec)
+            if settings is None or not hasattr(settings, "python_executable"):
+                continue
+            if getattr(settings, "python_executable", None):
+                continue
+            default_python = self._default_conda_python_executable(env_name)
+            if default_python:
+                settings.python_executable = default_python
 
     def _sync_registered_tracker_settings_from_widgets(self, tracker_spec):
         settings = self._tracker_settings_for_spec(tracker_spec)
