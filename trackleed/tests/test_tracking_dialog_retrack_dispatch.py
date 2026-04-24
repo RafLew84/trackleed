@@ -1,0 +1,394 @@
+from __future__ import annotations
+
+import importlib
+import sys
+import types
+import unittest
+from types import SimpleNamespace
+
+
+class _Dummy:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, *args, **kwargs):
+        return None
+
+    def __getattr__(self, _name):
+        return _Dummy()
+
+    def __iter__(self):
+        return iter(())
+
+    def __bool__(self):
+        return False
+
+
+class _Qt:
+    class WindowModality:
+        WindowModal = 0
+
+
+class _GenericWorkerStub:
+    def __init__(self, function, *args, **kwargs):
+        self.function = function
+        self.args = args
+        self.kwargs = kwargs
+        self.progress = _Dummy()
+        self.finished = _Dummy()
+        self.error = _Dummy()
+
+    def moveToThread(self, *_args, **_kwargs):
+        return None
+
+
+class TrackingDialogImportMixin:
+    module_name = "trackleed.gui.tracking_dialog"
+
+    def import_tracking_dialog(self):
+        originals: dict[str, types.ModuleType | None] = {}
+        for module_name in (
+            "PyQt6",
+            "PyQt6.QtCore",
+            "PyQt6.QtGui",
+            "PyQt6.QtWidgets",
+            "trackleed.gui.leed_image_viewer",
+            "trackleed.gui.polygon_mask_dialog",
+            "trackleed.gui.tracker_registry",
+            "trackleed.io.image_reader",
+            "trackleed.analysis.tomp_backend",
+            "trackleed.analysis.tracking_retrack",
+            "trackleed.logic.generic_worker",
+            self.module_name,
+        ):
+            originals[module_name] = sys.modules.get(module_name)
+            sys.modules.pop(module_name, None)
+
+        qtcore_module = types.ModuleType("PyQt6.QtCore")
+        qtcore_module.Qt = _Qt
+        qtcore_module.QTimer = _Dummy
+        qtcore_module.QPoint = _Dummy
+        qtcore_module.QPointF = _Dummy
+        qtcore_module.QRect = _Dummy
+        qtcore_module.QThread = _Dummy
+
+        qtgui_module = types.ModuleType("PyQt6.QtGui")
+        for attr_name in ("QImage", "QPixmap", "QActionGroup", "QAction", "QColor"):
+            setattr(qtgui_module, attr_name, _Dummy)
+
+        class _MessageBox:
+            @staticmethod
+            def warning(*args, **kwargs):
+                return None
+
+            @staticmethod
+            def information(*args, **kwargs):
+                return None
+
+            @staticmethod
+            def critical(*args, **kwargs):
+                return None
+
+        qtwidgets_module = types.ModuleType("PyQt6.QtWidgets")
+        qtwidgets_module.QMessageBox = _MessageBox
+        for attr_name in (
+            "QDialog",
+            "QWidget",
+            "QHBoxLayout",
+            "QVBoxLayout",
+            "QSlider",
+            "QSplitter",
+            "QLabel",
+            "QTableWidget",
+            "QAbstractItemView",
+            "QTableWidgetItem",
+            "QDialogButtonBox",
+            "QHeaderView",
+            "QPushButton",
+            "QToolBar",
+            "QMenu",
+            "QProgressDialog",
+            "QComboBox",
+        ):
+            setattr(qtwidgets_module, attr_name, _Dummy)
+
+        pyqt6_module = types.ModuleType("PyQt6")
+        pyqt6_module.QtCore = qtcore_module
+        pyqt6_module.QtGui = qtgui_module
+        pyqt6_module.QtWidgets = qtwidgets_module
+        sys.modules["PyQt6"] = pyqt6_module
+        sys.modules["PyQt6.QtCore"] = qtcore_module
+        sys.modules["PyQt6.QtGui"] = qtgui_module
+        sys.modules["PyQt6.QtWidgets"] = qtwidgets_module
+
+        tracker_specs = {
+            "tapir_offline": SimpleNamespace(
+                tracker_id="tapir_offline",
+                params_argument_name="tapir_params",
+                run_retrack=lambda *args, **kwargs: ("tapir_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
+            "tapir_online": SimpleNamespace(
+                tracker_id="tapir_online",
+                params_argument_name="tapir_params",
+                run_retrack=lambda *args, **kwargs: ("tapir_online", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
+            "tomp_offline": SimpleNamespace(
+                tracker_id="tomp_offline",
+                params_argument_name="tomp_params",
+                run_retrack=lambda *args, **kwargs: ("tomp_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
+            "sam2_offline": SimpleNamespace(
+                tracker_id="sam2_offline",
+                params_argument_name="sam2_params",
+                run_retrack=lambda *args, **kwargs: ("sam2_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
+            "xmem2_offline": SimpleNamespace(
+                tracker_id="xmem2_offline",
+                params_argument_name="xmem2_params",
+                run_retrack=lambda *args, **kwargs: ("xmem2_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
+        }
+
+        source_to_spec = {
+            "tapir_offline": tracker_specs["tapir_offline"],
+            "tapir_online": tracker_specs["tapir_online"],
+            "tomp_offline": tracker_specs["tomp_offline"],
+            "tamos_offline": tracker_specs["tomp_offline"],
+            "sam2_offline": tracker_specs["sam2_offline"],
+            "xmem2_offline": tracker_specs["xmem2_offline"],
+        }
+
+        tracker_registry_module = types.ModuleType("trackleed.gui.tracker_registry")
+        tracker_registry_module.get_tracker_spec_for_source = (
+            lambda source_name: source_to_spec.get(str(source_name or "").strip().lower())
+        )
+        tracker_registry_module.require_tracker_spec = (
+            lambda tracker_id: tracker_specs[str(tracker_id).strip().lower()]
+        )
+        sys.modules["trackleed.gui.tracker_registry"] = tracker_registry_module
+
+        viewer_module = types.ModuleType("trackleed.gui.leed_image_viewer")
+        viewer_module.LeedImageViewer = _Dummy
+        sys.modules["trackleed.gui.leed_image_viewer"] = viewer_module
+
+        polygon_module = types.ModuleType("trackleed.gui.polygon_mask_dialog")
+        polygon_module.PolygonMaskDialog = _Dummy
+        sys.modules["trackleed.gui.polygon_mask_dialog"] = polygon_module
+
+        image_reader_module = types.ModuleType("trackleed.io.image_reader")
+        image_reader_module.load_tiff = lambda *_args, **_kwargs: None
+        sys.modules["trackleed.io.image_reader"] = image_reader_module
+
+        tomp_backend_module = types.ModuleType("trackleed.analysis.tomp_backend")
+        tomp_backend_module.select_default_tamos_checkpoint_for_variant = (
+            lambda checkpoints, variant: None
+        )
+        tomp_backend_module.select_default_tomp_checkpoint_for_variant = (
+            lambda checkpoints, variant: None
+        )
+        sys.modules["trackleed.analysis.tomp_backend"] = tomp_backend_module
+
+        retrack_module = types.ModuleType("trackleed.analysis.tracking_retrack")
+        retrack_module.retrack_single_spot_optical_flow = lambda *args, **kwargs: None
+        sys.modules["trackleed.analysis.tracking_retrack"] = retrack_module
+
+        generic_worker_module = types.ModuleType("trackleed.logic.generic_worker")
+        generic_worker_module.GenericWorker = _GenericWorkerStub
+        sys.modules["trackleed.logic.generic_worker"] = generic_worker_module
+
+        self.addCleanup(self._restore_modules, originals)
+        self.addCleanup(sys.modules.pop, self.module_name, None)
+
+        module = importlib.import_module(self.module_name)
+        return module, tracker_specs
+
+    def _restore_modules(self, originals: dict[str, types.ModuleType | None]) -> None:
+        for module_name, original_module in originals.items():
+            if original_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = original_module
+
+
+class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        self.module, self.tracker_specs = self.import_tracking_dialog()
+
+    def _spot(self, source: str):
+        return SimpleNamespace(source=source, id=1)
+
+    def _track(self, *sources: str):
+        return SimpleNamespace(
+            track_id=7,
+            spots_by_image_id={
+                idx + 1: self._spot(source)
+                for idx, source in enumerate(sources)
+            },
+        )
+
+    def test_tracker_spec_lookup_for_source_and_track(self) -> None:
+        dialog = SimpleNamespace()
+        dialog._normalized_source_name = types.MethodType(
+            self.module.TrackingDialog._normalized_source_name,
+            dialog,
+        )
+        dialog._tracker_spec_for_source_name = types.MethodType(
+            self.module.TrackingDialog._tracker_spec_for_source_name,
+            dialog,
+        )
+        dialog._tracker_spec_for_track = types.MethodType(
+            self.module.TrackingDialog._tracker_spec_for_track,
+            dialog,
+        )
+
+        self.assertIsNone(dialog._tracker_spec_for_source_name("manual_corr"))
+        self.assertIs(
+            dialog._tracker_spec_for_source_name("  tamos_offline  "),
+            self.tracker_specs["tomp_offline"],
+        )
+        self.assertIs(
+            dialog._tracker_spec_for_track(self._track("tomp_offline", "manual_corr")),
+            self.tracker_specs["tomp_offline"],
+        )
+        self.assertIsNone(
+            dialog._tracker_spec_for_track(self._track("tomp_offline", "sam2_offline"))
+        )
+
+    def test_backend_retrack_action_text_uses_base_method_label(self) -> None:
+        dialog = SimpleNamespace()
+        dialog._normalized_source_name = types.MethodType(
+            self.module.TrackingDialog._normalized_source_name,
+            dialog,
+        )
+        dialog._tracker_spec_for_source_name = types.MethodType(
+            self.module.TrackingDialog._tracker_spec_for_source_name,
+            dialog,
+        )
+        dialog._tracker_spec_for_track = types.MethodType(
+            self.module.TrackingDialog._tracker_spec_for_track,
+            dialog,
+        )
+        dialog._method_label_for_source_name = types.MethodType(
+            self.module.TrackingDialog._method_label_for_source_name,
+            dialog,
+        )
+        dialog._classify_track_method = types.MethodType(
+            self.module.TrackingDialog._classify_track_method,
+            dialog,
+        )
+        dialog._base_method_label_for_track = types.MethodType(
+            self.module.TrackingDialog._base_method_label_for_track,
+            dialog,
+        )
+        dialog._backend_retrack_action_text = types.MethodType(
+            self.module.TrackingDialog._backend_retrack_action_text,
+            dialog,
+        )
+
+        self.assertEqual(
+            dialog._backend_retrack_action_text(self._track("tamos_offline", "manual_corr")),
+            "Re-track from this point (TaMOs)",
+        )
+        self.assertIsNone(dialog._backend_retrack_action_text(self._track("manual_corr")))
+
+    def test_tracker_params_for_spec_returns_dict_copy(self) -> None:
+        dialog = SimpleNamespace(
+            tomp_params={"backend_mode": "subprocess", "model_variant": "tomp50"}
+        )
+
+        params = self.module.TrackingDialog._tracker_params_for_spec(
+            dialog,
+            self.tracker_specs["tomp_offline"],
+        )
+        params["model_variant"] = "changed"
+
+        self.assertEqual(dialog.tomp_params["model_variant"], "tomp50")
+        self.assertEqual(params["backend_mode"], "subprocess")
+
+    def test_launch_registered_retrack_builds_worker_and_delegates_launch(self) -> None:
+        recorded: dict[str, object] = {}
+        dialog = SimpleNamespace(
+            file_map={1: "frame1"},
+            sorted_frame_ids=[1, 2, 3],
+        )
+
+        def launch_retrack_worker(worker, *, title, cancel_event, method_label):
+            recorded["worker"] = worker
+            recorded["title"] = title
+            recorded["cancel_event"] = cancel_event
+            recorded["method_label"] = method_label
+
+        dialog.launch_retrack_worker = launch_retrack_worker
+        track = self._track("tomp_offline")
+
+        self.module.TrackingDialog._launch_registered_retrack(
+            dialog,
+            self.tracker_specs["tomp_offline"],
+            track,
+            2,
+            {"roi_size": 32},
+            title="Re-track with ToMP",
+            method_label="ToMP re-tracking",
+        )
+
+        worker = recorded["worker"]
+        self.assertIsInstance(worker, _GenericWorkerStub)
+        self.assertIs(worker.function, self.tracker_specs["tomp_offline"].run_retrack)
+        self.assertEqual(worker.args[0], track)
+        self.assertEqual(worker.args[1], 2)
+        self.assertEqual(worker.args[2], {1: "frame1"})
+        self.assertEqual(worker.args[3], [1, 2, 3])
+        self.assertEqual(worker.args[4], {"roi_size": 32})
+        self.assertEqual(recorded["title"], "Re-track with ToMP")
+        self.assertEqual(recorded["method_label"], "ToMP re-tracking")
+        self.assertIs(worker.kwargs["cancel_event"], recorded["cancel_event"])
+
+    def test_initiate_retrack_for_tracker_spec_dispatches_to_backend_specific_method(self) -> None:
+        calls: list[tuple[str, int]] = []
+        dialog = SimpleNamespace(
+            initiate_retrack_tapir=lambda spot_id: calls.append(("tapir", spot_id)),
+            initiate_retrack_locotrack=lambda spot_id: calls.append(("locotrack", spot_id)),
+            initiate_retrack_cotracker3=lambda spot_id: calls.append(("cotracker3", spot_id)),
+            initiate_retrack_tapnext=lambda spot_id: calls.append(("tapnext", spot_id)),
+            initiate_retrack_trackonr=lambda spot_id: calls.append(("trackonr", spot_id)),
+            initiate_retrack_pipspp=lambda spot_id: calls.append(("pipspp", spot_id)),
+            initiate_retrack_mftiq=lambda spot_id: calls.append(("mftiq", spot_id)),
+            initiate_retrack_cutie=lambda spot_id: calls.append(("cutie", spot_id)),
+            initiate_retrack_xmem2=lambda spot_id: calls.append(("xmem2", spot_id)),
+            initiate_retrack_tomp=lambda spot_id: calls.append(("tomp", spot_id)),
+            initiate_retrack_sam2=lambda spot_id: calls.append(("sam2", spot_id)),
+        )
+
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["tapir_online"],
+            11,
+        )
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["tomp_offline"],
+            22,
+        )
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["sam2_offline"],
+            33,
+        )
+
+        self.assertEqual(calls, [("tapir", 11), ("tomp", 22), ("sam2", 33)])
+
+    def test_initiate_retrack_for_tracker_spec_rejects_unknown_tracker(self) -> None:
+        dialog = SimpleNamespace()
+
+        with self.assertRaises(ValueError):
+            self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+                dialog,
+                SimpleNamespace(tracker_id="unknown_tracker"),
+                5,
+            )
+
