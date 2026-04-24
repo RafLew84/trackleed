@@ -17,6 +17,8 @@ import time
 
 import numpy as np
 
+from trackleed.analysis.tracking_filter_utils import presence_score_is_accepted
+
 
 DEFAULT_TOMP_MODELS_DIR = Path("tracking_models") / "tomp"
 DEFAULT_TAMOS_MODELS_DIR = Path("tracking_models") / "tamos"
@@ -1696,7 +1698,11 @@ def _record_tomp_frame_output(
     )
     if representative_point is None:
         return
-    if use_presence_score_gating and (not np.isfinite(score) or float(score) < float(presence_threshold)):
+    if not presence_score_is_accepted(
+        score,
+        use_presence_score_gating=use_presence_score_gating,
+        presence_threshold=presence_threshold,
+    ):
         return
 
     tracks_xy[query_index, frame_index, 0] = float(representative_point[0])

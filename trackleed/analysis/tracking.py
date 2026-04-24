@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 # stal/analysis/tracking.py
+# Compatibility shim:
+# public Trackleed tracking entrypoints are re-exported from family modules,
+# while legacy implementations remain below during the staged refactor.
 
 from pathlib import Path
 from typing import Any, List, Dict, Callable, Tuple, Optional
@@ -93,23 +96,89 @@ from trackleed.analysis.xmem2_backend import (
     run_xmem2_offline,
     select_default_xmem2_checkpoint,
 )
-from trackleed.analysis.tomp_backend import (
-    DEFAULT_TAMOS_MODELS_DIR,
-    DEFAULT_TOMP_MODELS_DIR,
-    TompRuntimeSettings,
-    discover_tamos_checkpoints,
-    discover_tomp_checkpoints,
-    expected_tomp_checkpoint_name_for_variant,
-    run_tomp_offline,
-    select_default_tamos_checkpoint,
-    select_default_tamos_checkpoint_for_variant,
-    select_default_tomp_checkpoint,
-    select_default_tomp_checkpoint_for_variant,
+from trackleed.analysis.tracking_bbox_backends import (
+    track_spots_tomp_offline,
+)
+from trackleed.analysis.tracking_mask_backends import (
+    track_spots_cutie_offline,
+    track_spots_sam2_offline,
+    track_spots_xmem2_offline,
+)
+from trackleed.analysis.tracking_point_backends import (
+    track_spots_cotracker3_offline,
+    track_spots_locotrack_offline,
+    track_spots_mftiq_offline,
+    track_spots_pipspp_offline,
+    track_spots_tapir_offline,
+    track_spots_tapir_online,
+    track_spots_tapnext_offline,
+    track_spots_trackonr_offline,
+)
+from trackleed.analysis.tracking_retrack import (
+    retrack_single_spot_cotracker3_offline,
+    retrack_single_spot_cutie_offline,
+    retrack_single_spot_locotrack_offline,
+    retrack_single_spot_mftiq_offline,
+    retrack_single_spot_optical_flow,
+    retrack_single_spot_pipspp_offline,
+    retrack_single_spot_sam2_offline,
+    retrack_single_spot_tapir_offline,
+    retrack_single_spot_tapir_online,
+    retrack_single_spot_tapnext_offline,
+    retrack_single_spot_tomp_offline,
+    retrack_single_spot_trackonr_offline,
+    retrack_single_spot_xmem2_offline,
 )
 from trackleed.analysis.polygon_mask import (
     normalize_polygon_points,
     polygon_points_are_valid,
     polygon_points_to_mask,
+)
+from trackleed.analysis.tracking_result_builders import (
+    apply_bbox_xywh_metadata,
+    apply_bbox_xyxy_metadata,
+    apply_prefixed_point_metadata,
+    bbox_center_and_aspect_ratio_from_xyxy as _bbox_center_and_aspect_ratio_from_xyxy,
+    build_spot_roi,
+    build_track,
+    build_track_with_initial_spot,
+    set_spot_attributes,
+)
+from trackleed.analysis.tracking_retrack_utils import (
+    finish_retrack_if_too_short,
+    prepare_retrack_start_context,
+)
+from trackleed.analysis.tracking_filter_utils import (
+    advance_invisible_streak,
+    append_motion_accepted_spot,
+    build_bbox_quality_filter_context,
+    build_direction_filter_context,
+    build_mask_quality_filter_context,
+    build_motion_filter_context,
+    commit_motion_filter_context,
+    exceeds_reacquisition_gap,
+    gate_bbox_quality,
+    gate_by_bbox_aspect_ratio,
+    gate_by_bbox_center_jump,
+    gate_by_direction,
+    gate_by_mask_area_ratio,
+    gate_by_max_step_distance,
+    gate_mask_quality,
+    normalize_bbox_mask_filter_params,
+    normalize_motion_filter_params,
+    register_motion_rejection,
+    should_terminate_before_visible_candidate,
+)
+from trackleed.analysis.tracking_visibility_utils import (
+    append_invisible_track_frame,
+    append_visible_track_spot,
+    commit_tracking_visibility_state,
+)
+from trackleed.analysis.tracking_windowing_utils import (
+    advance_window_coverage,
+    build_tracking_window_plans,
+    build_plain_tracking_window_context,
+    build_reseed_tracking_window_context,
 )
 
 
@@ -228,27 +297,6 @@ def _roi_rect_from_bbox_xyxy(
     return QRect(left, top, width, height)
 
 
-def _bbox_center_and_aspect_ratio_from_xyxy(
-    bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
-) -> tuple[np.ndarray | None, float | None]:
-    """Return bbox center and width/height aspect ratio for a valid xyxy box."""
-    if bbox_xyxy is None:
-        return None, None
-    bbox = np.asarray(bbox_xyxy, dtype=np.float32).reshape(-1)
-    if bbox.size < 4 or not np.all(np.isfinite(bbox[:4])):
-        return None, None
-    x0, y0, x1, y1 = (float(v) for v in bbox[:4])
-    width = float(x1 - x0)
-    height = float(y1 - y0)
-    if width <= 0.0 or height <= 0.0:
-        return None, None
-    center_xy = np.array(
-        [float((x0 + x1) * 0.5), float((y0 + y1) * 0.5)],
-        dtype=np.float32,
-    )
-    return center_xy, float(width / height)
-
-
 def _spot_polygon_seed_mask(
     spot: SpotROI,
     image_shape: tuple[int, int] | tuple[int, int, int],
@@ -322,6 +370,65 @@ def _frame_to_normalized_gray(frame: np.ndarray) -> np.ndarray:
         else:
             gray = np.zeros_like(gray, dtype=np.float32)
     return gray
+
+
+def _build_recentered_point_tracker_spot(
+    *,
+    reference_spot: SpotROI,
+    image_frame: np.ndarray,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    recenter_mode: str,
+    centroid_patch_multiplier: float,
+    centroid_rel_threshold: float,
+    centroid_max_expand: int,
+    centroid_max_shift_ratio: float,
+    source: str,
+    metadata_prefix: str,
+    extra_attributes: dict[str, Any] | None = None,
+) -> SpotROI:
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+    if visible and np.isfinite(x) and np.isfinite(y):
+        x, y = _refine_tapir_point(
+            image_frame,
+            x,
+            y,
+            roi_size,
+            recenter_mode,
+            centroid_patch_multiplier,
+            centroid_rel_threshold,
+            centroid_max_expand,
+            centroid_max_shift_ratio,
+        )
+    rect = _centered_roi_rect(x, y, roi_size, image_shape)
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        source=source,
+        visible=visible,
+    )
+    apply_prefixed_point_metadata(
+        spot,
+        prefix=metadata_prefix,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    if extra_attributes:
+        set_spot_attributes(spot, extra_attributes)
+    return spot
 
 
 def _refine_tapir_point_by_centroid(
@@ -487,35 +594,22 @@ def _build_tapir_spot(
     source: str = "tapir_offline",
 ) -> SpotROI:
     """Create a SpotROI from TAPIR output, optionally recentered on the local spot."""
-    x = float(raw_x)
-    y = float(raw_y)
-    if visible:
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source=source,
+        metadata_prefix="tapir",
     )
-    setattr(spot, "tapir_raw_x", float(raw_x))
-    setattr(spot, "tapir_raw_y", float(raw_y))
-    setattr(spot, "tapir_refined_x", float(x))
-    setattr(spot, "tapir_refined_y", float(y))
-    setattr(spot, "tapir_visibility", bool(visible))
-    return spot
 
 
 def _build_locotrack_spot(
@@ -533,35 +627,22 @@ def _build_locotrack_spot(
     centroid_max_shift_ratio: float,
 ) -> SpotROI:
     """Create a SpotROI from LocoTrack output, optionally recentered on the local spot."""
-    x = float(raw_x)
-    y = float(raw_y)
-    if visible:
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source="locotrack_offline",
+        metadata_prefix="locotrack",
     )
-    setattr(spot, "locotrack_raw_x", float(raw_x))
-    setattr(spot, "locotrack_raw_y", float(raw_y))
-    setattr(spot, "locotrack_refined_x", float(x))
-    setattr(spot, "locotrack_refined_y", float(y))
-    setattr(spot, "locotrack_visibility", bool(visible))
-    return spot
 
 
 def _build_cotracker3_spot(
@@ -579,35 +660,22 @@ def _build_cotracker3_spot(
     centroid_max_shift_ratio: float,
 ) -> SpotROI:
     """Create a SpotROI from CoTracker3 output, optionally recentered on the local spot."""
-    x = float(raw_x)
-    y = float(raw_y)
-    if visible:
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source="cotracker3_offline",
+        metadata_prefix="cotracker3",
     )
-    setattr(spot, "cotracker3_raw_x", float(raw_x))
-    setattr(spot, "cotracker3_raw_y", float(raw_y))
-    setattr(spot, "cotracker3_refined_x", float(x))
-    setattr(spot, "cotracker3_refined_y", float(y))
-    setattr(spot, "cotracker3_visibility", bool(visible))
-    return spot
 
 
 def _build_tapnext_spot(
@@ -628,41 +696,30 @@ def _build_tapnext_spot(
     combined_score: float | None = None,
 ) -> SpotROI:
     """Create a SpotROI from TAPNext output, optionally recentered on the local spot."""
-    x = float(raw_x)
-    y = float(raw_y)
-    if visible:
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
-        source="tapnext_offline",
-    )
-    setattr(spot, "tapnext_raw_x", float(raw_x))
-    setattr(spot, "tapnext_raw_y", float(raw_y))
-    setattr(spot, "tapnext_refined_x", float(x))
-    setattr(spot, "tapnext_refined_y", float(y))
-    setattr(spot, "tapnext_visibility", bool(visible))
+    extra_attributes: dict[str, Any] = {}
     if visibility_score is not None:
-        setattr(spot, "tapnext_visibility_score", float(visibility_score))
+        extra_attributes["tapnext_visibility_score"] = float(visibility_score)
     if certainty_score is not None:
-        setattr(spot, "tapnext_certainty_score", float(certainty_score))
+        extra_attributes["tapnext_certainty_score"] = float(certainty_score)
     if combined_score is not None:
-        setattr(spot, "tapnext_combined_score", float(combined_score))
-    return spot
+        extra_attributes["tapnext_combined_score"] = float(combined_score)
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
+        source="tapnext_offline",
+        metadata_prefix="tapnext",
+        extra_attributes=extra_attributes,
+    )
 
 
 def _build_trackonr_spot(
@@ -680,35 +737,22 @@ def _build_trackonr_spot(
     centroid_max_shift_ratio: float,
 ) -> SpotROI:
     """Create a SpotROI from Track-On-R output, optionally recentered on the local spot."""
-    x = float(raw_x)
-    y = float(raw_y)
-    if visible:
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source="trackonr_offline",
+        metadata_prefix="trackonr",
     )
-    setattr(spot, "trackonr_raw_x", float(raw_x))
-    setattr(spot, "trackonr_raw_y", float(raw_y))
-    setattr(spot, "trackonr_refined_x", float(x))
-    setattr(spot, "trackonr_refined_y", float(y))
-    setattr(spot, "trackonr_visibility", bool(visible))
-    return spot
 
 
 def _build_pipspp_spot(
@@ -726,39 +770,22 @@ def _build_pipspp_spot(
     centroid_max_shift_ratio: float,
 ) -> SpotROI:
     """Create a SpotROI from PIPs++ output, optionally recentered on the local spot."""
-    if np.isfinite(raw_x) and np.isfinite(raw_y):
-        x = float(raw_x)
-        y = float(raw_y)
-    else:
-        x = float(reference_spot.center_x)
-        y = float(reference_spot.center_y)
-    if visible and np.isfinite(x) and np.isfinite(y):
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source="pipspp_offline",
+        metadata_prefix="pipspp",
     )
-    setattr(spot, "pipspp_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "pipspp_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "pipspp_refined_x", float(x))
-    setattr(spot, "pipspp_refined_y", float(y))
-    setattr(spot, "pipspp_visibility", bool(visible))
-    return spot
 
 
 def _build_mftiq_spot(
@@ -778,41 +805,26 @@ def _build_mftiq_spot(
     sigma_score: float,
 ) -> SpotROI:
     """Create a SpotROI from MFTIQ output, optionally recentered on the local spot."""
-    if np.isfinite(raw_x) and np.isfinite(raw_y):
-        x = float(raw_x)
-        y = float(raw_y)
-    else:
-        x = float(reference_spot.center_x)
-        y = float(reference_spot.center_y)
-    if visible and np.isfinite(x) and np.isfinite(y):
-        x, y = _refine_tapir_point(
-            image_frame,
-            x,
-            y,
-            roi_size,
-            recenter_mode,
-            centroid_patch_multiplier,
-            centroid_rel_threshold,
-            centroid_max_expand,
-            centroid_max_shift_ratio,
-        )
-    rect = _centered_roi_rect(x, y, roi_size, image_shape)
-    spot = SpotROI(
-        id=reference_spot.id,
-        roi_rect=rect,
-        center_x=x,
-        center_y=y,
-        intensity=1.0 if visible else 0.0,
+    return _build_recentered_point_tracker_spot(
+        reference_spot=reference_spot,
+        image_frame=image_frame,
+        image_shape=image_shape,
+        raw_x=raw_x,
+        raw_y=raw_y,
+        visible=visible,
+        roi_size=roi_size,
+        recenter_mode=recenter_mode,
+        centroid_patch_multiplier=centroid_patch_multiplier,
+        centroid_rel_threshold=centroid_rel_threshold,
+        centroid_max_expand=centroid_max_expand,
+        centroid_max_shift_ratio=centroid_max_shift_ratio,
         source="mftiq_offline",
+        metadata_prefix="mftiq",
+        extra_attributes={
+            "mftiq_occlusion_score": float(occlusion_score),
+            "mftiq_sigma_score": float(sigma_score),
+        },
     )
-    setattr(spot, "mftiq_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "mftiq_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "mftiq_refined_x", float(x))
-    setattr(spot, "mftiq_refined_y", float(y))
-    setattr(spot, "mftiq_visibility", bool(visible))
-    setattr(spot, "mftiq_occlusion_score", float(occlusion_score))
-    setattr(spot, "mftiq_sigma_score", float(sigma_score))
-    return spot
 
 
 def _build_sam2_spot(
@@ -844,40 +856,39 @@ def _build_sam2_spot(
         fallback_center_y=y,
         fallback_roi_size=roi_size,
     )
-    spot = SpotROI(
-        id=reference_spot.id,
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
         roi_rect=rect,
         center_x=x,
         center_y=y,
-        intensity=1.0 if visible else 0.0,
         source="sam2_offline",
+        visible=visible,
     )
-    setattr(spot, "sam2_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "sam2_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "sam2_refined_x", float(x))
-    setattr(spot, "sam2_refined_y", float(y))
-    setattr(spot, "sam2_visibility", bool(visible))
-    setattr(spot, "sam2_mask_area", float(mask_area))
-    setattr(spot, "sam2_mask_score", float(mask_score))
-    setattr(spot, "sam2_mask_component_count", int(mask_component_count))
-    if mask_bbox_xyxy is not None:
-        bbox = np.asarray(mask_bbox_xyxy, dtype=np.float32).reshape(-1)
-        if bbox.size >= 4 and np.all(np.isfinite(bbox[:4])):
-            setattr(spot, "sam2_mask_bbox_xyxy", tuple(float(v) for v in bbox[:4].tolist()))
-            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox[:4])
-            setattr(
-                spot,
-                "sam2_mask_bbox_aspect_ratio",
-                float(aspect_ratio) if aspect_ratio is not None else None,
-            )
-        else:
-            setattr(spot, "sam2_mask_bbox_xyxy", None)
-            setattr(spot, "sam2_mask_bbox_aspect_ratio", None)
-    else:
-        setattr(spot, "sam2_mask_bbox_xyxy", None)
-        setattr(spot, "sam2_mask_bbox_aspect_ratio", None)
-    setattr(spot, "sam2_repr_mode", str(representative_point_mode))
-    setattr(spot, "sam2_prompt_mode", str(prompt_mode))
+    apply_prefixed_point_metadata(
+        spot,
+        prefix="sam2",
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    set_spot_attributes(
+        spot,
+        {
+            "sam2_mask_area": float(mask_area),
+            "sam2_mask_score": float(mask_score),
+            "sam2_mask_component_count": int(mask_component_count),
+            "sam2_repr_mode": str(representative_point_mode),
+            "sam2_prompt_mode": str(prompt_mode),
+        },
+    )
+    apply_bbox_xyxy_metadata(
+        spot,
+        bbox_xyxy=mask_bbox_xyxy,
+        bbox_attribute_name="sam2_mask_bbox_xyxy",
+        aspect_ratio_attribute_name="sam2_mask_bbox_aspect_ratio",
+    )
     return spot
 
 
@@ -909,13 +920,13 @@ def _build_cutie_spot(
         fallback_center_y=y,
         fallback_roi_size=roi_size,
     )
-    spot = SpotROI(
-        id=reference_spot.id,
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
         roi_rect=rect,
         center_x=x,
         center_y=y,
-        intensity=1.0 if visible else 0.0,
         source="cutie_offline",
+        visible=visible,
     )
     if reference_spot.has_polygon_seed:
         delta_x = float(x - float(reference_spot.center_x))
@@ -926,33 +937,32 @@ def _build_cutie_spot(
             delta_y=delta_y,
             image_shape=image_shape,
         )
-    setattr(spot, "cutie_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "cutie_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "cutie_refined_x", float(x))
-    setattr(spot, "cutie_refined_y", float(y))
-    setattr(spot, "cutie_visibility", bool(visible))
-    setattr(spot, "cutie_mask_area", float(mask_area))
-    setattr(spot, "cutie_mask_score", float(mask_score))
-    if mask_bbox_xyxy is not None:
-        bbox = np.asarray(mask_bbox_xyxy, dtype=np.float32).reshape(-1)
-        if bbox.size >= 4 and np.all(np.isfinite(bbox[:4])):
-            setattr(spot, "cutie_mask_bbox_xyxy", tuple(float(v) for v in bbox[:4].tolist()))
-            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox[:4])
-            setattr(
-                spot,
-                "cutie_mask_bbox_aspect_ratio",
-                float(aspect_ratio) if aspect_ratio is not None else None,
-            )
-        else:
-            setattr(spot, "cutie_mask_bbox_xyxy", None)
-            setattr(spot, "cutie_mask_bbox_aspect_ratio", None)
-    else:
-        setattr(spot, "cutie_mask_bbox_xyxy", None)
-        setattr(spot, "cutie_mask_bbox_aspect_ratio", None)
-    setattr(spot, "cutie_repr_mode", str(representative_point_mode))
-    setattr(spot, "cutie_initial_mask_mode", str(initial_mask_mode))
-    setattr(spot, "polygon_seed_used", bool(reference_spot.has_polygon_seed))
-    setattr(spot, "polygon_vertex_count", int(len(spot.polygon_seed_points)))
+    apply_prefixed_point_metadata(
+        spot,
+        prefix="cutie",
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    set_spot_attributes(
+        spot,
+        {
+            "cutie_mask_area": float(mask_area),
+            "cutie_mask_score": float(mask_score),
+            "cutie_repr_mode": str(representative_point_mode),
+            "cutie_initial_mask_mode": str(initial_mask_mode),
+            "polygon_seed_used": bool(reference_spot.has_polygon_seed),
+            "polygon_vertex_count": int(len(spot.polygon_seed_points)),
+        },
+    )
+    apply_bbox_xyxy_metadata(
+        spot,
+        bbox_xyxy=mask_bbox_xyxy,
+        bbox_attribute_name="cutie_mask_bbox_xyxy",
+        aspect_ratio_attribute_name="cutie_mask_bbox_aspect_ratio",
+    )
     return spot
 
 
@@ -984,13 +994,13 @@ def _build_xmem2_spot(
         fallback_center_y=y,
         fallback_roi_size=roi_size,
     )
-    spot = SpotROI(
-        id=reference_spot.id,
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
         roi_rect=rect,
         center_x=x,
         center_y=y,
-        intensity=1.0 if visible else 0.0,
         source="xmem2_offline",
+        visible=visible,
     )
     if reference_spot.has_polygon_seed:
         delta_x = float(x - float(reference_spot.center_x))
@@ -1001,33 +1011,32 @@ def _build_xmem2_spot(
             delta_y=delta_y,
             image_shape=image_shape,
         )
-    setattr(spot, "xmem2_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "xmem2_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "xmem2_refined_x", float(x))
-    setattr(spot, "xmem2_refined_y", float(y))
-    setattr(spot, "xmem2_visibility", bool(visible))
-    setattr(spot, "xmem2_mask_area", float(mask_area))
-    setattr(spot, "xmem2_mask_score", float(mask_score))
-    if mask_bbox_xyxy is not None:
-        bbox = np.asarray(mask_bbox_xyxy, dtype=np.float32).reshape(-1)
-        if bbox.size >= 4 and np.all(np.isfinite(bbox[:4])):
-            setattr(spot, "xmem2_mask_bbox_xyxy", tuple(float(v) for v in bbox[:4].tolist()))
-            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox[:4])
-            setattr(
-                spot,
-                "xmem2_mask_bbox_aspect_ratio",
-                float(aspect_ratio) if aspect_ratio is not None else None,
-            )
-        else:
-            setattr(spot, "xmem2_mask_bbox_xyxy", None)
-            setattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
-    else:
-        setattr(spot, "xmem2_mask_bbox_xyxy", None)
-        setattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
-    setattr(spot, "xmem2_repr_mode", str(representative_point_mode))
-    setattr(spot, "xmem2_initial_mask_mode", str(initial_mask_mode))
-    setattr(spot, "polygon_seed_used", bool(reference_spot.has_polygon_seed))
-    setattr(spot, "polygon_vertex_count", int(len(spot.polygon_seed_points)))
+    apply_prefixed_point_metadata(
+        spot,
+        prefix="xmem2",
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    set_spot_attributes(
+        spot,
+        {
+            "xmem2_mask_area": float(mask_area),
+            "xmem2_mask_score": float(mask_score),
+            "xmem2_repr_mode": str(representative_point_mode),
+            "xmem2_initial_mask_mode": str(initial_mask_mode),
+            "polygon_seed_used": bool(reference_spot.has_polygon_seed),
+            "polygon_vertex_count": int(len(spot.polygon_seed_points)),
+        },
+    )
+    apply_bbox_xyxy_metadata(
+        spot,
+        bbox_xyxy=mask_bbox_xyxy,
+        bbox_attribute_name="xmem2_mask_bbox_xyxy",
+        aspect_ratio_attribute_name="xmem2_mask_bbox_aspect_ratio",
+    )
     return spot
 
 
@@ -1059,48 +1068,42 @@ def _build_tomp_spot(
         fallback_center_y=y,
         fallback_roi_size=roi_size,
     )
-    spot = SpotROI(
-        id=reference_spot.id,
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
         roi_rect=rect,
         center_x=x,
         center_y=y,
-        intensity=1.0 if visible else 0.0,
         source=_tomp_tracker_source_name(model_variant),
+        visible=visible,
     )
-    setattr(spot, "tomp_raw_x", float(raw_x) if np.isfinite(raw_x) else float("nan"))
-    setattr(spot, "tomp_raw_y", float(raw_y) if np.isfinite(raw_y) else float("nan"))
-    setattr(spot, "tomp_refined_x", float(x))
-    setattr(spot, "tomp_refined_y", float(y))
-    setattr(spot, "tomp_visibility", bool(visible))
-    setattr(spot, "tomp_bbox_score", float(bbox_score) if np.isfinite(bbox_score) else float("nan"))
-    setattr(spot, "tomp_model_variant", str(model_variant))
-    setattr(spot, "tomp_repr_mode", str(representative_point_mode))
-
-    if bbox_xywh is not None:
-        bbox_xywh_arr = np.asarray(bbox_xywh, dtype=np.float32).reshape(-1)
-        if bbox_xywh_arr.size >= 4 and np.all(np.isfinite(bbox_xywh_arr[:4])):
-            setattr(spot, "tomp_bbox_xywh", tuple(float(v) for v in bbox_xywh_arr[:4].tolist()))
-        else:
-            setattr(spot, "tomp_bbox_xywh", None)
-    else:
-        setattr(spot, "tomp_bbox_xywh", None)
-
-    if bbox_xyxy is not None:
-        bbox_xyxy_arr = np.asarray(bbox_xyxy, dtype=np.float32).reshape(-1)
-        if bbox_xyxy_arr.size >= 4 and np.all(np.isfinite(bbox_xyxy_arr[:4])):
-            setattr(spot, "tomp_bbox_xyxy", tuple(float(v) for v in bbox_xyxy_arr[:4].tolist()))
-            _, aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox_xyxy_arr[:4])
-            setattr(
-                spot,
-                "tomp_bbox_aspect_ratio",
-                float(aspect_ratio) if aspect_ratio is not None else None,
-            )
-        else:
-            setattr(spot, "tomp_bbox_xyxy", None)
-            setattr(spot, "tomp_bbox_aspect_ratio", None)
-    else:
-        setattr(spot, "tomp_bbox_xyxy", None)
-        setattr(spot, "tomp_bbox_aspect_ratio", None)
+    apply_prefixed_point_metadata(
+        spot,
+        prefix="tomp",
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    set_spot_attributes(
+        spot,
+        {
+            "tomp_bbox_score": float(bbox_score) if np.isfinite(bbox_score) else float("nan"),
+            "tomp_model_variant": str(model_variant),
+            "tomp_repr_mode": str(representative_point_mode),
+        },
+    )
+    apply_bbox_xywh_metadata(
+        spot,
+        bbox_xywh=bbox_xywh,
+        bbox_attribute_name="tomp_bbox_xywh",
+    )
+    apply_bbox_xyxy_metadata(
+        spot,
+        bbox_xyxy=bbox_xyxy,
+        bbox_attribute_name="tomp_bbox_xyxy",
+        aspect_ratio_attribute_name="tomp_bbox_aspect_ratio",
+    )
     return spot
 
 
@@ -1109,19 +1112,13 @@ def _compute_point_tracker_window_starts(
     window_size: int,
     window_overlap: int,
 ) -> List[int]:
-    """Return monotonically increasing window starts covering the whole sequence."""
-    if total_frames <= 1:
-        return [0]
-    if window_size <= 1 or window_size >= total_frames:
-        return [0]
-
-    overlap = min(max(0, int(window_overlap)), max(0, window_size - 1))
-    step = max(1, int(window_size) - overlap)
-    starts = list(range(0, max(1, total_frames - 1), step))
-    last_start = max(0, total_frames - window_size)
-    if starts[-1] != last_start:
-        starts.append(last_start)
-    return sorted(set(starts))
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_plain_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return [window.start_idx for window in window_context.plans]
 
 
 def _compute_tapir_window_starts(total_frames: int, window_size: int, window_overlap: int) -> List[int]:
@@ -1134,17 +1131,13 @@ def _resolve_tapnext_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    TAPNext windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked point
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_trackonr_window_overlap(
@@ -1152,17 +1145,13 @@ def _resolve_trackonr_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    Track-On-R windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked point
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_pipspp_window_overlap(
@@ -1170,17 +1159,13 @@ def _resolve_pipspp_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    PIPs++ windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked point
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_mftiq_window_overlap(
@@ -1188,17 +1173,13 @@ def _resolve_mftiq_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    MFTIQ windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked point
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_sam2_window_overlap(
@@ -1206,17 +1187,13 @@ def _resolve_sam2_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    SAM 2 windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked seed
-    object to continue propagation from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_cutie_window_overlap(
@@ -1224,17 +1201,13 @@ def _resolve_cutie_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    Cutie windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked seed
-    object to continue propagation from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_xmem2_window_overlap(
@@ -1242,17 +1215,13 @@ def _resolve_xmem2_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    XMem2 windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked seed
-    object to continue propagation from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_tomp_window_overlap(
@@ -1260,17 +1229,13 @@ def _resolve_tomp_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    ToMP / TaMOs windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked bbox
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _resolve_tapir_online_window_overlap(
@@ -1278,17 +1243,13 @@ def _resolve_tapir_online_window_overlap(
     window_size: int,
     window_overlap: int,
 ) -> int:
-    """
-    Online / causal TAPIR windows are restarted independently and reseeded from overlap frames.
-
-    That means multi-window tracking needs at least one shared frame between
-    neighboring windows; otherwise the next window has no already-tracked point
-    on its first frame to seed from.
-    """
-    overlap = min(max(0, int(window_overlap)), max(0, int(window_size) - 1))
-    if total_frames > 1 and 1 < int(window_size) < int(total_frames):
-        overlap = max(1, overlap)
-    return overlap
+    frame_ids = list(range(max(0, int(total_frames))))
+    window_context = build_reseed_tracking_window_context(
+        frame_ids,
+        window_size,
+        window_overlap,
+    )
+    return window_context.overlap
 
 
 def _infer_locotrack_model_size(
@@ -1341,18 +1302,19 @@ def _append_tapir_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -1372,8 +1334,7 @@ def _append_tapir_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_tapir_spot(
@@ -1392,68 +1353,29 @@ def _append_tapir_sequence_to_track(
                 source=source,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="tapir",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="tapir",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "tapir_filter_rejected", True)
-                    setattr(candidate_spot, "tapir_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "tapir_filter_rejected", True)
-                    setattr(candidate_spot, "tapir_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "tapir_filter_rejected", True)
-                            setattr(candidate_spot, "tapir_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 forced_spot = candidate_spot or _build_tapir_spot(
                     reference_spot,
@@ -1470,21 +1392,23 @@ def _append_tapir_sequence_to_track(
                     centroid_max_shift_ratio,
                     source=source,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "tapir_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="tapir_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -1523,18 +1447,19 @@ def _append_locotrack_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -1554,8 +1479,7 @@ def _append_locotrack_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_locotrack_spot(
@@ -1573,68 +1497,29 @@ def _append_locotrack_sequence_to_track(
                 centroid_max_shift_ratio,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="locotrack",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="locotrack",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "locotrack_filter_rejected", True)
-                    setattr(candidate_spot, "locotrack_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "locotrack_filter_rejected", True)
-                    setattr(candidate_spot, "locotrack_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "locotrack_filter_rejected", True)
-                            setattr(candidate_spot, "locotrack_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 forced_spot = candidate_spot or _build_locotrack_spot(
                     reference_spot,
@@ -1650,21 +1535,23 @@ def _append_locotrack_sequence_to_track(
                     centroid_max_expand,
                     centroid_max_shift_ratio,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "locotrack_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="locotrack_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -1703,18 +1590,19 @@ def _append_cotracker3_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -1734,8 +1622,7 @@ def _append_cotracker3_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_cotracker3_spot(
@@ -1753,68 +1640,29 @@ def _append_cotracker3_sequence_to_track(
                 centroid_max_shift_ratio,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="cotracker3",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="cotracker3",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "cotracker3_filter_rejected", True)
-                    setattr(candidate_spot, "cotracker3_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "cotracker3_filter_rejected", True)
-                    setattr(candidate_spot, "cotracker3_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "cotracker3_filter_rejected", True)
-                            setattr(candidate_spot, "cotracker3_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 forced_spot = candidate_spot or _build_cotracker3_spot(
                     reference_spot,
@@ -1830,21 +1678,23 @@ def _append_cotracker3_sequence_to_track(
                     centroid_max_expand,
                     centroid_max_shift_ratio,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "cotracker3_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="cotracker3_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -1886,18 +1736,19 @@ def _append_tapnext_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -1926,8 +1777,7 @@ def _append_tapnext_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_tapnext_spot(
@@ -1948,68 +1798,29 @@ def _append_tapnext_sequence_to_track(
                 combined_score=combined_score,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="tapnext",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="tapnext",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "tapnext_filter_rejected", True)
-                    setattr(candidate_spot, "tapnext_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "tapnext_filter_rejected", True)
-                    setattr(candidate_spot, "tapnext_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "tapnext_filter_rejected", True)
-                            setattr(candidate_spot, "tapnext_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 forced_spot = candidate_spot or _build_tapnext_spot(
                     reference_spot,
@@ -2028,21 +1839,23 @@ def _append_tapnext_sequence_to_track(
                     certainty_score=certainty_score,
                     combined_score=combined_score,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "tapnext_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="tapnext_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -2081,18 +1894,19 @@ def _append_trackonr_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -2112,8 +1926,7 @@ def _append_trackonr_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_trackonr_spot(
@@ -2131,68 +1944,29 @@ def _append_trackonr_sequence_to_track(
                 centroid_max_shift_ratio,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="trackonr",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="trackonr",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "trackonr_filter_rejected", True)
-                    setattr(candidate_spot, "trackonr_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "trackonr_filter_rejected", True)
-                    setattr(candidate_spot, "trackonr_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "trackonr_filter_rejected", True)
-                            setattr(candidate_spot, "trackonr_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 forced_spot = candidate_spot or _build_trackonr_spot(
                     reference_spot,
@@ -2208,21 +1982,23 @@ def _append_trackonr_sequence_to_track(
                     centroid_max_expand,
                     centroid_max_shift_ratio,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "trackonr_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="trackonr_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -2261,18 +2037,19 @@ def _append_pipspp_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -2292,8 +2069,7 @@ def _append_pipspp_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_pipspp_spot(
@@ -2311,68 +2087,29 @@ def _append_pipspp_sequence_to_track(
                 centroid_max_shift_ratio,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="pipspp",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="pipspp",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "pipspp_filter_rejected", True)
-                    setattr(candidate_spot, "pipspp_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "pipspp_filter_rejected", True)
-                    setattr(candidate_spot, "pipspp_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "pipspp_filter_rejected", True)
-                            setattr(candidate_spot, "pipspp_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 fallback_x = raw_x if np.isfinite(raw_x) else (
                     float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
@@ -2394,21 +2131,23 @@ def _append_pipspp_sequence_to_track(
                     centroid_max_expand,
                     centroid_max_shift_ratio,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "pipspp_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="pipspp_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -2449,18 +2188,19 @@ def _append_mftiq_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -2482,8 +2222,7 @@ def _append_mftiq_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             candidate_spot = _build_mftiq_spot(
@@ -2503,68 +2242,29 @@ def _append_mftiq_sequence_to_track(
                 sigma_score=sigma_score,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, _ = gate_by_max_step_distance(
+                candidate_spot,
+                last_valid_xy=motion_context.last_valid_xy,
+                max_step_distance_px=motion_context.max_step_distance_px,
+                prefix="mftiq",
+            )
+            if accepted:
+                accepted, _ = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="mftiq",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    setattr(candidate_spot, "mftiq_filter_rejected", True)
-                    setattr(candidate_spot, "mftiq_filter_rejected_reason", "max_step_distance")
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    setattr(candidate_spot, "mftiq_filter_rejected", True)
-                    setattr(candidate_spot, "mftiq_filter_rejected_reason", "max_radial_jump")
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            setattr(candidate_spot, "mftiq_filter_rejected", True)
-                            setattr(candidate_spot, "mftiq_filter_rejected_reason", "direction_gating")
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 fallback_x = raw_x if np.isfinite(raw_x) else (
                     float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
@@ -2588,21 +2288,23 @@ def _append_mftiq_sequence_to_track(
                     occlusion_score=occlusion_score,
                     sigma_score=sigma_score,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "mftiq_visibility", False)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="mftiq_visibility",
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(state, motion_context)
     return True
 
 
@@ -2645,25 +2347,28 @@ def _append_sam2_sequence_to_track(
 
     Returns False only when canceled.
     """
-    last_valid_xy = state["last_valid_xy"]
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
     last_valid_mask_area = state["last_valid_mask_area"]
     last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
     last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_mask_area_ratio_change = float(max(0.0, max_mask_area_ratio_change))
-    max_bbox_aspect_ratio_change = float(max(0.0, max_bbox_aspect_ratio_change))
-    max_mask_components = int(max(0, max_mask_components))
-    max_bbox_center_jump_px = float(max(0.0, max_bbox_center_jump_px))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    quality_context = build_mask_quality_filter_context(
+        max_mask_area_ratio_change=max_mask_area_ratio_change,
+        max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+        max_mask_components=max_mask_components,
+        max_bbox_center_jump_px=max_bbox_center_jump_px,
+    )
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -2690,8 +2395,7 @@ def _append_sam2_sequence_to_track(
         accepted = visible
 
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
@@ -2700,10 +2404,6 @@ def _append_sam2_sequence_to_track(
             elif not (0.0 <= raw_x < float(image_w) and 0.0 <= raw_y < float(image_h)):
                 accepted = False
                 rejection_reason = "out_of_bounds"
-            elif max_mask_components > 0 and mask_component_count > max_mask_components:
-                accepted = False
-                rejection_reason = "mask_fragmentation"
-
         if accepted:
             candidate_spot = _build_sam2_spot(
                 reference_spot,
@@ -2720,125 +2420,42 @@ def _append_sam2_sequence_to_track(
                 prompt_mode,
             )
 
-            if (
-                accepted
-                and max_mask_area_ratio_change > 1.0
-                and last_valid_mask_area is not None
-                and np.isfinite(last_valid_mask_area)
-                and last_valid_mask_area > 0.0
-                and np.isfinite(mask_area)
-                and mask_area > 0.0
-            ):
-                area_ratio = max(float(mask_area), float(last_valid_mask_area)) / min(
-                    float(mask_area),
-                    float(last_valid_mask_area),
+            accepted, rejection_reason = gate_mask_quality(
+                candidate_spot,
+                context=quality_context,
+                current_mask_area=mask_area,
+                last_valid_mask_area=last_valid_mask_area,
+                mask_component_count=mask_component_count,
+                bbox_aspect_ratio=bbox_aspect_ratio,
+                last_valid_bbox_aspect_ratio=last_valid_bbox_aspect_ratio,
+                bbox_center_xy=bbox_center_xy,
+                last_valid_bbox_center_xy=last_valid_bbox_center_xy,
+                prefix="sam2",
+            )
+            if accepted:
+                accepted, rejection_reason = gate_by_max_step_distance(
+                    candidate_spot,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    max_step_distance_px=motion_context.max_step_distance_px,
+                    prefix="sam2",
                 )
-                if area_ratio > max_mask_area_ratio_change:
-                    accepted = False
-                    rejection_reason = "mask_area_drift"
-                    setattr(candidate_spot, "sam2_filter_rejected", True)
-                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_aspect_ratio_change > 1.0
-                and last_valid_bbox_aspect_ratio is not None
-                and np.isfinite(last_valid_bbox_aspect_ratio)
-                and last_valid_bbox_aspect_ratio > 0.0
-                and bbox_aspect_ratio is not None
-                and np.isfinite(bbox_aspect_ratio)
-                and bbox_aspect_ratio > 0.0
-            ):
-                aspect_ratio_change = max(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
-                ) / min(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
+            if accepted:
+                accepted, rejection_reason = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="sam2",
                 )
-                if aspect_ratio_change > max_bbox_aspect_ratio_change:
-                    accepted = False
-                    rejection_reason = "bbox_aspect_ratio_drift"
-                    setattr(candidate_spot, "sam2_filter_rejected", True)
-                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_center_jump_px > 0.0
-                and last_valid_bbox_center_xy is not None
-                and bbox_center_xy is not None
-                and float(np.linalg.norm(bbox_center_xy - last_valid_bbox_center_xy)) > max_bbox_center_jump_px
-            ):
-                accepted = False
-                rejection_reason = "bbox_jump"
-                setattr(candidate_spot, "sam2_filter_rejected", True)
-                setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
-
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    rejection_reason = "max_step_distance"
-                    setattr(candidate_spot, "sam2_filter_rejected", True)
-                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    rejection_reason = "max_radial_jump"
-                    setattr(candidate_spot, "sam2_filter_rejected", True)
-                    setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            rejection_reason = "direction_gating"
-                            setattr(candidate_spot, "sam2_filter_rejected", True)
-                            setattr(candidate_spot, "sam2_filter_rejected_reason", rejection_reason)
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 fallback_x = raw_x if np.isfinite(raw_x) else (
                     float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
@@ -2860,17 +2477,24 @@ def _append_sam2_sequence_to_track(
                     representative_point_mode,
                     prompt_mode,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "sam2_visibility", False)
-                setattr(forced_spot, "sam2_filter_rejected", True)
-                setattr(forced_spot, "sam2_filter_rejected_reason", rejection_reason)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="sam2_visibility",
+                extra_attributes={
+                    "sam2_filter_rejected": True,
+                    "sam2_filter_rejected_reason": rejection_reason,
+                },
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
         if np.isfinite(mask_area) and mask_area > 0.0:
             last_valid_mask_area = float(mask_area)
@@ -2878,14 +2502,16 @@ def _append_sam2_sequence_to_track(
             last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
         if bbox_center_xy is not None:
             last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["last_valid_mask_area"] = last_valid_mask_area
-    state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
-    state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(
+        state,
+        motion_context,
+        extra_state={
+            "last_valid_mask_area": last_valid_mask_area,
+            "last_valid_bbox_aspect_ratio": last_valid_bbox_aspect_ratio,
+            "last_valid_bbox_center_xy": last_valid_bbox_center_xy,
+        },
+    )
     return True
 
 
@@ -2922,24 +2548,28 @@ def _append_cutie_sequence_to_track(
     global_start_idx: int = 0,
 ) -> bool:
     """Append Cutie representative points and mask summaries to one track."""
-    last_valid_xy = state["last_valid_xy"]
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
     last_valid_mask_area = state["last_valid_mask_area"]
     last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
     last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_mask_area_ratio_change = float(max(0.0, max_mask_area_ratio_change))
-    max_bbox_aspect_ratio_change = float(max(0.0, max_bbox_aspect_ratio_change))
-    max_bbox_center_jump_px = float(max(0.0, max_bbox_center_jump_px))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    quality_context = build_mask_quality_filter_context(
+        max_mask_area_ratio_change=max_mask_area_ratio_change,
+        max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+        max_mask_components=0,
+        max_bbox_center_jump_px=max_bbox_center_jump_px,
+    )
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -2964,8 +2594,7 @@ def _append_cutie_sequence_to_track(
         rejection_reason = "invalid_mask"
         accepted = visible
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
@@ -2990,125 +2619,42 @@ def _append_cutie_sequence_to_track(
                 initial_mask_mode,
             )
 
-            if (
-                accepted
-                and max_mask_area_ratio_change > 1.0
-                and last_valid_mask_area is not None
-                and np.isfinite(last_valid_mask_area)
-                and last_valid_mask_area > 0.0
-                and np.isfinite(mask_area)
-                and mask_area > 0.0
-            ):
-                area_ratio = max(float(mask_area), float(last_valid_mask_area)) / min(
-                    float(mask_area),
-                    float(last_valid_mask_area),
+            accepted, rejection_reason = gate_mask_quality(
+                candidate_spot,
+                context=quality_context,
+                current_mask_area=mask_area,
+                last_valid_mask_area=last_valid_mask_area,
+                mask_component_count=0,
+                bbox_aspect_ratio=bbox_aspect_ratio,
+                last_valid_bbox_aspect_ratio=last_valid_bbox_aspect_ratio,
+                bbox_center_xy=bbox_center_xy,
+                last_valid_bbox_center_xy=last_valid_bbox_center_xy,
+                prefix="cutie",
+            )
+            if accepted:
+                accepted, rejection_reason = gate_by_max_step_distance(
+                    candidate_spot,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    max_step_distance_px=motion_context.max_step_distance_px,
+                    prefix="cutie",
                 )
-                if area_ratio > max_mask_area_ratio_change:
-                    accepted = False
-                    rejection_reason = "mask_area_drift"
-                    setattr(candidate_spot, "cutie_filter_rejected", True)
-                    setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_aspect_ratio_change > 1.0
-                and last_valid_bbox_aspect_ratio is not None
-                and np.isfinite(last_valid_bbox_aspect_ratio)
-                and last_valid_bbox_aspect_ratio > 0.0
-                and bbox_aspect_ratio is not None
-                and np.isfinite(bbox_aspect_ratio)
-                and bbox_aspect_ratio > 0.0
-            ):
-                aspect_ratio_change = max(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
-                ) / min(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
+            if accepted:
+                accepted, rejection_reason = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="cutie",
                 )
-                if aspect_ratio_change > max_bbox_aspect_ratio_change:
-                    accepted = False
-                    rejection_reason = "bbox_aspect_ratio_drift"
-                    setattr(candidate_spot, "cutie_filter_rejected", True)
-                    setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_center_jump_px > 0.0
-                and last_valid_bbox_center_xy is not None
-                and bbox_center_xy is not None
-                and float(np.linalg.norm(bbox_center_xy - last_valid_bbox_center_xy)) > max_bbox_center_jump_px
-            ):
-                accepted = False
-                rejection_reason = "bbox_jump"
-                setattr(candidate_spot, "cutie_filter_rejected", True)
-                setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
-
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    rejection_reason = "max_step_distance"
-                    setattr(candidate_spot, "cutie_filter_rejected", True)
-                    setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    rejection_reason = "max_radial_jump"
-                    setattr(candidate_spot, "cutie_filter_rejected", True)
-                    setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            rejection_reason = "direction_gating"
-                            setattr(candidate_spot, "cutie_filter_rejected", True)
-                            setattr(candidate_spot, "cutie_filter_rejected_reason", rejection_reason)
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
+            forced_spot = None
             if not keep_invisible_as_gaps:
                 fallback_x = raw_x if np.isfinite(raw_x) else (
                     float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
@@ -3129,17 +2675,24 @@ def _append_cutie_sequence_to_track(
                     representative_point_mode,
                     initial_mask_mode,
                 )
-                forced_spot.intensity = 0.0
-                setattr(forced_spot, "cutie_visibility", False)
-                setattr(forced_spot, "cutie_filter_rejected", True)
-                setattr(forced_spot, "cutie_filter_rejected_reason", rejection_reason)
-                track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="cutie_visibility",
+                extra_attributes={
+                    "cutie_filter_rejected": True,
+                    "cutie_filter_rejected_reason": rejection_reason,
+                },
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
         if np.isfinite(mask_area) and mask_area > 0.0:
             last_valid_mask_area = float(mask_area)
@@ -3147,14 +2700,16 @@ def _append_cutie_sequence_to_track(
             last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
         if bbox_center_xy is not None:
             last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["last_valid_mask_area"] = last_valid_mask_area
-    state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
-    state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(
+        state,
+        motion_context,
+        extra_state={
+            "last_valid_mask_area": last_valid_mask_area,
+            "last_valid_bbox_aspect_ratio": last_valid_bbox_aspect_ratio,
+            "last_valid_bbox_center_xy": last_valid_bbox_center_xy,
+        },
+    )
     return True
 
 
@@ -3191,24 +2746,28 @@ def _append_xmem2_sequence_to_track(
     global_start_idx: int = 0,
 ) -> bool:
     """Append XMem2 representative points and mask summaries to one track."""
-    last_valid_xy = state["last_valid_xy"]
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
     last_valid_mask_area = state["last_valid_mask_area"]
     last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
     last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_mask_area_ratio_change = float(max(0.0, max_mask_area_ratio_change))
-    max_bbox_aspect_ratio_change = float(max(0.0, max_bbox_aspect_ratio_change))
-    max_bbox_center_jump_px = float(max(0.0, max_bbox_center_jump_px))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    quality_context = build_mask_quality_filter_context(
+        max_mask_area_ratio_change=max_mask_area_ratio_change,
+        max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+        max_mask_components=0,
+        max_bbox_center_jump_px=max_bbox_center_jump_px,
+    )
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -3233,8 +2792,7 @@ def _append_xmem2_sequence_to_track(
         rejection_reason = "invalid_mask"
         accepted = visible
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
@@ -3259,132 +2817,46 @@ def _append_xmem2_sequence_to_track(
                 initial_mask_mode,
             )
 
-            if (
-                accepted
-                and max_mask_area_ratio_change > 1.0
-                and last_valid_mask_area is not None
-                and np.isfinite(last_valid_mask_area)
-                and last_valid_mask_area > 0.0
-                and np.isfinite(mask_area)
-                and mask_area > 0.0
-            ):
-                area_ratio = max(float(mask_area), float(last_valid_mask_area)) / min(
-                    float(mask_area),
-                    float(last_valid_mask_area),
+            accepted, rejection_reason = gate_mask_quality(
+                candidate_spot,
+                context=quality_context,
+                current_mask_area=mask_area,
+                last_valid_mask_area=last_valid_mask_area,
+                mask_component_count=0,
+                bbox_aspect_ratio=bbox_aspect_ratio,
+                last_valid_bbox_aspect_ratio=last_valid_bbox_aspect_ratio,
+                bbox_center_xy=bbox_center_xy,
+                last_valid_bbox_center_xy=last_valid_bbox_center_xy,
+                prefix="xmem2",
+            )
+            if accepted:
+                accepted, rejection_reason = gate_by_max_step_distance(
+                    candidate_spot,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    max_step_distance_px=motion_context.max_step_distance_px,
+                    prefix="xmem2",
                 )
-                if area_ratio > max_mask_area_ratio_change:
-                    accepted = False
-                    rejection_reason = "mask_area_drift"
-                    setattr(candidate_spot, "xmem2_filter_rejected", True)
-                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_aspect_ratio_change > 1.0
-                and last_valid_bbox_aspect_ratio is not None
-                and np.isfinite(last_valid_bbox_aspect_ratio)
-                and last_valid_bbox_aspect_ratio > 0.0
-                and bbox_aspect_ratio is not None
-                and np.isfinite(bbox_aspect_ratio)
-                and bbox_aspect_ratio > 0.0
-            ):
-                aspect_ratio_change = max(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
-                ) / min(
-                    float(bbox_aspect_ratio),
-                    float(last_valid_bbox_aspect_ratio),
+            if accepted:
+                accepted, rejection_reason = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="xmem2",
                 )
-                if aspect_ratio_change > max_bbox_aspect_ratio_change:
-                    accepted = False
-                    rejection_reason = "bbox_aspect_ratio_drift"
-                    setattr(candidate_spot, "xmem2_filter_rejected", True)
-                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and max_bbox_center_jump_px > 0.0
-                and last_valid_bbox_center_xy is not None
-                and bbox_center_xy is not None
-                and float(np.linalg.norm(bbox_center_xy - last_valid_bbox_center_xy)) > max_bbox_center_jump_px
-            ):
-                accepted = False
-                rejection_reason = "bbox_jump"
-                setattr(candidate_spot, "xmem2_filter_rejected", True)
-                setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
-
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    rejection_reason = "max_step_distance"
-                    setattr(candidate_spot, "xmem2_filter_rejected", True)
-                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
-                )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    rejection_reason = "max_radial_jump"
-                    setattr(candidate_spot, "xmem2_filter_rejected", True)
-                    setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            rejection_reason = "direction_gating"
-                            setattr(candidate_spot, "xmem2_filter_rejected", True)
-                            setattr(candidate_spot, "xmem2_filter_rejected_reason", rejection_reason)
 
         if keep_invisible_as_gaps:
             if not accepted:
-                invisible_streak += 1
-                if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                    state["terminated"] = True
+                if register_motion_rejection(state, motion_context):
                     return True
                 continue
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
             fallback_x = raw_x if np.isfinite(raw_x) else (
                 float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
@@ -3405,17 +2877,24 @@ def _append_xmem2_sequence_to_track(
                 representative_point_mode,
                 initial_mask_mode,
             )
-            forced_spot.intensity = 0.0
-            setattr(forced_spot, "xmem2_visibility", False)
-            setattr(forced_spot, "xmem2_filter_rejected", True)
-            setattr(forced_spot, "xmem2_filter_rejected_reason", rejection_reason)
-            track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="xmem2_visibility",
+                extra_attributes={
+                    "xmem2_filter_rejected": True,
+                    "xmem2_filter_rejected_reason": rejection_reason,
+                },
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
         if np.isfinite(mask_area) and mask_area > 0.0:
             last_valid_mask_area = float(mask_area)
@@ -3423,14 +2902,16 @@ def _append_xmem2_sequence_to_track(
             last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
         if bbox_center_xy is not None:
             last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
-        invisible_streak = 0
 
-    state["last_valid_xy"] = last_valid_xy
-    state["last_valid_mask_area"] = last_valid_mask_area
-    state["last_valid_bbox_aspect_ratio"] = last_valid_bbox_aspect_ratio
-    state["last_valid_bbox_center_xy"] = last_valid_bbox_center_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(
+        state,
+        motion_context,
+        extra_state={
+            "last_valid_mask_area": last_valid_mask_area,
+            "last_valid_bbox_aspect_ratio": last_valid_bbox_aspect_ratio,
+            "last_valid_bbox_center_xy": last_valid_bbox_center_xy,
+        },
+    )
     return True
 
 
@@ -3453,6 +2934,10 @@ def _append_tomp_sequence_to_track(
     max_step_distance_px: float,
     max_reacquisition_gap: int,
     terminate_after_invisible_frames: int,
+    max_bbox_aspect_ratio_change: float,
+    max_bbox_center_jump_px: float,
+    use_presence_score_gating: bool,
+    presence_threshold: float,
     direction_center_xy: Tuple[float, float] | None,
     direction_mode: str,
     lateral_angle_tolerance_deg: float,
@@ -3464,18 +2949,27 @@ def _append_tomp_sequence_to_track(
     global_start_idx: int = 0,
 ) -> bool:
     """Append ToMP / TaMOs bbox summaries to one track."""
-    last_valid_xy = state["last_valid_xy"]
-    invisible_streak = int(state["invisible_streak"])
-    terminated = bool(state["terminated"])
-    max_step_distance_px = float(max(0.0, max_step_distance_px))
-    max_reacquisition_gap = int(max(0, max_reacquisition_gap))
-    terminate_after_invisible_frames = int(max(0, terminate_after_invisible_frames))
-    max_radial_jump_px = float(max(0.0, max_radial_jump_px))
-    lateral_angle_tolerance_deg = float(max(0.0, lateral_angle_tolerance_deg))
-    min_directional_motion_px = float(max(0.0, min_directional_motion_px))
-    direction_mode = str(direction_mode or "none").strip().lower()
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
+    last_valid_bbox_aspect_ratio = state.get("last_valid_bbox_aspect_ratio")
+    last_valid_bbox_center_xy = state.get("last_valid_bbox_center_xy")
+    quality_context = build_bbox_quality_filter_context(
+        max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+        max_bbox_center_jump_px=max_bbox_center_jump_px,
+        use_presence_score_gating=use_presence_score_gating,
+        presence_threshold=presence_threshold,
+    )
 
-    if terminated:
+    if motion_context.terminated:
         return True
 
     for local_idx in range(start_local_idx, len(frame_ids)):
@@ -3494,13 +2988,13 @@ def _append_tomp_sequence_to_track(
         bbox_xywh = query_bboxes_xywh[local_idx]
         bbox_xyxy = query_bboxes_xyxy[local_idx]
         bbox_score = float(query_bbox_scores[local_idx])
+        bbox_center_xy, bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(bbox_xyxy)
 
         candidate_spot: SpotROI | None = None
         rejection_reason = "not_visible"
         accepted = visible
         if accepted:
-            if max_reacquisition_gap > 0 and invisible_streak > max_reacquisition_gap:
-                state["terminated"] = True
+            if should_terminate_before_visible_candidate(state, motion_context):
                 return True
 
             if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
@@ -3525,70 +3019,38 @@ def _append_tomp_sequence_to_track(
                 model_variant,
             )
 
-            if max_step_distance_px > 0.0 and last_valid_xy is not None:
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            accepted, rejection_reason = gate_bbox_quality(
+                candidate_spot,
+                context=quality_context,
+                score=bbox_score,
+                bbox_aspect_ratio=bbox_aspect_ratio,
+                last_valid_bbox_aspect_ratio=last_valid_bbox_aspect_ratio,
+                bbox_center_xy=bbox_center_xy,
+                last_valid_bbox_center_xy=last_valid_bbox_center_xy,
+                prefix="tomp",
+            )
+            if accepted:
+                accepted, rejection_reason = gate_by_max_step_distance(
+                    candidate_spot,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    max_step_distance_px=motion_context.max_step_distance_px,
+                    prefix="tomp",
                 )
-                if float(np.linalg.norm(candidate_xy - last_valid_xy)) > max_step_distance_px:
-                    accepted = False
-                    rejection_reason = "max_step_distance"
-                    setattr(candidate_spot, "tomp_filter_rejected", True)
-                    setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
-
-            if (
-                accepted
-                and direction_center_xy is not None
-                and last_valid_xy is not None
-                and direction_mode != "none"
-            ):
-                candidate_xy = np.array(
-                    [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-                    dtype=np.float32,
+            if accepted:
+                accepted, rejection_reason = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="tomp",
                 )
-                delta = candidate_xy - last_valid_xy
-                step_norm = float(np.linalg.norm(delta))
-                radial_unit, last_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(last_valid_xy[0]), float(last_valid_xy[1])),
-                )
-                _, candidate_radius = radial_unit_and_radius(
-                    direction_center_xy,
-                    (float(candidate_xy[0]), float(candidate_xy[1])),
-                )
-
-                if max_radial_jump_px > 0.0 and abs(candidate_radius - last_radius) > max_radial_jump_px:
-                    accepted = False
-                    rejection_reason = "max_radial_jump"
-                    setattr(candidate_spot, "tomp_filter_rejected", True)
-                    setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
-
-                if accepted and step_norm >= min_directional_motion_px:
-                    expected_sign = state.get("expected_direction_sign")
-                    if direction_mode == "inward":
-                        expected_sign = -1.0
-                    elif direction_mode == "outward":
-                        expected_sign = 1.0
-                    else:
-                        if expected_sign is None:
-                            radial_comp_seed = float(np.dot(delta, radial_unit))
-                            if abs(radial_comp_seed) >= min_directional_motion_px:
-                                expected_sign = float(np.sign(radial_comp_seed))
-                                state["expected_direction_sign"] = expected_sign
-
-                    if expected_sign is not None:
-                        expected_vec = radial_unit * float(expected_sign)
-                        angle_deg = angular_offset_deg(expected_vec, delta)
-                        if lateral_angle_tolerance_deg > 0.0 and angle_deg > lateral_angle_tolerance_deg:
-                            accepted = False
-                            rejection_reason = "direction_gating"
-                            setattr(candidate_spot, "tomp_filter_rejected", True)
-                            setattr(candidate_spot, "tomp_filter_rejected_reason", rejection_reason)
 
         if not accepted:
-            invisible_streak += 1
-            if terminate_after_invisible_frames > 0 and invisible_streak > terminate_after_invisible_frames:
-                state["terminated"] = True
+            if register_motion_rejection(state, motion_context):
                 return True
             if keep_invisible_as_gaps:
                 continue
@@ -3611,23 +3073,38 @@ def _append_tomp_sequence_to_track(
                 representative_point_mode,
                 model_variant,
             )
-            forced_spot.intensity = 0.0
-            setattr(forced_spot, "tomp_visibility", False)
-            setattr(forced_spot, "tomp_filter_rejected", True)
-            setattr(forced_spot, "tomp_filter_rejected_reason", rejection_reason)
-            track.spots_by_image_id[frame_id] = forced_spot
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="tomp_visibility",
+                extra_attributes={
+                    "tomp_filter_rejected": True,
+                    "tomp_filter_rejected_reason": rejection_reason,
+                },
+            )
             continue
 
-        track.spots_by_image_id[frame_id] = candidate_spot
-        last_valid_xy = np.array(
-            [float(candidate_spot.center_x), float(candidate_spot.center_y)],
-            dtype=np.float32,
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
         )
-        invisible_streak = 0
+        if bbox_aspect_ratio is not None and np.isfinite(bbox_aspect_ratio) and bbox_aspect_ratio > 0.0:
+            last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
+        if bbox_center_xy is not None:
+            last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
 
-    state["last_valid_xy"] = last_valid_xy
-    state["invisible_streak"] = invisible_streak
-    state["terminated"] = terminated
+    commit_motion_filter_context(
+        state,
+        motion_context,
+        extra_state={
+            "last_valid_bbox_aspect_ratio": last_valid_bbox_aspect_ratio,
+            "last_valid_bbox_center_xy": last_valid_bbox_center_xy,
+        },
+    )
     return True
 
 
@@ -3883,7 +3360,7 @@ def track_spots_hungarian(
         for tid, data in active_tracks.items():
             if data["gap"] > max_gap:
                 if len(data["spots"]) >= min_len:
-                    finished.append(Track(track_id=tid, spots_by_image_id=data["spots"]))
+                    finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
                 to_remove.append(tid)
         for tid in to_remove:
             active_tracks.pop(tid, None)
@@ -3891,7 +3368,7 @@ def track_spots_hungarian(
     # Flush remaining active tracks
     for tid, data in active_tracks.items():
         if len(data["spots"]) >= min_len:
-            finished.append(Track(track_id=tid, spots_by_image_id=data["spots"]))
+            finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
 
     return finished
 
@@ -4095,7 +3572,7 @@ def track_spots_hungarian_directional(
         for tid, data in active_tracks.items():
             if data["gap"] > max_gap or data.get("misses", 0) > max_misses:
                 if len(data["spots"]) >= min_len:
-                    finished.append(Track(track_id=tid, spots_by_image_id=data["spots"]))
+                    finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
                 to_remove.append(tid)
         for tid in to_remove:
             active_tracks.pop(tid, None)
@@ -4142,7 +3619,7 @@ def track_spots_hungarian_directional(
     # Flush remaining active tracks
     for tid, data in active_tracks.items():
         if len(data["spots"]) >= min_len:
-            finished.append(Track(track_id=tid, spots_by_image_id=data["spots"]))
+            finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
 
     return finished
 
@@ -4195,7 +3672,14 @@ def track_spots_optical_flow(
     points_to_track = np.array([[s.center_x, s.center_y] for s in initial_spots], dtype=np.float32).reshape(-1, 1, 2)
 
     # Setup parameters for the Lucas-Kanade optical flow algorithm.
-    tracks_map = {spot.id: Track(track_id=spot.id, spots_by_image_id={reference_frame_id: spot}) for spot in initial_spots}
+    tracks_map = {
+        spot.id: build_track_with_initial_spot(
+            track_id=spot.id,
+            frame_id=reference_frame_id,
+            spot=spot,
+        )
+        for spot in initial_spots
+    }
     
     # Setup parameters for the Lucas-Kanade optical flow algorithm.
     win_size = params.get('lk_win_size', 31)
@@ -4267,7 +3751,14 @@ def track_spots_optical_flow(
                 x, y = refined.tolist()
                 good_new[idx] = refined
             new_rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
-            new_spot = SpotROI(id=track_id, roi_rect=new_rect, center_x=x, center_y=y, intensity=0, source='optical_flow')
+            new_spot = build_spot_roi(
+                spot_id=track_id,
+                roi_rect=new_rect,
+                center_x=x,
+                center_y=y,
+                source="optical_flow",
+                intensity=0.0,
+            )
             tracks_map[track_id].spots_by_image_id[frame_id] = new_spot
             
         # Prepare for the next iteration.
@@ -4282,7 +3773,23 @@ def track_spots_optical_flow(
     return list(tracks_map.values())
 
 
-def track_spots_tapir_offline(
+def _build_direction_filter_context_for_legacy_tracking(
+    params: dict,
+    *,
+    all_files_map: Dict[int, LeedFile],
+    subset_frame_ids: List[int],
+    anchor_filepath: str | None,
+):
+    return build_direction_filter_context(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=anchor_filepath,
+        estimate_pattern_center_fn=estimate_pattern_center_from_detections,
+    )
+
+
+def _legacy_track_spots_tapir_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -4368,35 +3875,17 @@ def track_spots_tapir_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -4424,7 +3913,11 @@ def track_spots_tapir_offline(
 
         converted_tracks: List[Track] = []
         for query_idx, reference_spot in enumerate(ref_file.spots):
-            track = Track(track_id=reference_spot.id, spots_by_image_id={reference_frame_id: reference_spot})
+            track = build_track_with_initial_spot(
+                track_id=reference_spot.id,
+                frame_id=reference_frame_id,
+                spot=reference_spot,
+            )
             state = {
                 "last_valid_xy": np.array(
                     [float(reference_spot.center_x), float(reference_spot.center_y)],
@@ -4607,7 +4100,7 @@ def track_spots_tapir_offline(
     return converted_tracks
 
 
-def track_spots_locotrack_offline(
+def _legacy_track_spots_locotrack_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -4699,35 +4192,17 @@ def track_spots_locotrack_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -4941,7 +4416,7 @@ def track_spots_locotrack_offline(
     return converted_tracks
 
 
-def track_spots_cotracker3_offline(
+def _legacy_track_spots_cotracker3_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -5026,35 +4501,17 @@ def track_spots_cotracker3_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -5264,7 +4721,7 @@ def track_spots_cotracker3_offline(
     return converted_tracks
 
 
-def track_spots_pipspp_offline(
+def _legacy_track_spots_pipspp_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -5348,35 +4805,17 @@ def track_spots_pipspp_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -5586,7 +5025,7 @@ def track_spots_pipspp_offline(
     return converted_tracks
 
 
-def track_spots_mftiq_offline(
+def _legacy_track_spots_mftiq_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -5673,35 +5112,17 @@ def track_spots_mftiq_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -5919,7 +5340,7 @@ def track_spots_mftiq_offline(
     return converted_tracks
 
 
-def track_spots_sam2_offline(
+def _legacy_track_spots_sam2_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -6000,12 +5421,16 @@ def track_spots_sam2_offline(
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_mask_components = int(params.get("max_mask_components", 0) or 0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     roi_size = int(params.get("roi_size", 32))
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_sam2_window_overlap(
@@ -6014,28 +5439,7 @@ def track_spots_sam2_offline(
         int(params.get("window_overlap", 8)),
     )
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -6157,26 +5561,22 @@ def track_spots_sam2_offline(
             }
             for reference_spot in ref_file.spots
         }
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_sam2_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -6191,7 +5591,7 @@ def track_spots_sam2_offline(
             query_rows: List[List[float]] = []
             query_box_rows: List[List[float]] = []
             query_specs: List[Tuple[SpotROI, int]] = []
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
 
             for track_id, track in track_map.items():
                 reference_spot = reference_spots_by_id[track_id]
@@ -6224,11 +5624,11 @@ def track_spots_sam2_offline(
                 query_specs.append((reference_spot, seed_local_idx))
 
             if not query_rows:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             result = run_sam2_offline(
@@ -6280,7 +5680,7 @@ def track_spots_sam2_offline(
                 if not ok:
                     return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
         converted_tracks = list(track_map.values())
 
@@ -6289,7 +5689,7 @@ def track_spots_sam2_offline(
     return converted_tracks
 
 
-def track_spots_tapnext_offline(
+def _legacy_track_spots_tapnext_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -6368,35 +5768,17 @@ def track_spots_tapnext_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -6612,7 +5994,7 @@ def track_spots_tapnext_offline(
     return converted_tracks
 
 
-def track_spots_trackonr_offline(
+def _legacy_track_spots_trackonr_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -6700,35 +6082,17 @@ def track_spots_trackonr_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -6942,7 +6306,7 @@ def track_spots_trackonr_offline(
     return converted_tracks
 
 
-def track_spots_tapir_online(
+def _legacy_track_spots_tapir_online(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -7029,35 +6393,17 @@ def track_spots_tapir_online(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -7085,7 +6431,11 @@ def track_spots_tapir_online(
 
         converted_tracks: List[Track] = []
         for query_idx, reference_spot in enumerate(ref_file.spots):
-            track = Track(track_id=reference_spot.id, spots_by_image_id={reference_frame_id: reference_spot})
+            track = build_track_with_initial_spot(
+                track_id=reference_spot.id,
+                frame_id=reference_frame_id,
+                spot=reference_spot,
+            )
             state = {
                 "last_valid_xy": np.array(
                     [float(reference_spot.center_x), float(reference_spot.center_y)],
@@ -7269,7 +6619,7 @@ def track_spots_tapir_online(
     return converted_tracks
 
 
-def retrack_single_spot_tapir_offline(
+def _legacy_retrack_single_spot_tapir_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -7285,26 +6635,22 @@ def retrack_single_spot_tapir_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single TAPIR query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start TAPIR re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_rect = start_spot.roi_rect
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="TAPIR re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     tapir_models_dir = Path(params.get("tapir_models_dir", DEFAULT_TAPIR_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -7353,39 +6699,18 @@ def retrack_single_spot_tapir_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -7557,7 +6882,7 @@ def retrack_single_spot_tapir_offline(
     return track_to_update
 
 
-def retrack_single_spot_tapir_online(
+def _legacy_retrack_single_spot_tapir_online(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -7573,29 +6898,22 @@ def retrack_single_spot_tapir_online(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start BootsTAPIR Online re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    if not polygon_points_are_valid(start_spot.polygon_seed_points):
-        raise ValueError(
-            f"Cutie re-tracking requires a polygon seed on the start spot {start_spot.id}."
-        )
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="BootsTAPIR Online re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     tapir_models_dir = Path(params.get("tapir_models_dir", DEFAULT_TAPIR_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -7654,39 +6972,18 @@ def retrack_single_spot_tapir_online(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -7864,7 +7161,7 @@ def retrack_single_spot_tapir_online(
     return track_to_update
 
 
-def retrack_single_spot_locotrack_offline(
+def _legacy_retrack_single_spot_locotrack_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -7880,25 +7177,22 @@ def retrack_single_spot_locotrack_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start LocoTrack re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="LocoTrack re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     locotrack_models_dir = Path(params.get("locotrack_models_dir", DEFAULT_LOCOTRACK_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -7957,39 +7251,18 @@ def retrack_single_spot_locotrack_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -8161,7 +7434,7 @@ def retrack_single_spot_locotrack_offline(
     return track_to_update
 
 
-def retrack_single_spot_cotracker3_offline(
+def _legacy_retrack_single_spot_cotracker3_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -8177,25 +7450,22 @@ def retrack_single_spot_cotracker3_offline(
     point to the end of the sequence using the spot center on the start frame as
     the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start CoTracker3 re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="CoTracker3 re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     cotracker_models_dir = Path(params.get("cotracker3_models_dir", DEFAULT_COTRACKER_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -8251,39 +7521,18 @@ def retrack_single_spot_cotracker3_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -8455,7 +7704,7 @@ def retrack_single_spot_cotracker3_offline(
     return track_to_update
 
 
-def retrack_single_spot_tapnext_offline(
+def _legacy_retrack_single_spot_tapnext_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -8471,25 +7720,22 @@ def retrack_single_spot_tapnext_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start TAPNext re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="TAPNext re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     tapnext_models_dir = Path(params.get("tapnext_models_dir", DEFAULT_TAPNEXT_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -8543,39 +7789,18 @@ def retrack_single_spot_tapnext_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -8757,7 +7982,7 @@ def retrack_single_spot_tapnext_offline(
     return track_to_update
 
 
-def retrack_single_spot_trackonr_offline(
+def _legacy_retrack_single_spot_trackonr_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -8773,25 +7998,22 @@ def retrack_single_spot_trackonr_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start Track-On-R re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="Track-On-R re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     trackonr_models_dir = Path(params.get("trackonr_models_dir", DEFAULT_TRACKONR_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -8850,39 +8072,18 @@ def retrack_single_spot_trackonr_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -9058,7 +8259,7 @@ def retrack_single_spot_trackonr_offline(
     return track_to_update
 
 
-def retrack_single_spot_pipspp_offline(
+def _legacy_retrack_single_spot_pipspp_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -9074,25 +8275,22 @@ def retrack_single_spot_pipspp_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start PIPs++ re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="PIPs++ re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     pipspp_models_dir = Path(params.get("pipspp_models_dir", DEFAULT_PIPSPP_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -9150,39 +8348,18 @@ def retrack_single_spot_pipspp_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -9358,7 +8535,7 @@ def retrack_single_spot_pipspp_offline(
     return track_to_update
 
 
-def retrack_single_spot_mftiq_offline(
+def _legacy_retrack_single_spot_mftiq_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -9374,25 +8551,22 @@ def retrack_single_spot_mftiq_offline(
     point to the end of the sequence using the spot center on the start frame
     as the single query point.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start MFTIQ re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="MFTIQ re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     mftiq_models_dir = Path(params.get("mftiq_models_dir", DEFAULT_MFTIQ_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -9449,39 +8623,19 @@ def retrack_single_spot_mftiq_offline(
     max_step_distance_px = float(params.get("max_step_distance_px", 0.0))
     max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0))
     terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0))
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -9661,7 +8815,7 @@ def retrack_single_spot_mftiq_offline(
     return track_to_update
 
 
-def track_spots_cutie_offline(
+def _legacy_track_spots_cutie_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -9748,12 +8902,16 @@ def track_spots_cutie_offline(
     max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_cutie_window_overlap(
         len(subset_frame_ids),
@@ -9761,28 +8919,7 @@ def track_spots_cutie_offline(
         int(params.get("window_overlap", 8)),
     )
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -9906,26 +9043,22 @@ def track_spots_cutie_offline(
             }
             for reference_spot in ref_file.spots
         }
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_cutie_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -9940,7 +9073,7 @@ def track_spots_cutie_offline(
             query_rows: List[List[float]] = []
             query_mask_rows: List[np.ndarray] = []
             query_specs: List[Tuple[SpotROI, int]] = []
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
 
             for track_id, track in track_map.items():
                 reference_spot = reference_spots_by_id[track_id]
@@ -9967,11 +9100,11 @@ def track_spots_cutie_offline(
                 query_specs.append((reference_spot, seed_local_idx))
 
             if not query_rows:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             result = run_cutie_offline(
@@ -10021,7 +9154,7 @@ def track_spots_cutie_offline(
                 if not ok:
                     return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
         converted_tracks = list(track_map.values())
 
@@ -10030,7 +9163,7 @@ def track_spots_cutie_offline(
     return converted_tracks
 
 
-def track_spots_xmem2_offline(
+def _legacy_track_spots_xmem2_offline(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
     reference_frame_id: int,
@@ -10110,12 +9243,16 @@ def track_spots_xmem2_offline(
     max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(ref_file.filepath),
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_xmem2_window_overlap(
         len(subset_frame_ids),
@@ -10123,28 +9260,7 @@ def track_spots_xmem2_offline(
         int(params.get("window_overlap", 8)),
     )
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if window_size <= 1 or window_size >= len(subset_frame_ids):
         loaded = _load_frames_for_tapir(
@@ -10268,26 +9384,22 @@ def track_spots_xmem2_offline(
             }
             for reference_spot in ref_file.spots
         }
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_xmem2_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -10302,7 +9414,7 @@ def track_spots_xmem2_offline(
             query_rows: List[List[float]] = []
             query_mask_rows: List[np.ndarray] = []
             query_specs: List[Tuple[SpotROI, int]] = []
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
 
             for track_id, track in track_map.items():
                 reference_spot = reference_spots_by_id[track_id]
@@ -10329,11 +9441,11 @@ def track_spots_xmem2_offline(
                 query_specs.append((reference_spot, seed_local_idx))
 
             if not query_rows:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             result = run_xmem2_offline(
@@ -10383,7 +9495,7 @@ def track_spots_xmem2_offline(
                 if not ok:
                     return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
         converted_tracks = list(track_map.values())
 
@@ -10392,713 +9504,7 @@ def track_spots_xmem2_offline(
     return converted_tracks
 
 
-def track_spots_tomp_offline(
-    all_files_map: Dict[int, LeedFile],
-    sorted_frame_ids: List[int],
-    reference_frame_id: int,
-    params: dict,
-    progress_callback: Callable[[int], None] | None = None,
-    cancel_event: Optional[Event] = None,
-) -> Optional[List[Track]]:
-    """
-    Track spots from a reference frame using offline ToMP / TaMOs.
-
-    Each reference spot ROI becomes one seeded bbox. The returned bbox centers
-    are converted to Track / SpotROI objects while preserving bbox metadata.
-    """
-    ref_file = all_files_map.get(reference_frame_id)
-    if not ref_file or not ref_file.spots:
-        raise ValueError("Reference frame must contain at least one defined spot.")
-    if reference_frame_id not in sorted_frame_ids:
-        raise ValueError("Reference frame is missing from the provided frame list.")
-
-    ref_index = sorted_frame_ids.index(reference_frame_id)
-    subset_frame_ids = sorted_frame_ids[ref_index:]
-    if len(subset_frame_ids) < 2:
-        raise ValueError("Offline ToMP / TaMOs requires at least two frames starting from the reference.")
-
-    model_variant_key = _normalize_tomp_model_variant_key(params.get("model_variant", "tomp50"))
-    repo_path = (
-        params.get("repo_path")
-        or params.get("tomp_repo_path")
-        or params.get("pytracking_repo_path")
-    )
-    checkpoint_path = params.get("checkpoint_path")
-    if model_variant_key in {"tamos_resnet50", "tamos_swin_base"}:
-        tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
-        if not checkpoint_path:
-            detected_checkpoints = discover_tamos_checkpoints(
-                tamos_models_dir,
-                repo_path=repo_path,
-            )
-            selected_checkpoint = select_default_tamos_checkpoint_for_variant(
-                detected_checkpoints,
-                model_variant_key,
-            )
-            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
-        if not checkpoint_path:
-            raise ValueError(
-                "No TaMOs checkpoint selected. Place "
-                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
-                "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
-            )
-    else:
-        tomp_models_dir = Path(params.get("tomp_models_dir", DEFAULT_TOMP_MODELS_DIR))
-        if not checkpoint_path:
-            detected_checkpoints = discover_tomp_checkpoints(
-                tomp_models_dir,
-                repo_path=repo_path,
-            )
-            selected_checkpoint = select_default_tomp_checkpoint_for_variant(
-                detected_checkpoints,
-                model_variant_key,
-            )
-            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
-        if not checkpoint_path:
-            raise ValueError(
-                "No ToMP checkpoint selected. Place "
-                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
-                "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
-            )
-
-    query_points = np.array(
-        [[0.0, float(spot.center_y), float(spot.center_x)] for spot in ref_file.spots],
-        dtype=np.float32,
-    )
-    query_boxes = np.array(
-        [
-            [
-                float(spot.roi_rect.left()),
-                float(spot.roi_rect.top()),
-                float(spot.roi_rect.left() + spot.roi_rect.width()),
-                float(spot.roi_rect.top() + spot.roi_rect.height()),
-            ]
-            for spot in ref_file.spots
-        ],
-        dtype=np.float32,
-    )
-
-    if progress_callback:
-        progress_callback(5)
-    if cancel_event and cancel_event.is_set():
-        return None
-
-    tomp_settings = TompRuntimeSettings(
-        repo_path=repo_path,
-        checkpoint_path=checkpoint_path,
-        python_executable=params.get("python_executable"),
-        backend_mode=params.get("backend_mode", "subprocess"),
-        model_variant=model_variant_key,
-        device=params.get("device", "auto"),
-        representative_point_mode=params.get("representative_point_mode", "bbox_center"),
-        inference_resolution=params.get("inference_resolution"),
-        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 0.0)),
-        use_presence_score_gating=bool(params.get("use_presence_score_gating", False)),
-        presence_threshold=float(params.get("presence_threshold", 0.0) or 0.0),
-        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
-    )
-    roi_size = int(params.get("roi_size", 32))
-    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
-    window_size = int(params.get("window_size", 64))
-    window_overlap = _resolve_tomp_window_overlap(
-        len(subset_frame_ids),
-        window_size,
-        int(params.get("window_overlap", 8)),
-    )
-    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
-    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
-    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            ref_image = load_tiff(ref_file.filepath)
-            fallback_shape = None
-            if ref_image is not None and np.asarray(ref_image).size:
-                fallback_shape = (int(ref_image.shape[0]), int(ref_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
-
-    if window_size <= 1 or window_size >= len(subset_frame_ids):
-        loaded = _load_frames_for_tapir(
-            all_files_map,
-            subset_frame_ids,
-            progress_callback=progress_callback,
-            cancel_event=cancel_event,
-        )
-        if loaded is None:
-            return None
-        frames, frame_shapes = loaded
-
-        if progress_callback:
-            progress_callback(45)
-        result = run_tomp_offline(
-            frames=frames,
-            query_points_tyx=query_points,
-            settings=tomp_settings,
-            query_boxes_xyxy=query_boxes,
-        )
-
-        if cancel_event and cancel_event.is_set():
-            return None
-        if progress_callback:
-            progress_callback(90)
-
-        converted_tracks: List[Track] = []
-        for query_idx, reference_spot in enumerate(ref_file.spots):
-            track = Track(
-                track_id=reference_spot.id,
-                spots_by_image_id={reference_frame_id: reference_spot},
-            )
-            state = {
-                "last_valid_xy": np.array(
-                    [float(reference_spot.center_x), float(reference_spot.center_y)],
-                    dtype=np.float32,
-                ),
-                "invisible_streak": 0,
-                "terminated": False,
-                "expected_direction_sign": None,
-            }
-            ok = _append_tomp_sequence_to_track(
-                track,
-                state,
-                reference_spot,
-                subset_frame_ids,
-                frame_shapes,
-                result.tracks_xy[query_idx],
-                result.visible_mask[query_idx],
-                result.tracked_bboxes_xywh[query_idx],
-                result.tracked_bboxes_xyxy[query_idx],
-                result.bbox_scores[query_idx],
-                roi_size=roi_size,
-                keep_invisible_as_gaps=keep_invisible_as_gaps,
-                representative_point_mode=result.representative_point_mode,
-                model_variant=result.model_variant,
-                max_step_distance_px=max_step_distance_px,
-                max_reacquisition_gap=max_reacquisition_gap,
-                terminate_after_invisible_frames=terminate_after_invisible_frames,
-                direction_center_xy=direction_center_xy,
-                direction_mode=direction_mode,
-                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
-                max_radial_jump_px=max_radial_jump_px,
-                min_directional_motion_px=min_directional_motion_px,
-                cancel_event=cancel_event,
-                start_local_idx=1,
-                min_global_write_idx=None,
-                global_start_idx=0,
-            )
-            if not ok:
-                return None
-            converted_tracks.append(track)
-    else:
-        if progress_callback:
-            progress_callback(10)
-
-        track_map: Dict[int, Track] = {
-            reference_spot.id: Track(
-                track_id=reference_spot.id,
-                spots_by_image_id={reference_frame_id: reference_spot},
-            )
-            for reference_spot in ref_file.spots
-        }
-        reference_spots_by_id = {spot.id: spot for spot in ref_file.spots}
-        track_states: Dict[int, Dict[str, Any]] = {
-            reference_spot.id: {
-                "last_valid_xy": np.array(
-                    [float(reference_spot.center_x), float(reference_spot.center_y)],
-                    dtype=np.float32,
-                ),
-                "invisible_streak": 0,
-                "terminated": False,
-                "expected_direction_sign": None,
-            }
-            for reference_spot in ref_file.spots
-        }
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
-        )
-        overlap = _resolve_tomp_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
-        )
-        covered_until = 0
-
-        for window_idx, start_idx in enumerate(window_starts):
-            if cancel_event and cancel_event.is_set():
-                return None
-
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
-
-            loaded_window = _load_frames_for_tapir(
-                all_files_map,
-                window_frame_ids,
-                progress_callback=None,
-                cancel_event=cancel_event,
-            )
-            if loaded_window is None:
-                return None
-            window_frames, window_shapes = loaded_window
-
-            query_rows: List[List[float]] = []
-            query_box_rows: List[List[float]] = []
-            query_specs: List[Tuple[SpotROI, int]] = []
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
-
-            for track_id, track in track_map.items():
-                reference_spot = reference_spots_by_id[track_id]
-                seed_local_idx = None
-                seed_spot = None
-                for local_idx, frame_id in enumerate(window_frame_ids):
-                    if frame_id not in query_seed_ids:
-                        break
-                    candidate = track.spots_by_image_id.get(frame_id)
-                    if candidate is None:
-                        continue
-                    seed_local_idx = local_idx
-                    seed_spot = candidate
-                    break
-                if seed_spot is None or seed_local_idx is None:
-                    continue
-
-                seed_rect = seed_spot.roi_rect
-                query_rows.append(
-                    [float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]
-                )
-                query_box_rows.append(
-                    [
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]
-                )
-                query_specs.append((reference_spot, seed_local_idx))
-
-            if not query_rows:
-                covered_until = max(covered_until, end_idx - 1)
-                continue
-
-            if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
-                progress_callback(int(base))
-
-            result = run_tomp_offline(
-                frames=window_frames,
-                query_points_tyx=np.asarray(query_rows, dtype=np.float32),
-                settings=tomp_settings,
-                query_boxes_xyxy=np.asarray(query_box_rows, dtype=np.float32),
-            )
-
-            write_after_global_idx = covered_until
-            for query_idx, (reference_spot, seed_local_idx) in enumerate(query_specs):
-                if cancel_event and cancel_event.is_set():
-                    return None
-
-                track = track_map[reference_spot.id]
-                ok = _append_tomp_sequence_to_track(
-                    track,
-                    track_states[reference_spot.id],
-                    reference_spot,
-                    window_frame_ids,
-                    window_shapes,
-                    result.tracks_xy[query_idx],
-                    result.visible_mask[query_idx],
-                    result.tracked_bboxes_xywh[query_idx],
-                    result.tracked_bboxes_xyxy[query_idx],
-                    result.bbox_scores[query_idx],
-                    roi_size=roi_size,
-                    keep_invisible_as_gaps=keep_invisible_as_gaps,
-                    representative_point_mode=result.representative_point_mode,
-                    model_variant=result.model_variant,
-                    max_step_distance_px=max_step_distance_px,
-                    max_reacquisition_gap=max_reacquisition_gap,
-                    terminate_after_invisible_frames=terminate_after_invisible_frames,
-                    direction_center_xy=direction_center_xy,
-                    direction_mode=direction_mode,
-                    lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
-                    max_radial_jump_px=max_radial_jump_px,
-                    min_directional_motion_px=min_directional_motion_px,
-                    cancel_event=cancel_event,
-                    start_local_idx=seed_local_idx + 1,
-                    min_global_write_idx=write_after_global_idx,
-                    global_start_idx=start_idx,
-                )
-                if not ok:
-                    return None
-
-            covered_until = max(covered_until, end_idx - 1)
-
-        converted_tracks = list(track_map.values())
-
-    if progress_callback:
-        progress_callback(100)
-    return converted_tracks
-
-
-def retrack_single_spot_tomp_offline(
-    track_to_update: Track,
-    start_frame_id: int,
-    all_files_map: Dict[int, LeedFile],
-    sorted_frame_ids: List[int],
-    params: dict,
-    progress_callback: Callable[[int], None] | None = None,
-    cancel_event: Optional[Event] = None,
-) -> Optional[Track]:
-    """
-    Re-track a single existing track from a chosen frame using ToMP / TaMOs.
-
-    The track is trimmed after `start_frame_id`, then the selected bbox tracker
-    is rerun from that point using the current ROI rectangle as the seed bbox.
-    """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start ToMP / TaMOs re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
-
-    start_variant = (
-        params.get("model_variant")
-        or getattr(start_spot, "tomp_model_variant", None)
-        or ("tamos_resnet50" if str(getattr(start_spot, "source", "")).strip().lower() == "tamos_offline" else "tomp50")
-    )
-    model_variant_key = _normalize_tomp_model_variant_key(start_variant)
-    repo_path = (
-        params.get("repo_path")
-        or params.get("tomp_repo_path")
-        or params.get("pytracking_repo_path")
-    )
-    checkpoint_path = params.get("checkpoint_path")
-    if model_variant_key in {"tamos_resnet50", "tamos_swin_base"}:
-        tamos_models_dir = Path(params.get("tamos_models_dir", DEFAULT_TAMOS_MODELS_DIR))
-        if not checkpoint_path:
-            detected_checkpoints = discover_tamos_checkpoints(
-                tamos_models_dir,
-                repo_path=repo_path,
-            )
-            selected_checkpoint = select_default_tamos_checkpoint_for_variant(
-                detected_checkpoints,
-                model_variant_key,
-            )
-            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
-        if not checkpoint_path:
-            raise ValueError(
-                "No TaMOs checkpoint selected. Place "
-                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
-                "tracking_models/tamos or pytracking/networks and pass checkpoint_path in params."
-            )
-    else:
-        tomp_models_dir = Path(params.get("tomp_models_dir", DEFAULT_TOMP_MODELS_DIR))
-        if not checkpoint_path:
-            detected_checkpoints = discover_tomp_checkpoints(
-                tomp_models_dir,
-                repo_path=repo_path,
-            )
-            selected_checkpoint = select_default_tomp_checkpoint_for_variant(
-                detected_checkpoints,
-                model_variant_key,
-            )
-            checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
-        if not checkpoint_path:
-            raise ValueError(
-                "No ToMP checkpoint selected. Place "
-                f"`{expected_tomp_checkpoint_name_for_variant(model_variant_key)}` in "
-                "tracking_models/tomp or pytracking/networks and pass checkpoint_path in params."
-            )
-
-    start_rect = start_spot.roi_rect
-    query_points = np.array(
-        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
-        dtype=np.float32,
-    )
-    query_boxes = np.array(
-        [[
-            float(start_rect.left()),
-            float(start_rect.top()),
-            float(start_rect.left() + start_rect.width()),
-            float(start_rect.top() + start_rect.height()),
-        ]],
-        dtype=np.float32,
-    )
-
-    if progress_callback:
-        progress_callback(5)
-    if cancel_event and cancel_event.is_set():
-        return None
-
-    tomp_settings = TompRuntimeSettings(
-        repo_path=repo_path,
-        checkpoint_path=checkpoint_path,
-        python_executable=params.get("python_executable"),
-        backend_mode=params.get("backend_mode", "subprocess"),
-        model_variant=model_variant_key,
-        device=params.get("device", "auto"),
-        representative_point_mode=params.get("representative_point_mode", "bbox_center"),
-        inference_resolution=params.get("inference_resolution"),
-        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 0.0)),
-        use_presence_score_gating=bool(params.get("use_presence_score_gating", False)),
-        presence_threshold=float(params.get("presence_threshold", 0.0) or 0.0),
-        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
-    )
-    roi_size = int(params.get("roi_size", 32))
-    keep_invisible_as_gaps = bool(params.get("keep_invisible_points_as_gaps", True))
-    window_size = int(params.get("window_size", 64))
-    window_overlap = _resolve_tomp_window_overlap(
-        len(subset_frame_ids),
-        window_size,
-        int(params.get("window_overlap", 8)),
-    )
-    max_step_distance_px = float(params.get("max_step_distance_px", 0.0) or 0.0)
-    max_reacquisition_gap = int(params.get("max_reacquisition_gap", 0) or 0)
-    terminate_after_invisible_frames = int(params.get("terminate_after_invisible_frames", 0) or 0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
-
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            start_image = load_tiff(start_file.filepath) if start_file is not None else None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
-
-    state = {
-        "last_valid_xy": np.array(
-            [float(start_spot.center_x), float(start_spot.center_y)],
-            dtype=np.float32,
-        ),
-        "invisible_streak": 0,
-        "terminated": False,
-        "expected_direction_sign": None,
-    }
-
-    if window_size <= 1 or window_size >= len(subset_frame_ids):
-        loaded = _load_frames_for_tapir(
-            all_files_map,
-            subset_frame_ids,
-            progress_callback=progress_callback,
-            cancel_event=cancel_event,
-        )
-        if loaded is None:
-            return None
-        frames, frame_shapes = loaded
-
-        if progress_callback:
-            progress_callback(45)
-        result = run_tomp_offline(
-            frames=frames,
-            query_points_tyx=query_points,
-            settings=tomp_settings,
-            query_boxes_xyxy=query_boxes,
-        )
-
-        if cancel_event and cancel_event.is_set():
-            return None
-        if progress_callback:
-            progress_callback(90)
-
-        ok = _append_tomp_sequence_to_track(
-            track_to_update,
-            state,
-            start_spot,
-            subset_frame_ids,
-            frame_shapes,
-            result.tracks_xy[0],
-            result.visible_mask[0],
-            result.tracked_bboxes_xywh[0],
-            result.tracked_bboxes_xyxy[0],
-            result.bbox_scores[0],
-            roi_size=roi_size,
-            keep_invisible_as_gaps=keep_invisible_as_gaps,
-            representative_point_mode=result.representative_point_mode,
-            model_variant=result.model_variant,
-            max_step_distance_px=max_step_distance_px,
-            max_reacquisition_gap=max_reacquisition_gap,
-            terminate_after_invisible_frames=terminate_after_invisible_frames,
-            direction_center_xy=direction_center_xy,
-            direction_mode=direction_mode,
-            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
-            max_radial_jump_px=max_radial_jump_px,
-            min_directional_motion_px=min_directional_motion_px,
-            cancel_event=cancel_event,
-            start_local_idx=1,
-            min_global_write_idx=None,
-            global_start_idx=0,
-        )
-        if not ok:
-            return None
-    else:
-        if progress_callback:
-            progress_callback(10)
-
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
-        )
-        overlap = _resolve_tomp_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
-        )
-        covered_until = 0
-
-        for window_idx, start_idx in enumerate(window_starts):
-            if cancel_event and cancel_event.is_set():
-                return None
-
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
-
-            loaded_window = _load_frames_for_tapir(
-                all_files_map,
-                window_frame_ids,
-                progress_callback=None,
-                cancel_event=cancel_event,
-            )
-            if loaded_window is None:
-                return None
-            window_frames, window_shapes = loaded_window
-
-            seed_local_idx = None
-            seed_spot = None
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
-            for local_idx, frame_id in enumerate(window_frame_ids):
-                if frame_id not in query_seed_ids:
-                    break
-                candidate = track_to_update.spots_by_image_id.get(frame_id)
-                if candidate is None:
-                    continue
-                seed_local_idx = local_idx
-                seed_spot = candidate
-                break
-
-            if seed_spot is None or seed_local_idx is None:
-                covered_until = max(covered_until, end_idx - 1)
-                continue
-
-            if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
-                progress_callback(int(base))
-
-            seed_rect = seed_spot.roi_rect
-            result = run_tomp_offline(
-                frames=window_frames,
-                query_points_tyx=np.asarray(
-                    [[float(seed_local_idx), float(seed_spot.center_y), float(seed_spot.center_x)]],
-                    dtype=np.float32,
-                ),
-                settings=tomp_settings,
-                query_boxes_xyxy=np.asarray(
-                    [[
-                        float(seed_rect.left()),
-                        float(seed_rect.top()),
-                        float(seed_rect.left() + seed_rect.width()),
-                        float(seed_rect.top() + seed_rect.height()),
-                    ]],
-                    dtype=np.float32,
-                ),
-            )
-
-            ok = _append_tomp_sequence_to_track(
-                track_to_update,
-                state,
-                start_spot,
-                window_frame_ids,
-                window_shapes,
-                result.tracks_xy[0],
-                result.visible_mask[0],
-                result.tracked_bboxes_xywh[0],
-                result.tracked_bboxes_xyxy[0],
-                result.bbox_scores[0],
-                roi_size=roi_size,
-                keep_invisible_as_gaps=keep_invisible_as_gaps,
-                representative_point_mode=result.representative_point_mode,
-                model_variant=result.model_variant,
-                max_step_distance_px=max_step_distance_px,
-                max_reacquisition_gap=max_reacquisition_gap,
-                terminate_after_invisible_frames=terminate_after_invisible_frames,
-                direction_center_xy=direction_center_xy,
-                direction_mode=direction_mode,
-                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
-                max_radial_jump_px=max_radial_jump_px,
-                min_directional_motion_px=min_directional_motion_px,
-                cancel_event=cancel_event,
-                start_local_idx=seed_local_idx + 1,
-                min_global_write_idx=covered_until,
-                global_start_idx=start_idx,
-            )
-            if not ok:
-                return None
-
-            covered_until = max(covered_until, end_idx - 1)
-
-    if progress_callback:
-        progress_callback(100)
-    return track_to_update
-
-
-def retrack_single_spot_sam2_offline(
+def _legacy_retrack_single_spot_sam2_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -11114,25 +9520,22 @@ def retrack_single_spot_sam2_offline(
     point to the end of the sequence using the spot center and ROI on the start
     frame as the seed prompt.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start SAM 2 re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="SAM 2 re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     sam2_models_dir = Path(params.get("sam2_models_dir", DEFAULT_SAM2_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -11187,12 +9590,17 @@ def retrack_single_spot_sam2_offline(
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_mask_components = int(params.get("max_mask_components", 0) or 0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     roi_size = int(params.get("roi_size", 32))
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_sam2_window_overlap(
@@ -11201,32 +9609,7 @@ def retrack_single_spot_sam2_offline(
         int(params.get("window_overlap", 8)),
     )
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -11327,26 +9710,22 @@ def retrack_single_spot_sam2_offline(
         if progress_callback:
             progress_callback(10)
 
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_sam2_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -11360,7 +9739,7 @@ def retrack_single_spot_sam2_offline(
 
             seed_local_idx = None
             seed_spot = None
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
             for local_idx, frame_id in enumerate(window_frame_ids):
                 if frame_id not in query_seed_ids:
                     break
@@ -11372,11 +9751,11 @@ def retrack_single_spot_sam2_offline(
                 break
 
             if seed_spot is None or seed_local_idx is None:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             seed_rect = seed_spot.roi_rect
@@ -11434,14 +9813,14 @@ def retrack_single_spot_sam2_offline(
             if not ok:
                 return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
     if progress_callback:
         progress_callback(100)
     return track_to_update
 
 
-def retrack_single_spot_cutie_offline(
+def _legacy_retrack_single_spot_cutie_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -11457,25 +9836,22 @@ def retrack_single_spot_cutie_offline(
     point to the end of the sequence using the spot center and ROI on the start
     frame as the seed prompt.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start Cutie re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    subset_frame_ids = sorted_frame_ids[start_frame_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="Cutie re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     cutie_models_dir = Path(params.get("cutie_models_dir", DEFAULT_CUTIE_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -11531,12 +9907,17 @@ def retrack_single_spot_cutie_offline(
     max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     roi_size = int(params.get("roi_size", 32))
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_cutie_window_overlap(
@@ -11545,32 +9926,7 @@ def retrack_single_spot_cutie_offline(
         int(params.get("window_overlap", 8)),
     )
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            if start_file is not None:
-                start_image = load_tiff(start_file.filepath)
-            else:
-                start_image = None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -11673,26 +10029,22 @@ def retrack_single_spot_cutie_offline(
         if progress_callback:
             progress_callback(10)
 
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_cutie_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -11706,7 +10058,7 @@ def retrack_single_spot_cutie_offline(
 
             seed_local_idx = None
             seed_spot = None
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
             for local_idx, frame_id in enumerate(window_frame_ids):
                 if frame_id not in query_seed_ids:
                     break
@@ -11718,11 +10070,11 @@ def retrack_single_spot_cutie_offline(
                 break
 
             if seed_spot is None or seed_local_idx is None:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             result = run_cutie_offline(
@@ -11772,14 +10124,14 @@ def retrack_single_spot_cutie_offline(
             if not ok:
                 return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
     if progress_callback:
         progress_callback(100)
     return track_to_update
 
 
-def _collect_xmem2_permanent_reference_spots(
+def _legacy_collect_xmem2_permanent_reference_spots(
     track: Track,
     upto_frame_id: int,
     sorted_frame_ids: List[int],
@@ -11811,7 +10163,7 @@ def _collect_xmem2_permanent_reference_spots(
     return references
 
 
-def retrack_single_spot_xmem2_offline(
+def _legacy_retrack_single_spot_xmem2_offline(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -11827,25 +10179,19 @@ def retrack_single_spot_xmem2_offline(
     point to the end of the sequence using the spot center and ROI on the start
     frame as the seed prompt.
     """
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(
-            f"Cannot start XMem2 re-tracking. Track {track_to_update.track_id} "
-            f"has no point on frame {start_frame_id}."
-        )
-    if start_frame_id not in sorted_frame_ids:
-        raise ValueError("Start frame is missing from the provided frame list.")
-
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="XMem2 re-tracking",
+    )
+    start_spot = retrack_start.start_spot
+    start_frame_index = retrack_start.start_frame_index
     if not polygon_points_are_valid(start_spot.polygon_seed_points):
         raise ValueError(
             f"XMem2 re-tracking requires a polygon seed on the start spot {start_spot.id}."
         )
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
-    reference_entries = _collect_xmem2_permanent_reference_spots(
+    reference_entries = _legacy_collect_xmem2_permanent_reference_spots(
         track_to_update,
         start_frame_id,
         sorted_frame_ids,
@@ -11863,10 +10209,13 @@ def retrack_single_spot_xmem2_offline(
     earliest_reference_frame_id = reference_entries[0][0] if reference_entries else start_frame_id
     subset_start_index = sorted_frame_ids.index(earliest_reference_frame_id)
     subset_frame_ids = sorted_frame_ids[subset_start_index:]
-    if len(subset_frame_ids) < 2:
-        if progress_callback:
-            progress_callback(100)
-        return track_to_update
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
 
     xmem2_models_dir = Path(params.get("xmem2_models_dir", DEFAULT_XMEM2_MODELS_DIR))
     checkpoint_path = params.get("checkpoint_path")
@@ -11921,12 +10270,17 @@ def retrack_single_spot_xmem2_offline(
     max_mask_area_ratio_change = float(params.get("max_mask_area_ratio_change", 0.0) or 0.0)
     max_bbox_aspect_ratio_change = float(params.get("max_bbox_aspect_ratio_change", 0.0) or 0.0)
     max_bbox_center_jump_px = float(params.get("max_bbox_center_jump_px", 0.0) or 0.0)
-    direction_mode = str(params.get("direction_mode", "none")).strip().lower()
-    center_mode = str(params.get("center_mode", "auto")).strip().lower()
-    manual_center = params.get("manual_center")
-    lateral_angle_tolerance_deg = float(params.get("lateral_angle_tolerance_deg", 20.0))
-    max_radial_jump_px = float(params.get("max_radial_jump_px", 0.0))
-    min_directional_motion_px = float(params.get("min_directional_motion_px", 1.0))
+    start_file = all_files_map.get(start_frame_id)
+    direction_filter = _build_direction_filter_context_for_legacy_tracking(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+    )
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
     roi_size = int(params.get("roi_size", 32))
     window_size = int(params.get("window_size", 64))
     window_overlap = _resolve_xmem2_window_overlap(
@@ -11937,29 +10291,7 @@ def retrack_single_spot_xmem2_offline(
     force_full_sequence = len(reference_entries) > 1
     start_local_idx = int(start_frame_index - subset_start_index + 1)
 
-    direction_center_xy: Tuple[float, float] | None = None
-    if direction_mode != "none":
-        if center_mode == "manual" and manual_center is not None:
-            try:
-                direction_center_xy = (float(manual_center[0]), float(manual_center[1]))
-            except Exception:
-                direction_center_xy = None
-        if direction_center_xy is None:
-            start_file = all_files_map.get(start_frame_id)
-            start_image = load_tiff(start_file.filepath) if start_file is not None else None
-            fallback_shape = None
-            if start_image is not None and np.asarray(start_image).size:
-                fallback_shape = (int(start_image.shape[0]), int(start_image.shape[1]))
-            estimated_center = estimate_pattern_center_from_detections(
-                all_files_map,
-                frame_ids=subset_frame_ids,
-                fallback_shape=fallback_shape,
-            )
-            if estimated_center is not None:
-                direction_center_xy = (
-                    float(estimated_center["center_x"]),
-                    float(estimated_center["center_y"]),
-                )
+    direction_center_xy = direction_filter.direction_center_xy
 
     if progress_callback:
         progress_callback(5)
@@ -12063,26 +10395,22 @@ def retrack_single_spot_xmem2_offline(
         if progress_callback:
             progress_callback(10)
 
-        window_starts = _compute_point_tracker_window_starts(
-            len(subset_frame_ids),
+        window_plans, _ = build_tracking_window_plans(
+            subset_frame_ids,
             window_size,
             window_overlap,
-        )
-        overlap = _resolve_xmem2_window_overlap(
-            len(subset_frame_ids),
-            window_size,
-            window_overlap,
+            require_reseed_overlap=True,
         )
         covered_until = 0
 
-        for window_idx, start_idx in enumerate(window_starts):
+        for window in window_plans:
             if cancel_event and cancel_event.is_set():
                 return None
 
-            end_idx = min(len(subset_frame_ids), start_idx + window_size)
-            window_frame_ids = subset_frame_ids[start_idx:end_idx]
-            if len(window_frame_ids) < 2:
-                continue
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
 
             loaded_window = _load_frames_for_tapir(
                 all_files_map,
@@ -12096,7 +10424,7 @@ def retrack_single_spot_xmem2_offline(
 
             seed_local_idx = None
             seed_spot = None
-            query_seed_ids = set(window_frame_ids[: max(1, overlap + 1)])
+            query_seed_ids = window.seed_frame_ids
             for local_idx, frame_id in enumerate(window_frame_ids):
                 if frame_id not in query_seed_ids:
                     break
@@ -12108,11 +10436,11 @@ def retrack_single_spot_xmem2_offline(
                 break
 
             if seed_spot is None or seed_local_idx is None:
-                covered_until = max(covered_until, end_idx - 1)
+                covered_until = advance_window_coverage(covered_until, end_idx)
                 continue
 
             if progress_callback:
-                base = 10.0 + (window_idx / max(1, len(window_starts))) * 75.0
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
                 progress_callback(int(base))
 
             result = run_xmem2_offline(
@@ -12162,14 +10490,14 @@ def retrack_single_spot_xmem2_offline(
             if not ok:
                 return None
 
-            covered_until = max(covered_until, end_idx - 1)
+            covered_until = advance_window_coverage(covered_until, end_idx)
 
     if progress_callback:
         progress_callback(100)
     return track_to_update
 
 
-def retrack_single_spot_optical_flow(
+def _legacy_retrack_single_spot_optical_flow(
     track_to_update: Track,
     start_frame_id: int,
     all_files_map: Dict[int, LeedFile],
@@ -12194,18 +10522,15 @@ def retrack_single_spot_optical_flow(
         The modified Track object with the re-tracked points.
     """
     # --- 1. Initialization ---
-    if start_frame_id not in track_to_update.spots_by_image_id:
-        raise ValueError(f"Cannot start re-tracking. Track {track_to_update.track_id} has no point on frame {start_frame_id}.")
-
-    # Trim the track by discarding every point that comes after the start frame
-    frames_to_remove = [fid for fid in track_to_update.spots_by_image_id if fid > start_frame_id]
-    for fid in frames_to_remove:
-        del track_to_update.spots_by_image_id[fid]
-    
-    start_spot = track_to_update.spots_by_image_id[start_frame_id]
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="re-tracking",
+    )
+    start_spot = retrack_start.start_spot
     p0 = np.array([[[start_spot.center_x, start_spot.center_y]]], dtype=np.float32)
-
-    start_frame_index = sorted_frame_ids.index(start_frame_id)
+    start_frame_index = retrack_start.start_frame_index
     prev_gray = _load_and_prep_image(all_files_map[start_frame_id].filepath)
     if prev_gray is None:
         raise ValueError("Could not load the starting image for re-tracking.")
@@ -12244,10 +10569,13 @@ def retrack_single_spot_optical_flow(
             roi_size = params.get('roi_size', 32)
             roi_half = roi_size // 2
             new_rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
-            new_spot = SpotROI(
-                id=start_spot.id, # Preserve the original identifier for consistency
+            new_spot = build_spot_roi(
+                spot_id=start_spot.id,
                 roi_rect=new_rect,
-                center_x=x, center_y=y, intensity=0, source='re-tracked'
+                center_x=x,
+                center_y=y,
+                source="re-tracked",
+                intensity=0.0,
             )
             track_to_update.spots_by_image_id[current_frame_id] = new_spot
 
@@ -12541,7 +10869,7 @@ def track_spots_optical_flow_skip_anchor(
             return None
         if not positions:
             continue
-        track = Track(track_id=spot.id, spots_by_image_id={})
+        track = build_track(track_id=spot.id)
         for rel_frame_idx, x, y in positions:
             frame_id = subset_frame_ids[rel_frame_idx]
             if rel_frame_idx == 0:
@@ -12549,13 +10877,13 @@ def track_spots_optical_flow_skip_anchor(
                 continue
 
             rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
-            track.spots_by_image_id[frame_id] = SpotROI(
-                id=spot.id,
+            track.spots_by_image_id[frame_id] = build_spot_roi(
+                spot_id=spot.id,
                 roi_rect=rect,
                 center_x=x,
                 center_y=y,
-                intensity=0,
                 source="optical_flow_skip_anchor",
+                intensity=0.0,
             )
         converted_tracks.append(track)
 

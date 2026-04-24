@@ -79,24 +79,18 @@ from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
 from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
+from trackleed.gui.tracker_registry import (
+    TRACKING_SCENARIO_NAMES,
+    get_tracker_spec_for_scenario,
+    iter_tracker_specs,
+    require_tracker_spec,
+)
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.analysis.tracking import (
     track_spots_optical_flow,
     track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
     track_spots_hungarian_directional,
-    track_spots_tapir_offline,
-    track_spots_tapir_online,
-    track_spots_locotrack_offline,
-    track_spots_cotracker3_offline,
-    track_spots_tapnext_offline,
-    track_spots_trackonr_offline,
-    track_spots_pipspp_offline,
-    track_spots_mftiq_offline,
-    track_spots_tomp_offline,
-    track_spots_cutie_offline,
-    track_spots_xmem2_offline,
-    track_spots_sam2_offline,
 )
 
 from skimage.util import img_as_float
@@ -104,6 +98,12 @@ from skimage.color import rgb2gray
 from scipy.ndimage import gaussian_filter
 from skimage.feature import peak_local_max
 from skimage.morphology import white_tophat, disk
+
+
+OPTICAL_FLOW_SCENARIO = "Optical Flow Tracking"
+OPTICAL_FLOW_SKIP_SCENARIO = "Optical Flow (skip, anchor)"
+HUNGARIAN_SCENARIO = "Detection Linking (Hungarian)"
+DIRECTIONAL_LINKING_SCENARIO = "Detection Linking (Directional)"
 
 
 @dataclass
@@ -1467,22 +1467,11 @@ class MainWindow(QMainWindow):
         form_layout = QFormLayout(tracking_group)
         self.tracking_scenario_combo = QComboBox()
         self.tracking_scenario_combo.addItems([
-            "Optical Flow Tracking",
-            "Optical Flow (skip, anchor)",
-            "Offline TAPIR",
-            "BootsTAPIR Online / Causal",
-            "Offline LocoTrack",
-            "Offline CoTracker3",
-            "Offline TAPNext",
-            "Offline Track-On-R",
-            "Offline PIPs++",
-            "Offline MFTIQ",
-            "Offline ToMP",
-            "Offline Cutie",
-            "Offline XMem2",
-            "Offline SAM2",
-            "Detection Linking (Hungarian)",
-            "Detection Linking (Directional)",
+            OPTICAL_FLOW_SCENARIO,
+            OPTICAL_FLOW_SKIP_SCENARIO,
+            *TRACKING_SCENARIO_NAMES,
+            HUNGARIAN_SCENARIO,
+            DIRECTIONAL_LINKING_SCENARIO,
         ])
         # Backwards compatibility alias used by some dialogs/scripts.
         self.trackingAlgoCombo = self.tracking_scenario_combo
@@ -5079,9 +5068,13 @@ class MainWindow(QMainWindow):
         self._update_find_spots_button_state()
 
     def _refresh_tapir_checkpoints(self):
+        tracker_spec = require_tracker_spec(
+            "tapir_online" if self._tapir_runtime_mode() == "online" else "tapir_offline"
+        )
         runtime_mode = self._tapir_runtime_mode()
         self.tapir_settings.runtime_mode = runtime_mode
-        status = probe_tapir_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.tapir_models_dir,
             checkpoint_path=self.tapir_settings.checkpoint_path,
         )
@@ -5130,7 +5123,8 @@ class MainWindow(QMainWindow):
 
         self.tapir_checkpoint_combo.blockSignals(False)
 
-        effective_status = probe_tapir_environment(
+        effective_status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.tapir_models_dir,
             checkpoint_path=self.tapir_settings.checkpoint_path,
         )
@@ -5143,11 +5137,12 @@ class MainWindow(QMainWindow):
                 details.append(f"torch {effective_status.torch_version}")
             details.append("CUDA" if effective_status.cuda_available else "CPU")
             details.append("causal" if runtime_mode == "online" else "offline")
-            self.tapir_warning_label.setStyleSheet("color: #5cb85c;")
-            self.tapir_warning_label.setText(
-                "TAPIR ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="TAPIR ready. " + ", ".join(details),
+                status=effective_status,
             )
-            self.tapir_warning_label.setToolTip(format_tapir_environment_report(effective_status))
         else:
             summary = []
             if effective_status.errors:
@@ -5160,9 +5155,12 @@ class MainWindow(QMainWindow):
                     if runtime_mode == "online"
                     else "No offline TAPIR checkpoint selected."
                 )
-            self.tapir_warning_label.setStyleSheet("color: #d9534f;")
-            self.tapir_warning_label.setText("\n".join(summary))
-            self.tapir_warning_label.setToolTip(format_tapir_environment_report(effective_status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=effective_status,
+            )
 
     def _on_tapir_checkpoint_selected(self, index: int):
         checkpoint_path = self.tapir_checkpoint_combo.itemData(index)
@@ -5170,12 +5168,14 @@ class MainWindow(QMainWindow):
         self._refresh_tapir_checkpoints()
 
     def _refresh_locotrack_checkpoints(self):
+        tracker_spec = require_tracker_spec("locotrack_offline")
         repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
         if repo_path:
             self.locotrack_settings.repo_path = repo_path
         self.locotrack_settings.python_executable = self.locotrack_python_executable_edit.text().strip() or None
         self.locotrack_settings.backend_mode = self.locotrack_backend_mode_combo.currentData()
-        status = probe_locotrack_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.locotrack_models_dir,
             checkpoint_path=self.locotrack_settings.checkpoint_path,
             repo_path=self.locotrack_settings.repo_path,
@@ -5227,22 +5227,26 @@ class MainWindow(QMainWindow):
             if status.torch_version:
                 details.append(f"torch {status.torch_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
-            self.locotrack_warning_label.setStyleSheet("color: #5cb85c;")
-            self.locotrack_warning_label.setText(
-                "LocoTrack ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="LocoTrack ready. " + ", ".join(details),
+                status=status,
             )
-            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
         elif (
             self.locotrack_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.locotrack_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.locotrack_warning_label.setText(
-                "LocoTrack subprocess configured. Current app env is not LocoTrack-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "LocoTrack subprocess configured. Current app env is not LocoTrack-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5258,9 +5262,12 @@ class MainWindow(QMainWindow):
                 summary.append(
                     "Set the Python executable of the dedicated locotrack env, or run Trackleed from that env."
                 )
-            self.locotrack_warning_label.setStyleSheet("color: #d9534f;")
-            self.locotrack_warning_label.setText("\n".join(summary))
-            self.locotrack_warning_label.setToolTip(format_locotrack_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_locotrack_checkpoint_selected(self, index: int):
         checkpoint_path = self.locotrack_checkpoint_combo.itemData(index)
@@ -5275,10 +5282,12 @@ class MainWindow(QMainWindow):
         self._refresh_locotrack_checkpoints()
 
     def _refresh_cotracker_checkpoints(self):
+        tracker_spec = require_tracker_spec("cotracker3_offline")
         repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
         if repo_path:
             self.cotracker_settings.repo_path = repo_path
-        status = probe_cotracker_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.cotracker_models_dir,
             checkpoint_path=self.cotracker_settings.checkpoint_path,
             repo_path=self.cotracker_settings.repo_path,
@@ -5351,20 +5360,24 @@ class MainWindow(QMainWindow):
             online_count = len(status.available_checkpoints) - len(offline_checkpoints)
             if online_count > 0:
                 details.append(f"{online_count} online hidden")
-            self.cotracker_warning_label.setStyleSheet("color: #5cb85c;")
-            self.cotracker_warning_label.setText(
-                "CoTracker3 ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="CoTracker3 ready. " + ", ".join(details),
+                status=status,
             )
-            self.cotracker_warning_label.setToolTip(format_cotracker_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
-            self.cotracker_warning_label.setStyleSheet("color: #d9534f;")
-            self.cotracker_warning_label.setText("\n".join(summary))
-            self.cotracker_warning_label.setToolTip(format_cotracker_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_cotracker_checkpoint_selected(self, index: int):
         checkpoint_path = self.cotracker_checkpoint_combo.itemData(index)
@@ -5372,10 +5385,12 @@ class MainWindow(QMainWindow):
         self._refresh_cotracker_checkpoints()
 
     def _refresh_tapnext_checkpoints(self):
+        tracker_spec = require_tracker_spec("tapnext_offline")
         repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
         if repo_path:
             self.tapnext_settings.repo_path = repo_path
-        status = probe_tapnext_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.tapnext_models_dir,
             checkpoint_path=self.tapnext_settings.checkpoint_path,
             repo_path=self.tapnext_settings.repo_path,
@@ -5419,20 +5434,24 @@ class MainWindow(QMainWindow):
             if status.torch_version:
                 details.append(f"torch {status.torch_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
-            self.tapnext_warning_label.setStyleSheet("color: #5cb85c;")
-            self.tapnext_warning_label.setText(
-                "TAPNext ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="TAPNext ready. " + ", ".join(details),
+                status=status,
             )
-            self.tapnext_warning_label.setToolTip(format_tapnext_environment_report(status))
         else:
             summary = []
             if status.errors:
                 summary.append(status.errors[0])
             if status.warnings:
                 summary.extend(status.warnings[:1])
-            self.tapnext_warning_label.setStyleSheet("color: #d9534f;")
-            self.tapnext_warning_label.setText("\n".join(summary))
-            self.tapnext_warning_label.setToolTip(format_tapnext_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_tapnext_checkpoint_selected(self, index: int):
         checkpoint_path = self.tapnext_checkpoint_combo.itemData(index)
@@ -5440,12 +5459,14 @@ class MainWindow(QMainWindow):
         self._refresh_tapnext_checkpoints()
 
     def _refresh_trackonr_checkpoints(self):
+        tracker_spec = require_tracker_spec("trackonr_offline")
         repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
         if repo_path:
             self.trackonr_settings.repo_path = repo_path
         self.trackonr_settings.python_executable = self.trackonr_python_executable_edit.text().strip() or None
         self.trackonr_settings.backend_mode = self.trackonr_backend_mode_combo.currentData()
-        status = probe_trackonr_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.trackonr_models_dir,
             checkpoint_path=self.trackonr_settings.checkpoint_path,
             repo_path=self.trackonr_settings.repo_path,
@@ -5504,22 +5525,26 @@ class MainWindow(QMainWindow):
                 details.append(f"mmcv {status.mmcv_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
             details.append("DINO cached" if status.dinov3_cache_present else "DINO on-demand")
-            self.trackonr_warning_label.setStyleSheet("color: #5cb85c;")
-            self.trackonr_warning_label.setText(
-                "Track-On-R ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="Track-On-R ready. " + ", ".join(details),
+                status=status,
             )
-            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
         elif (
             self.trackonr_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.trackonr_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.trackonr_warning_label.setText(
-                "Track-On-R subprocess configured. Current app env is not Track-On-R-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "Track-On-R subprocess configured. Current app env is not Track-On-R-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5535,9 +5560,12 @@ class MainWindow(QMainWindow):
                 summary.append(
                     "Set the Python executable of the dedicated trackonr env, or run Trackleed from that env."
                 )
-            self.trackonr_warning_label.setStyleSheet("color: #d9534f;")
-            self.trackonr_warning_label.setText("\n".join(summary))
-            self.trackonr_warning_label.setToolTip(format_trackonr_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_trackonr_checkpoint_selected(self, index: int):
         checkpoint_path = self.trackonr_checkpoint_combo.itemData(index)
@@ -5545,12 +5573,14 @@ class MainWindow(QMainWindow):
         self._refresh_trackonr_checkpoints()
 
     def _refresh_pipspp_checkpoints(self):
+        tracker_spec = require_tracker_spec("pipspp_offline")
         repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
         if repo_path:
             self.pipspp_settings.repo_path = repo_path
         self.pipspp_settings.python_executable = self.pipspp_python_executable_edit.text().strip() or None
         self.pipspp_settings.backend_mode = self.pipspp_backend_mode_combo.currentData()
-        status = probe_pipspp_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.pipspp_models_dir,
             checkpoint_path=self.pipspp_settings.checkpoint_path,
             repo_path=self.pipspp_settings.repo_path,
@@ -5607,22 +5637,26 @@ class MainWindow(QMainWindow):
             if status.torch_version:
                 details.append(f"torch {status.torch_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
-            self.pipspp_warning_label.setStyleSheet("color: #5cb85c;")
-            self.pipspp_warning_label.setText(
-                "PIPs++ ready. " + ", ".join(details)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="PIPs++ ready. " + ", ".join(details),
+                status=status,
             )
-            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
         elif (
             self.pipspp_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.pipspp_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.pipspp_warning_label.setText(
-                "PIPs++ subprocess configured. Current app env is not PIPs++-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "PIPs++ subprocess configured. Current app env is not PIPs++-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5638,9 +5672,12 @@ class MainWindow(QMainWindow):
                 summary.append(
                     "Set the Python executable of the dedicated pipspp env, or run Trackleed from that env."
                 )
-            self.pipspp_warning_label.setStyleSheet("color: #d9534f;")
-            self.pipspp_warning_label.setText("\n".join(summary))
-            self.pipspp_warning_label.setToolTip(format_pipspp_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_pipspp_checkpoint_selected(self, index: int):
         checkpoint_path = self.pipspp_checkpoint_combo.itemData(index)
@@ -5648,13 +5685,15 @@ class MainWindow(QMainWindow):
         self._refresh_pipspp_checkpoints()
 
     def _refresh_mftiq_checkpoints(self):
+        tracker_spec = require_tracker_spec("mftiq_offline")
         repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
         if repo_path:
             self.mftiq_settings.repo_path = repo_path
         self.mftiq_settings.python_executable = self.mftiq_python_executable_edit.text().strip() or None
         self.mftiq_settings.backend_mode = self.mftiq_backend_mode_combo.currentData()
 
-        status = probe_mftiq_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.mftiq_models_dir,
             checkpoint_path=self.mftiq_settings.checkpoint_path,
             repo_path=self.mftiq_settings.repo_path,
@@ -5714,20 +5753,26 @@ class MainWindow(QMainWindow):
             if status.xformers_version:
                 details.append(f"xformers {status.xformers_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
-            self.mftiq_warning_label.setStyleSheet("color: #5cb85c;")
-            self.mftiq_warning_label.setText("MFTIQ ready. " + ", ".join(details))
-            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="MFTIQ ready. " + ", ".join(details),
+                status=status,
+            )
         elif (
             self.mftiq_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.mftiq_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.mftiq_warning_label.setText(
-                "MFTIQ subprocess configured. Current app env is not MFTIQ-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "MFTIQ subprocess configured. Current app env is not MFTIQ-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5743,9 +5788,12 @@ class MainWindow(QMainWindow):
                 summary.append(
                     "Set the Python executable of the dedicated mftiq env, or run Trackleed from that env."
                 )
-            self.mftiq_warning_label.setStyleSheet("color: #d9534f;")
-            self.mftiq_warning_label.setText("\n".join(summary))
-            self.mftiq_warning_label.setToolTip(format_mftiq_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_mftiq_checkpoint_selected(self, index: int):
         checkpoint_path = self.mftiq_checkpoint_combo.itemData(index)
@@ -5753,13 +5801,15 @@ class MainWindow(QMainWindow):
         self._refresh_mftiq_checkpoints()
 
     def _refresh_cutie_checkpoints(self):
+        tracker_spec = require_tracker_spec("cutie_offline")
         repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
         if repo_path:
             self.cutie_settings.repo_path = repo_path
         self.cutie_settings.python_executable = self.cutie_python_executable_edit.text().strip() or None
         self.cutie_settings.backend_mode = self.cutie_backend_mode_combo.currentData()
 
-        status = probe_cutie_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.cutie_models_dir,
             checkpoint_path=self.cutie_settings.checkpoint_path,
             repo_path=self.cutie_settings.repo_path,
@@ -5817,20 +5867,26 @@ class MainWindow(QMainWindow):
             details.append("CUDA" if status.cuda_available else "CPU")
             if status.selected_checkpoint is not None:
                 details.append(status.selected_checkpoint.name)
-            self.cutie_warning_label.setStyleSheet("color: #5cb85c;")
-            self.cutie_warning_label.setText("Cutie ready. " + ", ".join(details))
-            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="Cutie ready. " + ", ".join(details),
+                status=status,
+            )
         elif (
             self.cutie_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.cutie_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.cutie_warning_label.setText(
-                "Cutie subprocess configured. Current app env is not Cutie-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "Cutie subprocess configured. Current app env is not Cutie-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5848,9 +5904,12 @@ class MainWindow(QMainWindow):
                 )
             if not summary:
                 summary.append("Use the dedicated cutie env or the subprocess backend.")
-            self.cutie_warning_label.setStyleSheet("color: #d9534f;")
-            self.cutie_warning_label.setText("\n".join(summary))
-            self.cutie_warning_label.setToolTip(format_cutie_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_cutie_checkpoint_selected(self, index: int):
         checkpoint_path = self.cutie_checkpoint_combo.itemData(index)
@@ -5858,13 +5917,15 @@ class MainWindow(QMainWindow):
         self._refresh_cutie_checkpoints()
 
     def _refresh_xmem2_checkpoints(self):
+        tracker_spec = require_tracker_spec("xmem2_offline")
         repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
         if repo_path:
             self.xmem2_settings.repo_path = repo_path
         self.xmem2_settings.python_executable = self.xmem2_python_executable_edit.text().strip() or None
         self.xmem2_settings.backend_mode = self.xmem2_backend_mode_combo.currentData()
 
-        status = probe_xmem2_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.xmem2_models_dir,
             checkpoint_path=self.xmem2_settings.checkpoint_path,
             repo_path=self.xmem2_settings.repo_path,
@@ -5922,20 +5983,26 @@ class MainWindow(QMainWindow):
             details.append("CUDA" if status.cuda_available else "CPU")
             if status.selected_checkpoint is not None:
                 details.append(status.selected_checkpoint.name)
-            self.xmem2_warning_label.setStyleSheet("color: #5cb85c;")
-            self.xmem2_warning_label.setText("XMem2 ready. " + ", ".join(details))
-            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="XMem2 ready. " + ", ".join(details),
+                status=status,
+            )
         elif (
             self.xmem2_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.xmem2_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.xmem2_warning_label.setText(
-                "XMem2 subprocess configured. Current app env is not XMem2-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "XMem2 subprocess configured. Current app env is not XMem2-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -5953,9 +6020,12 @@ class MainWindow(QMainWindow):
                 )
             if not summary:
                 summary.append("Configure the dedicated xmem2 env or run Trackleed from that env.")
-            self.xmem2_warning_label.setStyleSheet("color: #d9534f;")
-            self.xmem2_warning_label.setText("\n".join(summary))
-            self.xmem2_warning_label.setToolTip(format_xmem2_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_xmem2_checkpoint_selected(self, index: int):
         checkpoint_path = self.xmem2_checkpoint_combo.itemData(index)
@@ -5963,13 +6033,15 @@ class MainWindow(QMainWindow):
         self._refresh_xmem2_checkpoints()
 
     def _refresh_sam2_checkpoints(self):
+        tracker_spec = require_tracker_spec("sam2_offline")
         repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
         if repo_path:
             self.sam2_settings.repo_path = repo_path
         self.sam2_settings.python_executable = self.sam2_python_executable_edit.text().strip() or None
         self.sam2_settings.backend_mode = self.sam2_backend_mode_combo.currentData()
 
-        status = probe_sam2_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             models_dir=self.sam2_models_dir,
             checkpoint_path=self.sam2_settings.checkpoint_path,
             repo_path=self.sam2_settings.repo_path,
@@ -6035,20 +6107,26 @@ class MainWindow(QMainWindow):
                 details.append(f"torch {status.torch_version}")
             details.append("CUDA" if status.cuda_available else "CPU")
             details.append("video predictor")
-            self.sam2_warning_label.setStyleSheet("color: #5cb85c;")
-            self.sam2_warning_label.setText("SAM 2 ready. " + ", ".join(details))
-            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="SAM 2 ready. " + ", ".join(details),
+                status=status,
+            )
         elif (
             self.sam2_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.sam2_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.sam2_warning_label.setText(
-                "SAM 2 subprocess configured. Current app env is not SAM 2-ready, "
-                "so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "SAM 2 subprocess configured. Current app env is not SAM 2-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -6066,9 +6144,12 @@ class MainWindow(QMainWindow):
                 )
             if not summary:
                 summary.append("Configure the dedicated sam2 env or run Trackleed from that env.")
-            self.sam2_warning_label.setStyleSheet("color: #d9534f;")
-            self.sam2_warning_label.setText("\n".join(summary))
-            self.sam2_warning_label.setToolTip(format_sam2_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_sam2_checkpoint_selected(self, index: int):
         checkpoint_path = self.sam2_checkpoint_combo.itemData(index)
@@ -6145,9 +6226,92 @@ class MainWindow(QMainWindow):
     def _tapir_runtime_mode(self, scenario: str | None = None) -> str:
         if scenario is None:
             scenario = self.tracking_scenario_combo.currentText()
-        return "online" if scenario == "BootsTAPIR Online / Causal" else "offline"
+        spec = self._tracker_spec_for_scenario(scenario)
+        return "online" if spec is not None and spec.tracker_id == "tapir_online" else "offline"
+
+    def _tracker_spec_for_scenario(self, scenario: str | None = None):
+        if scenario is None:
+            scenario = self.tracking_scenario_combo.currentText()
+        return get_tracker_spec_for_scenario(str(scenario or "").strip())
+
+    def _current_tracker_spec(self):
+        return self._tracker_spec_for_scenario(self.tracking_scenario_combo.currentText())
+
+    def _collect_tracker_params_for_spec(self, tracker_spec) -> dict:
+        if tracker_spec is None:
+            raise KeyError("Tracker spec is required to collect tracking params.")
+        method_name = str(tracker_spec.collect_params_method_name or "").strip()
+        if not method_name:
+            raise AttributeError(f"Tracker `{tracker_spec.tracker_id}` does not define collect_params_method_name.")
+        collect_method = getattr(self, method_name, None)
+        if not callable(collect_method):
+            raise AttributeError(
+                f"Tracker `{tracker_spec.tracker_id}` expects collect params method `{method_name}`, "
+                "but it is missing or not callable on MainWindow."
+            )
+        return collect_method()
+
+    def _collect_tracker_params_for_scenario(self, scenario: str | None = None) -> dict:
+        tracker_spec = self._tracker_spec_for_scenario(scenario)
+        if tracker_spec is None:
+            raise KeyError(f"Unknown tracking scenario for collect params: {scenario}")
+        return self._collect_tracker_params_for_spec(tracker_spec)
+
+    def _collect_tracking_dialog_backend_params(self) -> dict[str, dict]:
+        params_by_argument: dict[str, dict] = {}
+        for tracker_spec in iter_tracker_specs():
+            argument_name = str(tracker_spec.params_argument_name or "").strip()
+            if not argument_name or argument_name in params_by_argument:
+                continue
+            params_by_argument[argument_name] = self._collect_tracker_params_for_spec(tracker_spec)
+        return params_by_argument
+
+    def _probe_tracker_environment_for_spec(self, tracker_spec, **kwargs):
+        if tracker_spec is None:
+            raise KeyError("Tracker spec is required to probe tracker environment.")
+        probe_fn = getattr(tracker_spec, "probe_environment", None)
+        if not callable(probe_fn):
+            raise AttributeError(
+                f"Tracker `{tracker_spec.tracker_id}` does not expose a callable probe_environment."
+            )
+        return probe_fn(**kwargs)
+
+    def _format_tracker_environment_report_for_spec(self, tracker_spec, status) -> str:
+        if tracker_spec is None:
+            raise KeyError("Tracker spec is required to format tracker environment report.")
+        format_fn = getattr(tracker_spec, "format_environment_report", None)
+        if not callable(format_fn):
+            raise AttributeError(
+                f"Tracker `{tracker_spec.tracker_id}` does not expose a callable format_environment_report."
+            )
+        return format_fn(status)
+
+    def _set_tracker_warning_label_for_spec(
+        self,
+        tracker_spec,
+        *,
+        color: str,
+        text: str,
+        status,
+    ) -> None:
+        if tracker_spec is None:
+            raise KeyError("Tracker spec is required to update tracker warning label.")
+        label_attr = str(tracker_spec.warning_label_attr or "").strip()
+        if not label_attr:
+            raise AttributeError(
+                f"Tracker `{tracker_spec.tracker_id}` does not define warning_label_attr."
+            )
+        label = getattr(self, label_attr, None)
+        if label is None:
+            raise AttributeError(
+                f"MainWindow does not expose warning label `{label_attr}` for tracker `{tracker_spec.tracker_id}`."
+            )
+        label.setStyleSheet(f"color: {color};")
+        label.setText(text)
+        label.setToolTip(self._format_tracker_environment_report_for_spec(tracker_spec, status))
 
     def _on_tracking_scenario_changed(self, scenario: str):
+        tracker_spec = self._tracker_spec_for_scenario(scenario)
         self._update_tracking_params_visibility(scenario)
         if hasattr(self, "tapir_group"):
             self.tapir_group.setTitle(
@@ -6155,20 +6319,20 @@ class MainWindow(QMainWindow):
                 if self._tapir_runtime_mode(scenario) == "online"
                 else "Offline TAPIR"
             )
-        if scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}:
-            self._refresh_tapir_checkpoints()
-        if scenario == "Offline PIPs++":
-            self._refresh_pipspp_checkpoints()
-        if scenario == "Offline MFTIQ":
-            self._refresh_mftiq_checkpoints()
-        if scenario == "Offline ToMP":
-            self._refresh_tomp_checkpoints()
-        if scenario == "Offline Cutie":
-            self._refresh_cutie_checkpoints()
-        if scenario == "Offline XMem2":
-            self._refresh_xmem2_checkpoints()
-        if scenario == "Offline SAM2":
-            self._refresh_sam2_checkpoints()
+        refresh_fn_by_tracker_id = {
+            "tapir_offline": self._refresh_tapir_checkpoints,
+            "tapir_online": self._refresh_tapir_checkpoints,
+            "pipspp_offline": self._refresh_pipspp_checkpoints,
+            "mftiq_offline": self._refresh_mftiq_checkpoints,
+            "tomp_offline": self._refresh_tomp_checkpoints,
+            "cutie_offline": self._refresh_cutie_checkpoints,
+            "xmem2_offline": self._refresh_xmem2_checkpoints,
+            "sam2_offline": self._refresh_sam2_checkpoints,
+        }
+        if tracker_spec is not None:
+            refresh_fn = refresh_fn_by_tracker_id.get(tracker_spec.tracker_id)
+            if refresh_fn is not None:
+                refresh_fn()
         current_item = (
             self.file_list_widget.currentItem()
             if hasattr(self, "file_list_widget")
@@ -6196,55 +6360,35 @@ class MainWindow(QMainWindow):
         """Shows parameter groups only for the currently selected tracking algorithm."""
         if scenario is None:
             scenario = self.tracking_scenario_combo.currentText()
+        tracker_spec = self._tracker_spec_for_scenario(scenario)
 
-        show_optical_basic = scenario.startswith("Optical Flow")
-        show_optical_skip = scenario == "Optical Flow (skip, anchor)"
-        show_tapir = scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}
-        show_locotrack = scenario == "Offline LocoTrack"
-        show_cotracker = scenario == "Offline CoTracker3"
-        show_tapnext = scenario == "Offline TAPNext"
-        show_trackonr = scenario == "Offline Track-On-R"
-        show_pipspp = scenario == "Offline PIPs++"
-        show_mftiq = scenario == "Offline MFTIQ"
-        show_tomp = scenario == "Offline ToMP"
-        show_cutie = scenario == "Offline Cutie"
-        show_xmem2 = scenario == "Offline XMem2"
-        show_sam2 = scenario == "Offline SAM2"
-        show_hungarian = scenario == "Detection Linking (Hungarian)"
-        show_dir = scenario == "Detection Linking (Directional)"
+        show_optical_basic = str(scenario).startswith("Optical Flow")
+        show_optical_skip = scenario == OPTICAL_FLOW_SKIP_SCENARIO
+        show_hungarian = scenario == HUNGARIAN_SCENARIO
+        show_dir = scenario == DIRECTIONAL_LINKING_SCENARIO
+        active_panel_attr = tracker_spec.panel_group_attr if tracker_spec is not None else None
+        tracker_panel_attrs = {
+            spec.panel_group_attr
+            for spec in iter_tracker_specs()
+            if spec.panel_group_attr
+        }
 
         if hasattr(self, "optical_basic_group"):
             self.optical_basic_group.setVisible(show_optical_basic)
         if hasattr(self, "optical_skip_group"):
             self.optical_skip_group.setVisible(show_optical_skip)
-        if hasattr(self, "tapir_group"):
-            self.tapir_group.setVisible(show_tapir)
-        if hasattr(self, "locotrack_group"):
-            self.locotrack_group.setVisible(show_locotrack)
-        if hasattr(self, "cotracker_group"):
-            self.cotracker_group.setVisible(show_cotracker)
-        if hasattr(self, "tapnext_group"):
-            self.tapnext_group.setVisible(show_tapnext)
-        if hasattr(self, "trackonr_group"):
-            self.trackonr_group.setVisible(show_trackonr)
-        if hasattr(self, "pipspp_group"):
-            self.pipspp_group.setVisible(show_pipspp)
-        if hasattr(self, "mftiq_group"):
-            self.mftiq_group.setVisible(show_mftiq)
-        if hasattr(self, "tomp_group"):
-            self.tomp_group.setVisible(show_tomp)
-        if hasattr(self, "cutie_group"):
-            self.cutie_group.setVisible(show_cutie)
-        if hasattr(self, "xmem2_group"):
-            self.xmem2_group.setVisible(show_xmem2)
-        if hasattr(self, "sam2_group"):
-            self.sam2_group.setVisible(show_sam2)
+        for panel_attr in sorted(tracker_panel_attrs):
+            if hasattr(self, panel_attr):
+                getattr(self, panel_attr).setVisible(panel_attr == active_panel_attr)
         if hasattr(self, "hungarian_group"):
             self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
             self.dir_group.setVisible(show_dir)
         if hasattr(self, "polygon_seed_group"):
-            self.polygon_seed_group.setVisible(show_cutie or show_xmem2)
+            self.polygon_seed_group.setVisible(
+                tracker_spec is not None
+                and tracker_spec.tracker_id in {"cutie_offline", "xmem2_offline"}
+            )
 
     def _on_dir_center_mode_changed(self, idx: int):
         manual = idx == 1
@@ -6421,6 +6565,7 @@ class MainWindow(QMainWindow):
         self._update_tomp_preset_hint(variant_key)
 
     def _refresh_tomp_checkpoints(self):
+        tracker_spec = require_tracker_spec("tomp_offline")
         repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
         if repo_path:
             self.tomp_settings.repo_path = repo_path
@@ -6429,7 +6574,8 @@ class MainWindow(QMainWindow):
         self.tomp_settings.model_variant = self._current_tomp_variant_key()
 
         current_variant = self.tomp_settings.model_variant
-        status = probe_tomp_environment(
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
             tomp_models_dir=self.tomp_models_dir,
             tamos_models_dir=self.tamos_models_dir,
             tomp_checkpoint_path=(
@@ -6536,20 +6682,26 @@ class MainWindow(QMainWindow):
             details.append("CUDA" if status.cuda_available else "CPU")
             if selected_checkpoint_obj is not None:
                 details.append(selected_checkpoint_obj.name)
-            self.tomp_warning_label.setStyleSheet("color: #5cb85c;")
-            self.tomp_warning_label.setText(f"{self._current_tomp_variant_label()} ready. " + ", ".join(details[1:]))
-            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text=f"{self._current_tomp_variant_label()} ready. " + ", ".join(details[1:]),
+                status=status,
+            )
         elif (
             self.tomp_settings.backend_mode == "subprocess"
             and structural_ready
             and python_path_ok
         ):
-            self.tomp_warning_label.setStyleSheet("color: #f0ad4e;")
-            self.tomp_warning_label.setText(
-                f"{self._current_tomp_variant_label()} subprocess configured. "
-                "Current app env is not PyTracking-ready, so Trackleed will use the external Python executable."
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    f"{self._current_tomp_variant_label()} subprocess configured. "
+                    "Current app env is not PyTracking-ready, so Trackleed will use the external Python executable."
+                ),
+                status=status,
             )
-            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
         else:
             summary = []
             if status.errors:
@@ -6567,9 +6719,12 @@ class MainWindow(QMainWindow):
                 )
             if not summary:
                 summary.append("Configure the dedicated tomp env or run Trackleed from that env.")
-            self.tomp_warning_label.setStyleSheet("color: #d9534f;")
-            self.tomp_warning_label.setText("\n".join(summary))
-            self.tomp_warning_label.setToolTip(format_tomp_environment_report(status))
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
 
     def _on_tomp_variant_changed(self, index: int):
         self.tomp_settings.model_variant = self.tomp_model_variant_combo.itemData(index) or "tomp50"
@@ -6630,7 +6785,8 @@ class MainWindow(QMainWindow):
     def _polygon_seed_scenario_active(self) -> bool:
         if not hasattr(self, "tracking_scenario_combo"):
             return False
-        return self.tracking_scenario_combo.currentText() in {"Offline Cutie", "Offline XMem2"}
+        tracker_spec = self._current_tracker_spec()
+        return tracker_spec is not None and tracker_spec.tracker_id in {"cutie_offline", "xmem2_offline"}
 
     def _update_spot_polygon_buttons(self):
         if (
@@ -7767,9 +7923,681 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _tracking_reference_file_or_warn(self, requirement_label: str):
+        ref_item = self.file_list_widget.currentItem()
+        if not ref_item:
+            QMessageBox.warning(
+                self,
+                "No Reference",
+                f"{requirement_label} requires selecting a reference frame.",
+            )
+            return None
+
+        ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
+        if not ref_file.spots:
+            QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
+            return None
+        return ref_file
+
+    def _tracking_file_map_and_ids(self) -> tuple[dict[int, object], list[int]]:
+        file_map = {f.id: f for f in self.data_files if f.id is not None}
+        return file_map, sorted(file_map.keys())
+
+    def _create_registered_tracker_worker(self, tracker_spec, ref_file, tracker_params, cancel_event):
+        file_map, sorted_ids = self._tracking_file_map_and_ids()
+        return GenericWorker(
+            tracker_spec.run_tracking,
+            file_map,
+            sorted_ids,
+            ref_file.id,
+            tracker_params,
+            cancel_event=cancel_event,
+        )
+
+    def _build_registered_tracking_worker(self, tracker_spec, cancel_event):
+        tracker_id = tracker_spec.tracker_id
+
+        if tracker_id in {"tapir_offline", "tapir_online"}:
+            ref_file = self._tracking_reference_file_or_warn("TAPIR tracking")
+            if ref_file is None:
+                return None
+
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.tapir_models_dir,
+                checkpoint_path=self.tapir_settings.checkpoint_path,
+            )
+            requires_online_checkpoint = tracker_id == "tapir_online"
+            if not status.is_ready or (requires_online_checkpoint and not status.selected_checkpoint_is_online):
+                QMessageBox.warning(
+                    self,
+                    "TAPIR Unavailable",
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                )
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "locotrack_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline LocoTrack")
+            if ref_file is None:
+                return None
+
+            repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
+            self.locotrack_settings.repo_path = repo_path
+            self.locotrack_settings.python_executable = self.locotrack_python_executable_edit.text().strip() or None
+            self.locotrack_settings.backend_mode = self.locotrack_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.locotrack_models_dir,
+                checkpoint_path=self.locotrack_settings.checkpoint_path,
+                repo_path=self.locotrack_settings.repo_path,
+            )
+            python_executable = self.locotrack_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.locotrack_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "LocoTrack Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `locotrack` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "cotracker3_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline CoTracker3")
+            if ref_file is None:
+                return None
+
+            repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
+            self.cotracker_settings.repo_path = repo_path
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.cotracker_models_dir,
+                checkpoint_path=self.cotracker_settings.checkpoint_path,
+                repo_path=self.cotracker_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "CoTracker3 Unavailable",
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                )
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "tapnext_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline TAPNext")
+            if ref_file is None:
+                return None
+
+            repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
+            self.tapnext_settings.repo_path = repo_path
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.tapnext_models_dir,
+                checkpoint_path=self.tapnext_settings.checkpoint_path,
+                repo_path=self.tapnext_settings.repo_path,
+            )
+            if not status.is_ready:
+                QMessageBox.warning(
+                    self,
+                    "TAPNext Unavailable",
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                )
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "trackonr_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline Track-On-R")
+            if ref_file is None:
+                return None
+
+            repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
+            self.trackonr_settings.repo_path = repo_path
+            self.trackonr_settings.python_executable = self.trackonr_python_executable_edit.text().strip() or None
+            self.trackonr_settings.backend_mode = self.trackonr_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.trackonr_models_dir,
+                checkpoint_path=self.trackonr_settings.checkpoint_path,
+                repo_path=self.trackonr_settings.repo_path,
+            )
+            python_executable = self.trackonr_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.trackonr_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "Track-On-R Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `trackonr` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "pipspp_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline PIPs++")
+            if ref_file is None:
+                return None
+
+            repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
+            self.pipspp_settings.repo_path = repo_path
+            self.pipspp_settings.python_executable = self.pipspp_python_executable_edit.text().strip() or None
+            self.pipspp_settings.backend_mode = self.pipspp_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.pipspp_models_dir,
+                checkpoint_path=self.pipspp_settings.checkpoint_path,
+                repo_path=self.pipspp_settings.repo_path,
+            )
+            python_executable = self.pipspp_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.selected_checkpoint_file is not None
+            )
+
+            if self.pipspp_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "PIPs++ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `pipspp` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "mftiq_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline MFTIQ")
+            if ref_file is None:
+                return None
+
+            repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
+            self.mftiq_settings.repo_path = repo_path
+            self.mftiq_settings.python_executable = self.mftiq_python_executable_edit.text().strip() or None
+            self.mftiq_settings.backend_mode = self.mftiq_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.mftiq_models_dir,
+                checkpoint_path=self.mftiq_settings.checkpoint_path,
+                repo_path=self.mftiq_settings.repo_path,
+                config_path=self.mftiq_settings.config_path,
+            )
+
+            python_executable = self.mftiq_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.config_exists
+            )
+
+            if self.mftiq_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "MFTIQ Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `mftiq` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "cutie_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline Cutie")
+            if ref_file is None:
+                return None
+
+            missing_polygon_seed_ids = [
+                int(spot.id)
+                for spot in ref_file.spots
+                if not getattr(spot, "has_polygon_seed", False)
+            ]
+            if missing_polygon_seed_ids:
+                QMessageBox.warning(
+                    self,
+                    "Cutie Requires Polygon Mask",
+                    "Offline Cutie requires a polygon mask for every reference spot.\n\n"
+                    "Missing polygon for spot IDs: "
+                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
+                )
+                return None
+
+            repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
+            self.cutie_settings.repo_path = repo_path
+            self.cutie_settings.python_executable = self.cutie_python_executable_edit.text().strip() or None
+            self.cutie_settings.backend_mode = self.cutie_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.cutie_models_dir,
+                checkpoint_path=self.cutie_settings.checkpoint_path,
+                repo_path=self.cutie_settings.repo_path,
+            )
+            python_executable = self.cutie_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.cutie_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "Cutie Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `cutie` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "tomp_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline ToMP")
+            if ref_file is None:
+                return None
+
+            repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
+            self.tomp_settings.repo_path = repo_path
+            self.tomp_settings.python_executable = self.tomp_python_executable_edit.text().strip() or None
+            self.tomp_settings.backend_mode = self.tomp_backend_mode_combo.currentData()
+            self.tomp_settings.model_variant = self._current_tomp_variant_key()
+
+            current_variant = self.tomp_settings.model_variant
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                tomp_models_dir=self.tomp_models_dir,
+                tamos_models_dir=self.tamos_models_dir,
+                tomp_checkpoint_path=(
+                    self.tomp_settings.checkpoint_path if current_variant in {"tomp50", "tomp101"} else None
+                ),
+                tamos_checkpoint_path=(
+                    self.tomp_settings.checkpoint_path
+                    if current_variant in {"tamos_resnet50", "tamos_swin_base"}
+                    else None
+                ),
+                repo_path=self.tomp_settings.repo_path,
+            )
+            if current_variant in {"tamos_resnet50", "tamos_swin_base"}:
+                selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
+                    status.available_tamos_checkpoints,
+                    current_variant,
+                )
+                variant_ready = bool(
+                    status.tamos_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists()
+                )
+            else:
+                selected_checkpoint_obj = select_default_tomp_checkpoint_for_variant(
+                    status.available_tomp_checkpoints,
+                    current_variant,
+                )
+                variant_ready = bool(
+                    status.tomp_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists()
+                )
+            python_executable = self.tomp_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and selected_checkpoint_obj is not None
+                and selected_checkpoint_obj.exists()
+            )
+
+            if self.tomp_settings.backend_mode == "direct":
+                if not variant_ready:
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (variant_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "ToMP / TaMOs Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `tomp` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "xmem2_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline XMem2")
+            if ref_file is None:
+                return None
+
+            missing_polygon_seed_ids = [
+                int(spot.id)
+                for spot in ref_file.spots
+                if not getattr(spot, "has_polygon_seed", False)
+            ]
+            if missing_polygon_seed_ids:
+                QMessageBox.warning(
+                    self,
+                    "XMem2 Requires Polygon Mask",
+                    "Offline XMem2 requires a polygon mask for every reference spot.\n\n"
+                    "Missing polygon for spot IDs: "
+                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
+                )
+                return None
+
+            repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
+            self.xmem2_settings.repo_path = repo_path
+            self.xmem2_settings.python_executable = self.xmem2_python_executable_edit.text().strip() or None
+            self.xmem2_settings.backend_mode = self.xmem2_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.xmem2_models_dir,
+                checkpoint_path=self.xmem2_settings.checkpoint_path,
+                repo_path=self.xmem2_settings.repo_path,
+            )
+            python_executable = self.xmem2_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+            )
+
+            if self.xmem2_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "XMem2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `xmem2` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "sam2_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline SAM2")
+            if ref_file is None:
+                return None
+
+            repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
+            self.sam2_settings.repo_path = repo_path
+            self.sam2_settings.python_executable = self.sam2_python_executable_edit.text().strip() or None
+            self.sam2_settings.backend_mode = self.sam2_backend_mode_combo.currentData()
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.sam2_models_dir,
+                checkpoint_path=self.sam2_settings.checkpoint_path,
+                repo_path=self.sam2_settings.repo_path,
+                config_path=self.sam2_settings.config_path,
+            )
+            if not status.is_ready and self.sam2_settings.config_path:
+                status = self._probe_tracker_environment_for_spec(
+                    tracker_spec,
+                    models_dir=self.sam2_models_dir,
+                    checkpoint_path=self.sam2_settings.checkpoint_path,
+                    repo_path=self.sam2_settings.repo_path,
+                    config_path=None,
+                )
+            self.sam2_settings.config_path = (
+                str(status.config_path.resolve())
+                if status.config_path is not None and status.config_path.exists()
+                else None
+            )
+
+            python_executable = self.sam2_settings.python_executable
+            python_path_ok = bool(
+                python_executable and Path(python_executable).expanduser().exists()
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
+                and status.config_exists
+                and status.config_identifier is not None
+            )
+
+            if self.sam2_settings.backend_mode == "direct":
+                if not status.is_ready:
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+            else:
+                if not structural_ready:
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status),
+                    )
+                    return None
+                if not (status.is_ready or python_path_ok):
+                    QMessageBox.warning(
+                        self,
+                        "SAM2 Unavailable",
+                        self._format_tracker_environment_report_for_spec(tracker_spec, status)
+                        + "\n\nSet the Python executable of the dedicated `sam2` env "
+                        "or run Trackleed from that environment.",
+                    )
+                    return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        raise ValueError(f"Unsupported registered tracker: {tracker_id}")
+
     def run_tracking(self):
         """Dispatches a tracking task to a background worker based on selected scenario."""
         selected_scenario = self.tracking_scenario_combo.currentText()
+        selected_tracker_spec = self._tracker_spec_for_scenario(selected_scenario)
         worker = None
         cancel_event = Event()
         if "Optical Flow" in selected_scenario:
@@ -7841,735 +8669,10 @@ class MainWindow(QMainWindow):
                     cancel_event=cancel_event,
                 )
 
-        elif selected_scenario in {"Offline TAPIR", "BootsTAPIR Online / Causal"}:
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(
-                    self,
-                    "No Reference",
-                    "TAPIR tracking requires selecting a reference frame.",
-                )
+        elif selected_tracker_spec is not None:
+            worker = self._build_registered_tracking_worker(selected_tracker_spec, cancel_event)
+            if worker is None:
                 return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            status = probe_tapir_environment(
-                models_dir=self.tapir_models_dir,
-                checkpoint_path=self.tapir_settings.checkpoint_path,
-            )
-            requires_online_checkpoint = selected_scenario == "BootsTAPIR Online / Causal"
-            if not status.is_ready or (requires_online_checkpoint and not status.selected_checkpoint_is_online):
-                QMessageBox.warning(
-                    self,
-                    "TAPIR Unavailable",
-                    format_tapir_environment_report(status),
-                )
-                return
-
-            tapir_params = self._collect_tapir_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_tapir_online
-                if selected_scenario == "BootsTAPIR Online / Causal"
-                else track_spots_tapir_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                tapir_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline LocoTrack":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline LocoTrack requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
-            self.locotrack_settings.repo_path = repo_path
-            self.locotrack_settings.python_executable = self.locotrack_python_executable_edit.text().strip() or None
-            self.locotrack_settings.backend_mode = self.locotrack_backend_mode_combo.currentData()
-            status = probe_locotrack_environment(
-                models_dir=self.locotrack_models_dir,
-                checkpoint_path=self.locotrack_settings.checkpoint_path,
-                repo_path=self.locotrack_settings.repo_path,
-            )
-            python_executable = self.locotrack_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-            )
-
-            if self.locotrack_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "LocoTrack Unavailable",
-                        format_locotrack_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "LocoTrack Unavailable",
-                        format_locotrack_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "LocoTrack Unavailable",
-                        format_locotrack_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `locotrack` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            locotrack_params = self._collect_locotrack_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_locotrack_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                locotrack_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline CoTracker3":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline CoTracker3 requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
-            self.cotracker_settings.repo_path = repo_path
-            status = probe_cotracker_environment(
-                models_dir=self.cotracker_models_dir,
-                checkpoint_path=self.cotracker_settings.checkpoint_path,
-                repo_path=self.cotracker_settings.repo_path,
-            )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "CoTracker3 Unavailable",
-                    format_cotracker_environment_report(status),
-                )
-                return
-
-            cotracker_params = self._collect_cotracker_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_cotracker3_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                cotracker_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline TAPNext":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline TAPNext requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
-            self.tapnext_settings.repo_path = repo_path
-            status = probe_tapnext_environment(
-                models_dir=self.tapnext_models_dir,
-                checkpoint_path=self.tapnext_settings.checkpoint_path,
-                repo_path=self.tapnext_settings.repo_path,
-            )
-            if not status.is_ready:
-                QMessageBox.warning(
-                    self,
-                    "TAPNext Unavailable",
-                    format_tapnext_environment_report(status),
-                )
-                return
-
-            tapnext_params = self._collect_tapnext_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_tapnext_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                tapnext_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline Track-On-R":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline Track-On-R requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
-            self.trackonr_settings.repo_path = repo_path
-            self.trackonr_settings.python_executable = self.trackonr_python_executable_edit.text().strip() or None
-            self.trackonr_settings.backend_mode = self.trackonr_backend_mode_combo.currentData()
-            status = probe_trackonr_environment(
-                models_dir=self.trackonr_models_dir,
-                checkpoint_path=self.trackonr_settings.checkpoint_path,
-                repo_path=self.trackonr_settings.repo_path,
-            )
-            python_executable = self.trackonr_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-            )
-
-            if self.trackonr_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "Track-On-R Unavailable",
-                        format_trackonr_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "Track-On-R Unavailable",
-                        format_trackonr_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "Track-On-R Unavailable",
-                        format_trackonr_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `trackonr` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            trackonr_params = self._collect_trackonr_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_trackonr_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                trackonr_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline PIPs++":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline PIPs++ requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
-            self.pipspp_settings.repo_path = repo_path
-            self.pipspp_settings.python_executable = self.pipspp_python_executable_edit.text().strip() or None
-            self.pipspp_settings.backend_mode = self.pipspp_backend_mode_combo.currentData()
-            status = probe_pipspp_environment(
-                models_dir=self.pipspp_models_dir,
-                checkpoint_path=self.pipspp_settings.checkpoint_path,
-                repo_path=self.pipspp_settings.repo_path,
-            )
-            python_executable = self.pipspp_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-                and status.selected_checkpoint_file is not None
-            )
-
-            if self.pipspp_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "PIPs++ Unavailable",
-                        format_pipspp_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "PIPs++ Unavailable",
-                        format_pipspp_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "PIPs++ Unavailable",
-                        format_pipspp_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `pipspp` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            pipspp_params = self._collect_pipspp_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_pipspp_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                pipspp_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline MFTIQ":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline MFTIQ requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
-            self.mftiq_settings.repo_path = repo_path
-            self.mftiq_settings.python_executable = self.mftiq_python_executable_edit.text().strip() or None
-            self.mftiq_settings.backend_mode = self.mftiq_backend_mode_combo.currentData()
-            status = probe_mftiq_environment(
-                models_dir=self.mftiq_models_dir,
-                checkpoint_path=self.mftiq_settings.checkpoint_path,
-                repo_path=self.mftiq_settings.repo_path,
-                config_path=self.mftiq_settings.config_path,
-            )
-
-            python_executable = self.mftiq_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-                and status.config_exists
-            )
-
-            if self.mftiq_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "MFTIQ Unavailable",
-                        format_mftiq_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "MFTIQ Unavailable",
-                        format_mftiq_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "MFTIQ Unavailable",
-                        format_mftiq_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `mftiq` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            mftiq_params = self._collect_mftiq_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_mftiq_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                mftiq_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline Cutie":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline Cutie requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-            missing_polygon_seed_ids = [
-                int(spot.id)
-                for spot in ref_file.spots
-                if not getattr(spot, "has_polygon_seed", False)
-            ]
-            if missing_polygon_seed_ids:
-                QMessageBox.warning(
-                    self,
-                    "Cutie Requires Polygon Mask",
-                    "Offline Cutie requires a polygon mask for every reference spot.\n\n"
-                    "Missing polygon for spot IDs: "
-                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
-                )
-                return
-
-            repo_path = self.cutie_repo_path_edit.text().strip() or self.cutie_settings.repo_path
-            self.cutie_settings.repo_path = repo_path
-            self.cutie_settings.python_executable = self.cutie_python_executable_edit.text().strip() or None
-            self.cutie_settings.backend_mode = self.cutie_backend_mode_combo.currentData()
-
-            status = probe_cutie_environment(
-                models_dir=self.cutie_models_dir,
-                checkpoint_path=self.cutie_settings.checkpoint_path,
-                repo_path=self.cutie_settings.repo_path,
-            )
-            python_executable = self.cutie_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-            )
-            if self.cutie_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "Cutie Unavailable",
-                        format_cutie_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "Cutie Unavailable",
-                        format_cutie_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "Cutie Unavailable",
-                        format_cutie_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `cutie` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            cutie_params = self._collect_cutie_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_cutie_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                cutie_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline ToMP":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline ToMP requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
-            self.tomp_settings.repo_path = repo_path
-            self.tomp_settings.python_executable = self.tomp_python_executable_edit.text().strip() or None
-            self.tomp_settings.backend_mode = self.tomp_backend_mode_combo.currentData()
-            self.tomp_settings.model_variant = self._current_tomp_variant_key()
-
-            current_variant = self.tomp_settings.model_variant
-            status = probe_tomp_environment(
-                tomp_models_dir=self.tomp_models_dir,
-                tamos_models_dir=self.tamos_models_dir,
-                tomp_checkpoint_path=(
-                    self.tomp_settings.checkpoint_path if current_variant in {"tomp50", "tomp101"} else None
-                ),
-                tamos_checkpoint_path=(
-                    self.tomp_settings.checkpoint_path if current_variant in {"tamos_resnet50", "tamos_swin_base"} else None
-                ),
-                repo_path=self.tomp_settings.repo_path,
-            )
-            if current_variant in {"tamos_resnet50", "tamos_swin_base"}:
-                selected_checkpoint_obj = select_default_tamos_checkpoint_for_variant(
-                    status.available_tamos_checkpoints,
-                    current_variant,
-                )
-                variant_ready = bool(status.tamos_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
-            else:
-                selected_checkpoint_obj = select_default_tomp_checkpoint_for_variant(
-                    status.available_tomp_checkpoints,
-                    current_variant,
-                )
-                variant_ready = bool(status.tomp_ready and selected_checkpoint_obj and selected_checkpoint_obj.exists())
-            python_executable = self.tomp_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and selected_checkpoint_obj is not None
-                and selected_checkpoint_obj.exists()
-            )
-            if self.tomp_settings.backend_mode == "direct":
-                if not variant_ready:
-                    QMessageBox.warning(
-                        self,
-                        "ToMP / TaMOs Unavailable",
-                        format_tomp_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "ToMP / TaMOs Unavailable",
-                        format_tomp_environment_report(status),
-                    )
-                    return
-                if not (variant_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "ToMP / TaMOs Unavailable",
-                        format_tomp_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `tomp` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            tomp_params = self._collect_tomp_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_tomp_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                tomp_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline XMem2":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline XMem2 requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-            missing_polygon_seed_ids = [
-                int(spot.id)
-                for spot in ref_file.spots
-                if not getattr(spot, "has_polygon_seed", False)
-            ]
-            if missing_polygon_seed_ids:
-                QMessageBox.warning(
-                    self,
-                    "XMem2 Requires Polygon Mask",
-                    "Offline XMem2 requires a polygon mask for every reference spot.\n\n"
-                    "Missing polygon for spot IDs: "
-                    + ", ".join(str(spot_id) for spot_id in missing_polygon_seed_ids),
-                )
-                return
-
-            repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
-            self.xmem2_settings.repo_path = repo_path
-            self.xmem2_settings.python_executable = self.xmem2_python_executable_edit.text().strip() or None
-            self.xmem2_settings.backend_mode = self.xmem2_backend_mode_combo.currentData()
-
-            status = probe_xmem2_environment(
-                models_dir=self.xmem2_models_dir,
-                checkpoint_path=self.xmem2_settings.checkpoint_path,
-                repo_path=self.xmem2_settings.repo_path,
-            )
-            python_executable = self.xmem2_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-            )
-            if self.xmem2_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "XMem2 Unavailable",
-                        format_xmem2_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "XMem2 Unavailable",
-                        format_xmem2_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "XMem2 Unavailable",
-                        format_xmem2_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `xmem2` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            xmem2_params = self._collect_xmem2_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_xmem2_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                xmem2_params,
-                cancel_event=cancel_event,
-            )
-
-        elif selected_scenario == "Offline SAM2":
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Offline SAM2 requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            repo_path = self.sam2_repo_path_edit.text().strip() or self.sam2_settings.repo_path
-            self.sam2_settings.repo_path = repo_path
-            self.sam2_settings.python_executable = self.sam2_python_executable_edit.text().strip() or None
-            self.sam2_settings.backend_mode = self.sam2_backend_mode_combo.currentData()
-            status = probe_sam2_environment(
-                models_dir=self.sam2_models_dir,
-                checkpoint_path=self.sam2_settings.checkpoint_path,
-                repo_path=self.sam2_settings.repo_path,
-                config_path=self.sam2_settings.config_path,
-            )
-            if not status.is_ready and self.sam2_settings.config_path:
-                status = probe_sam2_environment(
-                    models_dir=self.sam2_models_dir,
-                    checkpoint_path=self.sam2_settings.checkpoint_path,
-                    repo_path=self.sam2_settings.repo_path,
-                    config_path=None,
-                )
-            self.sam2_settings.config_path = (
-                str(status.config_path.resolve())
-                if status.config_path is not None and status.config_path.exists()
-                else None
-            )
-
-            python_executable = self.sam2_settings.python_executable
-            python_path_ok = bool(
-                python_executable and Path(python_executable).expanduser().exists()
-            )
-            structural_ready = bool(
-                status.repo_path is not None
-                and status.selected_checkpoint is not None
-                and status.checkpoint_exists
-                and status.config_exists
-                and status.config_identifier is not None
-            )
-
-            if self.sam2_settings.backend_mode == "direct":
-                if not status.is_ready:
-                    QMessageBox.warning(
-                        self,
-                        "SAM2 Unavailable",
-                        format_sam2_environment_report(status),
-                    )
-                    return
-            else:
-                if not structural_ready:
-                    QMessageBox.warning(
-                        self,
-                        "SAM2 Unavailable",
-                        format_sam2_environment_report(status),
-                    )
-                    return
-                if not (status.is_ready or python_path_ok):
-                    QMessageBox.warning(
-                        self,
-                        "SAM2 Unavailable",
-                        format_sam2_environment_report(status)
-                        + "\n\nSet the Python executable of the dedicated `sam2` env "
-                        "or run Trackleed from that environment.",
-                    )
-                    return
-
-            sam2_params = self._collect_sam2_tracking_params()
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-            worker = GenericWorker(
-                track_spots_sam2_offline,
-                file_map,
-                sorted_ids,
-                ref_file.id,
-                sam2_params,
-                cancel_event=cancel_event,
-            )
 
         elif selected_scenario == "Detection Linking (Hungarian)":
             params = {
@@ -8713,6 +8816,7 @@ class MainWindow(QMainWindow):
         current_roi_size = self.roi_size_spinbox.value()
         lk_win_size = self.lk_win_size_spinbox.value()
         lk_max_level = self.lk_max_level_spinbox.value()
+        tracking_dialog_params = self._collect_tracking_dialog_backend_params()
 
         dialog = TrackingDialog(
             self.tracking_results, 
@@ -8721,17 +8825,7 @@ class MainWindow(QMainWindow):
             roi_size=current_roi_size,
             lk_win_size=lk_win_size,  
             lk_max_level=lk_max_level,
-            tapir_params=self._collect_tapir_tracking_params(),
-            locotrack_params=self._collect_locotrack_tracking_params(),
-            cotracker_params=self._collect_cotracker_tracking_params(),
-            tapnext_params=self._collect_tapnext_tracking_params(),
-            trackonr_params=self._collect_trackonr_tracking_params(),
-            pipspp_params=self._collect_pipspp_tracking_params(),
-            mftiq_params=self._collect_mftiq_tracking_params(),
-            cutie_params=self._collect_cutie_tracking_params(),
-            xmem2_params=self._collect_xmem2_tracking_params(),
-            tomp_params=self._collect_tomp_tracking_params(),
-            sam2_params=self._collect_sam2_tracking_params(),
+            **tracking_dialog_params,
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )

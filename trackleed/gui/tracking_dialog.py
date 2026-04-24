@@ -16,69 +16,103 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
+from trackleed.gui.tracker_registry import get_tracker_spec_for_source, require_tracker_spec
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.tapir_backend import (
-    format_tapir_environment_report,
-    probe_tapir_environment,
-)
-from trackleed.analysis.locotrack_backend import (
-    format_locotrack_environment_report,
-    probe_locotrack_environment,
-)
-from trackleed.analysis.cotracker_backend import (
-    format_cotracker_environment_report,
-    probe_cotracker_environment,
-)
-from trackleed.analysis.tapnext_backend import (
-    format_tapnext_environment_report,
-    probe_tapnext_environment,
-)
-from trackleed.analysis.trackonr_backend import (
-    format_trackonr_environment_report,
-    probe_trackonr_environment,
-)
-from trackleed.analysis.pipspp_backend import (
-    format_pipspp_environment_report,
-    probe_pipspp_environment,
-)
-from trackleed.analysis.mftiq_backend import (
-    format_mftiq_environment_report,
-    probe_mftiq_environment,
-)
-from trackleed.analysis.cutie_backend import (
-    format_cutie_environment_report,
-    probe_cutie_environment,
-)
-from trackleed.analysis.xmem2_backend import (
-    format_xmem2_environment_report,
-    probe_xmem2_environment,
-)
 from trackleed.analysis.tomp_backend import (
-    format_tomp_environment_report,
-    probe_tomp_environment,
     select_default_tamos_checkpoint_for_variant,
     select_default_tomp_checkpoint_for_variant,
 )
-from trackleed.analysis.sam2_backend import (
-    format_sam2_environment_report,
-    probe_sam2_environment,
-)
-from trackleed.analysis.tracking import (
-    retrack_single_spot_cotracker3_offline,
-    retrack_single_spot_cutie_offline,
-    retrack_single_spot_mftiq_offline,
+from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_optical_flow,
-    retrack_single_spot_locotrack_offline,
-    retrack_single_spot_pipspp_offline,
-    retrack_single_spot_tomp_offline,
-    retrack_single_spot_xmem2_offline,
-    retrack_single_spot_sam2_offline,
-    retrack_single_spot_trackonr_offline,
-    retrack_single_spot_tapnext_offline,
-    retrack_single_spot_tapir_offline,
-    retrack_single_spot_tapir_online,
 )
 from trackleed.logic.generic_worker import GenericWorker
+
+
+MANUAL_TRACK_SOURCES = {"manual", "manual_new", "manual_corr", "manual_point"}
+
+TRACKER_METHOD_LABEL_BY_SOURCE = {
+    "tapir_offline": "TAPIR",
+    "tapir_online": "BootsTAPIR Online",
+    "locotrack_offline": "LocoTrack",
+    "cotracker3_offline": "CoTracker3",
+    "tapnext_offline": "TAPNext",
+    "trackonr_offline": "Track-On-R",
+    "pipspp_offline": "PIPs++",
+    "mftiq_offline": "MFTIQ",
+    "cutie_offline": "Cutie",
+    "xmem2_offline": "XMem2",
+    "tomp_offline": "ToMP",
+    "tamos_offline": "TaMOs",
+    "sam2_offline": "SAM2",
+}
+
+MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
+    "tapir_offline": "TAPIR+Manual",
+    "tapir_online": "BootsTAPIR Online+Manual",
+    "locotrack_offline": "LocoTrack+Manual",
+    "cotracker3_offline": "CoTracker3+Manual",
+    "tapnext_offline": "TAPNext+Manual",
+    "trackonr_offline": "Track-On-R+Manual",
+    "pipspp_offline": "PIPs++ + Manual",
+    "mftiq_offline": "MFTIQ + Manual",
+    "cutie_offline": "Cutie + Manual",
+    "xmem2_offline": "XMem2 + Manual",
+    "tomp_offline": "ToMP + Manual",
+    "tamos_offline": "TaMOs + Manual",
+    "sam2_offline": "SAM2 + Manual",
+}
+
+POINT_TRACKER_DETAIL_SPECS = {
+    "tapir_offline": {"prefix": "tapir", "raw_label": "Raw TAPIR", "focus_label": "TAPIR"},
+    "tapir_online": {"prefix": "tapir", "raw_label": "Raw BootsTAPIR Online", "focus_label": "BOOTSTAPIR"},
+    "locotrack_offline": {"prefix": "locotrack", "raw_label": "Raw LocoTrack", "focus_label": "LOCOTRACK"},
+    "cotracker3_offline": {"prefix": "cotracker3", "raw_label": "Raw CoTracker3", "focus_label": "COTRACKER3"},
+    "tapnext_offline": {
+        "prefix": "tapnext",
+        "raw_label": "Raw TAPNext",
+        "focus_label": "TAPNEXT",
+        "extra_fields": (
+            ("Visibility score", "tapnext_visibility_score", "float3"),
+            ("Certainty score", "tapnext_certainty_score", "float3"),
+            ("Combined score", "tapnext_combined_score", "float3"),
+        ),
+    },
+    "trackonr_offline": {"prefix": "trackonr", "raw_label": "Raw Track-On-R", "focus_label": "TRACK-ON-R"},
+    "pipspp_offline": {"prefix": "pipspp", "raw_label": "Raw PIPs++", "focus_label": "PIPS++"},
+    "mftiq_offline": {
+        "prefix": "mftiq",
+        "raw_label": "Raw MFTIQ",
+        "focus_label": "MFTIQ",
+        "extra_fields": (
+            ("Occlusion score", "mftiq_occlusion_score", "float3"),
+            ("Sigma score", "mftiq_sigma_score", "float3"),
+        ),
+    },
+}
+
+MASK_TRACKER_DETAIL_SPECS = {
+    "cutie_offline": {
+        "prefix": "cutie",
+        "include_initial_mask_mode": True,
+        "include_memory_anchor": True,
+        "include_prompt_mode": False,
+        "include_component_count": False,
+    },
+    "xmem2_offline": {
+        "prefix": "xmem2",
+        "include_initial_mask_mode": True,
+        "include_memory_anchor": False,
+        "include_prompt_mode": False,
+        "include_component_count": False,
+    },
+    "sam2_offline": {
+        "prefix": "sam2",
+        "include_initial_mask_mode": False,
+        "include_memory_anchor": False,
+        "include_prompt_mode": True,
+        "include_component_count": True,
+    },
+}
 
 
 class TrackingDialog(QDialog):
@@ -359,16 +393,270 @@ class TrackingDialog(QDialog):
             return None
         return selected_track.spots_by_image_id.get(frame_id)
 
+    def _normalized_source_name(self, source_name: str | None) -> str:
+        return str(source_name or "").strip().lower()
+
+    def _tracker_spec_for_source_name(self, source_name: str | None):
+        normalized_source = self._normalized_source_name(source_name)
+        if not normalized_source or normalized_source in MANUAL_TRACK_SOURCES:
+            return None
+        return get_tracker_spec_for_source(normalized_source)
+
+    def _tracker_spec_for_track(self, track: Track | None):
+        if track is None:
+            return None
+        specs_by_id = {}
+        for spot in track.spots_by_image_id.values():
+            spec = self._tracker_spec_for_source_name(getattr(spot, "source", None))
+            if spec is not None:
+                specs_by_id[spec.tracker_id] = spec
+        if len(specs_by_id) == 1:
+            return next(iter(specs_by_id.values()))
+        return None
+
+    def _method_label_for_source_name(self, source_name: str | None, *, include_manual: bool = False) -> str | None:
+        normalized_source = self._normalized_source_name(source_name)
+        if not normalized_source:
+            return None
+        if normalized_source in MANUAL_TRACK_SOURCES:
+            return "Manual"
+        if include_manual:
+            return MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE.get(normalized_source)
+        return TRACKER_METHOD_LABEL_BY_SOURCE.get(normalized_source)
+
+    def _base_method_label_for_track(self, track: Track | None) -> str | None:
+        if track is None:
+            return None
+        method = self._classify_track_method(track)
+        method = method.removesuffix(" + Manual").removesuffix("+Manual")
+        if method in {"Manual", "Unknown", "Mixed", "OptFlow", "YOLO", "Auto"}:
+            return None
+        return method
+
+    def _append_formatted_value_line(self, lines: list[str], label: str, value, fmt: str) -> None:
+        if value is None:
+            return
+        if fmt == "float1":
+            lines.append(f"{label}: {float(value):.1f}")
+        elif fmt == "float2":
+            lines.append(f"{label}: {float(value):.2f}")
+        elif fmt == "float3":
+            lines.append(f"{label}: {float(value):.3f}")
+        elif fmt == "int":
+            lines.append(f"{label}: {int(value)}")
+        else:
+            lines.append(f"{label}: {value}")
+
+    def _append_point_tracker_detail_lines(self, lines: list[str], spot: SpotROI, *, source: str) -> bool:
+        spec = POINT_TRACKER_DETAIL_SPECS.get(source)
+        if spec is None:
+            return False
+
+        prefix = spec["prefix"]
+        raw_x = getattr(spot, f"{prefix}_raw_x", None)
+        raw_y = getattr(spot, f"{prefix}_raw_y", None)
+        refined_x = getattr(spot, f"{prefix}_refined_x", None)
+        refined_y = getattr(spot, f"{prefix}_refined_y", None)
+        visibility = getattr(spot, f"{prefix}_visibility", None)
+        rejected_reason = getattr(spot, f"{prefix}_filter_rejected_reason", None)
+
+        if raw_x is not None and raw_y is not None:
+            lines.append(f"{spec['raw_label']}: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+        if refined_x is not None and refined_y is not None:
+            lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+        if visibility is not None:
+            lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+
+        for label, attr_name, fmt in spec.get("extra_fields", ()):
+            self._append_formatted_value_line(lines, label, getattr(spot, attr_name, None), fmt)
+
+        if rejected_reason:
+            lines.append(f"Filter: rejected ({rejected_reason})")
+        return True
+
+    def _append_mask_tracker_detail_lines(self, lines: list[str], spot: SpotROI, *, source: str) -> bool:
+        spec = MASK_TRACKER_DETAIL_SPECS.get(source)
+        if spec is None:
+            return False
+
+        prefix = spec["prefix"]
+        raw_x = getattr(spot, f"{prefix}_raw_x", None)
+        raw_y = getattr(spot, f"{prefix}_raw_y", None)
+        refined_x = getattr(spot, f"{prefix}_refined_x", None)
+        refined_y = getattr(spot, f"{prefix}_refined_y", None)
+        visibility = getattr(spot, f"{prefix}_visibility", None)
+        repr_mode = getattr(spot, f"{prefix}_repr_mode", None)
+        rejected_reason = getattr(spot, f"{prefix}_filter_rejected_reason", None)
+        mask_area = getattr(spot, f"{prefix}_mask_area", None)
+        mask_score = getattr(spot, f"{prefix}_mask_score", None)
+        mask_bbox_xyxy = getattr(spot, f"{prefix}_mask_bbox_xyxy", None)
+        mask_bbox_aspect_ratio = getattr(spot, f"{prefix}_mask_bbox_aspect_ratio", None)
+
+        if raw_x is not None and raw_y is not None:
+            lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+        if refined_x is not None and refined_y is not None:
+            lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+        if visibility is not None:
+            lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+        if repr_mode:
+            lines.append(f"Representative mode: {repr_mode}")
+        if spec["include_initial_mask_mode"]:
+            initial_mask_mode = getattr(spot, f"{prefix}_initial_mask_mode", None)
+            if initial_mask_mode:
+                lines.append(f"Initial mask mode: {initial_mask_mode}")
+        if spec["include_prompt_mode"]:
+            prompt_mode = getattr(spot, f"{prefix}_prompt_mode", None)
+            if prompt_mode:
+                lines.append(f"Prompt mode: {prompt_mode}")
+        if spec["include_memory_anchor"] and bool(getattr(spot, "xmem2_permanent_reference", False)):
+            lines.append("Permanent memory anchor: yes")
+        self._append_formatted_value_line(lines, "Mask area", mask_area, "float1")
+        self._append_formatted_value_line(lines, "Mask score", mask_score, "float3")
+        if spec["include_component_count"]:
+            self._append_formatted_value_line(
+                lines,
+                "Mask components",
+                getattr(spot, f"{prefix}_mask_component_count", None),
+                "int",
+            )
+        if mask_bbox_xyxy is not None:
+            try:
+                x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
+                lines.append(f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}")
+            except Exception:
+                pass
+        self._append_formatted_value_line(lines, "BBox aspect ratio", mask_bbox_aspect_ratio, "float3")
+        if rejected_reason:
+            lines.append(f"Filter: rejected ({rejected_reason})")
+        return True
+
+    def _append_tomp_detail_lines(self, lines: list[str], spot: SpotROI, *, source: str) -> bool:
+        if source not in {"tomp_offline", "tamos_offline"}:
+            return False
+
+        raw_x = getattr(spot, "tomp_raw_x", None)
+        raw_y = getattr(spot, "tomp_raw_y", None)
+        refined_x = getattr(spot, "tomp_refined_x", None)
+        refined_y = getattr(spot, "tomp_refined_y", None)
+        visibility = getattr(spot, "tomp_visibility", None)
+        bbox_score = getattr(spot, "tomp_bbox_score", None)
+        bbox_xywh = getattr(spot, "tomp_bbox_xywh", None)
+        bbox_xyxy = getattr(spot, "tomp_bbox_xyxy", None)
+        bbox_aspect_ratio = getattr(spot, "tomp_bbox_aspect_ratio", None)
+        repr_mode = getattr(spot, "tomp_repr_mode", None)
+        model_variant = getattr(spot, "tomp_model_variant", None)
+        rejected_reason = getattr(spot, "tomp_filter_rejected_reason", None)
+
+        if raw_x is not None and raw_y is not None:
+            lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+        if refined_x is not None and refined_y is not None:
+            lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+        if visibility is not None:
+            lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+        if model_variant:
+            lines.append(f"Model variant: {model_variant}")
+        if repr_mode:
+            lines.append(f"Representative mode: {repr_mode}")
+        self._append_formatted_value_line(lines, "BBox score", bbox_score, "float3")
+        if bbox_xywh is not None:
+            try:
+                x, y, w, h = [float(v) for v in bbox_xywh]
+                lines.append(f"BBox xywh: x={x:.1f}, y={y:.1f}, w={w:.1f}, h={h:.1f}")
+            except Exception:
+                pass
+        if bbox_xyxy is not None:
+            try:
+                x0, y0, x1, y1 = [float(v) for v in bbox_xyxy]
+                lines.append(f"BBox xyxy: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}")
+            except Exception:
+                pass
+        self._append_formatted_value_line(lines, "BBox aspect ratio", bbox_aspect_ratio, "float3")
+        if rejected_reason:
+            lines.append(f"Filter: rejected ({rejected_reason})")
+        return True
+
+    def _append_spot_backend_detail_lines(self, lines: list[str], spot: SpotROI) -> None:
+        source = self._normalized_source_name(getattr(spot, "source", None))
+        if self._append_point_tracker_detail_lines(lines, spot, source=source):
+            return
+        if self._append_mask_tracker_detail_lines(lines, spot, source=source):
+            return
+        self._append_tomp_detail_lines(lines, spot, source=source)
+
+    def _build_focus_point_payload_for_spot(self, track: Track, spot: SpotROI) -> list[dict]:
+        source = self._normalized_source_name(getattr(spot, "source", None))
+        spec = POINT_TRACKER_DETAIL_SPECS.get(source)
+        if spec is not None:
+            raw_x = getattr(spot, f"{spec['prefix']}_raw_x", None)
+            raw_y = getattr(spot, f"{spec['prefix']}_raw_y", None)
+            label = f"{spec['focus_label']} T{track.track_id}"
+        elif source == "cutie_offline":
+            raw_x = getattr(spot, "cutie_raw_x", None)
+            raw_y = getattr(spot, "cutie_raw_y", None)
+            label = f"CUTIE T{track.track_id}"
+        elif source == "xmem2_offline":
+            raw_x = getattr(spot, "xmem2_raw_x", None)
+            raw_y = getattr(spot, "xmem2_raw_y", None)
+            label = f"XMEM2 T{track.track_id}"
+        elif source in {"tomp_offline", "tamos_offline"}:
+            raw_x = getattr(spot, "tomp_raw_x", None)
+            raw_y = getattr(spot, "tomp_raw_y", None)
+            label = f"{'TAMOS' if source == 'tamos_offline' else 'TOMP'} T{track.track_id}"
+        elif source == "sam2_offline":
+            raw_x = getattr(spot, "sam2_raw_x", None)
+            raw_y = getattr(spot, "sam2_raw_y", None)
+            label = f"SAM2 T{track.track_id}"
+        else:
+            return []
+
+        if raw_x is None or raw_y is None:
+            raw_x = spot.center_x
+            raw_y = spot.center_y
+
+        if np.isfinite(float(raw_x)) and np.isfinite(float(raw_y)):
+            return [{"x": float(raw_x), "y": float(raw_y), "label": label}]
+        return []
+
+    def _backend_retrack_action_text(self, track: Track | None) -> str | None:
+        tracker_spec = self._tracker_spec_for_track(track)
+        if tracker_spec is None or not tracker_spec.has_visualizer_retrack:
+            return None
+        method_label = self._base_method_label_for_track(track)
+        if not method_label:
+            return None
+        return f"Re-track from this point ({method_label})"
+
+    def _initiate_retrack_for_tracker_spec(self, tracker_spec, spot_id: int) -> None:
+        tracker_id = tracker_spec.tracker_id
+        if tracker_id in {"tapir_offline", "tapir_online"}:
+            self.initiate_retrack_tapir(spot_id)
+        elif tracker_id == "locotrack_offline":
+            self.initiate_retrack_locotrack(spot_id)
+        elif tracker_id == "cotracker3_offline":
+            self.initiate_retrack_cotracker3(spot_id)
+        elif tracker_id == "tapnext_offline":
+            self.initiate_retrack_tapnext(spot_id)
+        elif tracker_id == "trackonr_offline":
+            self.initiate_retrack_trackonr(spot_id)
+        elif tracker_id == "pipspp_offline":
+            self.initiate_retrack_pipspp(spot_id)
+        elif tracker_id == "mftiq_offline":
+            self.initiate_retrack_mftiq(spot_id)
+        elif tracker_id == "cutie_offline":
+            self.initiate_retrack_cutie(spot_id)
+        elif tracker_id == "xmem2_offline":
+            self.initiate_retrack_xmem2(spot_id)
+        elif tracker_id == "tomp_offline":
+            self.initiate_retrack_tomp(spot_id)
+        elif tracker_id == "sam2_offline":
+            self.initiate_retrack_sam2(spot_id)
+        else:
+            raise ValueError(f"Unsupported tracker for visualizer retrack: {tracker_id}")
+
     def _track_supports_polygon_seed(self, track: Track | None) -> bool:
         """Polygon seed workflow is currently available only for Cutie and XMem2."""
-        if track is None:
-            return False
-        return self._classify_track_method(track) in {
-            "Cutie",
-            "Cutie + Manual",
-            "XMem2",
-            "XMem2 + Manual",
-        }
+        tracker_spec = self._tracker_spec_for_track(track)
+        return tracker_spec is not None and tracker_spec.tracker_id in {"cutie_offline", "xmem2_offline"}
 
     def _build_polygon_seed_overlay_for_frame(self, frame_id: int) -> list[dict]:
         """Build polygon overlay payload for the selected track on the current frame."""
@@ -456,68 +744,27 @@ class TrackingDialog(QDialog):
     def _classify_track_method(self, track: Track) -> str:
         """Return a short human-readable label for the dominant source in a track."""
         sources = {
-            str(getattr(spot, "source", "")).strip().lower()
+            self._normalized_source_name(getattr(spot, "source", None))
             for spot in track.spots_by_image_id.values()
             if getattr(spot, "source", None)
         }
         if not sources:
             return "Unknown"
 
-        manual_sources = {"manual", "manual_new", "manual_corr", "manual_point"}
-        if sources == {"tapir_offline"}:
-            return "TAPIR"
-        if sources == {"tapir_online"}:
-            return "BootsTAPIR Online"
-        if sources == {"locotrack_offline"}:
-            return "LocoTrack"
-        if sources == {"cotracker3_offline"}:
-            return "CoTracker3"
-        if sources == {"tapnext_offline"}:
-            return "TAPNext"
-        if sources == {"trackonr_offline"}:
-            return "Track-On-R"
-        if sources == {"pipspp_offline"}:
-            return "PIPs++"
-        if sources == {"mftiq_offline"}:
-            return "MFTIQ"
-        if sources == {"cutie_offline"}:
-            return "Cutie"
-        if sources == {"xmem2_offline"}:
-            return "XMem2"
-        if sources == {"tomp_offline"}:
-            return "ToMP"
-        if sources == {"tamos_offline"}:
-            return "TaMOs"
-        if sources == {"sam2_offline"}:
-            return "SAM2"
-        if sources.issubset(manual_sources):
+        if sources.issubset(MANUAL_TRACK_SOURCES):
             return "Manual"
-        if "tapir_offline" in sources and sources.issubset({"tapir_offline"} | manual_sources):
-            return "TAPIR+Manual"
-        if "tapir_online" in sources and sources.issubset({"tapir_online"} | manual_sources):
-            return "BootsTAPIR Online+Manual"
-        if "locotrack_offline" in sources and sources.issubset({"locotrack_offline"} | manual_sources):
-            return "LocoTrack+Manual"
-        if "cotracker3_offline" in sources and sources.issubset({"cotracker3_offline"} | manual_sources):
-            return "CoTracker3+Manual"
-        if "tapnext_offline" in sources and sources.issubset({"tapnext_offline"} | manual_sources):
-            return "TAPNext+Manual"
-        if "trackonr_offline" in sources and sources.issubset({"trackonr_offline"} | manual_sources):
-            return "Track-On-R+Manual"
-        if "pipspp_offline" in sources and sources.issubset({"pipspp_offline"} | manual_sources):
-            return "PIPs++ + Manual"
-        if "mftiq_offline" in sources and sources.issubset({"mftiq_offline"} | manual_sources):
-            return "MFTIQ + Manual"
-        if "cutie_offline" in sources and sources.issubset({"cutie_offline"} | manual_sources):
-            return "Cutie + Manual"
-        if "xmem2_offline" in sources and sources.issubset({"xmem2_offline"} | manual_sources):
-            return "XMem2 + Manual"
-        if "tomp_offline" in sources and sources.issubset({"tomp_offline"} | manual_sources):
-            return "ToMP + Manual"
-        if "tamos_offline" in sources and sources.issubset({"tamos_offline"} | manual_sources):
-            return "TaMOs + Manual"
-        if "sam2_offline" in sources and sources.issubset({"sam2_offline"} | manual_sources):
-            return "SAM2 + Manual"
+
+        non_manual_sources = sources - MANUAL_TRACK_SOURCES
+        if len(non_manual_sources) == 1:
+            source_name = next(iter(non_manual_sources))
+            if sources.issubset({source_name} | MANUAL_TRACK_SOURCES):
+                if sources & MANUAL_TRACK_SOURCES:
+                    manual_label = self._method_label_for_source_name(source_name, include_manual=True)
+                    if manual_label is not None:
+                        return manual_label
+                method_label = self._method_label_for_source_name(source_name)
+                if method_label is not None:
+                    return method_label
         if any("optical" in src or "flow" in src for src in sources):
             return "OptFlow"
         if any("yolo" in src for src in sources):
@@ -599,293 +846,7 @@ class TrackingDialog(QDialog):
             else:
                 lines.append("Seed type: polygon missing")
 
-        source = str(getattr(spot, "source", "")).lower()
-        if source in {"tapir_offline", "tapir_online"}:
-            raw_x = getattr(spot, "tapir_raw_x", None)
-            raw_y = getattr(spot, "tapir_raw_y", None)
-            refined_x = getattr(spot, "tapir_refined_x", None)
-            refined_y = getattr(spot, "tapir_refined_y", None)
-            visibility = getattr(spot, "tapir_visibility", None)
-            rejected_reason = getattr(spot, "tapir_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                label = "Raw BootsTAPIR Online" if source == "tapir_online" else "Raw TAPIR"
-                lines.append(f"{label}: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "locotrack_offline":
-            raw_x = getattr(spot, "locotrack_raw_x", None)
-            raw_y = getattr(spot, "locotrack_raw_y", None)
-            refined_x = getattr(spot, "locotrack_refined_x", None)
-            refined_y = getattr(spot, "locotrack_refined_y", None)
-            visibility = getattr(spot, "locotrack_visibility", None)
-            rejected_reason = getattr(spot, "locotrack_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw LocoTrack: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "cotracker3_offline":
-            raw_x = getattr(spot, "cotracker3_raw_x", None)
-            raw_y = getattr(spot, "cotracker3_raw_y", None)
-            refined_x = getattr(spot, "cotracker3_refined_x", None)
-            refined_y = getattr(spot, "cotracker3_refined_y", None)
-            visibility = getattr(spot, "cotracker3_visibility", None)
-            rejected_reason = getattr(spot, "cotracker3_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw CoTracker3: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "tapnext_offline":
-            raw_x = getattr(spot, "tapnext_raw_x", None)
-            raw_y = getattr(spot, "tapnext_raw_y", None)
-            refined_x = getattr(spot, "tapnext_refined_x", None)
-            refined_y = getattr(spot, "tapnext_refined_y", None)
-            visibility = getattr(spot, "tapnext_visibility", None)
-            visibility_score = getattr(spot, "tapnext_visibility_score", None)
-            certainty_score = getattr(spot, "tapnext_certainty_score", None)
-            combined_score = getattr(spot, "tapnext_combined_score", None)
-            rejected_reason = getattr(spot, "tapnext_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw TAPNext: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if visibility_score is not None:
-                lines.append(f"Visibility score: {float(visibility_score):.3f}")
-            if certainty_score is not None:
-                lines.append(f"Certainty score: {float(certainty_score):.3f}")
-            if combined_score is not None:
-                lines.append(f"Combined score: {float(combined_score):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "trackonr_offline":
-            raw_x = getattr(spot, "trackonr_raw_x", None)
-            raw_y = getattr(spot, "trackonr_raw_y", None)
-            refined_x = getattr(spot, "trackonr_refined_x", None)
-            refined_y = getattr(spot, "trackonr_refined_y", None)
-            visibility = getattr(spot, "trackonr_visibility", None)
-            rejected_reason = getattr(spot, "trackonr_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw Track-On-R: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "pipspp_offline":
-            raw_x = getattr(spot, "pipspp_raw_x", None)
-            raw_y = getattr(spot, "pipspp_raw_y", None)
-            refined_x = getattr(spot, "pipspp_refined_x", None)
-            refined_y = getattr(spot, "pipspp_refined_y", None)
-            visibility = getattr(spot, "pipspp_visibility", None)
-            rejected_reason = getattr(spot, "pipspp_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw PIPs++: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "mftiq_offline":
-            raw_x = getattr(spot, "mftiq_raw_x", None)
-            raw_y = getattr(spot, "mftiq_raw_y", None)
-            refined_x = getattr(spot, "mftiq_refined_x", None)
-            refined_y = getattr(spot, "mftiq_refined_y", None)
-            visibility = getattr(spot, "mftiq_visibility", None)
-            occlusion_score = getattr(spot, "mftiq_occlusion_score", None)
-            sigma_score = getattr(spot, "mftiq_sigma_score", None)
-            rejected_reason = getattr(spot, "mftiq_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Raw MFTIQ: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Refined: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if occlusion_score is not None:
-                lines.append(f"Occlusion score: {float(occlusion_score):.3f}")
-            if sigma_score is not None:
-                lines.append(f"Sigma score: {float(sigma_score):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "cutie_offline":
-            raw_x = getattr(spot, "cutie_raw_x", None)
-            raw_y = getattr(spot, "cutie_raw_y", None)
-            refined_x = getattr(spot, "cutie_refined_x", None)
-            refined_y = getattr(spot, "cutie_refined_y", None)
-            visibility = getattr(spot, "cutie_visibility", None)
-            mask_area = getattr(spot, "cutie_mask_area", None)
-            mask_score = getattr(spot, "cutie_mask_score", None)
-            mask_bbox_xyxy = getattr(spot, "cutie_mask_bbox_xyxy", None)
-            mask_bbox_aspect_ratio = getattr(spot, "cutie_mask_bbox_aspect_ratio", None)
-            repr_mode = getattr(spot, "cutie_repr_mode", None)
-            initial_mask_mode = getattr(spot, "cutie_initial_mask_mode", None)
-            rejected_reason = getattr(spot, "cutie_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if repr_mode:
-                lines.append(f"Representative mode: {repr_mode}")
-            if initial_mask_mode:
-                lines.append(f"Initial mask mode: {initial_mask_mode}")
-            if bool(getattr(spot, "xmem2_permanent_reference", False)):
-                lines.append("Permanent memory anchor: yes")
-            if mask_area is not None:
-                lines.append(f"Mask area: {float(mask_area):.1f}")
-            if mask_score is not None:
-                lines.append(f"Mask score: {float(mask_score):.3f}")
-            if mask_bbox_xyxy is not None:
-                try:
-                    x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
-                    lines.append(
-                        f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
-                    )
-                except Exception:
-                    pass
-            if mask_bbox_aspect_ratio is not None:
-                lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "xmem2_offline":
-            raw_x = getattr(spot, "xmem2_raw_x", None)
-            raw_y = getattr(spot, "xmem2_raw_y", None)
-            refined_x = getattr(spot, "xmem2_refined_x", None)
-            refined_y = getattr(spot, "xmem2_refined_y", None)
-            visibility = getattr(spot, "xmem2_visibility", None)
-            mask_area = getattr(spot, "xmem2_mask_area", None)
-            mask_score = getattr(spot, "xmem2_mask_score", None)
-            mask_bbox_xyxy = getattr(spot, "xmem2_mask_bbox_xyxy", None)
-            mask_bbox_aspect_ratio = getattr(spot, "xmem2_mask_bbox_aspect_ratio", None)
-            repr_mode = getattr(spot, "xmem2_repr_mode", None)
-            initial_mask_mode = getattr(spot, "xmem2_initial_mask_mode", None)
-            rejected_reason = getattr(spot, "xmem2_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if repr_mode:
-                lines.append(f"Representative mode: {repr_mode}")
-            if initial_mask_mode:
-                lines.append(f"Initial mask mode: {initial_mask_mode}")
-            if mask_area is not None:
-                lines.append(f"Mask area: {float(mask_area):.1f}")
-            if mask_score is not None:
-                lines.append(f"Mask score: {float(mask_score):.3f}")
-            if mask_bbox_xyxy is not None:
-                try:
-                    x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
-                    lines.append(
-                        f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
-                    )
-                except Exception:
-                    pass
-            if mask_bbox_aspect_ratio is not None:
-                lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source in {"tomp_offline", "tamos_offline"}:
-            raw_x = getattr(spot, "tomp_raw_x", None)
-            raw_y = getattr(spot, "tomp_raw_y", None)
-            refined_x = getattr(spot, "tomp_refined_x", None)
-            refined_y = getattr(spot, "tomp_refined_y", None)
-            visibility = getattr(spot, "tomp_visibility", None)
-            bbox_score = getattr(spot, "tomp_bbox_score", None)
-            bbox_xywh = getattr(spot, "tomp_bbox_xywh", None)
-            bbox_xyxy = getattr(spot, "tomp_bbox_xyxy", None)
-            bbox_aspect_ratio = getattr(spot, "tomp_bbox_aspect_ratio", None)
-            repr_mode = getattr(spot, "tomp_repr_mode", None)
-            model_variant = getattr(spot, "tomp_model_variant", None)
-            rejected_reason = getattr(spot, "tomp_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if model_variant:
-                lines.append(f"Model variant: {model_variant}")
-            if repr_mode:
-                lines.append(f"Representative mode: {repr_mode}")
-            if bbox_score is not None:
-                lines.append(f"BBox score: {float(bbox_score):.3f}")
-            if bbox_xywh is not None:
-                try:
-                    x, y, w, h = [float(v) for v in bbox_xywh]
-                    lines.append(f"BBox xywh: x={x:.1f}, y={y:.1f}, w={w:.1f}, h={h:.1f}")
-                except Exception:
-                    pass
-            if bbox_xyxy is not None:
-                try:
-                    x0, y0, x1, y1 = [float(v) for v in bbox_xyxy]
-                    lines.append(
-                        f"BBox xyxy: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
-                    )
-                except Exception:
-                    pass
-            if bbox_aspect_ratio is not None:
-                lines.append(f"BBox aspect ratio: {float(bbox_aspect_ratio):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
-        elif source == "sam2_offline":
-            raw_x = getattr(spot, "sam2_raw_x", None)
-            raw_y = getattr(spot, "sam2_raw_y", None)
-            refined_x = getattr(spot, "sam2_refined_x", None)
-            refined_y = getattr(spot, "sam2_refined_y", None)
-            visibility = getattr(spot, "sam2_visibility", None)
-            mask_area = getattr(spot, "sam2_mask_area", None)
-            mask_score = getattr(spot, "sam2_mask_score", None)
-            mask_component_count = getattr(spot, "sam2_mask_component_count", None)
-            mask_bbox_xyxy = getattr(spot, "sam2_mask_bbox_xyxy", None)
-            mask_bbox_aspect_ratio = getattr(spot, "sam2_mask_bbox_aspect_ratio", None)
-            repr_mode = getattr(spot, "sam2_repr_mode", None)
-            prompt_mode = getattr(spot, "sam2_prompt_mode", None)
-            rejected_reason = getattr(spot, "sam2_filter_rejected_reason", None)
-            if raw_x is not None and raw_y is not None:
-                lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
-            if refined_x is not None and refined_y is not None:
-                lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
-            if visibility is not None:
-                lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
-            if repr_mode:
-                lines.append(f"Representative mode: {repr_mode}")
-            if prompt_mode:
-                lines.append(f"Prompt mode: {prompt_mode}")
-            if mask_area is not None:
-                lines.append(f"Mask area: {float(mask_area):.1f}")
-            if mask_score is not None:
-                lines.append(f"Mask score: {float(mask_score):.3f}")
-            if mask_component_count is not None:
-                lines.append(f"Mask components: {int(mask_component_count)}")
-            if mask_bbox_xyxy is not None:
-                try:
-                    x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
-                    lines.append(
-                        f"Mask bbox: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}"
-                    )
-                except Exception:
-                    pass
-            if mask_bbox_aspect_ratio is not None:
-                lines.append(f"BBox aspect ratio: {float(mask_bbox_aspect_ratio):.3f}")
-            if rejected_reason:
-                lines.append(f"Filter: rejected ({rejected_reason})")
+        self._append_spot_backend_detail_lines(lines, spot)
 
         self.plot_widget.setText("<br>".join(lines))
 
@@ -915,69 +876,7 @@ class TrackingDialog(QDialog):
         spot = selected_track.spots_by_image_id.get(frame_id)
         if spot is None:
             return []
-        source = str(getattr(spot, "source", "")).lower()
-        if source in {"tapir_offline", "tapir_online"}:
-            raw_x = getattr(spot, "tapir_raw_x", None)
-            raw_y = getattr(spot, "tapir_raw_y", None)
-            label = (
-                f"BOOTSTAPIR T{selected_track.track_id}"
-                if source == "tapir_online"
-                else f"TAPIR T{selected_track.track_id}"
-            )
-        elif source == "locotrack_offline":
-            raw_x = getattr(spot, "locotrack_raw_x", None)
-            raw_y = getattr(spot, "locotrack_raw_y", None)
-            label = f"LOCOTRACK T{selected_track.track_id}"
-        elif source == "cotracker3_offline":
-            raw_x = getattr(spot, "cotracker3_raw_x", None)
-            raw_y = getattr(spot, "cotracker3_raw_y", None)
-            label = f"COTRACKER3 T{selected_track.track_id}"
-        elif source == "tapnext_offline":
-            raw_x = getattr(spot, "tapnext_raw_x", None)
-            raw_y = getattr(spot, "tapnext_raw_y", None)
-            label = f"TAPNEXT T{selected_track.track_id}"
-        elif source == "trackonr_offline":
-            raw_x = getattr(spot, "trackonr_raw_x", None)
-            raw_y = getattr(spot, "trackonr_raw_y", None)
-            label = f"TRACK-ON-R T{selected_track.track_id}"
-        elif source == "pipspp_offline":
-            raw_x = getattr(spot, "pipspp_raw_x", None)
-            raw_y = getattr(spot, "pipspp_raw_y", None)
-            label = f"PIPS++ T{selected_track.track_id}"
-        elif source == "mftiq_offline":
-            raw_x = getattr(spot, "mftiq_raw_x", None)
-            raw_y = getattr(spot, "mftiq_raw_y", None)
-            label = f"MFTIQ T{selected_track.track_id}"
-        elif source == "cutie_offline":
-            raw_x = getattr(spot, "cutie_raw_x", None)
-            raw_y = getattr(spot, "cutie_raw_y", None)
-            label = f"CUTIE T{selected_track.track_id}"
-        elif source == "xmem2_offline":
-            raw_x = getattr(spot, "xmem2_raw_x", None)
-            raw_y = getattr(spot, "xmem2_raw_y", None)
-            label = f"XMEM2 T{selected_track.track_id}"
-        elif source in {"tomp_offline", "tamos_offline"}:
-            raw_x = getattr(spot, "tomp_raw_x", None)
-            raw_y = getattr(spot, "tomp_raw_y", None)
-            label = (
-                f"TAMOS T{selected_track.track_id}"
-                if source == "tamos_offline"
-                else f"TOMP T{selected_track.track_id}"
-            )
-        elif source == "sam2_offline":
-            raw_x = getattr(spot, "sam2_raw_x", None)
-            raw_y = getattr(spot, "sam2_raw_y", None)
-            label = f"SAM2 T{selected_track.track_id}"
-        else:
-            return []
-
-        if raw_x is None or raw_y is None:
-            raw_x = spot.center_x
-            raw_y = spot.center_y
-
-        if np.isfinite(float(raw_x)) and np.isfinite(float(raw_y)):
-            return [{"x": float(raw_x), "y": float(raw_y), "label": label}]
-        return []
+        return self._build_focus_point_payload_for_spot(selected_track, spot)
 
     def handle_add_new_track(self, scene_pos: QPointF):
         """Creates a new track and initiates tracking from the user's click."""
@@ -1031,14 +930,17 @@ class TrackingDialog(QDialog):
             if current_track is not None
             else None
         )
-        xmem2_reference_marked = bool(
-            current_spot is not None and getattr(current_spot, "xmem2_permanent_reference", False)
-        )
-        xmem2_reference_action = menu.addAction(
-            "Unmark as XMem2 permanent reference"
-            if xmem2_reference_marked
-            else "Mark as XMem2 permanent reference"
-        )
+        current_tracker_spec = self._tracker_spec_for_track(current_track)
+        xmem2_reference_action = None
+        if current_tracker_spec is not None and current_tracker_spec.tracker_id == "xmem2_offline":
+            xmem2_reference_marked = bool(
+                current_spot is not None and getattr(current_spot, "xmem2_permanent_reference", False)
+            )
+            xmem2_reference_action = menu.addAction(
+                "Unmark as XMem2 permanent reference"
+                if xmem2_reference_marked
+                else "Mark as XMem2 permanent reference"
+            )
         polygon_edit_action = None
         polygon_clear_action = None
         if current_track is not None and current_spot is not None and self._track_supports_polygon_seed(current_track):
@@ -1048,17 +950,10 @@ class TrackingDialog(QDialog):
         
         menu.addSeparator()
         retrack_action = menu.addAction("Re-track from this point (Optical Flow)")
-        retrack_tapir_action = menu.addAction("Re-track from this point (TAPIR)")
-        retrack_locotrack_action = menu.addAction("Re-track from this point (LocoTrack)")
-        retrack_cotracker_action = menu.addAction("Re-track from this point (CoTracker3)")
-        retrack_tapnext_action = menu.addAction("Re-track from this point (TAPNext)")
-        retrack_trackonr_action = menu.addAction("Re-track from this point (Track-On-R)")
-        retrack_pipspp_action = menu.addAction("Re-track from this point (PIPs++)")
-        retrack_mftiq_action = menu.addAction("Re-track from this point (MFTIQ)")
-        retrack_cutie_action = menu.addAction("Re-track from this point (Cutie)")
-        retrack_xmem2_action = menu.addAction("Re-track from this point (XMem2)")
-        retrack_tomp_action = menu.addAction("Re-track from this point (ToMP)")
-        retrack_sam2_action = menu.addAction("Re-track from this point (SAM2)")
+        backend_retrack_action = None
+        backend_retrack_text = self._backend_retrack_action_text(current_track)
+        if backend_retrack_text:
+            backend_retrack_action = menu.addAction(backend_retrack_text)
         
         action = menu.exec(global_pos)
         
@@ -1072,28 +967,8 @@ class TrackingDialog(QDialog):
             self._clear_polygon_mask_for_selected_spot()
         elif action == retrack_action:
             self.initiate_retrack_optical_flow(spot_id)
-        elif action == retrack_tapir_action:
-            self.initiate_retrack_tapir(spot_id)
-        elif action == retrack_locotrack_action:
-            self.initiate_retrack_locotrack(spot_id)
-        elif action == retrack_cotracker_action:
-            self.initiate_retrack_cotracker3(spot_id)
-        elif action == retrack_tapnext_action:
-            self.initiate_retrack_tapnext(spot_id)
-        elif action == retrack_trackonr_action:
-            self.initiate_retrack_trackonr(spot_id)
-        elif action == retrack_pipspp_action:
-            self.initiate_retrack_pipspp(spot_id)
-        elif action == retrack_mftiq_action:
-            self.initiate_retrack_mftiq(spot_id)
-        elif action == retrack_cutie_action:
-            self.initiate_retrack_cutie(spot_id)
-        elif action == retrack_xmem2_action:
-            self.initiate_retrack_xmem2(spot_id)
-        elif action == retrack_tomp_action:
-            self.initiate_retrack_tomp(spot_id)
-        elif action == retrack_sam2_action:
-            self.initiate_retrack_sam2(spot_id)
+        elif action == backend_retrack_action and current_tracker_spec is not None:
+            self._initiate_retrack_for_tracker_spec(current_tracker_spec, spot_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -1111,6 +986,54 @@ class TrackingDialog(QDialog):
             QMessageBox.warning(self, "Error", "Cannot start re-tracking. The selected track does not exist on the current frame.")
             return None
         return track_to_retrack, current_frame_id
+
+    def _tracker_params_for_spec(self, tracker_spec) -> dict:
+        params_attr = getattr(tracker_spec, "params_argument_name", None)
+        if not params_attr:
+            return {}
+        params = getattr(self, params_attr, None)
+        if not isinstance(params, dict):
+            return {}
+        return dict(params)
+
+    def _probe_tracker_environment_for_spec(self, tracker_spec, **kwargs):
+        probe_fn = getattr(tracker_spec, "probe_environment", None)
+        if probe_fn is None:
+            raise AttributeError(f"Tracker '{tracker_spec.tracker_id}' does not define probe_environment")
+        return probe_fn(**kwargs)
+
+    def _format_tracker_environment_report_for_spec(self, tracker_spec, status) -> str:
+        format_fn = getattr(tracker_spec, "format_environment_report", None)
+        if format_fn is None:
+            raise AttributeError(f"Tracker '{tracker_spec.tracker_id}' does not define format_environment_report")
+        return format_fn(status)
+
+    def _launch_registered_retrack(
+        self,
+        tracker_spec,
+        track_to_retrack: Track,
+        current_frame_id: int,
+        tracker_params: dict,
+        *,
+        title: str,
+        method_label: str,
+    ) -> None:
+        cancel_event = Event()
+        worker = GenericWorker(
+            tracker_spec.run_retrack,
+            track_to_retrack,
+            current_frame_id,
+            self.file_map,
+            self.sorted_frame_ids,
+            tracker_params,
+            cancel_event=cancel_event,
+        )
+        self.launch_retrack_worker(
+            worker,
+            title=title,
+            cancel_event=cancel_event,
+            method_label=method_label,
+        )
 
     def toggle_xmem2_permanent_reference(self, spot_id: int):
         """Toggle the current spot as an extra XMem2 permanent reference."""
@@ -1168,8 +1091,10 @@ class TrackingDialog(QDialog):
         spot_source = str(getattr(current_spot, "source", "")).strip().lower() if current_spot else ""
         runtime_mode = str(self.tapir_params.get("runtime_mode", "offline")).strip().lower()
         use_online = spot_source == "tapir_online" or runtime_mode == "online"
+        tracker_spec = require_tracker_spec("tapir_online" if use_online else "tapir_offline")
 
-        if not self.tapir_params:
+        tapir_params = self._tracker_params_for_spec(tracker_spec)
+        if not tapir_params:
             QMessageBox.warning(
                 self,
                 "TAPIR Settings Missing",
@@ -1177,15 +1102,16 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_tapir_environment(
-            models_dir=self.tapir_params.get("tapir_models_dir"),
-            checkpoint_path=self.tapir_params.get("checkpoint_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=tapir_params.get("tapir_models_dir"),
+            checkpoint_path=tapir_params.get("checkpoint_path"),
         )
         if not status.is_ready:
             QMessageBox.warning(
                 self,
                 "TAPIR Unavailable",
-                format_tapir_environment_report(status),
+                self._format_tracker_environment_report_for_spec(tracker_spec, status),
             )
             return
         if use_online and not status.selected_checkpoint_is_online:
@@ -1196,27 +1122,18 @@ class TrackingDialog(QDialog):
             )
             return
 
-        tapir_params = dict(self.tapir_params)
         tapir_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_tapir_online if use_online else retrack_single_spot_tapir_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             tapir_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title=(
                 "Re-tracking spot with BootsTAPIR Online..."
                 if use_online
                 else "Re-tracking spot with TAPIR..."
             ),
-            cancel_event=cancel_event,
             method_label=(
                 "BootsTAPIR Online re-tracking" if use_online else "TAPIR re-tracking"
             ),
@@ -1228,8 +1145,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("locotrack_offline")
 
-        if not self.locotrack_params:
+        locotrack_params = self._tracker_params_for_spec(tracker_spec)
+        if not locotrack_params:
             QMessageBox.warning(
                 self,
                 "LocoTrack Settings Missing",
@@ -1237,13 +1156,14 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_locotrack_environment(
-            models_dir=self.locotrack_params.get("locotrack_models_dir"),
-            checkpoint_path=self.locotrack_params.get("checkpoint_path"),
-            repo_path=self.locotrack_params.get("repo_path") or self.locotrack_params.get("locotrack_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=locotrack_params.get("locotrack_models_dir"),
+            checkpoint_path=locotrack_params.get("checkpoint_path"),
+            repo_path=locotrack_params.get("repo_path") or locotrack_params.get("locotrack_repo_path"),
         )
-        backend_mode = str(self.locotrack_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = self.locotrack_params.get("python_executable")
+        backend_mode = str(locotrack_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = locotrack_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
@@ -1258,7 +1178,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "LocoTrack Unavailable",
-                    format_locotrack_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1266,36 +1186,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "LocoTrack Unavailable",
-                    format_locotrack_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "LocoTrack Unavailable",
-                    format_locotrack_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `locotrack` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        locotrack_params = dict(self.locotrack_params)
         locotrack_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_locotrack_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             locotrack_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with LocoTrack...",
-            cancel_event=cancel_event,
             method_label="LocoTrack re-tracking",
         )
 
@@ -1305,8 +1216,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("cotracker3_offline")
 
-        if not self.cotracker_params:
+        cotracker_params = self._tracker_params_for_spec(tracker_spec)
+        if not cotracker_params:
             QMessageBox.warning(
                 self,
                 "CoTracker3 Settings Missing",
@@ -1314,38 +1227,30 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_cotracker_environment(
-            models_dir=self.cotracker_params.get("cotracker3_models_dir"),
-            checkpoint_path=self.cotracker_params.get("checkpoint_path"),
-            repo_path=self.cotracker_params.get("repo_path")
-            or self.cotracker_params.get("cotracker3_repo_path")
-            or self.cotracker_params.get("cotracker_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=cotracker_params.get("cotracker3_models_dir"),
+            checkpoint_path=cotracker_params.get("checkpoint_path"),
+            repo_path=cotracker_params.get("repo_path")
+            or cotracker_params.get("cotracker3_repo_path")
+            or cotracker_params.get("cotracker_repo_path"),
         )
         if not status.is_ready:
             QMessageBox.warning(
                 self,
                 "CoTracker3 Unavailable",
-                format_cotracker_environment_report(status),
+                self._format_tracker_environment_report_for_spec(tracker_spec, status),
             )
             return
 
-        cotracker_params = dict(self.cotracker_params)
         cotracker_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_cotracker3_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             cotracker_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with CoTracker3...",
-            cancel_event=cancel_event,
             method_label="CoTracker3 re-tracking",
         )
 
@@ -1355,8 +1260,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("tapnext_offline")
 
-        if not self.tapnext_params:
+        tapnext_params = self._tracker_params_for_spec(tracker_spec)
+        if not tapnext_params:
             QMessageBox.warning(
                 self,
                 "TAPNext Settings Missing",
@@ -1364,36 +1271,28 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_tapnext_environment(
-            models_dir=self.tapnext_params.get("tapnext_models_dir"),
-            checkpoint_path=self.tapnext_params.get("checkpoint_path"),
-            repo_path=self.tapnext_params.get("repo_path") or self.tapnext_params.get("tapnext_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=tapnext_params.get("tapnext_models_dir"),
+            checkpoint_path=tapnext_params.get("checkpoint_path"),
+            repo_path=tapnext_params.get("repo_path") or tapnext_params.get("tapnext_repo_path"),
         )
         if not status.is_ready:
             QMessageBox.warning(
                 self,
                 "TAPNext Unavailable",
-                format_tapnext_environment_report(status),
+                self._format_tracker_environment_report_for_spec(tracker_spec, status),
             )
             return
 
-        tapnext_params = dict(self.tapnext_params)
         tapnext_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_tapnext_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             tapnext_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with TAPNext...",
-            cancel_event=cancel_event,
             method_label="TAPNext re-tracking",
         )
 
@@ -1403,8 +1302,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("trackonr_offline")
 
-        if not self.trackonr_params:
+        trackonr_params = self._tracker_params_for_spec(tracker_spec)
+        if not trackonr_params:
             QMessageBox.warning(
                 self,
                 "Track-On-R Settings Missing",
@@ -1412,17 +1313,18 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_trackonr_environment(
-            models_dir=self.trackonr_params.get("trackonr_models_dir"),
-            checkpoint_path=self.trackonr_params.get("checkpoint_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=trackonr_params.get("trackonr_models_dir"),
+            checkpoint_path=trackonr_params.get("checkpoint_path"),
             repo_path=(
-                self.trackonr_params.get("repo_path")
-                or self.trackonr_params.get("trackonr_repo_path")
-                or self.trackonr_params.get("track_on_repo_path")
+                trackonr_params.get("repo_path")
+                or trackonr_params.get("trackonr_repo_path")
+                or trackonr_params.get("track_on_repo_path")
             ),
         )
-        backend_mode = str(self.trackonr_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = self.trackonr_params.get("python_executable")
+        backend_mode = str(trackonr_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = trackonr_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
@@ -1437,7 +1339,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "Track-On-R Unavailable",
-                    format_trackonr_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1445,36 +1347,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "Track-On-R Unavailable",
-                    format_trackonr_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "Track-On-R Unavailable",
-                    format_trackonr_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `trackonr` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        trackonr_params = dict(self.trackonr_params)
         trackonr_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_trackonr_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             trackonr_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with Track-On-R...",
-            cancel_event=cancel_event,
             method_label="Track-On-R re-tracking",
         )
 
@@ -1484,8 +1377,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("pipspp_offline")
 
-        if not self.pipspp_params:
+        pipspp_params = self._tracker_params_for_spec(tracker_spec)
+        if not pipspp_params:
             QMessageBox.warning(
                 self,
                 "PIPs++ Settings Missing",
@@ -1493,13 +1388,14 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_pipspp_environment(
-            models_dir=self.pipspp_params.get("pipspp_models_dir"),
-            checkpoint_path=self.pipspp_params.get("checkpoint_path"),
-            repo_path=self.pipspp_params.get("repo_path") or self.pipspp_params.get("pipspp_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=pipspp_params.get("pipspp_models_dir"),
+            checkpoint_path=pipspp_params.get("checkpoint_path"),
+            repo_path=pipspp_params.get("repo_path") or pipspp_params.get("pipspp_repo_path"),
         )
-        backend_mode = str(self.pipspp_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = self.pipspp_params.get("python_executable")
+        backend_mode = str(pipspp_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = pipspp_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
@@ -1515,7 +1411,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "PIPs++ Unavailable",
-                    format_pipspp_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1523,36 +1419,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "PIPs++ Unavailable",
-                    format_pipspp_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "PIPs++ Unavailable",
-                    format_pipspp_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `pipspp` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        pipspp_params = dict(self.pipspp_params)
         pipspp_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_pipspp_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             pipspp_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with PIPs++...",
-            cancel_event=cancel_event,
             method_label="PIPs++ re-tracking",
         )
 
@@ -1562,8 +1449,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("mftiq_offline")
 
-        if not self.mftiq_params:
+        mftiq_params = self._tracker_params_for_spec(tracker_spec)
+        if not mftiq_params:
             QMessageBox.warning(
                 self,
                 "MFTIQ Settings Missing",
@@ -1571,14 +1460,15 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_mftiq_environment(
-            models_dir=self.mftiq_params.get("mftiq_models_dir"),
-            checkpoint_path=self.mftiq_params.get("checkpoint_path"),
-            repo_path=self.mftiq_params.get("repo_path") or self.mftiq_params.get("mftiq_repo_path"),
-            config_path=self.mftiq_params.get("config_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=mftiq_params.get("mftiq_models_dir"),
+            checkpoint_path=mftiq_params.get("checkpoint_path"),
+            repo_path=mftiq_params.get("repo_path") or mftiq_params.get("mftiq_repo_path"),
+            config_path=mftiq_params.get("config_path"),
         )
-        backend_mode = str(self.mftiq_params.get("backend_mode", "subprocess")).strip().lower()
-        python_executable = self.mftiq_params.get("python_executable")
+        backend_mode = str(mftiq_params.get("backend_mode", "subprocess")).strip().lower()
+        python_executable = mftiq_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
@@ -1594,7 +1484,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "MFTIQ Unavailable",
-                    format_mftiq_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1602,36 +1492,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "MFTIQ Unavailable",
-                    format_mftiq_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "MFTIQ Unavailable",
-                    format_mftiq_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `mftiq` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        mftiq_params = dict(self.mftiq_params)
         mftiq_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_mftiq_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             mftiq_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with MFTIQ...",
-            cancel_event=cancel_event,
             method_label="MFTIQ re-tracking",
         )
 
@@ -1641,8 +1522,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("cutie_offline")
 
-        if not self.cutie_params:
+        cutie_params = self._tracker_params_for_spec(tracker_spec)
+        if not cutie_params:
             QMessageBox.warning(
                 self,
                 "Cutie Settings Missing",
@@ -1658,13 +1541,14 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_cutie_environment(
-            models_dir=self.cutie_params.get("cutie_models_dir"),
-            checkpoint_path=self.cutie_params.get("checkpoint_path"),
-            repo_path=self.cutie_params.get("repo_path") or self.cutie_params.get("cutie_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=cutie_params.get("cutie_models_dir"),
+            checkpoint_path=cutie_params.get("checkpoint_path"),
+            repo_path=cutie_params.get("repo_path") or cutie_params.get("cutie_repo_path"),
         )
-        backend_mode = str(self.cutie_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = self.cutie_params.get("python_executable")
+        backend_mode = str(cutie_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = cutie_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(python_executable).expanduser().exists()
         )
@@ -1678,7 +1562,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "Cutie Unavailable",
-                    format_cutie_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1686,36 +1570,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "Cutie Unavailable",
-                    format_cutie_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "Cutie Unavailable",
-                    format_cutie_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `cutie` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        cutie_params = dict(self.cutie_params)
         cutie_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_cutie_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             cutie_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with Cutie...",
-            cancel_event=cancel_event,
             method_label="Cutie re-tracking",
         )
 
@@ -1725,6 +1600,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("xmem2_offline")
         start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
         if start_spot is None or not getattr(start_spot, "has_polygon_seed", False):
             QMessageBox.warning(
@@ -1734,7 +1610,8 @@ class TrackingDialog(QDialog):
             )
             return
 
-        if not self.xmem2_params:
+        xmem2_params = self._tracker_params_for_spec(tracker_spec)
+        if not xmem2_params:
             QMessageBox.warning(
                 self,
                 "XMem2 Settings Missing",
@@ -1742,13 +1619,14 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_xmem2_environment(
-            models_dir=self.xmem2_params.get("xmem2_models_dir"),
-            checkpoint_path=self.xmem2_params.get("checkpoint_path"),
-            repo_path=self.xmem2_params.get("repo_path") or self.xmem2_params.get("xmem2_repo_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=xmem2_params.get("xmem2_models_dir"),
+            checkpoint_path=xmem2_params.get("checkpoint_path"),
+            repo_path=xmem2_params.get("repo_path") or xmem2_params.get("xmem2_repo_path"),
         )
-        backend_mode = str(self.xmem2_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = self.xmem2_params.get("python_executable")
+        backend_mode = str(xmem2_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = xmem2_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(python_executable).expanduser().exists()
         )
@@ -1762,7 +1640,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "XMem2 Unavailable",
-                    format_xmem2_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1770,36 +1648,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "XMem2 Unavailable",
-                    format_xmem2_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "XMem2 Unavailable",
-                    format_xmem2_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `xmem2` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        xmem2_params = dict(self.xmem2_params)
         xmem2_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_xmem2_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             xmem2_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with XMem2...",
-            cancel_event=cancel_event,
             method_label="XMem2 re-tracking",
         )
 
@@ -1809,8 +1678,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("sam2_offline")
 
-        if not self.sam2_params:
+        sam2_params = self._tracker_params_for_spec(tracker_spec)
+        if not sam2_params:
             QMessageBox.warning(
                 self,
                 "SAM2 Settings Missing",
@@ -1818,21 +1689,23 @@ class TrackingDialog(QDialog):
             )
             return
 
-        status = probe_sam2_environment(
-            models_dir=self.sam2_params.get("sam2_models_dir"),
-            checkpoint_path=self.sam2_params.get("checkpoint_path"),
-            repo_path=self.sam2_params.get("repo_path") or self.sam2_params.get("sam2_repo_path"),
-            config_path=self.sam2_params.get("config_path"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=sam2_params.get("sam2_models_dir"),
+            checkpoint_path=sam2_params.get("checkpoint_path"),
+            repo_path=sam2_params.get("repo_path") or sam2_params.get("sam2_repo_path"),
+            config_path=sam2_params.get("config_path"),
         )
-        if not status.is_ready and self.sam2_params.get("config_path"):
-            status = probe_sam2_environment(
-                models_dir=self.sam2_params.get("sam2_models_dir"),
-                checkpoint_path=self.sam2_params.get("checkpoint_path"),
-                repo_path=self.sam2_params.get("repo_path") or self.sam2_params.get("sam2_repo_path"),
+        if not status.is_ready and sam2_params.get("config_path"):
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=sam2_params.get("sam2_models_dir"),
+                checkpoint_path=sam2_params.get("checkpoint_path"),
+                repo_path=sam2_params.get("repo_path") or sam2_params.get("sam2_repo_path"),
                 config_path=None,
             )
-        backend_mode = str(self.sam2_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = self.sam2_params.get("python_executable")
+        backend_mode = str(sam2_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = sam2_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(python_executable).expanduser().exists()
         )
@@ -1848,7 +1721,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "SAM2 Unavailable",
-                    format_sam2_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1856,36 +1729,27 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     "SAM2 Unavailable",
-                    format_sam2_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (status.is_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     "SAM2 Unavailable",
-                    format_sam2_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `sam2` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        sam2_params = dict(self.sam2_params)
         sam2_params["roi_size"] = self.roi_size
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_sam2_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             sam2_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title="Re-tracking spot with SAM2...",
-            cancel_event=cancel_event,
             method_label="SAM2 re-tracking",
         )
 
@@ -1895,8 +1759,10 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("tomp_offline")
 
-        if not self.tomp_params:
+        tomp_params = self._tracker_params_for_spec(tracker_spec)
+        if not tomp_params:
             QMessageBox.warning(
                 self,
                 "ToMP Settings Missing",
@@ -1909,7 +1775,7 @@ class TrackingDialog(QDialog):
             return
 
         variant_value = (
-            self.tomp_params.get("model_variant")
+            tomp_params.get("model_variant")
             or getattr(start_spot, "tomp_model_variant", None)
             or ("tamos_resnet50" if str(getattr(start_spot, "source", "")).strip().lower() == "tamos_offline" else "tomp50")
         )
@@ -1927,28 +1793,29 @@ class TrackingDialog(QDialog):
             model_variant = "tomp50"
             variant_label = "ToMP"
 
-        status = probe_tomp_environment(
-            tomp_models_dir=self.tomp_params.get("tomp_models_dir"),
-            tamos_models_dir=self.tomp_params.get("tamos_models_dir"),
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            tomp_models_dir=tomp_params.get("tomp_models_dir"),
+            tamos_models_dir=tomp_params.get("tamos_models_dir"),
             tomp_checkpoint_path=(
-                self.tomp_params.get("checkpoint_path")
+                tomp_params.get("checkpoint_path")
                 if model_variant not in {"tamos_resnet50", "tamos_swin_base"}
                 else None
             ),
             tamos_checkpoint_path=(
-                self.tomp_params.get("checkpoint_path")
+                tomp_params.get("checkpoint_path")
                 if model_variant in {"tamos_resnet50", "tamos_swin_base"}
                 else None
             ),
             repo_path=(
-                self.tomp_params.get("repo_path")
-                or self.tomp_params.get("tomp_repo_path")
-                or self.tomp_params.get("pytracking_repo_path")
+                tomp_params.get("repo_path")
+                or tomp_params.get("tomp_repo_path")
+                or tomp_params.get("pytracking_repo_path")
             ),
         )
 
-        backend_mode = str(self.tomp_params.get("backend_mode") or "subprocess").strip().lower()
-        python_executable = self.tomp_params.get("python_executable")
+        backend_mode = str(tomp_params.get("backend_mode") or "subprocess").strip().lower()
+        python_executable = tomp_params.get("python_executable")
         python_path_ok = bool(
             python_executable and Path(str(python_executable)).expanduser().exists()
         )
@@ -1974,7 +1841,7 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     f"{variant_label} Unavailable",
-                    format_tomp_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
         else:
@@ -1982,37 +1849,28 @@ class TrackingDialog(QDialog):
                 QMessageBox.warning(
                     self,
                     f"{variant_label} Unavailable",
-                    format_tomp_environment_report(status),
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status),
                 )
                 return
             if not (variant_ready or python_path_ok):
                 QMessageBox.warning(
                     self,
                     f"{variant_label} Unavailable",
-                    format_tomp_environment_report(status)
+                    self._format_tracker_environment_report_for_spec(tracker_spec, status)
                     + "\n\nSet the Python executable of the dedicated `tomp` env "
                     "or run Trackleed from that environment.",
                 )
                 return
 
-        tomp_params = dict(self.tomp_params)
         tomp_params["roi_size"] = self.roi_size
         tomp_params["model_variant"] = model_variant
 
-        cancel_event = Event()
-        worker = GenericWorker(
-            retrack_single_spot_tomp_offline,
+        self._launch_registered_retrack(
+            tracker_spec,
             track_to_retrack,
             current_frame_id,
-            self.file_map,
-            self.sorted_frame_ids,
             tomp_params,
-            cancel_event=cancel_event,
-        )
-        self.launch_retrack_worker(
-            worker,
             title=f"Re-tracking spot with {variant_label}...",
-            cancel_event=cancel_event,
             method_label=f"{variant_label} re-tracking",
         )
 
