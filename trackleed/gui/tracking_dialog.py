@@ -138,6 +138,7 @@ POINT_TRACKER_DETAIL_SPECS = {
 MASK_TRACKER_DETAIL_SPECS = {
     "cutie_offline": {
         "prefix": "cutie",
+        "focus_label": "CUTIE",
         "include_initial_mask_mode": True,
         "include_memory_anchor": True,
         "include_prompt_mode": False,
@@ -145,6 +146,7 @@ MASK_TRACKER_DETAIL_SPECS = {
     },
     "xmem2_offline": {
         "prefix": "xmem2",
+        "focus_label": "XMEM2",
         "include_initial_mask_mode": True,
         "include_memory_anchor": False,
         "include_prompt_mode": False,
@@ -152,6 +154,7 @@ MASK_TRACKER_DETAIL_SPECS = {
     },
     "sam2_offline": {
         "prefix": "sam2",
+        "focus_label": "SAM2",
         "include_initial_mask_mode": False,
         "include_memory_anchor": False,
         "include_prompt_mode": True,
@@ -159,6 +162,7 @@ MASK_TRACKER_DETAIL_SPECS = {
     },
     "deva_offline": {
         "prefix": "deva",
+        "focus_label": "DEVA",
         "include_initial_mask_mode": True,
         "include_memory_anchor": False,
         "include_prompt_mode": False,
@@ -644,26 +648,15 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, f"{spec['prefix']}_raw_x", None)
             raw_y = getattr(spot, f"{spec['prefix']}_raw_y", None)
             label = f"{spec['focus_label']} T{track.track_id}"
-        elif source == "cutie_offline":
-            raw_x = getattr(spot, "cutie_raw_x", None)
-            raw_y = getattr(spot, "cutie_raw_y", None)
-            label = f"CUTIE T{track.track_id}"
-        elif source == "xmem2_offline":
-            raw_x = getattr(spot, "xmem2_raw_x", None)
-            raw_y = getattr(spot, "xmem2_raw_y", None)
-            label = f"XMEM2 T{track.track_id}"
+        elif source in MASK_TRACKER_DETAIL_SPECS:
+            mask_spec = MASK_TRACKER_DETAIL_SPECS[source]
+            raw_x = getattr(spot, f"{mask_spec['prefix']}_raw_x", None)
+            raw_y = getattr(spot, f"{mask_spec['prefix']}_raw_y", None)
+            label = f"{mask_spec['focus_label']} T{track.track_id}"
         elif source in {"tomp_offline", "tamos_offline"}:
             raw_x = getattr(spot, "tomp_raw_x", None)
             raw_y = getattr(spot, "tomp_raw_y", None)
             label = f"{'TAMOS' if source == 'tamos_offline' else 'TOMP'} T{track.track_id}"
-        elif source == "sam2_offline":
-            raw_x = getattr(spot, "sam2_raw_x", None)
-            raw_y = getattr(spot, "sam2_raw_y", None)
-            label = f"SAM2 T{track.track_id}"
-        elif source == "deva_offline":
-            raw_x = getattr(spot, "deva_raw_x", None)
-            raw_y = getattr(spot, "deva_raw_y", None)
-            label = f"DEVA T{track.track_id}"
         else:
             return []
 

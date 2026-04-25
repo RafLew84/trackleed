@@ -152,6 +152,12 @@ class TrackingDialogImportMixin:
                 run_retrack=lambda *args, **kwargs: ("xmem2_offline", args, kwargs),
                 has_visualizer_retrack=True,
             ),
+            "deva_offline": SimpleNamespace(
+                tracker_id="deva_offline",
+                params_argument_name="deva_params",
+                run_retrack=lambda *args, **kwargs: ("deva_offline", args, kwargs),
+                has_visualizer_retrack=False,
+            ),
         }
 
         source_to_spec = {
@@ -161,6 +167,7 @@ class TrackingDialogImportMixin:
             "tamos_offline": tracker_specs["tomp_offline"],
             "sam2_offline": tracker_specs["sam2_offline"],
             "xmem2_offline": tracker_specs["xmem2_offline"],
+            "deva_offline": tracker_specs["deva_offline"],
         }
 
         tracker_registry_module = types.ModuleType("trackleed.gui.tracker_registry")
@@ -392,3 +399,81 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
                 5,
             )
 
+
+class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        self.module, self.tracker_specs = self.import_tracking_dialog()
+
+    def _dialog_with_detail_helpers(self):
+        dialog = SimpleNamespace()
+        dialog._append_formatted_value_line = types.MethodType(
+            self.module.TrackingDialog._append_formatted_value_line,
+            dialog,
+        )
+        dialog._append_mask_tracker_detail_lines = types.MethodType(
+            self.module.TrackingDialog._append_mask_tracker_detail_lines,
+            dialog,
+        )
+        dialog._normalized_source_name = types.MethodType(
+            self.module.TrackingDialog._normalized_source_name,
+            dialog,
+        )
+        dialog._build_focus_point_payload_for_spot = types.MethodType(
+            self.module.TrackingDialog._build_focus_point_payload_for_spot,
+            dialog,
+        )
+        return dialog
+
+    def test_deva_detail_lines_expose_mask_metadata_and_filter_reason(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        spot = SimpleNamespace(
+            source="deva_offline",
+            center_x=12.0,
+            center_y=34.0,
+            deva_raw_x=12.345,
+            deva_raw_y=34.567,
+            deva_refined_x=12.0,
+            deva_refined_y=34.0,
+            deva_visibility=True,
+            deva_repr_mode="mask_centroid",
+            deva_initial_mask_mode="bbox",
+            deva_mask_area=123.4,
+            deva_mask_score=1.0,
+            deva_mask_bbox_xyxy=(3.0, 4.0, 13.0, 16.0),
+            deva_mask_bbox_aspect_ratio=0.8333333,
+            deva_filter_rejected_reason="max_bbox_center_jump",
+        )
+        lines: list[str] = []
+
+        handled = dialog._append_mask_tracker_detail_lines(
+            lines,
+            spot,
+            source="deva_offline",
+        )
+
+        self.assertTrue(handled)
+        self.assertIn("Representative point: (12.35, 34.57)", lines)
+        self.assertIn("Stored point: (12.00, 34.00)", lines)
+        self.assertIn("Visible: yes", lines)
+        self.assertIn("Representative mode: mask_centroid", lines)
+        self.assertIn("Initial mask mode: bbox", lines)
+        self.assertIn("Mask area: 123.4", lines)
+        self.assertIn("Mask score: 1.000", lines)
+        self.assertIn("Mask bbox: x0=3.0, y0=4.0, x1=13.0, y1=16.0", lines)
+        self.assertIn("BBox aspect ratio: 0.833", lines)
+        self.assertIn("Filter: rejected (max_bbox_center_jump)", lines)
+
+    def test_deva_focus_point_uses_mask_tracker_spec(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        track = SimpleNamespace(track_id=9)
+        spot = SimpleNamespace(
+            source="deva_offline",
+            center_x=10.0,
+            center_y=11.0,
+            deva_raw_x=20.5,
+            deva_raw_y=21.5,
+        )
+
+        payload = dialog._build_focus_point_payload_for_spot(track, spot)
+
+        self.assertEqual(payload, [{"x": 20.5, "y": 21.5, "label": "DEVA T9"}])
