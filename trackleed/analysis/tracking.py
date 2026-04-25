@@ -3901,12 +3901,6 @@ def _legacy_track_spots_tapir_offline(
         raise ValueError("Reference frame must contain at least one defined spot.")
     if reference_frame_id not in sorted_frame_ids:
         raise ValueError("Reference frame is missing from the provided frame list.")
-    missing_polygon_seed_ids = _collect_missing_polygon_seed_spot_ids(ref_file.spots)
-    if missing_polygon_seed_ids:
-        raise ValueError(
-            "Offline Cutie requires a polygon seed for every reference spot. "
-            f"Missing polygon for spot IDs: {', '.join(str(v) for v in missing_polygon_seed_ids)}."
-        )
 
     ref_index = sorted_frame_ids.index(reference_frame_id)
     subset_frame_ids = sorted_frame_ids[ref_index:]

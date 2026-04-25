@@ -769,6 +769,8 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.assertIsNotNone(fake._tracking_progress_dialog)
 
     def test_default_subprocess_python_executables_are_filled_from_conda_envs(self) -> None:
+        self.assertEqual(self.main_window.CutieTrackingSettings().backend_mode, "subprocess")
+
         with tempfile.TemporaryDirectory() as temp_dir:
             conda_root = Path(temp_dir)
             locotrack_python = conda_root / "envs" / "locotrack-pytorch" / "python.exe"

@@ -17,8 +17,6 @@ import time
 
 import numpy as np
 
-from trackleed.analysis.tracking_filter_utils import presence_score_is_accepted
-
 
 DEFAULT_TOMP_MODELS_DIR = Path("tracking_models") / "tomp"
 DEFAULT_TAMOS_MODELS_DIR = Path("tracking_models") / "tamos"
@@ -41,6 +39,17 @@ TAMOS_CHECKPOINT_PRIORITY = (
     DEFAULT_TAMOS_SWIN_BASE_CHECKPOINT,
 )
 PYTRACKING_IMPORT_ROOTS = ("pytracking", "ltr")
+
+
+def presence_score_is_accepted(
+    score: float,
+    *,
+    use_presence_score_gating: bool,
+    presence_threshold: float,
+) -> bool:
+    if not use_presence_score_gating:
+        return True
+    return bool(np.isfinite(score) and float(score) >= float(presence_threshold))
 
 
 @dataclass

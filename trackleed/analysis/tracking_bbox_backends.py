@@ -23,6 +23,7 @@ from trackleed.analysis.tracking_family_adapters import (
 )
 from trackleed.analysis.tracking_filter_utils import (
     build_bbox_mask_motion_tracking_state,
+    read_bbox_quality_filter_params,
 )
 from trackleed.analysis.tracking_retrack_utils import (
     finish_retrack_if_too_short,

@@ -364,7 +364,7 @@ class CutieTrackingSettings:
     checkpoint_path: str | None = None
     python_executable: str | None = None
     device: str = "auto"
-    backend_mode: str = "direct"
+    backend_mode: str = "subprocess"
     representative_point_mode: str = "mask_centroid"
     inference_resolution: int | None = None
     window_size: int = 64
