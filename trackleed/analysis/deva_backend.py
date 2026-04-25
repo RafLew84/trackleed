@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 import importlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -557,6 +558,7 @@ def _run_deva_subprocess_offline(
             text=True,
             check=False,
             timeout=float(settings.subprocess_timeout_sec),
+            env=_build_windows_conda_subprocess_env(python_executable),
         )
         if completed.returncode != 0:
             payload = {
@@ -1040,6 +1042,28 @@ def _resolve_deva_python_executable(python_executable: str | Path | None) -> Pat
     if python_executable:
         return Path(python_executable).expanduser().resolve()
     return Path(sys.executable).resolve()
+
+
+def _build_windows_conda_subprocess_env(python_executable: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    if os.name != "nt":
+        return env
+
+    exe_path = Path(python_executable).expanduser().resolve()
+    env_root = exe_path.parent
+    dll_dirs = [
+        env_root,
+        env_root / "Library" / "bin",
+        env_root / "DLLs",
+        env_root / "Scripts",
+        env_root / "Lib" / "site-packages" / "torch" / "lib",
+    ]
+    existing = [str(path) for path in dll_dirs if path.exists()]
+    current_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join(existing + ([current_path] if current_path else []))
+    env.setdefault("CONDA_PREFIX", str(env_root))
+    env.setdefault("CONDA_DEFAULT_ENV", env_root.name)
+    return env
 
 
 def _resolve_example_vos_path(repo_path: Path | None) -> Optional[Path]:

@@ -156,7 +156,7 @@ class TrackingDialogImportMixin:
                 tracker_id="deva_offline",
                 params_argument_name="deva_params",
                 run_retrack=lambda *args, **kwargs: ("deva_offline", args, kwargs),
-                has_visualizer_retrack=False,
+                has_visualizer_retrack=True,
             ),
         }
 
@@ -369,6 +369,7 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             initiate_retrack_xmem2=lambda spot_id: calls.append(("xmem2", spot_id)),
             initiate_retrack_tomp=lambda spot_id: calls.append(("tomp", spot_id)),
             initiate_retrack_sam2=lambda spot_id: calls.append(("sam2", spot_id)),
+            initiate_retrack_deva=lambda spot_id: calls.append(("deva", spot_id)),
         )
 
         self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
@@ -386,8 +387,13 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             self.tracker_specs["sam2_offline"],
             33,
         )
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["deva_offline"],
+            44,
+        )
 
-        self.assertEqual(calls, [("tapir", 11), ("tomp", 22), ("sam2", 33)])
+        self.assertEqual(calls, [("tapir", 11), ("tomp", 22), ("sam2", 33), ("deva", 44)])
 
     def test_initiate_retrack_for_tracker_spec_rejects_unknown_tracker(self) -> None:
         dialog = SimpleNamespace()

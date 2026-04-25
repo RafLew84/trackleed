@@ -421,7 +421,6 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         run_retrack=retrack_single_spot_deva_offline,
         supports_direct=True,
         supports_subprocess=True,
-        has_visualizer_retrack=False,
         settings_attr_name="deva_settings",
         params_argument_name="deva_params",
         panel_group_attr="deva_group",

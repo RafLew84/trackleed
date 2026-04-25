@@ -135,8 +135,46 @@ class DevaBackendTests(unittest.TestCase):
         self.assertEqual(result.inference_size, 320)
         self.assertEqual(result.initial_mask_mode, "point_disk")
         command = run_mock.call_args.args[0]
+        run_kwargs = run_mock.call_args.kwargs
         self.assertIn("--inference-size", command)
         self.assertIn("320", command)
+        self.assertIn("env", run_kwargs)
+        self.assertIn("timeout", run_kwargs)
+        self.assertEqual(run_kwargs["timeout"], settings.subprocess_timeout_sec)
+
+    def test_run_deva_subprocess_reports_runner_failure_context(self) -> None:
+        frames = np.zeros((2, 5, 6, 3), dtype=np.uint8)
+        query_points = np.asarray([[0.0, 2.0, 3.0]], dtype=np.float32)
+        settings = deva_backend.DevaRuntimeSettings(
+            checkpoint_path="DEVA-propagation.pth",
+            repo_path="C:/repo/deva",
+            python_executable=sys.executable,
+            backend_mode="subprocess",
+        )
+
+        def fake_run(command, **kwargs):
+            return mock.Mock(
+                returncode=3,
+                stdout="runner stdout",
+                stderr="runner stderr",
+            )
+
+        with mock.patch.object(deva_backend.subprocess, "run", side_effect=fake_run):
+            with self.assertRaises(RuntimeError) as error_context:
+                deva_backend.run_deva_offline(frames, query_points, settings)
+
+        message = str(error_context.exception)
+        self.assertIn("DEVA subprocess inference failed", message)
+        self.assertIn("run_deva_subprocess.py", message)
+        self.assertIn('"returncode": 3', message)
+        self.assertIn("runner stdout", message)
+        self.assertIn("runner stderr", message)
+
+    def test_subprocess_env_builder_returns_process_environment(self) -> None:
+        env = deva_backend._build_windows_conda_subprocess_env(Path(sys.executable))
+
+        self.assertIsInstance(env, dict)
+        self.assertIn("PATH", env)
 
     def test_checkpoint_discovery_uses_tracking_models_deva_only(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -163,6 +201,37 @@ class DevaBackendTests(unittest.TestCase):
 
         self.assertEqual(discovered, [preferred_checkpoint.resolve()])
         self.assertEqual(resolved, preferred_checkpoint.resolve())
+
+    def test_run_deva_subprocess_imports_without_pyqt(self) -> None:
+        script_path = Path(__file__).resolve().parents[2] / "scripts" / "run_deva_subprocess.py"
+        original_pyqt_modules = {
+            module_name: sys.modules.get(module_name)
+            for module_name in ("PyQt6", "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets")
+        }
+        try:
+            for module_name in original_pyqt_modules:
+                sys.modules.pop(module_name, None)
+
+            spec = importlib.util.spec_from_file_location(
+                "_trackleed_run_deva_subprocess_import_test",
+                script_path,
+            )
+            self.assertIsNotNone(spec)
+            self.assertIsNotNone(spec.loader)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            spec.loader.exec_module(module)
+
+            self.assertTrue(callable(module.main))
+            self.assertTrue(callable(module._bootstrap_windows_conda_dlls))
+            self.assertNotIn("PyQt6", sys.modules)
+        finally:
+            sys.modules.pop("_trackleed_run_deva_subprocess_import_test", None)
+            for module_name, original_module in original_pyqt_modules.items():
+                if original_module is None:
+                    sys.modules.pop(module_name, None)
+                else:
+                    sys.modules[module_name] = original_module
 
     def test_check_deva_env_bootstraps_trackleed_root_when_run_as_script(self) -> None:
         script_path = Path(__file__).resolve().parents[2] / "scripts" / "check_deva_env.py"

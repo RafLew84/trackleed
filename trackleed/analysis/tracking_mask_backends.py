@@ -1337,9 +1337,301 @@ def retrack_single_spot_deva_offline(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: Optional[Event] = None,
 ) -> Optional[Track]:
-    raise NotImplementedError(
-        "DEVA visualizer retrack is not wired yet. Run Offline DEVA from a reference frame."
+    support = _tracking_support()
+
+    retrack_start = prepare_retrack_start_context(
+        track_to_update,
+        start_frame_id=start_frame_id,
+        sorted_frame_ids=sorted_frame_ids,
+        operation_label="DEVA re-tracking",
     )
+    start_spot = retrack_start.start_spot
+    subset_frame_ids = retrack_start.subset_frame_ids
+    early_return = finish_retrack_if_too_short(
+        track_to_update,
+        subset_frame_ids=subset_frame_ids,
+        progress_callback=progress_callback,
+    )
+    if early_return is not None:
+        return early_return
+
+    repo_path = params.get("repo_path") or params.get("deva_repo_path")
+    deva_models_dir = Path(params.get("deva_models_dir", DEFAULT_DEVA_MODELS_DIR))
+    checkpoint_path = params.get("checkpoint_path")
+    if not checkpoint_path:
+        detected_checkpoints = discover_deva_checkpoints(
+            deva_models_dir,
+            repo_path=repo_path,
+        )
+        selected_checkpoint = select_default_deva_checkpoint(detected_checkpoints)
+        checkpoint_path = str(selected_checkpoint) if selected_checkpoint is not None else None
+    if not checkpoint_path:
+        raise ValueError(
+            "No DEVA checkpoint selected. Place `DEVA-propagation.pth` in tracking_models/deva "
+            "and pass checkpoint_path in params."
+        )
+
+    query_points = np.array(
+        [[0.0, float(start_spot.center_y), float(start_spot.center_x)]],
+        dtype=np.float32,
+    )
+    start_rect = start_spot.roi_rect
+    query_boxes = np.array(
+        [[
+            float(start_rect.left()),
+            float(start_rect.top()),
+            float(start_rect.left() + start_rect.width()),
+            float(start_rect.top() + start_rect.height()),
+        ]],
+        dtype=np.float32,
+    )
+
+    deva_settings = DevaRuntimeSettings(
+        repo_path=repo_path,
+        checkpoint_path=checkpoint_path,
+        python_executable=params.get("python_executable"),
+        device=params.get("device", "auto"),
+        backend_mode=params.get("backend_mode", "subprocess"),
+        representative_point_mode=params.get("representative_point_mode", "mask_centroid"),
+        inference_size=params.get("inference_size", params.get("inference_resolution", 480)),
+        initial_bbox_padding_px=float(params.get("initial_bbox_padding_px", 0.0)),
+        initial_point_radius_px=float(params.get("initial_point_radius_px", 4.0)),
+        amp=bool(params.get("amp", True)),
+        chunk_size=int(params.get("chunk_size", 4)),
+        subprocess_timeout_sec=float(params.get("subprocess_timeout_sec", 1800.0)),
+    )
+
+    start_file = all_files_map.get(start_frame_id)
+    family_context = build_mask_family_adapter_context(
+        params,
+        all_files_map=all_files_map,
+        subset_frame_ids=subset_frame_ids,
+        anchor_filepath=str(start_file.filepath) if start_file is not None else None,
+        estimate_pattern_center_fn=_tracking_support().estimate_pattern_center_from_detections,
+    )
+    keep_invisible_as_gaps = family_context.keep_invisible_as_gaps
+    roi_size = family_context.roi_size
+    motion_filter_params = family_context.motion_filter_params
+    max_step_distance_px = motion_filter_params["max_step_distance_px"]
+    max_reacquisition_gap = motion_filter_params["max_reacquisition_gap"]
+    terminate_after_invisible_frames = motion_filter_params["terminate_after_invisible_frames"]
+    quality_filter_params = family_context.quality_filter_params
+    max_mask_area_ratio_change = quality_filter_params["max_mask_area_ratio_change"]
+    max_bbox_aspect_ratio_change = quality_filter_params["max_bbox_aspect_ratio_change"]
+    max_bbox_center_jump_px = quality_filter_params["max_bbox_center_jump_px"]
+    direction_filter = family_context.direction_filter
+    direction_center_xy = direction_filter.direction_center_xy
+    direction_mode = direction_filter.direction_mode
+    lateral_angle_tolerance_deg = direction_filter.lateral_angle_tolerance_deg
+    max_radial_jump_px = direction_filter.max_radial_jump_px
+    min_directional_motion_px = direction_filter.min_directional_motion_px
+    window_size = family_context.window_size
+    window_overlap = family_context.window_overlap
+
+    start_mask_area = getattr(start_spot, "deva_mask_area", None)
+    if not (
+        start_mask_area is not None
+        and np.isfinite(float(start_mask_area))
+        and float(start_mask_area) > 0.0
+    ):
+        start_mask_area = float(start_rect.width() * start_rect.height())
+    start_bbox_xyxy = getattr(start_spot, "deva_mask_bbox_xyxy", None)
+    start_bbox_center_xy, start_bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(
+        start_bbox_xyxy
+    )
+    if start_bbox_aspect_ratio is None:
+        start_bbox_aspect_ratio = (
+            float(start_rect.width()) / float(start_rect.height())
+            if start_rect.height() > 0
+            else None
+        )
+    if start_bbox_center_xy is None:
+        start_bbox_center_xy = np.array(
+            [float(start_spot.center_x), float(start_spot.center_y)],
+            dtype=np.float32,
+        )
+
+    state = _build_mask_tracking_state_from_values(
+        start_spot,
+        mask_area=float(start_mask_area),
+        bbox_aspect_ratio=start_bbox_aspect_ratio,
+        bbox_center_xy=np.asarray(start_bbox_center_xy, dtype=np.float32),
+    )
+
+    if window_size <= 1 or window_size >= len(subset_frame_ids):
+        loaded = support._load_frames_for_tapir(
+            all_files_map,
+            subset_frame_ids,
+            progress_callback=progress_callback,
+            cancel_event=cancel_event,
+        )
+        if loaded is None:
+            return None
+        frames, frame_shapes = loaded
+
+        if progress_callback:
+            progress_callback(45)
+        result = run_deva_offline(
+            frames=frames,
+            query_points_tyx=query_points,
+            settings=deva_settings,
+            query_boxes_xyxy=query_boxes,
+        )
+
+        if cancel_event and cancel_event.is_set():
+            return None
+        if progress_callback:
+            progress_callback(90)
+
+        ok = support._append_deva_sequence_to_track(
+            track_to_update,
+            state,
+            start_spot,
+            subset_frame_ids,
+            frame_shapes,
+            result.tracks_xy[0],
+            result.visible_mask[0],
+            result.mask_areas[0],
+            result.mask_bboxes_xyxy[0],
+            result.mask_scores[0],
+            roi_size=roi_size,
+            keep_invisible_as_gaps=keep_invisible_as_gaps,
+            representative_point_mode=result.representative_point_mode,
+            initial_mask_mode=result.initial_mask_mode,
+            max_step_distance_px=max_step_distance_px,
+            max_reacquisition_gap=max_reacquisition_gap,
+            terminate_after_invisible_frames=terminate_after_invisible_frames,
+            max_mask_area_ratio_change=max_mask_area_ratio_change,
+            max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+            max_bbox_center_jump_px=max_bbox_center_jump_px,
+            direction_center_xy=direction_center_xy,
+            direction_mode=direction_mode,
+            lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+            max_radial_jump_px=max_radial_jump_px,
+            min_directional_motion_px=min_directional_motion_px,
+            cancel_event=cancel_event,
+            start_local_idx=1,
+            min_global_write_idx=None,
+            global_start_idx=0,
+        )
+        if not ok:
+            return None
+    else:
+        if progress_callback:
+            progress_callback(10)
+
+        window_context = build_reseed_tracking_window_context(
+            subset_frame_ids,
+            window_size,
+            window_overlap,
+        )
+        window_plans = window_context.plans
+        covered_until = 0
+
+        for window in window_plans:
+            if cancel_event and cancel_event.is_set():
+                return None
+
+            window_idx = window.index
+            start_idx = window.start_idx
+            end_idx = window.end_idx
+            window_frame_ids = window.frame_ids
+
+            loaded_window = support._load_frames_for_tapir(
+                all_files_map,
+                window_frame_ids,
+                progress_callback=None,
+                cancel_event=cancel_event,
+            )
+            if loaded_window is None:
+                return None
+            window_frames, window_shapes = loaded_window
+
+            seed_local_idx = None
+            seed_spot = None
+            query_seed_ids = window.seed_frame_ids
+            for local_idx, frame_id in enumerate(window_frame_ids):
+                if frame_id not in query_seed_ids:
+                    break
+                candidate = track_to_update.spots_by_image_id.get(frame_id)
+                if candidate is None:
+                    continue
+                seed_local_idx = local_idx
+                seed_spot = candidate
+                break
+
+            if seed_spot is None or seed_local_idx is None:
+                covered_until = advance_window_coverage(covered_until, end_idx)
+                continue
+            if seed_local_idx >= len(window_frame_ids) - 1:
+                covered_until = advance_window_coverage(covered_until, end_idx)
+                continue
+
+            if progress_callback:
+                base = 10.0 + (window_idx / max(1, len(window_plans))) * 75.0
+                progress_callback(int(base))
+
+            seed_rect = seed_spot.roi_rect
+            sliced_frames = window_frames[seed_local_idx:]
+            sliced_frame_ids = window_frame_ids[seed_local_idx:]
+            sliced_frame_shapes = window_shapes[seed_local_idx:]
+            result = run_deva_offline(
+                frames=sliced_frames,
+                query_points_tyx=np.asarray(
+                    [[0.0, float(seed_spot.center_y), float(seed_spot.center_x)]],
+                    dtype=np.float32,
+                ),
+                settings=deva_settings,
+                query_boxes_xyxy=np.asarray(
+                    [[
+                        float(seed_rect.left()),
+                        float(seed_rect.top()),
+                        float(seed_rect.left() + seed_rect.width()),
+                        float(seed_rect.top() + seed_rect.height()),
+                    ]],
+                    dtype=np.float32,
+                ),
+            )
+
+            ok = support._append_deva_sequence_to_track(
+                track_to_update,
+                state,
+                start_spot,
+                sliced_frame_ids,
+                sliced_frame_shapes,
+                result.tracks_xy[0],
+                result.visible_mask[0],
+                result.mask_areas[0],
+                result.mask_bboxes_xyxy[0],
+                result.mask_scores[0],
+                roi_size=roi_size,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                representative_point_mode=result.representative_point_mode,
+                initial_mask_mode=result.initial_mask_mode,
+                max_step_distance_px=max_step_distance_px,
+                max_reacquisition_gap=max_reacquisition_gap,
+                terminate_after_invisible_frames=terminate_after_invisible_frames,
+                max_mask_area_ratio_change=max_mask_area_ratio_change,
+                max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+                max_bbox_center_jump_px=max_bbox_center_jump_px,
+                direction_center_xy=direction_center_xy,
+                direction_mode=direction_mode,
+                lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+                max_radial_jump_px=max_radial_jump_px,
+                min_directional_motion_px=min_directional_motion_px,
+                cancel_event=cancel_event,
+                start_local_idx=1,
+                min_global_write_idx=covered_until,
+                global_start_idx=start_idx + seed_local_idx,
+            )
+            if not ok:
+                return None
+
+            covered_until = advance_window_coverage(covered_until, end_idx)
+
+    if progress_callback:
+        progress_callback(100)
+    return track_to_update
 
 
 def retrack_single_spot_sam2_offline(

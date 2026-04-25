@@ -4,8 +4,34 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
+
+
+def _bootstrap_windows_conda_dlls() -> None:
+    if os.name != "nt" or not hasattr(os, "add_dll_directory"):
+        return
+    env_root = Path(sys.executable).resolve().parent
+    dll_dirs = [
+        env_root,
+        env_root / "Library" / "bin",
+        env_root / "DLLs",
+        env_root / "Scripts",
+        env_root / "Lib" / "site-packages" / "torch" / "lib",
+    ]
+    existing = [str(path) for path in dll_dirs if path.exists()]
+    current_path = os.environ.get("PATH", "")
+    if existing:
+        os.environ["PATH"] = os.pathsep.join(existing + ([current_path] if current_path else []))
+    for directory in existing:
+        try:
+            os.add_dll_directory(directory)
+        except (FileNotFoundError, OSError):
+            continue
+
+
+_bootstrap_windows_conda_dlls()
 
 import numpy as np
 

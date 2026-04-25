@@ -77,6 +77,7 @@ TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
     "xmem2_offline": "initiate_retrack_xmem2",
     "tomp_offline": "initiate_retrack_tomp",
     "sam2_offline": "initiate_retrack_sam2",
+    "deva_offline": "initiate_retrack_deva",
 }
 
 TRACKER_UNAVAILABLE_TITLE_BY_ID = {
@@ -1705,6 +1706,55 @@ class TrackingDialog(QDialog):
             sam2_params,
             title="Re-tracking spot with SAM2...",
             method_label="SAM2 re-tracking",
+        )
+
+    def initiate_retrack_deva(self, spot_id: int):
+        """Prepares and launches DEVA re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("deva_offline")
+
+        deva_params = self._tracker_params_for_spec(tracker_spec)
+        if not deva_params:
+            QMessageBox.warning(
+                self,
+                "DEVA Settings Missing",
+                "DEVA parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=deva_params.get("deva_models_dir"),
+            checkpoint_path=deva_params.get("checkpoint_path"),
+            repo_path=deva_params.get("repo_path") or deva_params.get("deva_repo_path"),
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            deva_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
+
+        deva_params["roi_size"] = self.roi_size
+
+        self._launch_registered_retrack(
+            tracker_spec,
+            track_to_retrack,
+            current_frame_id,
+            deva_params,
+            title="Re-tracking spot with DEVA...",
+            method_label="DEVA re-tracking",
         )
 
     def initiate_retrack_tomp(self, spot_id: int):

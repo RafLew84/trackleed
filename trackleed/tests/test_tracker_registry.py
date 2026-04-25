@@ -208,14 +208,14 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
             tomp_spec,
         )
 
-    def test_deva_is_registered_as_subprocess_mask_tracker_without_visualizer_retrack(self) -> None:
+    def test_deva_is_registered_as_subprocess_mask_tracker_with_visualizer_retrack(self) -> None:
         spec = self.registry.require_tracker_spec("deva_offline")
 
         self.assertEqual(spec.scenario_name, "Offline DEVA")
         self.assertEqual(spec.family, "mask")
         self.assertTrue(spec.supports_subprocess)
         self.assertTrue(spec.supports_direct)
-        self.assertFalse(spec.has_visualizer_retrack)
+        self.assertTrue(spec.has_visualizer_retrack)
         self.assertEqual(spec.default_conda_env_name, "deva")
 
     def test_require_helpers_raise_for_unknown_values(self) -> None:

@@ -351,6 +351,108 @@ class DevaTrackingWindowingTests(unittest.TestCase):
         self.assertEqual(fake_support.append_calls[0]["direction_center_xy"], (0.0, 0.0))
         self.assertEqual(sorted(tracks[0].spots_by_image_id), [0, 1, 2, 3, 4])
 
+    def test_deva_retrack_trims_future_frames_and_reseeds_from_selected_frame(self) -> None:
+        all_files_map = {frame_id: self._file(frame_id) for frame_id in range(7)}
+        track = self.data_models.Track(
+            track_id=1,
+            spots_by_image_id={
+                frame_id: self._spot(1, float(6 + frame_id), float(8 + frame_id))
+                for frame_id in range(7)
+            },
+        )
+        fake_support = _FakeTrackingSupport(self.data_models)
+        run_calls: list[dict] = []
+
+        def fake_run_deva_offline(
+            *,
+            frames,
+            query_points_tyx,
+            settings,
+            query_boxes_xyxy=None,
+            query_object_ids=None,
+            query_initial_masks=None,
+        ):
+            query_points_tyx = np.asarray(query_points_tyx, dtype=np.float32)
+            run_calls.append(
+                {
+                    "frame_count": int(frames.shape[0]),
+                    "frame_ids": [int(value) for value in frames[:, 0, 0, 0].tolist()],
+                    "query_points_tyx": query_points_tyx.copy(),
+                    "query_boxes_xyxy": np.asarray(query_boxes_xyxy, dtype=np.float32).copy(),
+                }
+            )
+            frame_count = int(frames.shape[0])
+            seed_x = float(query_points_tyx[0, 2])
+            seed_y = float(query_points_tyx[0, 1])
+            tracks_xy = np.zeros((1, frame_count, 2), dtype=np.float32)
+            mask_bboxes = np.zeros((1, frame_count, 4), dtype=np.float32)
+            for local_idx in range(frame_count):
+                x = seed_x + float(local_idx)
+                y = seed_y + float(local_idx)
+                tracks_xy[0, local_idx] = [x, y]
+                mask_bboxes[0, local_idx] = [x - 2.0, y - 2.0, x + 2.0, y + 2.0]
+            return SimpleNamespace(
+                tracks_xy=tracks_xy,
+                visible_mask=np.ones((1, frame_count), dtype=bool),
+                mask_areas=np.full((1, frame_count), 16.0, dtype=np.float32),
+                mask_bboxes_xyxy=mask_bboxes,
+                mask_scores=np.ones((1, frame_count), dtype=np.float32),
+                representative_point_mode=settings.representative_point_mode,
+                initial_mask_mode="bbox",
+            )
+
+        with (
+            mock.patch.object(
+                self.mask_backends,
+                "_tracking_support",
+                return_value=fake_support,
+            ),
+            mock.patch.object(
+                self.mask_backends,
+                "run_deva_offline",
+                side_effect=fake_run_deva_offline,
+            ),
+        ):
+            result = self.mask_backends.retrack_single_spot_deva_offline(
+                track,
+                2,
+                all_files_map,
+                list(range(7)),
+                {
+                    "checkpoint_path": "DEVA-propagation.pth",
+                    "backend_mode": "subprocess",
+                    "window_size": 3,
+                    "window_overlap": 0,
+                    "roi_size": 8,
+                    "max_step_distance_px": 0.0,
+                },
+            )
+
+        self.assertIs(result, track)
+        self.assertEqual(fake_support.load_calls, [[2, 3, 4], [4, 5, 6]])
+        self.assertEqual([call["frame_ids"] for call in run_calls], [[2, 3, 4], [4, 5, 6]])
+        self.assertTrue(np.all(run_calls[0]["query_points_tyx"][:, 0] == 0.0))
+        self.assertTrue(np.all(run_calls[1]["query_points_tyx"][:, 0] == 0.0))
+        np.testing.assert_allclose(run_calls[0]["query_points_tyx"][0], [0.0, 10.0, 8.0])
+        np.testing.assert_allclose(run_calls[1]["query_points_tyx"][0], [0.0, 12.0, 10.0])
+        self.assertEqual(
+            [
+                (
+                    call["frame_ids"],
+                    call["start_local_idx"],
+                    call["min_global_write_idx"],
+                    call["global_start_idx"],
+                )
+                for call in fake_support.append_calls
+            ],
+            [
+                ([2, 3, 4], 1, 0, 0),
+                ([4, 5, 6], 1, 2, 2),
+            ],
+        )
+        self.assertEqual(sorted(track.spots_by_image_id), list(range(7)))
+        self.assertEqual(track.spots_by_image_id[6].source, "deva_offline")
+
 
 if __name__ == "__main__":
     unittest.main()
