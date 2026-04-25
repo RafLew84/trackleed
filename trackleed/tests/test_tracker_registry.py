@@ -15,6 +15,10 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "format_cutie_environment_report",
         "probe_cutie_environment",
     ),
+    "trackleed.analysis.deva_backend": (
+        "format_deva_environment_report",
+        "probe_deva_environment",
+    ),
     "trackleed.analysis.locotrack_backend": (
         "format_locotrack_environment_report",
         "probe_locotrack_environment",
@@ -50,6 +54,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
     "trackleed.analysis.tracking_bbox_backends": ("track_spots_tomp_offline",),
     "trackleed.analysis.tracking_mask_backends": (
         "track_spots_cutie_offline",
+        "track_spots_deva_offline",
         "track_spots_sam2_offline",
         "track_spots_xmem2_offline",
     ),
@@ -66,6 +71,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
     "trackleed.analysis.tracking_retrack": (
         "retrack_single_spot_cotracker3_offline",
         "retrack_single_spot_cutie_offline",
+        "retrack_single_spot_deva_offline",
         "retrack_single_spot_locotrack_offline",
         "retrack_single_spot_mftiq_offline",
         "retrack_single_spot_pipspp_offline",
@@ -201,6 +207,16 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
             self.registry.get_tracker_spec_for_source("tamos_offline"),
             tomp_spec,
         )
+
+    def test_deva_is_registered_as_subprocess_mask_tracker_without_visualizer_retrack(self) -> None:
+        spec = self.registry.require_tracker_spec("deva_offline")
+
+        self.assertEqual(spec.scenario_name, "Offline DEVA")
+        self.assertEqual(spec.family, "mask")
+        self.assertTrue(spec.supports_subprocess)
+        self.assertTrue(spec.supports_direct)
+        self.assertFalse(spec.has_visualizer_retrack)
+        self.assertEqual(spec.default_conda_env_name, "deva")
 
     def test_require_helpers_raise_for_unknown_values(self) -> None:
         self.assertIsNone(self.registry.get_tracker_spec("missing_tracker"))

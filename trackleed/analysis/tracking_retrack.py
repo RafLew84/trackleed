@@ -9,6 +9,7 @@ from trackleed.analysis.tracking_bbox_backends import (
 )
 from trackleed.analysis.tracking_mask_backends import (
     retrack_single_spot_cutie_offline,
+    retrack_single_spot_deva_offline,
     retrack_single_spot_sam2_offline,
     retrack_single_spot_xmem2_offline,
 )
@@ -47,4 +48,3 @@ def retrack_single_spot_optical_flow(
         progress_callback=progress_callback,
         cancel_event=cancel_event,
     )
-

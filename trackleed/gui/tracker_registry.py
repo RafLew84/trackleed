@@ -11,6 +11,10 @@ from trackleed.analysis.cutie_backend import (
     format_cutie_environment_report,
     probe_cutie_environment,
 )
+from trackleed.analysis.deva_backend import (
+    format_deva_environment_report,
+    probe_deva_environment,
+)
 from trackleed.analysis.locotrack_backend import (
     format_locotrack_environment_report,
     probe_locotrack_environment,
@@ -48,6 +52,7 @@ from trackleed.analysis.tracking_bbox_backends import (
 )
 from trackleed.analysis.tracking_mask_backends import (
     track_spots_cutie_offline,
+    track_spots_deva_offline,
     track_spots_sam2_offline,
     track_spots_xmem2_offline,
 )
@@ -64,6 +69,7 @@ from trackleed.analysis.tracking_point_backends import (
 from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_cutie_offline,
+    retrack_single_spot_deva_offline,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_mftiq_offline,
     retrack_single_spot_pipspp_offline,
@@ -399,6 +405,32 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         python_executable_attr="sam2_python_executable_edit",
         default_conda_env_name="sam2",
         checkpoint_selector_attr="sam2_checkpoint_combo",
+    ),
+    TrackerSpec(
+        tracker_id="deva_offline",
+        display_name="Offline DEVA",
+        scenario_name="Offline DEVA",
+        family="mask",
+        source_names=("deva_offline",),
+        settings_type_name="DevaTrackingSettings",
+        runtime_settings_type_name="DevaRuntimeSettings",
+        probe_environment=probe_deva_environment,
+        format_environment_report=format_deva_environment_report,
+        collect_params_method_name="_collect_deva_tracking_params",
+        run_tracking=track_spots_deva_offline,
+        run_retrack=retrack_single_spot_deva_offline,
+        supports_direct=True,
+        supports_subprocess=True,
+        has_visualizer_retrack=False,
+        settings_attr_name="deva_settings",
+        params_argument_name="deva_params",
+        panel_group_attr="deva_group",
+        warning_label_attr="deva_warning_label",
+        backend_mode_widget_attr="deva_backend_mode_combo",
+        repo_path_attr="deva_repo_path_edit",
+        python_executable_attr="deva_python_executable_edit",
+        default_conda_env_name="deva",
+        checkpoint_selector_attr="deva_checkpoint_combo",
     ),
 )
 

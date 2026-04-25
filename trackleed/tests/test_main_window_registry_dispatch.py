@@ -236,6 +236,7 @@ class MainWindowImportMixin:
             ("trackleed.analysis.pipspp_backend", "pipspp"),
             ("trackleed.analysis.mftiq_backend", "mftiq"),
             ("trackleed.analysis.cutie_backend", "cutie"),
+            ("trackleed.analysis.deva_backend", "deva"),
             ("trackleed.analysis.xmem2_backend", "xmem2"),
             ("trackleed.analysis.sam2_backend", "sam2"),
         ):
@@ -272,6 +273,9 @@ class MainWindowImportMixin:
             "trackleed.analysis.tracking_mask_backends",
             track_spots_cutie_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_cutie_offline"
+            ),
+            track_spots_deva_offline=_stub_callable(
+                "trackleed.analysis.tracking_mask_backends.track_spots_deva_offline"
             ),
             track_spots_sam2_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_sam2_offline"
@@ -316,6 +320,9 @@ class MainWindowImportMixin:
             ),
             retrack_single_spot_cutie_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_cutie_offline"
+            ),
+            retrack_single_spot_deva_offline=_stub_callable(
+                "trackleed.analysis.tracking_retrack.retrack_single_spot_deva_offline"
             ),
             retrack_single_spot_locotrack_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_locotrack_offline"

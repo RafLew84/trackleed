@@ -88,6 +88,7 @@ class ShimImportMixin:
             "trackleed.analysis.mftiq_backend",
             "trackleed.analysis.sam2_backend",
             "trackleed.analysis.cutie_backend",
+            "trackleed.analysis.deva_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
             *self.runtime_module_names,
@@ -272,6 +273,18 @@ class ShimImportMixin:
             },
         )
         self._install_backend_stub(
+            "trackleed.analysis.deva_backend",
+            default_models_dir="tracking_models/deva",
+            runtime_settings=("DevaRuntimeSettings",),
+            extra_attrs={
+                "discover_deva_checkpoints": lambda *args, **kwargs: [],
+                "run_deva_offline": _stub_callable(
+                    "trackleed.analysis.deva_backend.run_deva_offline"
+                ),
+                "select_default_deva_checkpoint": lambda *args, **kwargs: None,
+            },
+        )
+        self._install_backend_stub(
             "trackleed.analysis.xmem2_backend",
             default_models_dir="tracking_models/xmem2",
             runtime_settings=("XMem2RuntimeSettings",),
@@ -371,6 +384,7 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(self.tracking.track_spots_cutie_offline, self.mask_backends.track_spots_cutie_offline)
         self.assertIs(self.tracking.track_spots_xmem2_offline, self.mask_backends.track_spots_xmem2_offline)
         self.assertIs(self.tracking.track_spots_sam2_offline, self.mask_backends.track_spots_sam2_offline)
+        self.assertIs(self.tracking.track_spots_deva_offline, self.mask_backends.track_spots_deva_offline)
 
     def test_tracking_shim_reexports_retrack_entrypoints(self) -> None:
         self.assertIs(
@@ -420,6 +434,10 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(
             self.tracking.retrack_single_spot_sam2_offline,
             self.tracking_retrack.retrack_single_spot_sam2_offline,
+        )
+        self.assertIs(
+            self.tracking.retrack_single_spot_deva_offline,
+            self.tracking_retrack.retrack_single_spot_deva_offline,
         )
 
     def test_point_wrapper_and_optical_flow_retrack_delegate_to_legacy_support(self) -> None:

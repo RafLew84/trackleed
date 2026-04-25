@@ -80,6 +80,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "xmem2_offline": "XMem2 Unavailable",
     "tomp_offline": "ToMP / TaMOs Unavailable",
     "sam2_offline": "SAM2 Unavailable",
+    "deva_offline": "DEVA Unavailable",
 }
 
 TRACKER_ENV_HINT_BY_ID = {
@@ -91,6 +92,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "xmem2_offline": "xmem2",
     "tomp_offline": "tomp",
     "sam2_offline": "sam2",
+    "deva_offline": "deva",
 }
 
 
@@ -359,6 +361,37 @@ class Sam2TrackingSettings:
 
 
 @dataclass
+class DevaTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    device: str = "auto"
+    backend_mode: str = "subprocess"
+    representative_point_mode: str = "mask_centroid"
+    inference_size: int | None = 480
+    chunk_size: int = 4
+    amp: bool = True
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 0.0
+    initial_point_radius_px: float = 4.0
+    subprocess_timeout_sec: float = 1800.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    max_mask_area_ratio_change: float = 0.0
+    max_bbox_aspect_ratio_change: float = 0.0
+    max_bbox_center_jump_px: float = 0.0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
+@dataclass
 class CutieTrackingSettings:
     repo_path: str | None = None
     checkpoint_path: str | None = None
@@ -530,6 +563,7 @@ class MainWindow(QMainWindow):
         self.mftiq_settings = MftiqTrackingSettings()
         self.tomp_settings = TompTrackingSettings()
         self.sam2_settings = Sam2TrackingSettings()
+        self.deva_settings = DevaTrackingSettings()
         self.cutie_settings = CutieTrackingSettings()
         self.xmem2_settings = XMem2TrackingSettings()
         self.current_spot_backend = "Classic"
@@ -548,6 +582,7 @@ class MainWindow(QMainWindow):
         self.cutie_models_dir = self.tracking_models_dir / "cutie"
         self.xmem2_models_dir = self.tracking_models_dir / "xmem2"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
+        self.deva_models_dir = self.tracking_models_dir / "deva"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
             self.locotrack_settings.repo_path = str(default_locotrack_repo.resolve())
@@ -578,6 +613,9 @@ class MainWindow(QMainWindow):
         default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
         if default_sam2_repo.exists():
             self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
+        default_deva_repo = Path(__file__).resolve().parents[3] / "deva"
+        if default_deva_repo.exists():
+            self.deva_settings.repo_path = str(default_deva_repo.resolve())
         self._apply_default_subprocess_python_executables()
         self.legacy_segmentation_models_dir = Path("segmentation_models")
         self._dl_models_available = False
@@ -593,6 +631,7 @@ class MainWindow(QMainWindow):
         self._cutie_checkpoint_available = False
         self._xmem2_checkpoint_available = False
         self._sam2_checkpoint_available = False
+        self._deva_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
@@ -4601,6 +4640,222 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.sam2_group)
 
+        # --- Offline DEVA parameters ---
+        self.deva_group = QGroupBox("Offline DEVA")
+        deva_layout = QFormLayout(self.deva_group)
+
+        self.deva_repo_path_edit = QLineEdit(self.deva_settings.repo_path or "")
+        self.deva_repo_path_edit.setPlaceholderText("Path to local deva repo root")
+        self.deva_repo_path_edit.setToolTip(
+            "Local clone of the DEVA repository. Must contain evaluation/eval_vos.py and deva/."
+        )
+        self.deva_repo_path_edit.editingFinished.connect(self._refresh_deva_checkpoints)
+        deva_layout.addRow("Repo path:", self.deva_repo_path_edit)
+
+        self.deva_python_executable_edit = QLineEdit(self.deva_settings.python_executable or "")
+        self.deva_python_executable_edit.setPlaceholderText(
+            "Path to python.exe inside the dedicated deva env"
+        )
+        self.deva_python_executable_edit.setToolTip(
+            "Used by the recommended subprocess backend. Point it at the interpreter inside the dedicated deva env."
+        )
+        self.deva_python_executable_edit.editingFinished.connect(self._refresh_deva_checkpoints)
+        deva_layout.addRow("Python executable:", self.deva_python_executable_edit)
+
+        self.deva_backend_mode_combo = QComboBox()
+        self.deva_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.deva_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        deva_backend_mode_idx = self.deva_backend_mode_combo.findData(self.deva_settings.backend_mode)
+        self.deva_backend_mode_combo.setCurrentIndex(
+            deva_backend_mode_idx if deva_backend_mode_idx >= 0 else 0
+        )
+        self.deva_backend_mode_combo.setToolTip(
+            "Subprocess keeps DEVA isolated in its own env. Direct import requires running Trackleed in the DEVA env."
+        )
+        self.deva_backend_mode_combo.currentIndexChanged.connect(self._on_deva_backend_mode_changed)
+        deva_layout.addRow("Backend mode:", self.deva_backend_mode_combo)
+
+        deva_model_row_widget = QWidget()
+        deva_model_row_layout = QHBoxLayout(deva_model_row_widget)
+        deva_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.deva_checkpoint_combo = QComboBox()
+        self.deva_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.deva_checkpoint_combo.setToolTip(
+            "Select DEVA-propagation.pth from tracking_models/deva or repo/saves."
+        )
+        self.deva_checkpoint_combo.currentIndexChanged.connect(self._on_deva_checkpoint_selected)
+        self.deva_refresh_button = QPushButton("Refresh")
+        self.deva_refresh_button.setToolTip(
+            "Re-scan tracking_models/deva and re-run DEVA environment diagnostics."
+        )
+        self.deva_refresh_button.clicked.connect(self._refresh_deva_checkpoints)
+        deva_model_row_layout.addWidget(self.deva_checkpoint_combo)
+        deva_model_row_layout.addWidget(self.deva_refresh_button)
+        deva_layout.addRow("Checkpoint:", deva_model_row_widget)
+
+        self.deva_checkpoint_hint_label = QLabel(
+            "Hint: use DEVA-propagation.pth for the seeded VOS path. "
+            "GroundingDINO and Segment Anything are not required for this Trackleed workflow."
+        )
+        self.deva_checkpoint_hint_label.setWordWrap(True)
+        self.deva_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        deva_layout.addRow(self.deva_checkpoint_hint_label)
+
+        self.deva_device_combo = QComboBox()
+        self.deva_device_combo.addItem("Auto", "auto")
+        self.deva_device_combo.addItem("GPU", "cuda")
+        deva_device_idx = self.deva_device_combo.findData(self.deva_settings.device)
+        self.deva_device_combo.setCurrentIndex(deva_device_idx if deva_device_idx >= 0 else 0)
+        self.deva_device_combo.setToolTip("Device passed to the DEVA runtime.")
+        deva_layout.addRow("Device:", self.deva_device_combo)
+
+        self.deva_inference_size_combo = QComboBox()
+        self.deva_inference_size_combo.addItem("Native", -1)
+        for label, value in (
+            ("480", 480),
+            ("720", 720),
+            ("1080", 1080),
+        ):
+            self.deva_inference_size_combo.addItem(label, value)
+        deva_size_idx = self.deva_inference_size_combo.findData(self.deva_settings.inference_size)
+        self.deva_inference_size_combo.setCurrentIndex(deva_size_idx if deva_size_idx >= 0 else 1)
+        self.deva_inference_size_combo.setToolTip(
+            "Shortest-side size passed to DEVA eval_vos.py. Native disables resizing."
+        )
+        deva_layout.addRow("Inference size:", self.deva_inference_size_combo)
+
+        self.deva_chunk_size_spinbox = QSpinBox()
+        self.deva_chunk_size_spinbox.setRange(1, 256)
+        self.deva_chunk_size_spinbox.setValue(self.deva_settings.chunk_size)
+        self.deva_chunk_size_spinbox.setToolTip(
+            "DEVA chunk_size. Smaller values reduce VRAM pressure."
+        )
+        deva_layout.addRow("Chunk size:", self.deva_chunk_size_spinbox)
+
+        self.deva_amp_checkbox = QCheckBox("Use mixed precision")
+        self.deva_amp_checkbox.setChecked(self.deva_settings.amp)
+        self.deva_amp_checkbox.setToolTip("Pass --amp to DEVA eval_vos.py.")
+        deva_layout.addRow(self.deva_amp_checkbox)
+
+        self.deva_repr_mode_combo = QComboBox()
+        self.deva_repr_mode_combo.addItem("Mask centroid", "mask_centroid")
+        self.deva_repr_mode_combo.addItem("Peak in mask", "peak_in_mask")
+        self.deva_repr_mode_combo.addItem("BBox center", "bbox_center")
+        deva_repr_idx = self.deva_repr_mode_combo.findData(self.deva_settings.representative_point_mode)
+        self.deva_repr_mode_combo.setCurrentIndex(deva_repr_idx if deva_repr_idx >= 0 else 0)
+        self.deva_repr_mode_combo.setToolTip(
+            "How Trackleed converts the propagated DEVA mask into one representative point."
+        )
+        deva_layout.addRow("Representative point:", self.deva_repr_mode_combo)
+
+        self.deva_bbox_padding_spinbox = QDoubleSpinBox()
+        self.deva_bbox_padding_spinbox.setDecimals(1)
+        self.deva_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.deva_bbox_padding_spinbox.setSingleStep(1.0)
+        self.deva_bbox_padding_spinbox.setValue(self.deva_settings.initial_bbox_padding_px)
+        self.deva_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around the ROI bbox before building the initial DEVA label mask."
+        )
+        deva_layout.addRow("Init bbox padding (px):", self.deva_bbox_padding_spinbox)
+
+        self.deva_point_radius_spinbox = QDoubleSpinBox()
+        self.deva_point_radius_spinbox.setDecimals(1)
+        self.deva_point_radius_spinbox.setRange(1.0, 256.0)
+        self.deva_point_radius_spinbox.setSingleStep(1.0)
+        self.deva_point_radius_spinbox.setValue(self.deva_settings.initial_point_radius_px)
+        self.deva_point_radius_spinbox.setToolTip(
+            "Fallback disk radius used only when DEVA is initialized from points instead of ROI boxes."
+        )
+        deva_layout.addRow("Init point radius (px):", self.deva_point_radius_spinbox)
+
+        self.deva_window_size_spinbox = QSpinBox()
+        self.deva_window_size_spinbox.setRange(2, 4096)
+        self.deva_window_size_spinbox.setValue(self.deva_settings.window_size)
+        self.deva_window_size_spinbox.setToolTip(
+            "Reserved for DEVA windowing. The initial integration runs one sequence from the reference frame."
+        )
+        deva_layout.addRow("Window size:", self.deva_window_size_spinbox)
+
+        self.deva_window_overlap_spinbox = QSpinBox()
+        self.deva_window_overlap_spinbox.setRange(0, 1024)
+        self.deva_window_overlap_spinbox.setValue(self.deva_settings.window_overlap)
+        self.deva_window_overlap_spinbox.setToolTip(
+            "Reserved for DEVA windowing in the next tuning stage."
+        )
+        deva_layout.addRow("Window overlap:", self.deva_window_overlap_spinbox)
+
+        self.deva_max_step_spinbox = QDoubleSpinBox()
+        self.deva_max_step_spinbox.setDecimals(1)
+        self.deva_max_step_spinbox.setRange(0.0, 10000.0)
+        self.deva_max_step_spinbox.setSingleStep(1.0)
+        self.deva_max_step_spinbox.setValue(self.deva_settings.max_step_distance_px)
+        self.deva_max_step_spinbox.setToolTip(
+            "Reject representative points that jump farther than this distance from the last accepted DEVA point. Set 0 to disable."
+        )
+        deva_layout.addRow("Max jump (px):", self.deva_max_step_spinbox)
+
+        self.deva_max_gap_spinbox = QSpinBox()
+        self.deva_max_gap_spinbox.setRange(0, 4096)
+        self.deva_max_gap_spinbox.setValue(self.deva_settings.max_reacquisition_gap)
+        self.deva_max_gap_spinbox.setToolTip(
+            "If a DEVA track stays invalid longer than this gap, later reacquisition attempts are discarded. Set 0 to disable."
+        )
+        deva_layout.addRow("Max reacquisition gap:", self.deva_max_gap_spinbox)
+
+        self.deva_terminate_gap_spinbox = QSpinBox()
+        self.deva_terminate_gap_spinbox.setRange(0, 4096)
+        self.deva_terminate_gap_spinbox.setValue(self.deva_settings.terminate_after_invisible_frames)
+        self.deva_terminate_gap_spinbox.setToolTip(
+            "Stop writing any more DEVA points after this many consecutive invalid frames. Set 0 to disable."
+        )
+        deva_layout.addRow("Terminate after gap:", self.deva_terminate_gap_spinbox)
+
+        self.deva_max_area_ratio_spinbox = QDoubleSpinBox()
+        self.deva_max_area_ratio_spinbox.setDecimals(2)
+        self.deva_max_area_ratio_spinbox.setRange(0.0, 100.0)
+        self.deva_max_area_ratio_spinbox.setSingleStep(0.05)
+        self.deva_max_area_ratio_spinbox.setValue(self.deva_settings.max_mask_area_ratio_change)
+        self.deva_max_area_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask area between accepted frames. Set 0 to disable."
+        )
+        deva_layout.addRow("Max area drift x:", self.deva_max_area_ratio_spinbox)
+
+        self.deva_max_aspect_ratio_spinbox = QDoubleSpinBox()
+        self.deva_max_aspect_ratio_spinbox.setDecimals(2)
+        self.deva_max_aspect_ratio_spinbox.setRange(0.0, 100.0)
+        self.deva_max_aspect_ratio_spinbox.setSingleStep(0.05)
+        self.deva_max_aspect_ratio_spinbox.setValue(self.deva_settings.max_bbox_aspect_ratio_change)
+        self.deva_max_aspect_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask bbox aspect ratio between accepted frames. Set 0 to disable."
+        )
+        deva_layout.addRow("Max aspect drift x:", self.deva_max_aspect_ratio_spinbox)
+
+        self.deva_bbox_jump_spinbox = QDoubleSpinBox()
+        self.deva_bbox_jump_spinbox.setDecimals(1)
+        self.deva_bbox_jump_spinbox.setRange(0.0, 10000.0)
+        self.deva_bbox_jump_spinbox.setSingleStep(1.0)
+        self.deva_bbox_jump_spinbox.setValue(self.deva_settings.max_bbox_center_jump_px)
+        self.deva_bbox_jump_spinbox.setToolTip(
+            "Maximum accepted shift of the propagated mask bbox center between accepted frames. Set 0 to disable."
+        )
+        deva_layout.addRow("Max bbox jump (px):", self.deva_bbox_jump_spinbox)
+
+        self.deva_keep_gaps_checkbox = QCheckBox("Keep invalid masks as gaps")
+        self.deva_keep_gaps_checkbox.setChecked(self.deva_settings.keep_invisible_points_as_gaps)
+        self.deva_keep_gaps_checkbox.setToolTip(
+            "If enabled, invalid/invisible DEVA masks produce gaps instead of forced representative points."
+        )
+        deva_layout.addRow(self.deva_keep_gaps_checkbox)
+
+        self.deva_warning_label = QLabel()
+        self.deva_warning_label.setStyleSheet("color: #d9534f;")
+        self.deva_warning_label.setWordWrap(True)
+        deva_layout.addRow(self.deva_warning_label)
+
+        self._on_deva_backend_mode_changed(self.deva_backend_mode_combo.currentIndex())
+
+        form_layout.addRow(self.deva_group)
+
         # --- Detection linking (Hungarian) params ---
         self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
         hung_layout = QFormLayout(self.hungarian_group)
@@ -4793,6 +5048,7 @@ class MainWindow(QMainWindow):
         self._refresh_cutie_checkpoints()
         self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
+        self._refresh_deva_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
         self._update_spot_polygon_buttons()
         self.polygon_seed_group.setVisible(self._polygon_seed_scenario_active())
@@ -6149,6 +6405,122 @@ class MainWindow(QMainWindow):
         self.sam2_settings.checkpoint_path = checkpoint_path
         self._refresh_sam2_checkpoints()
 
+    def _refresh_deva_checkpoints(self):
+        tracker_spec = require_tracker_spec("deva_offline")
+        repo_path = self.deva_repo_path_edit.text().strip() or self.deva_settings.repo_path
+        if repo_path:
+            self.deva_settings.repo_path = repo_path
+        self.deva_settings.python_executable = self.deva_python_executable_edit.text().strip() or None
+        self.deva_settings.backend_mode = self.deva_backend_mode_combo.currentData()
+
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=self.deva_models_dir,
+            checkpoint_path=self.deva_settings.checkpoint_path,
+            repo_path=self.deva_settings.repo_path,
+        )
+
+        self.deva_checkpoint_combo.blockSignals(True)
+        self.deva_checkpoint_combo.clear()
+
+        if not status.available_checkpoints:
+            self.deva_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.deva_checkpoint_combo.setEnabled(False)
+            self._deva_checkpoint_available = False
+            self.deva_settings.checkpoint_path = None
+        else:
+            self.deva_checkpoint_combo.setEnabled(True)
+            for path in status.available_checkpoints:
+                self.deva_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._deva_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.deva_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.deva_checkpoint_combo.setCurrentIndex(idx)
+                    self.deva_settings.checkpoint_path = selected_checkpoint
+            if not self.deva_settings.checkpoint_path and self.deva_checkpoint_combo.count() > 0:
+                self.deva_checkpoint_combo.setCurrentIndex(0)
+                self.deva_settings.checkpoint_path = self.deva_checkpoint_combo.currentData()
+
+        self.deva_checkpoint_combo.blockSignals(False)
+        self.deva_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.deva_settings.repo_path or "")
+        )
+        self.deva_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.deva_settings.repo_path
+        )
+
+        python_executable = self.deva_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            if status.selected_checkpoint is not None:
+                details.append(status.selected_checkpoint.name)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="DEVA ready. " + ", ".join(details),
+                status=status,
+            )
+        elif (
+            self.deva_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "DEVA subprocess configured. Current app env is not DEVA-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
+            )
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.deva_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated deva env, or run Trackleed from that env."
+                )
+            if not summary:
+                summary.append("Configure the dedicated deva env or run Trackleed from that env.")
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
+
+    def _on_deva_checkpoint_selected(self, index: int):
+        checkpoint_path = self.deva_checkpoint_combo.itemData(index)
+        self.deva_settings.checkpoint_path = checkpoint_path
+        self._refresh_deva_checkpoints()
+
     def _on_tapir_center_mode_changed(self, idx: int):
         manual = self.tapir_center_mode_combo.itemData(idx) == "manual"
         self.tapir_center_x_spinbox.setEnabled(manual)
@@ -6500,6 +6872,7 @@ class MainWindow(QMainWindow):
             "cutie_offline": self._refresh_cutie_checkpoints,
             "xmem2_offline": self._refresh_xmem2_checkpoints,
             "sam2_offline": self._refresh_sam2_checkpoints,
+            "deva_offline": self._refresh_deva_checkpoints,
         }
         if tracker_spec is not None:
             refresh_fn = refresh_fn_by_tracker_id.get(tracker_spec.tracker_id)
@@ -6918,6 +7291,12 @@ class MainWindow(QMainWindow):
         self.sam2_python_executable_edit.setEnabled(backend_mode == "subprocess")
         if hasattr(self, "sam2_warning_label"):
             self._refresh_sam2_checkpoints()
+
+    def _on_deva_backend_mode_changed(self, idx: int):
+        backend_mode = self.deva_backend_mode_combo.itemData(idx)
+        self.deva_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "deva_warning_label"):
+            self._refresh_deva_checkpoints()
 
     def _on_sam2_center_mode_changed(self, idx: int):
         manual = self.sam2_center_mode_combo.itemData(idx) == "manual"
@@ -8095,6 +8474,47 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_deva_tracking_params(self) -> dict:
+        """Collect the current DEVA tracking settings from the UI."""
+        repo_path = self.deva_repo_path_edit.text().strip() or self.deva_settings.repo_path
+        inference_size = self.deva_inference_size_combo.currentData()
+        if inference_size in {"", 0}:
+            inference_size = None
+        return {
+            "deva_models_dir": str(self.deva_models_dir.resolve()),
+            "deva_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.deva_settings.checkpoint_path,
+            "python_executable": self.deva_python_executable_edit.text().strip() or None,
+            "device": self.deva_device_combo.currentData(),
+            "backend_mode": self.deva_backend_mode_combo.currentData(),
+            "representative_point_mode": self.deva_repr_mode_combo.currentData(),
+            "inference_size": inference_size,
+            "chunk_size": self.deva_chunk_size_spinbox.value(),
+            "amp": self.deva_amp_checkbox.isChecked(),
+            "window_size": self.deva_window_size_spinbox.value(),
+            "window_overlap": self.deva_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.deva_bbox_padding_spinbox.value(),
+            "initial_point_radius_px": self.deva_point_radius_spinbox.value(),
+            "subprocess_timeout_sec": self.deva_settings.subprocess_timeout_sec,
+            "keep_invisible_points_as_gaps": self.deva_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.deva_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.deva_max_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.deva_terminate_gap_spinbox.value(),
+            "max_mask_area_ratio_change": self.deva_max_area_ratio_spinbox.value(),
+            "max_bbox_aspect_ratio_change": self.deva_max_aspect_ratio_spinbox.value(),
+            "max_bbox_center_jump_px": self.deva_bbox_jump_spinbox.value(),
+            "center_mode": self.deva_settings.center_mode,
+            "manual_center": (
+                self.deva_settings.manual_center_x,
+                self.deva_settings.manual_center_y,
+            ),
+            "direction_mode": self.deva_settings.direction_mode,
+            "lateral_angle_tolerance_deg": self.deva_settings.lateral_angle_tolerance_deg,
+            "max_radial_jump_px": self.deva_settings.max_radial_jump_px,
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _tracking_reference_file_or_warn(self, requirement_label: str):
         ref_item = self.file_list_widget.currentItem()
         if not ref_item:
@@ -8559,6 +8979,40 @@ class MainWindow(QMainWindow):
                 and status.checkpoint_exists
                 and status.config_exists
                 and status.config_identifier is not None
+            )
+            if not self._ensure_registered_tracker_runtime_ready(
+                tracker_spec,
+                status,
+                ready_for_direct=status.is_ready,
+                structural_ready=structural_ready,
+                env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_id),
+            ):
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "deva_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline DEVA")
+            if ref_file is None:
+                return None
+
+            self._sync_registered_tracker_settings_from_widgets(tracker_spec)
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.deva_models_dir,
+                checkpoint_path=self.deva_settings.checkpoint_path,
+                repo_path=self.deva_settings.repo_path,
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.selected_checkpoint is not None
+                and status.checkpoint_exists
             )
             if not self._ensure_registered_tracker_runtime_ready(
                 tracker_spec,

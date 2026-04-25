@@ -44,6 +44,7 @@ TRACKER_METHOD_LABEL_BY_SOURCE = {
     "tomp_offline": "ToMP",
     "tamos_offline": "TaMOs",
     "sam2_offline": "SAM2",
+    "deva_offline": "DEVA",
 }
 
 MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
@@ -60,6 +61,7 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
     "tomp_offline": "ToMP + Manual",
     "tamos_offline": "TaMOs + Manual",
     "sam2_offline": "SAM2 + Manual",
+    "deva_offline": "DEVA + Manual",
 }
 
 TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
@@ -90,6 +92,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "xmem2_offline": "XMem2 Unavailable",
     "tomp_offline": "ToMP / TaMOs Unavailable",
     "sam2_offline": "SAM2 Unavailable",
+    "deva_offline": "DEVA Unavailable",
 }
 
 TRACKER_ENV_HINT_BY_ID = {
@@ -101,6 +104,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "xmem2_offline": "xmem2",
     "tomp_offline": "tomp",
     "sam2_offline": "sam2",
+    "deva_offline": "deva",
 }
 
 POINT_TRACKER_DETAIL_SPECS = {
@@ -153,6 +157,13 @@ MASK_TRACKER_DETAIL_SPECS = {
         "include_prompt_mode": True,
         "include_component_count": True,
     },
+    "deva_offline": {
+        "prefix": "deva",
+        "include_initial_mask_mode": True,
+        "include_memory_anchor": False,
+        "include_prompt_mode": False,
+        "include_component_count": False,
+    },
 }
 
 
@@ -179,6 +190,7 @@ class TrackingDialog(QDialog):
         xmem2_params: dict | None = None,
         tomp_params: dict | None = None,
         sam2_params: dict | None = None,
+        deva_params: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -209,6 +221,7 @@ class TrackingDialog(QDialog):
         self.xmem2_params = dict(xmem2_params or {})
         self.tomp_params = dict(tomp_params or {})
         self.sam2_params = dict(sam2_params or {})
+        self.deva_params = dict(deva_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
 
@@ -647,6 +660,10 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "sam2_raw_x", None)
             raw_y = getattr(spot, "sam2_raw_y", None)
             label = f"SAM2 T{track.track_id}"
+        elif source == "deva_offline":
+            raw_x = getattr(spot, "deva_raw_x", None)
+            raw_y = getattr(spot, "deva_raw_y", None)
+            label = f"DEVA T{track.track_id}"
         else:
             return []
 

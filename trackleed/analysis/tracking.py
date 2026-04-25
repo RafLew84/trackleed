@@ -189,6 +189,10 @@ _PUBLIC_TRACKING_SHIM_EXPORTS = {
         "trackleed.analysis.tracking_mask_backends",
         "track_spots_sam2_offline",
     ),
+    "track_spots_deva_offline": (
+        "trackleed.analysis.tracking_mask_backends",
+        "track_spots_deva_offline",
+    ),
 }
 
 _PUBLIC_RETRACK_SHIM_EXPORTS = {
@@ -239,6 +243,10 @@ _PUBLIC_RETRACK_SHIM_EXPORTS = {
     "retrack_single_spot_sam2_offline": (
         "trackleed.analysis.tracking_retrack",
         "retrack_single_spot_sam2_offline",
+    ),
+    "retrack_single_spot_deva_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_deva_offline",
     ),
     "retrack_single_spot_optical_flow": (
         "trackleed.analysis.tracking_retrack",
@@ -1128,6 +1136,69 @@ def _build_xmem2_spot(
         bbox_xyxy=mask_bbox_xyxy,
         bbox_attribute_name="xmem2_mask_bbox_xyxy",
         aspect_ratio_attribute_name="xmem2_mask_bbox_aspect_ratio",
+    )
+    return spot
+
+
+def _build_deva_spot(
+    reference_spot: SpotROI,
+    image_shape: Tuple[int, int],
+    raw_x: float,
+    raw_y: float,
+    visible: bool,
+    roi_size: int,
+    mask_area: float,
+    mask_bbox_xyxy: np.ndarray | tuple[float, float, float, float] | None,
+    mask_score: float,
+    representative_point_mode: str,
+    initial_mask_mode: str,
+) -> SpotROI:
+    """Create a SpotROI from DEVA output using the representative point and mask bbox."""
+    if np.isfinite(raw_x) and np.isfinite(raw_y):
+        x = float(raw_x)
+        y = float(raw_y)
+    else:
+        x = float(reference_spot.center_x)
+        y = float(reference_spot.center_y)
+
+    rect = _roi_rect_from_bbox_xyxy(
+        mask_bbox_xyxy if visible else None,
+        image_shape,
+        fallback_center_x=x,
+        fallback_center_y=y,
+        fallback_roi_size=roi_size,
+    )
+    spot = build_spot_roi(
+        spot_id=reference_spot.id,
+        roi_rect=rect,
+        center_x=x,
+        center_y=y,
+        source="deva_offline",
+        visible=visible,
+    )
+    apply_prefixed_point_metadata(
+        spot,
+        prefix="deva",
+        raw_x=raw_x,
+        raw_y=raw_y,
+        refined_x=x,
+        refined_y=y,
+        visible=visible,
+    )
+    set_spot_attributes(
+        spot,
+        {
+            "deva_mask_area": float(mask_area),
+            "deva_mask_score": float(mask_score),
+            "deva_repr_mode": str(representative_point_mode),
+            "deva_initial_mask_mode": str(initial_mask_mode),
+        },
+    )
+    apply_bbox_xyxy_metadata(
+        spot,
+        bbox_xyxy=mask_bbox_xyxy,
+        bbox_attribute_name="deva_mask_bbox_xyxy",
+        aspect_ratio_attribute_name="deva_mask_bbox_aspect_ratio",
     )
     return spot
 
@@ -2978,6 +3049,208 @@ def _append_xmem2_sequence_to_track(
                 extra_attributes={
                     "xmem2_filter_rejected": True,
                     "xmem2_filter_rejected_reason": rejection_reason,
+                },
+            )
+            continue
+
+        last_valid_xy = append_motion_accepted_spot(
+            track,
+            frame_id=frame_id,
+            spot=candidate_spot,
+            context=motion_context,
+        )
+        if np.isfinite(mask_area) and mask_area > 0.0:
+            last_valid_mask_area = float(mask_area)
+        if bbox_aspect_ratio is not None and np.isfinite(bbox_aspect_ratio) and bbox_aspect_ratio > 0.0:
+            last_valid_bbox_aspect_ratio = float(bbox_aspect_ratio)
+        if bbox_center_xy is not None:
+            last_valid_bbox_center_xy = np.asarray(bbox_center_xy, dtype=np.float32)
+
+    commit_motion_filter_context(
+        state,
+        motion_context,
+        extra_state={
+            "last_valid_mask_area": last_valid_mask_area,
+            "last_valid_bbox_aspect_ratio": last_valid_bbox_aspect_ratio,
+            "last_valid_bbox_center_xy": last_valid_bbox_center_xy,
+        },
+    )
+    return True
+
+
+def _append_deva_sequence_to_track(
+    track: Track,
+    state: Dict[str, Any],
+    reference_spot: SpotROI,
+    frame_ids: List[int],
+    frame_shapes: List[Tuple[int, int]],
+    query_tracks: np.ndarray,
+    query_visible: np.ndarray,
+    query_mask_areas: np.ndarray,
+    query_mask_bboxes_xyxy: np.ndarray,
+    query_mask_scores: np.ndarray,
+    *,
+    roi_size: int,
+    keep_invisible_as_gaps: bool,
+    representative_point_mode: str,
+    initial_mask_mode: str,
+    max_step_distance_px: float,
+    max_reacquisition_gap: int,
+    terminate_after_invisible_frames: int,
+    max_mask_area_ratio_change: float,
+    max_bbox_aspect_ratio_change: float,
+    max_bbox_center_jump_px: float,
+    direction_center_xy: Tuple[float, float] | None,
+    direction_mode: str,
+    lateral_angle_tolerance_deg: float,
+    max_radial_jump_px: float,
+    min_directional_motion_px: float,
+    cancel_event: Optional[Event] = None,
+    start_local_idx: int = 1,
+    min_global_write_idx: int | None = None,
+    global_start_idx: int = 0,
+) -> bool:
+    """Append DEVA representative points and mask summaries to one track."""
+    motion_context = build_motion_filter_context(
+        state,
+        max_step_distance_px=max_step_distance_px,
+        max_reacquisition_gap=max_reacquisition_gap,
+        terminate_after_invisible_frames=terminate_after_invisible_frames,
+        max_radial_jump_px=max_radial_jump_px,
+        lateral_angle_tolerance_deg=lateral_angle_tolerance_deg,
+        min_directional_motion_px=min_directional_motion_px,
+        direction_mode=direction_mode,
+    )
+    last_valid_xy = motion_context.last_valid_xy
+    last_valid_mask_area = state["last_valid_mask_area"]
+    last_valid_bbox_aspect_ratio = state["last_valid_bbox_aspect_ratio"]
+    last_valid_bbox_center_xy = state["last_valid_bbox_center_xy"]
+    quality_context = build_mask_quality_filter_context(
+        max_mask_area_ratio_change=max_mask_area_ratio_change,
+        max_bbox_aspect_ratio_change=max_bbox_aspect_ratio_change,
+        max_mask_components=0,
+        max_bbox_center_jump_px=max_bbox_center_jump_px,
+    )
+
+    if motion_context.terminated:
+        return True
+
+    for local_idx in range(start_local_idx, len(frame_ids)):
+        if cancel_event and cancel_event.is_set():
+            return False
+
+        global_idx = global_start_idx + local_idx
+        if min_global_write_idx is not None and global_idx <= min_global_write_idx:
+            continue
+
+        frame_id = frame_ids[local_idx]
+        image_h, image_w = frame_shapes[local_idx]
+        visible = bool(query_visible[local_idx])
+        raw_x = float(query_tracks[local_idx, 0])
+        raw_y = float(query_tracks[local_idx, 1])
+        mask_area = float(query_mask_areas[local_idx])
+        mask_bbox_xyxy = query_mask_bboxes_xyxy[local_idx]
+        mask_score = float(query_mask_scores[local_idx])
+        bbox_center_xy, bbox_aspect_ratio = _bbox_center_and_aspect_ratio_from_xyxy(mask_bbox_xyxy)
+
+        candidate_spot: SpotROI | None = None
+        rejection_reason = "invalid_mask"
+        accepted = visible
+        if accepted:
+            if should_terminate_before_visible_candidate(state, motion_context):
+                return True
+
+            if not (np.isfinite(raw_x) and np.isfinite(raw_y)):
+                accepted = False
+                rejection_reason = "invalid_mask"
+            elif not (0.0 <= raw_x < float(image_w) and 0.0 <= raw_y < float(image_h)):
+                accepted = False
+                rejection_reason = "out_of_bounds"
+
+        if accepted:
+            candidate_spot = _build_deva_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                raw_x,
+                raw_y,
+                True,
+                roi_size,
+                mask_area,
+                mask_bbox_xyxy,
+                mask_score,
+                representative_point_mode,
+                initial_mask_mode,
+            )
+
+            accepted, rejection_reason = gate_mask_quality(
+                candidate_spot,
+                context=quality_context,
+                current_mask_area=mask_area,
+                last_valid_mask_area=last_valid_mask_area,
+                mask_component_count=0,
+                bbox_aspect_ratio=bbox_aspect_ratio,
+                last_valid_bbox_aspect_ratio=last_valid_bbox_aspect_ratio,
+                bbox_center_xy=bbox_center_xy,
+                last_valid_bbox_center_xy=last_valid_bbox_center_xy,
+                prefix="deva",
+            )
+            if accepted:
+                accepted, rejection_reason = gate_by_max_step_distance(
+                    candidate_spot,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    max_step_distance_px=motion_context.max_step_distance_px,
+                    prefix="deva",
+                )
+            if accepted:
+                accepted, rejection_reason = gate_by_direction(
+                    candidate_spot,
+                    state,
+                    last_valid_xy=motion_context.last_valid_xy,
+                    direction_center_xy=direction_center_xy,
+                    direction_mode=motion_context.direction_mode,
+                    lateral_angle_tolerance_deg=motion_context.lateral_angle_tolerance_deg,
+                    max_radial_jump_px=motion_context.max_radial_jump_px,
+                    min_directional_motion_px=motion_context.min_directional_motion_px,
+                    prefix="deva",
+                )
+
+        if keep_invisible_as_gaps:
+            if not accepted:
+                if register_motion_rejection(state, motion_context):
+                    return True
+                continue
+
+        if not accepted:
+            if register_motion_rejection(state, motion_context):
+                return True
+            fallback_x = raw_x if np.isfinite(raw_x) else (
+                float(last_valid_xy[0]) if last_valid_xy is not None else float(reference_spot.center_x)
+            )
+            fallback_y = raw_y if np.isfinite(raw_y) else (
+                float(last_valid_xy[1]) if last_valid_xy is not None else float(reference_spot.center_y)
+            )
+            forced_spot = candidate_spot or _build_deva_spot(
+                reference_spot,
+                frame_shapes[local_idx],
+                fallback_x,
+                fallback_y,
+                False,
+                roi_size,
+                mask_area,
+                mask_bbox_xyxy,
+                mask_score,
+                representative_point_mode,
+                initial_mask_mode,
+            )
+            append_invisible_track_frame(
+                track,
+                frame_id=frame_id,
+                forced_spot=forced_spot,
+                keep_invisible_as_gaps=keep_invisible_as_gaps,
+                visibility_attribute_name="deva_visibility",
+                extra_attributes={
+                    "deva_filter_rejected": True,
+                    "deva_filter_rejected_reason": rejection_reason,
                 },
             )
             continue
