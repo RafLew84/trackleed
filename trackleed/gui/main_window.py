@@ -26,6 +26,10 @@ from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
+from trackleed.analysis.ostrack_backend import (
+    DEFAULT_OSTRACK_CONFIG_NAME,
+    select_default_ostrack_checkpoint,
+)
 from trackleed.analysis.tapir_backend import (
     discover_online_tapir_checkpoints,
 )
@@ -79,6 +83,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "cutie_offline": "Cutie Unavailable",
     "xmem2_offline": "XMem2 Unavailable",
     "tomp_offline": "ToMP / TaMOs Unavailable",
+    "ostrack_offline": "OSTrack Unavailable",
     "sam2_offline": "SAM2 Unavailable",
     "deva_offline": "DEVA Unavailable",
 }
@@ -91,6 +96,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "cutie_offline": "cutie",
     "xmem2_offline": "xmem2",
     "tomp_offline": "tomp",
+    "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
     "deva_offline": "deva",
 }
@@ -483,6 +489,34 @@ class TompTrackingSettings:
     max_radial_jump_px: float = 0.0
 
 
+@dataclass
+class OstrackTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    backend_mode: str = "subprocess"
+    model_variant: str = DEFAULT_OSTRACK_CONFIG_NAME
+    device: str = "auto"
+    representative_point_mode: str = "bbox_center"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 0.0
+    subprocess_timeout_sec: float = 1800.0
+    use_presence_score_gating: bool = False
+    presence_threshold: float = 0.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
 TOMP_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
     "tomp50": {
         "representative_point_mode": "peak_in_bbox",
@@ -531,6 +565,32 @@ TOMP_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
+OSTRACK_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
+    DEFAULT_OSTRACK_CONFIG_NAME: {
+        "representative_point_mode": "bbox_center",
+        "window_size": 64,
+        "window_overlap": 8,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": False,
+        "presence_threshold": 0.0,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+    "vitb_384_mae_ce_32x4_ep300": {
+        "representative_point_mode": "bbox_center",
+        "window_size": 64,
+        "window_overlap": 8,
+        "initial_bbox_padding_px": 0.0,
+        "use_presence_score_gating": False,
+        "presence_threshold": 0.0,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 0,
+        "terminate_after_invisible_frames": 0,
+    },
+}
+
+
 class MainWindow(QMainWindow):
     """
     The main window class for the STAL application.
@@ -562,6 +622,7 @@ class MainWindow(QMainWindow):
         self.pipspp_settings = PipsppTrackingSettings()
         self.mftiq_settings = MftiqTrackingSettings()
         self.tomp_settings = TompTrackingSettings()
+        self.ostrack_settings = OstrackTrackingSettings()
         self.sam2_settings = Sam2TrackingSettings()
         self.deva_settings = DevaTrackingSettings()
         self.cutie_settings = CutieTrackingSettings()
@@ -579,6 +640,7 @@ class MainWindow(QMainWindow):
         self.mftiq_models_dir = self.tracking_models_dir / "mftiq"
         self.tomp_models_dir = self.tracking_models_dir / "tomp"
         self.tamos_models_dir = self.tracking_models_dir / "tamos"
+        self.ostrack_models_dir = self.tracking_models_dir / "ostrack"
         self.cutie_models_dir = self.tracking_models_dir / "cutie"
         self.xmem2_models_dir = self.tracking_models_dir / "xmem2"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
@@ -604,6 +666,9 @@ class MainWindow(QMainWindow):
         default_pytracking_repo = Path(__file__).resolve().parents[3] / "pytracking"
         if default_pytracking_repo.exists():
             self.tomp_settings.repo_path = str(default_pytracking_repo.resolve())
+        default_ostrack_repo = Path(__file__).resolve().parents[3] / "ostrack"
+        if default_ostrack_repo.exists():
+            self.ostrack_settings.repo_path = str(default_ostrack_repo.resolve())
         default_cutie_repo = Path(__file__).resolve().parents[3] / "cutie"
         if default_cutie_repo.exists():
             self.cutie_settings.repo_path = str(default_cutie_repo.resolve())
@@ -628,6 +693,7 @@ class MainWindow(QMainWindow):
         self._pipspp_checkpoint_available = False
         self._mftiq_checkpoint_available = False
         self._tomp_checkpoint_available = False
+        self._ostrack_checkpoint_available = False
         self._cutie_checkpoint_available = False
         self._xmem2_checkpoint_available = False
         self._sam2_checkpoint_available = False
@@ -3705,6 +3771,317 @@ class MainWindow(QMainWindow):
         self._apply_tomp_variant_preset(self._current_tomp_variant_key())
         form_layout.addRow(self.tomp_group)
 
+        # --- Offline OSTrack parameters ---
+        self.ostrack_group = QGroupBox("Offline OSTrack")
+        ostrack_layout = QFormLayout(self.ostrack_group)
+
+        self.ostrack_repo_path_edit = QLineEdit(self.ostrack_settings.repo_path or "")
+        self.ostrack_repo_path_edit.setPlaceholderText("Path to local OSTrack repo root")
+        self.ostrack_repo_path_edit.setToolTip(
+            "Local clone of the OSTrack repository. Must contain experiments/ostrack "
+            "and lib/test/tracker/ostrack.py."
+        )
+        self.ostrack_repo_path_edit.editingFinished.connect(self._refresh_ostrack_checkpoints)
+        ostrack_layout.addRow("Repo path:", self.ostrack_repo_path_edit)
+
+        self.ostrack_python_executable_edit = QLineEdit(
+            self.ostrack_settings.python_executable or ""
+        )
+        self.ostrack_python_executable_edit.setPlaceholderText(
+            "Path to the dedicated ostrack env Python executable"
+        )
+        self.ostrack_python_executable_edit.setToolTip(
+            "Used in subprocess mode. Point this to the interpreter of the dedicated OSTrack env."
+        )
+        self.ostrack_python_executable_edit.editingFinished.connect(self._refresh_ostrack_checkpoints)
+        ostrack_layout.addRow("Python executable:", self.ostrack_python_executable_edit)
+
+        self.ostrack_backend_mode_combo = QComboBox()
+        self.ostrack_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.ostrack_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        ostrack_backend_idx = self.ostrack_backend_mode_combo.findData(
+            self.ostrack_settings.backend_mode
+        )
+        self.ostrack_backend_mode_combo.setCurrentIndex(
+            ostrack_backend_idx if ostrack_backend_idx >= 0 else 0
+        )
+        self.ostrack_backend_mode_combo.setToolTip(
+            "Subprocess mode is recommended when Trackleed runs outside the dedicated OSTrack env."
+        )
+        self.ostrack_backend_mode_combo.currentIndexChanged.connect(
+            self._on_ostrack_backend_mode_changed
+        )
+        ostrack_layout.addRow("Backend mode:", self.ostrack_backend_mode_combo)
+
+        self.ostrack_model_variant_combo = QComboBox()
+        self.ostrack_model_variant_combo.addItem(
+            "ViT-B 256 MAE CE", DEFAULT_OSTRACK_CONFIG_NAME
+        )
+        self.ostrack_model_variant_combo.addItem(
+            "ViT-B 384 MAE CE", "vitb_384_mae_ce_32x4_ep300"
+        )
+        ostrack_variant_idx = self.ostrack_model_variant_combo.findData(
+            self.ostrack_settings.model_variant
+        )
+        self.ostrack_model_variant_combo.setCurrentIndex(
+            ostrack_variant_idx if ostrack_variant_idx >= 0 else 0
+        )
+        self.ostrack_model_variant_combo.setToolTip(
+            "OSTrack experiment config name. The matching YAML must exist in experiments/ostrack."
+        )
+        self.ostrack_model_variant_combo.currentIndexChanged.connect(
+            self._on_ostrack_variant_changed
+        )
+        ostrack_layout.addRow("Model variant:", self.ostrack_model_variant_combo)
+
+        self.ostrack_preset_hint_label = QLabel()
+        self.ostrack_preset_hint_label.setWordWrap(True)
+        self.ostrack_preset_hint_label.setStyleSheet("color: #6c757d;")
+        ostrack_layout.addRow(self.ostrack_preset_hint_label)
+
+        ostrack_model_row_widget = QWidget()
+        ostrack_model_row_layout = QHBoxLayout(ostrack_model_row_widget)
+        ostrack_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.ostrack_checkpoint_combo = QComboBox()
+        self.ostrack_checkpoint_combo.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        self.ostrack_checkpoint_combo.setToolTip(
+            "Select a checkpoint from tracking_models/ostrack."
+        )
+        self.ostrack_checkpoint_combo.currentIndexChanged.connect(
+            self._on_ostrack_checkpoint_selected
+        )
+        self.ostrack_refresh_button = QPushButton("Refresh")
+        self.ostrack_refresh_button.setToolTip(
+            "Re-scan tracking_models/ostrack and re-run OSTrack environment diagnostics."
+        )
+        self.ostrack_refresh_button.clicked.connect(self._refresh_ostrack_checkpoints)
+        ostrack_model_row_layout.addWidget(self.ostrack_checkpoint_combo)
+        ostrack_model_row_layout.addWidget(self.ostrack_refresh_button)
+        ostrack_layout.addRow("Checkpoint:", ostrack_model_row_widget)
+
+        self.ostrack_checkpoint_hint_label = QLabel()
+        self.ostrack_checkpoint_hint_label.setWordWrap(True)
+        self.ostrack_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        ostrack_layout.addRow(self.ostrack_checkpoint_hint_label)
+
+        self.ostrack_device_combo = QComboBox()
+        self.ostrack_device_combo.addItem("Auto", "auto")
+        self.ostrack_device_combo.addItem("GPU", "cuda")
+        self.ostrack_device_combo.addItem("CPU", "cpu")
+        ostrack_device_idx = self.ostrack_device_combo.findData(self.ostrack_settings.device)
+        self.ostrack_device_combo.setCurrentIndex(ostrack_device_idx if ostrack_device_idx >= 0 else 0)
+        self.ostrack_device_combo.setToolTip(
+            "Device passed to the OSTrack runtime. The validated upstream tracker path requires CUDA."
+        )
+        ostrack_layout.addRow("Device:", self.ostrack_device_combo)
+
+        self.ostrack_inference_resolution_combo = QComboBox()
+        self.ostrack_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("256 x 256", 256),
+            ("384 x 384", 384),
+            ("512 x 512", 512),
+        ):
+            self.ostrack_inference_resolution_combo.addItem(label, value)
+        ostrack_res_idx = self.ostrack_inference_resolution_combo.findData(
+            self.ostrack_settings.inference_resolution
+        )
+        self.ostrack_inference_resolution_combo.setCurrentIndex(
+            ostrack_res_idx if ostrack_res_idx >= 0 else 0
+        )
+        self.ostrack_inference_resolution_combo.setToolTip(
+            "Optional square inference size for OSTrack. Native keeps the original LEED frame size."
+        )
+        ostrack_layout.addRow("Inference resolution:", self.ostrack_inference_resolution_combo)
+
+        self.ostrack_window_size_spinbox = QSpinBox()
+        self.ostrack_window_size_spinbox.setRange(2, 4096)
+        self.ostrack_window_size_spinbox.setValue(self.ostrack_settings.window_size)
+        self.ostrack_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed OSTrack window. "
+            "Smaller values reseed more often from the last accepted bbox."
+        )
+        ostrack_layout.addRow("Window size:", self.ostrack_window_size_spinbox)
+
+        self.ostrack_window_overlap_spinbox = QSpinBox()
+        self.ostrack_window_overlap_spinbox.setRange(0, 1024)
+        self.ostrack_window_overlap_spinbox.setValue(self.ostrack_settings.window_overlap)
+        self.ostrack_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive OSTrack windows. "
+            "The backend clamps this to at least 1 shared frame in multi-window mode."
+        )
+        ostrack_layout.addRow("Window overlap:", self.ostrack_window_overlap_spinbox)
+
+        self.ostrack_repr_mode_combo = QComboBox()
+        self.ostrack_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.ostrack_repr_mode_combo.addItem("Peak in bbox", "peak_in_bbox")
+        self.ostrack_repr_mode_combo.addItem("Gaussian in bbox", "gaussian_in_bbox")
+        ostrack_repr_idx = self.ostrack_repr_mode_combo.findData(
+            self.ostrack_settings.representative_point_mode
+        )
+        self.ostrack_repr_mode_combo.setCurrentIndex(ostrack_repr_idx if ostrack_repr_idx >= 0 else 0)
+        self.ostrack_repr_mode_combo.setToolTip(
+            "How Trackleed converts the tracked bbox into one representative point."
+        )
+        ostrack_layout.addRow("Representative point:", self.ostrack_repr_mode_combo)
+
+        self.ostrack_bbox_padding_spinbox = QDoubleSpinBox()
+        self.ostrack_bbox_padding_spinbox.setDecimals(1)
+        self.ostrack_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.ostrack_bbox_padding_spinbox.setSingleStep(1.0)
+        self.ostrack_bbox_padding_spinbox.setValue(self.ostrack_settings.initial_bbox_padding_px)
+        self.ostrack_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around roi_rect before the initial bbox is passed to OSTrack."
+        )
+        ostrack_layout.addRow("Init bbox padding (px):", self.ostrack_bbox_padding_spinbox)
+
+        self.ostrack_presence_gating_checkbox = QCheckBox("Use bbox score gating")
+        self.ostrack_presence_gating_checkbox.setChecked(
+            self.ostrack_settings.use_presence_score_gating
+        )
+        self.ostrack_presence_gating_checkbox.setToolTip(
+            "Drop OSTrack bbox detections below the configured score threshold. "
+            "The MVP backend currently exposes a binary technical score."
+        )
+        self.ostrack_presence_gating_checkbox.toggled.connect(
+            self._on_ostrack_presence_gating_changed
+        )
+        ostrack_layout.addRow(self.ostrack_presence_gating_checkbox)
+
+        self.ostrack_presence_threshold_spinbox = QDoubleSpinBox()
+        self.ostrack_presence_threshold_spinbox.setDecimals(2)
+        self.ostrack_presence_threshold_spinbox.setRange(0.00, 1.00)
+        self.ostrack_presence_threshold_spinbox.setSingleStep(0.05)
+        self.ostrack_presence_threshold_spinbox.setValue(self.ostrack_settings.presence_threshold)
+        self.ostrack_presence_threshold_spinbox.setToolTip(
+            "Minimum bbox score required to keep an OSTrack bbox when gating is enabled."
+        )
+        ostrack_layout.addRow("Score threshold:", self.ostrack_presence_threshold_spinbox)
+
+        self.ostrack_keep_gaps_checkbox = QCheckBox("Keep invisible bboxes as gaps")
+        self.ostrack_keep_gaps_checkbox.setChecked(
+            self.ostrack_settings.keep_invisible_points_as_gaps
+        )
+        self.ostrack_keep_gaps_checkbox.setToolTip(
+            "If enabled, frames where OSTrack returns no accepted bbox leave gaps instead of forcing a point."
+        )
+        ostrack_layout.addRow(self.ostrack_keep_gaps_checkbox)
+
+        self.ostrack_max_step_spinbox = QDoubleSpinBox()
+        self.ostrack_max_step_spinbox.setDecimals(1)
+        self.ostrack_max_step_spinbox.setRange(0.0, 500.0)
+        self.ostrack_max_step_spinbox.setSingleStep(1.0)
+        self.ostrack_max_step_spinbox.setValue(self.ostrack_settings.max_step_distance_px)
+        self.ostrack_max_step_spinbox.setToolTip(
+            "Maximum accepted shift between consecutive accepted positions. Set 0 to disable."
+        )
+        ostrack_layout.addRow("Max jump (px):", self.ostrack_max_step_spinbox)
+
+        self.ostrack_max_reacquisition_gap_spinbox = QSpinBox()
+        self.ostrack_max_reacquisition_gap_spinbox.setRange(0, 1000)
+        self.ostrack_max_reacquisition_gap_spinbox.setValue(
+            self.ostrack_settings.max_reacquisition_gap
+        )
+        self.ostrack_max_reacquisition_gap_spinbox.setToolTip(
+            "Maximum invisible gap after which a new visible bbox is still accepted. Set 0 to disable."
+        )
+        ostrack_layout.addRow("Max reacquisition gap:", self.ostrack_max_reacquisition_gap_spinbox)
+
+        self.ostrack_terminate_after_invisible_spinbox = QSpinBox()
+        self.ostrack_terminate_after_invisible_spinbox.setRange(0, 1000)
+        self.ostrack_terminate_after_invisible_spinbox.setValue(
+            self.ostrack_settings.terminate_after_invisible_frames
+        )
+        self.ostrack_terminate_after_invisible_spinbox.setToolTip(
+            "Terminate a track after this many consecutive rejected/invisible frames. Set 0 to disable."
+        )
+        ostrack_layout.addRow("Terminate after gap:", self.ostrack_terminate_after_invisible_spinbox)
+
+        self.ostrack_center_mode_combo = QComboBox()
+        self.ostrack_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.ostrack_center_mode_combo.addItem("Manual", "manual")
+        ostrack_center_mode_idx = self.ostrack_center_mode_combo.findData(
+            self.ostrack_settings.center_mode
+        )
+        self.ostrack_center_mode_combo.setCurrentIndex(
+            ostrack_center_mode_idx if ostrack_center_mode_idx >= 0 else 0
+        )
+        self.ostrack_center_mode_combo.setToolTip(
+            "Reference center used by directional gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.ostrack_center_mode_combo.currentIndexChanged.connect(
+            self._on_ostrack_center_mode_changed
+        )
+        ostrack_layout.addRow("Direction center:", self.ostrack_center_mode_combo)
+
+        ostrack_center_row_widget = QWidget()
+        ostrack_center_row_layout = QHBoxLayout(ostrack_center_row_widget)
+        ostrack_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.ostrack_center_x_spinbox = QDoubleSpinBox()
+        self.ostrack_center_x_spinbox.setRange(0.0, 10000.0)
+        self.ostrack_center_x_spinbox.setDecimals(1)
+        self.ostrack_center_x_spinbox.setValue(self.ostrack_settings.manual_center_x)
+        self.ostrack_center_y_spinbox = QDoubleSpinBox()
+        self.ostrack_center_y_spinbox.setRange(0.0, 10000.0)
+        self.ostrack_center_y_spinbox.setDecimals(1)
+        self.ostrack_center_y_spinbox.setValue(self.ostrack_settings.manual_center_y)
+        ostrack_center_row_layout.addWidget(self.ostrack_center_x_spinbox)
+        ostrack_center_row_layout.addWidget(QLabel(","))
+        ostrack_center_row_layout.addWidget(self.ostrack_center_y_spinbox)
+        ostrack_layout.addRow("Manual center (x, y):", ostrack_center_row_widget)
+
+        self.ostrack_direction_mode_combo = QComboBox()
+        self.ostrack_direction_mode_combo.addItem("None", "none")
+        self.ostrack_direction_mode_combo.addItem("Auto", "auto")
+        self.ostrack_direction_mode_combo.addItem("Inward", "inward")
+        self.ostrack_direction_mode_combo.addItem("Outward", "outward")
+        ostrack_direction_idx = self.ostrack_direction_mode_combo.findData(
+            self.ostrack_settings.direction_mode
+        )
+        self.ostrack_direction_mode_combo.setCurrentIndex(
+            ostrack_direction_idx if ostrack_direction_idx >= 0 else 0
+        )
+        self.ostrack_direction_mode_combo.setToolTip(
+            "Optional directional prior for radial motion relative to the LEED center."
+        )
+        ostrack_layout.addRow("Direction mode:", self.ostrack_direction_mode_combo)
+
+        self.ostrack_lateral_tol_spinbox = QDoubleSpinBox()
+        self.ostrack_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.ostrack_lateral_tol_spinbox.setSingleStep(1.0)
+        self.ostrack_lateral_tol_spinbox.setValue(
+            self.ostrack_settings.lateral_angle_tolerance_deg
+        )
+        self.ostrack_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        ostrack_layout.addRow("Angular tol (deg):", self.ostrack_lateral_tol_spinbox)
+
+        self.ostrack_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.ostrack_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.ostrack_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.ostrack_max_radial_jump_spinbox.setValue(self.ostrack_settings.max_radial_jump_px)
+        self.ostrack_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        ostrack_layout.addRow("Max radial jump (px):", self.ostrack_max_radial_jump_spinbox)
+
+        self.ostrack_warning_label = QLabel()
+        self.ostrack_warning_label.setStyleSheet("color: #d9534f;")
+        self.ostrack_warning_label.setWordWrap(True)
+        ostrack_layout.addRow(self.ostrack_warning_label)
+
+        self._on_ostrack_backend_mode_changed(self.ostrack_backend_mode_combo.currentIndex())
+        self._on_ostrack_center_mode_changed(self.ostrack_center_mode_combo.currentIndex())
+        self._on_ostrack_presence_gating_changed(
+            self.ostrack_presence_gating_checkbox.isChecked()
+        )
+        self._apply_ostrack_variant_preset(self._current_ostrack_variant_key())
+        form_layout.addRow(self.ostrack_group)
+
         # --- Offline Cutie parameters ---
         self.cutie_group = QGroupBox("Offline Cutie")
         cutie_layout = QFormLayout(self.cutie_group)
@@ -5045,6 +5422,7 @@ class MainWindow(QMainWindow):
         self._refresh_pipspp_checkpoints()
         self._refresh_mftiq_checkpoints()
         self._refresh_tomp_checkpoints()
+        self._refresh_ostrack_checkpoints()
         self._refresh_cutie_checkpoints()
         self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
@@ -6869,6 +7247,7 @@ class MainWindow(QMainWindow):
             "pipspp_offline": self._refresh_pipspp_checkpoints,
             "mftiq_offline": self._refresh_mftiq_checkpoints,
             "tomp_offline": self._refresh_tomp_checkpoints,
+            "ostrack_offline": self._refresh_ostrack_checkpoints,
             "cutie_offline": self._refresh_cutie_checkpoints,
             "xmem2_offline": self._refresh_xmem2_checkpoints,
             "sam2_offline": self._refresh_sam2_checkpoints,
@@ -7007,10 +7386,21 @@ class MainWindow(QMainWindow):
         if hasattr(self, "tomp_warning_label"):
             self._refresh_tomp_checkpoints()
 
+    def _on_ostrack_backend_mode_changed(self, idx: int):
+        backend_mode = self.ostrack_backend_mode_combo.itemData(idx)
+        self.ostrack_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "ostrack_warning_label"):
+            self._refresh_ostrack_checkpoints()
+
     def _on_tomp_center_mode_changed(self, idx: int):
         manual = self.tomp_center_mode_combo.itemData(idx) == "manual"
         self.tomp_center_x_spinbox.setEnabled(manual)
         self.tomp_center_y_spinbox.setEnabled(manual)
+
+    def _on_ostrack_center_mode_changed(self, idx: int):
+        manual = self.ostrack_center_mode_combo.itemData(idx) == "manual"
+        self.ostrack_center_x_spinbox.setEnabled(manual)
+        self.ostrack_center_y_spinbox.setEnabled(manual)
 
     def _on_xmem2_center_mode_changed(self, idx: int):
         manual = self.xmem2_center_mode_combo.itemData(idx) == "manual"
@@ -7285,6 +7675,250 @@ class MainWindow(QMainWindow):
     def _on_tomp_presence_gating_changed(self, enabled: bool):
         if hasattr(self, "tomp_presence_threshold_spinbox"):
             self.tomp_presence_threshold_spinbox.setEnabled(bool(enabled))
+
+    def _current_ostrack_variant_key(self) -> str:
+        return str(
+            self.ostrack_model_variant_combo.currentData()
+            or self.ostrack_settings.model_variant
+            or DEFAULT_OSTRACK_CONFIG_NAME
+        )
+
+    def _current_ostrack_variant_label(self) -> str:
+        variant_key = self._current_ostrack_variant_key()
+        if variant_key == "vitb_384_mae_ce_32x4_ep300":
+            return "OSTrack ViT-B 384 MAE CE"
+        return "OSTrack ViT-B 256 MAE CE"
+
+    def _update_ostrack_preset_hint(self, variant_key: str):
+        preset = OSTRACK_VARIANT_PRESETS.get(str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME))
+        if not hasattr(self, "ostrack_preset_hint_label") or preset is None:
+            return
+        gating_text = (
+            f"on >= {float(preset.get('presence_threshold', 0.0)):.2f}"
+            if bool(preset.get("use_presence_score_gating", False))
+            else "off"
+        )
+        self.ostrack_preset_hint_label.setText(
+            "Preset for "
+            f"{self._current_ostrack_variant_label()}: "
+            f"repr={preset.get('representative_point_mode', 'bbox_center')}, "
+            f"window={int(preset.get('window_size', 64))}/{int(preset.get('window_overlap', 8))}, "
+            f"bbox score gating={gating_text}."
+        )
+
+    def _apply_ostrack_variant_preset(self, variant_key: str):
+        preset = OSTRACK_VARIANT_PRESETS.get(str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME))
+        if preset is None:
+            return
+
+        if hasattr(self, "ostrack_repr_mode_combo"):
+            repr_idx = self.ostrack_repr_mode_combo.findData(preset.get("representative_point_mode"))
+            if repr_idx >= 0:
+                self.ostrack_repr_mode_combo.setCurrentIndex(repr_idx)
+        if hasattr(self, "ostrack_window_size_spinbox"):
+            self.ostrack_window_size_spinbox.setValue(int(preset.get("window_size", 64)))
+        if hasattr(self, "ostrack_window_overlap_spinbox"):
+            self.ostrack_window_overlap_spinbox.setValue(int(preset.get("window_overlap", 8)))
+        if hasattr(self, "ostrack_bbox_padding_spinbox"):
+            self.ostrack_bbox_padding_spinbox.setValue(float(preset.get("initial_bbox_padding_px", 0.0)))
+        if hasattr(self, "ostrack_presence_gating_checkbox"):
+            self.ostrack_presence_gating_checkbox.setChecked(
+                bool(preset.get("use_presence_score_gating", False))
+            )
+        if hasattr(self, "ostrack_presence_threshold_spinbox"):
+            self.ostrack_presence_threshold_spinbox.setValue(
+                float(preset.get("presence_threshold", 0.0))
+            )
+        if hasattr(self, "ostrack_max_step_spinbox"):
+            self.ostrack_max_step_spinbox.setValue(float(preset.get("max_step_distance_px", 0.0)))
+        if hasattr(self, "ostrack_max_reacquisition_gap_spinbox"):
+            self.ostrack_max_reacquisition_gap_spinbox.setValue(
+                int(preset.get("max_reacquisition_gap", 0))
+            )
+        if hasattr(self, "ostrack_terminate_after_invisible_spinbox"):
+            self.ostrack_terminate_after_invisible_spinbox.setValue(
+                int(preset.get("terminate_after_invisible_frames", 0))
+            )
+
+        self.ostrack_settings.representative_point_mode = str(
+            preset.get("representative_point_mode", "bbox_center")
+        )
+        self.ostrack_settings.window_size = int(preset.get("window_size", 64))
+        self.ostrack_settings.window_overlap = int(preset.get("window_overlap", 8))
+        self.ostrack_settings.initial_bbox_padding_px = float(
+            preset.get("initial_bbox_padding_px", 0.0)
+        )
+        self.ostrack_settings.use_presence_score_gating = bool(
+            preset.get("use_presence_score_gating", False)
+        )
+        self.ostrack_settings.presence_threshold = float(preset.get("presence_threshold", 0.0))
+        self.ostrack_settings.max_step_distance_px = float(
+            preset.get("max_step_distance_px", 0.0)
+        )
+        self.ostrack_settings.max_reacquisition_gap = int(
+            preset.get("max_reacquisition_gap", 0)
+        )
+        self.ostrack_settings.terminate_after_invisible_frames = int(
+            preset.get("terminate_after_invisible_frames", 0)
+        )
+        self._update_ostrack_preset_hint(variant_key)
+
+    def _refresh_ostrack_checkpoints(self):
+        tracker_spec = require_tracker_spec("ostrack_offline")
+        repo_path = self.ostrack_repo_path_edit.text().strip() or self.ostrack_settings.repo_path
+        if repo_path:
+            self.ostrack_settings.repo_path = repo_path
+        self.ostrack_settings.python_executable = (
+            self.ostrack_python_executable_edit.text().strip() or None
+        )
+        self.ostrack_settings.backend_mode = self.ostrack_backend_mode_combo.currentData()
+        self.ostrack_settings.model_variant = self._current_ostrack_variant_key()
+
+        current_variant = self.ostrack_settings.model_variant
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=self.ostrack_models_dir,
+            checkpoint_path=self.ostrack_settings.checkpoint_path,
+            repo_path=self.ostrack_settings.repo_path,
+            python_executable=(
+                self.ostrack_settings.python_executable
+                if self.ostrack_settings.backend_mode == "subprocess"
+                else None
+            ),
+            config_name=current_variant,
+        )
+
+        available_checkpoints = status.available_checkpoints
+        selected_checkpoint_obj = select_default_ostrack_checkpoint(
+            available_checkpoints,
+            current_variant,
+        )
+        if (
+            self.ostrack_settings.checkpoint_path
+            and status.selected_checkpoint is not None
+            and status.selected_checkpoint.exists()
+        ):
+            selected_checkpoint_obj = status.selected_checkpoint
+
+        self.ostrack_checkpoint_hint_label.setText(
+            "Hint: keep OSTrack checkpoints in tracking_models/ostrack. "
+            "The validated file is OSTrack_ep0300.pth.tar."
+        )
+
+        self.ostrack_checkpoint_combo.blockSignals(True)
+        self.ostrack_checkpoint_combo.clear()
+
+        if not available_checkpoints:
+            self.ostrack_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.ostrack_checkpoint_combo.setEnabled(False)
+            self._ostrack_checkpoint_available = False
+            self.ostrack_settings.checkpoint_path = None
+        else:
+            self.ostrack_checkpoint_combo.setEnabled(True)
+            for path in available_checkpoints:
+                label = path.name
+                self.ostrack_checkpoint_combo.addItem(label, userData=str(path.resolve()))
+            self._ostrack_checkpoint_available = True
+            selected_checkpoint = (
+                str(selected_checkpoint_obj.resolve())
+                if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.ostrack_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.ostrack_checkpoint_combo.setCurrentIndex(idx)
+                    self.ostrack_settings.checkpoint_path = selected_checkpoint
+            if not self.ostrack_settings.checkpoint_path and self.ostrack_checkpoint_combo.count() > 0:
+                self.ostrack_checkpoint_combo.setCurrentIndex(0)
+                self.ostrack_settings.checkpoint_path = self.ostrack_checkpoint_combo.currentData()
+
+        self.ostrack_checkpoint_combo.blockSignals(False)
+        self.ostrack_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.ostrack_settings.repo_path or "")
+        )
+        self.ostrack_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.ostrack_settings.repo_path
+        )
+
+        selected_for_status = selected_checkpoint_obj or status.selected_checkpoint
+        python_executable = self.ostrack_settings.python_executable
+        python_path_ok = self._python_executable_path_ok(python_executable)
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.config_exists
+            and selected_for_status is not None
+            and selected_for_status.exists()
+        )
+        variant_ready = bool(status.is_ready and structural_ready)
+
+        if variant_ready:
+            details = [self._current_ostrack_variant_label()]
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            if selected_for_status is not None:
+                details.append(selected_for_status.name)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text=f"{self._current_ostrack_variant_label()} ready. " + ", ".join(details[1:]),
+                status=status,
+            )
+        elif (
+            self.ostrack_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    f"{self._current_ostrack_variant_label()} subprocess configured. "
+                    "Current app env is not OSTrack-ready, so Trackleed will use the external Python executable."
+                ),
+                status=status,
+            )
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.ostrack_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not variant_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated ostrack env, or run Trackleed from that env."
+                )
+            if not summary:
+                summary.append("Configure the dedicated ostrack env or run Trackleed from that env.")
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
+
+    def _on_ostrack_variant_changed(self, index: int):
+        self.ostrack_settings.model_variant = (
+            self.ostrack_model_variant_combo.itemData(index) or DEFAULT_OSTRACK_CONFIG_NAME
+        )
+        self._apply_ostrack_variant_preset(self.ostrack_settings.model_variant)
+        self.ostrack_settings.checkpoint_path = None
+        self._refresh_ostrack_checkpoints()
+
+    def _on_ostrack_checkpoint_selected(self, index: int):
+        checkpoint_path = self.ostrack_checkpoint_combo.itemData(index)
+        self.ostrack_settings.checkpoint_path = checkpoint_path
+        self._refresh_ostrack_checkpoints()
+
+    def _on_ostrack_presence_gating_changed(self, enabled: bool):
+        if hasattr(self, "ostrack_presence_threshold_spinbox"):
+            self.ostrack_presence_threshold_spinbox.setEnabled(bool(enabled))
 
     def _on_sam2_backend_mode_changed(self, idx: int):
         backend_mode = self.sam2_backend_mode_combo.itemData(idx)
@@ -8374,6 +9008,44 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_ostrack_tracking_params(self) -> dict:
+        """Collect the current OSTrack tracking settings from the UI."""
+        repo_path = self.ostrack_repo_path_edit.text().strip() or self.ostrack_settings.repo_path
+        inference_resolution = self.ostrack_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        return {
+            "ostrack_models_dir": str(self.ostrack_models_dir.resolve()),
+            "ostrack_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.ostrack_settings.checkpoint_path,
+            "python_executable": self.ostrack_python_executable_edit.text().strip() or None,
+            "backend_mode": self.ostrack_backend_mode_combo.currentData(),
+            "model_variant": self.ostrack_model_variant_combo.currentData(),
+            "device": self.ostrack_device_combo.currentData(),
+            "representative_point_mode": self.ostrack_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.ostrack_window_size_spinbox.value(),
+            "window_overlap": self.ostrack_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.ostrack_bbox_padding_spinbox.value(),
+            "subprocess_timeout_sec": self.ostrack_settings.subprocess_timeout_sec,
+            "use_presence_score_gating": self.ostrack_presence_gating_checkbox.isChecked(),
+            "presence_threshold": self.ostrack_presence_threshold_spinbox.value(),
+            "keep_invisible_points_as_gaps": self.ostrack_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.ostrack_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.ostrack_max_reacquisition_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.ostrack_terminate_after_invisible_spinbox.value(),
+            "center_mode": self.ostrack_center_mode_combo.currentData(),
+            "manual_center": (
+                self.ostrack_center_x_spinbox.value(),
+                self.ostrack_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.ostrack_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.ostrack_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.ostrack_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _collect_xmem2_tracking_params(self) -> dict:
         """Collect the current XMem2 tracking settings from the UI."""
         repo_path = self.xmem2_repo_path_edit.text().strip() or self.xmem2_settings.repo_path
@@ -8884,6 +9556,58 @@ class MainWindow(QMainWindow):
                 tracker_spec,
                 status,
                 ready_for_direct=variant_ready,
+                structural_ready=structural_ready,
+                title=self._tracker_unavailable_title_for_spec(tracker_spec),
+                env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_id),
+            ):
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "ostrack_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline OSTrack")
+            if ref_file is None:
+                return None
+
+            self._sync_registered_tracker_settings_from_widgets(tracker_spec)
+            self.ostrack_settings.model_variant = self._current_ostrack_variant_key()
+
+            current_variant = self.ostrack_settings.model_variant
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.ostrack_models_dir,
+                checkpoint_path=self.ostrack_settings.checkpoint_path,
+                repo_path=self.ostrack_settings.repo_path,
+                python_executable=(
+                    self.ostrack_settings.python_executable
+                    if self.ostrack_settings.backend_mode == "subprocess"
+                    else None
+                ),
+                config_name=current_variant,
+            )
+            selected_checkpoint_obj = (
+                status.selected_checkpoint
+                if status.selected_checkpoint is not None
+                else select_default_ostrack_checkpoint(status.available_checkpoints, current_variant)
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and status.config_exists
+                and selected_checkpoint_obj is not None
+                and selected_checkpoint_obj.exists()
+            )
+            if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists():
+                self.ostrack_settings.checkpoint_path = str(selected_checkpoint_obj.resolve())
+            if not self._ensure_registered_tracker_runtime_ready(
+                tracker_spec,
+                status,
+                ready_for_direct=status.is_ready,
                 structural_ready=structural_ready,
                 title=self._tracker_unavailable_title_for_spec(tracker_spec),
                 env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_id),

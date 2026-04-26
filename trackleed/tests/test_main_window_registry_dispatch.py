@@ -74,6 +74,7 @@ class MainWindowImportMixin:
             "trackleed.analysis.trackonr_backend",
             "trackleed.analysis.pipspp_backend",
             "trackleed.analysis.mftiq_backend",
+            "trackleed.analysis.ostrack_backend",
             "trackleed.analysis.cutie_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
@@ -252,6 +253,16 @@ class MainWindowImportMixin:
             )
         self._install_simple_stub(
             originals,
+            "trackleed.analysis.ostrack_backend",
+            DEFAULT_OSTRACK_CONFIG_NAME="vitb_256_mae_ce_32x4_ep300",
+            format_ostrack_environment_report=lambda status: f"ostrack:{status}",
+            probe_ostrack_environment=_stub_callable(
+                "trackleed.analysis.ostrack_backend.probe_ostrack_environment"
+            ),
+            select_default_ostrack_checkpoint=lambda checkpoints, config_name=None: None,
+        )
+        self._install_simple_stub(
+            originals,
             "trackleed.analysis.tomp_backend",
             expected_tomp_checkpoint_name_for_variant=lambda variant: f"{variant}.pth.tar",
             format_tomp_environment_report=lambda status: f"tomp:{status}",
@@ -264,6 +275,9 @@ class MainWindowImportMixin:
         self._install_simple_stub(
             originals,
             "trackleed.analysis.tracking_bbox_backends",
+            track_spots_ostrack_offline=_stub_callable(
+                "trackleed.analysis.tracking_bbox_backends.track_spots_ostrack_offline"
+            ),
             track_spots_tomp_offline=_stub_callable(
                 "trackleed.analysis.tracking_bbox_backends.track_spots_tomp_offline"
             ),
@@ -329,6 +343,9 @@ class MainWindowImportMixin:
             ),
             retrack_single_spot_mftiq_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_mftiq_offline"
+            ),
+            retrack_single_spot_ostrack_offline=_stub_callable(
+                "trackleed.analysis.tracking_retrack.retrack_single_spot_ostrack_offline"
             ),
             retrack_single_spot_pipspp_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_pipspp_offline"

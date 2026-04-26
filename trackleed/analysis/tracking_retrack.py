@@ -5,6 +5,7 @@ from threading import Event
 from typing import Dict, List, Optional, Callable
 
 from trackleed.analysis.tracking_bbox_backends import (
+    retrack_single_spot_ostrack_offline,
     retrack_single_spot_tomp_offline,
 )
 from trackleed.analysis.tracking_mask_backends import (

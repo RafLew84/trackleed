@@ -91,6 +91,7 @@ class ShimImportMixin:
             "trackleed.analysis.deva_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
+            "trackleed.analysis.ostrack_backend",
             *self.runtime_module_names,
         )
         for module_name in module_names_to_clear:
@@ -297,6 +298,21 @@ class ShimImportMixin:
             },
         )
 
+        ostrack_module = types.ModuleType("trackleed.analysis.ostrack_backend")
+        ostrack_module.DEFAULT_OSTRACK_CONFIG_NAME = "vitb_256_mae_ce_32x4_ep300"
+        ostrack_module.DEFAULT_OSTRACK_MODELS_DIR = Path("tracking_models/ostrack")
+        ostrack_module.OstrackRuntimeSettings = _RuntimeSettings
+        ostrack_module.discover_ostrack_checkpoints = lambda *args, **kwargs: []
+        ostrack_module.run_ostrack_offline = _stub_callable(
+            "trackleed.analysis.ostrack_backend.run_ostrack_offline"
+        )
+        ostrack_module.select_default_ostrack_checkpoint = lambda *args, **kwargs: None
+        ostrack_module.format_ostrack_environment_report = lambda status: f"ostrack:{status}"
+        ostrack_module.probe_ostrack_environment = _stub_callable(
+            "trackleed.analysis.ostrack_backend.probe_ostrack_environment"
+        )
+        sys.modules["trackleed.analysis.ostrack_backend"] = ostrack_module
+
         tomp_module = types.ModuleType("trackleed.analysis.tomp_backend")
         tomp_module.DEFAULT_TAMOS_MODELS_DIR = Path("tracking_models/tamos")
         tomp_module.DEFAULT_TOMP_MODELS_DIR = Path("tracking_models/tomp")
@@ -381,6 +397,7 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(self.tracking.track_spots_pipspp_offline, self.point_backends.track_spots_pipspp_offline)
         self.assertIs(self.tracking.track_spots_mftiq_offline, self.point_backends.track_spots_mftiq_offline)
         self.assertIs(self.tracking.track_spots_tomp_offline, self.bbox_backends.track_spots_tomp_offline)
+        self.assertIs(self.tracking.track_spots_ostrack_offline, self.bbox_backends.track_spots_ostrack_offline)
         self.assertIs(self.tracking.track_spots_cutie_offline, self.mask_backends.track_spots_cutie_offline)
         self.assertIs(self.tracking.track_spots_xmem2_offline, self.mask_backends.track_spots_xmem2_offline)
         self.assertIs(self.tracking.track_spots_sam2_offline, self.mask_backends.track_spots_sam2_offline)
@@ -422,6 +439,10 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(
             self.tracking.retrack_single_spot_tomp_offline,
             self.tracking_retrack.retrack_single_spot_tomp_offline,
+        )
+        self.assertIs(
+            self.tracking.retrack_single_spot_ostrack_offline,
+            self.tracking_retrack.retrack_single_spot_ostrack_offline,
         )
         self.assertIs(
             self.tracking.retrack_single_spot_cutie_offline,
@@ -500,6 +521,10 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(
             self.tracker_registry.require_tracker_spec("tomp_offline").run_tracking,
             self.bbox_backends.track_spots_tomp_offline,
+        )
+        self.assertIs(
+            self.tracker_registry.require_tracker_spec("ostrack_offline").run_tracking,
+            self.bbox_backends.track_spots_ostrack_offline,
         )
         self.assertIs(
             self.tracker_registry.require_tracker_spec("sam2_offline").run_retrack,

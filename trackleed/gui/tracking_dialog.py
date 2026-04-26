@@ -43,6 +43,7 @@ TRACKER_METHOD_LABEL_BY_SOURCE = {
     "xmem2_offline": "XMem2",
     "tomp_offline": "ToMP",
     "tamos_offline": "TaMOs",
+    "ostrack_offline": "OSTrack",
     "sam2_offline": "SAM2",
     "deva_offline": "DEVA",
 }
@@ -60,6 +61,7 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
     "xmem2_offline": "XMem2 + Manual",
     "tomp_offline": "ToMP + Manual",
     "tamos_offline": "TaMOs + Manual",
+    "ostrack_offline": "OSTrack + Manual",
     "sam2_offline": "SAM2 + Manual",
     "deva_offline": "DEVA + Manual",
 }
@@ -76,6 +78,7 @@ TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
     "cutie_offline": "initiate_retrack_cutie",
     "xmem2_offline": "initiate_retrack_xmem2",
     "tomp_offline": "initiate_retrack_tomp",
+    "ostrack_offline": "initiate_retrack_ostrack",
     "sam2_offline": "initiate_retrack_sam2",
     "deva_offline": "initiate_retrack_deva",
 }
@@ -92,6 +95,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "cutie_offline": "Cutie Unavailable",
     "xmem2_offline": "XMem2 Unavailable",
     "tomp_offline": "ToMP / TaMOs Unavailable",
+    "ostrack_offline": "OSTrack Unavailable",
     "sam2_offline": "SAM2 Unavailable",
     "deva_offline": "DEVA Unavailable",
 }
@@ -104,6 +108,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "cutie_offline": "cutie",
     "xmem2_offline": "xmem2",
     "tomp_offline": "tomp",
+    "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
     "deva_offline": "deva",
 }
@@ -194,6 +199,7 @@ class TrackingDialog(QDialog):
         cutie_params: dict | None = None,
         xmem2_params: dict | None = None,
         tomp_params: dict | None = None,
+        ostrack_params: dict | None = None,
         sam2_params: dict | None = None,
         deva_params: dict | None = None,
         parent=None,
@@ -225,6 +231,7 @@ class TrackingDialog(QDialog):
         self.cutie_params = dict(cutie_params or {})
         self.xmem2_params = dict(xmem2_params or {})
         self.tomp_params = dict(tomp_params or {})
+        self.ostrack_params = dict(ostrack_params or {})
         self.sam2_params = dict(sam2_params or {})
         self.deva_params = dict(deva_params or {})
         self.save_session_callback = save_session_callback
@@ -634,13 +641,63 @@ class TrackingDialog(QDialog):
             lines.append(f"Filter: rejected ({rejected_reason})")
         return True
 
+    def _append_ostrack_detail_lines(self, lines: list[str], spot: SpotROI, *, source: str) -> bool:
+        if source != "ostrack_offline":
+            return False
+
+        raw_x = getattr(spot, "ostrack_raw_x", None)
+        raw_y = getattr(spot, "ostrack_raw_y", None)
+        refined_x = getattr(spot, "ostrack_refined_x", None)
+        refined_y = getattr(spot, "ostrack_refined_y", None)
+        visibility = getattr(spot, "ostrack_visibility", None)
+        bbox_score = getattr(spot, "ostrack_bbox_score", None)
+        bbox_xywh = getattr(spot, "ostrack_bbox_xywh", None)
+        bbox_xyxy = getattr(spot, "ostrack_bbox_xyxy", None)
+        bbox_aspect_ratio = getattr(spot, "ostrack_bbox_aspect_ratio", None)
+        repr_mode = getattr(spot, "ostrack_repr_mode", None)
+        model_variant = getattr(spot, "ostrack_model_variant", None)
+        checkpoint_name = getattr(spot, "ostrack_checkpoint_name", None)
+        rejected_reason = getattr(spot, "ostrack_filter_rejected_reason", None)
+
+        if raw_x is not None and raw_y is not None:
+            lines.append(f"Representative point: ({float(raw_x):.2f}, {float(raw_y):.2f})")
+        if refined_x is not None and refined_y is not None:
+            lines.append(f"Stored point: ({float(refined_x):.2f}, {float(refined_y):.2f})")
+        if visibility is not None:
+            lines.append(f"Visible: {'yes' if bool(visibility) else 'no'}")
+        if model_variant:
+            lines.append(f"Model variant: {model_variant}")
+        if checkpoint_name:
+            lines.append(f"Checkpoint: {checkpoint_name}")
+        if repr_mode:
+            lines.append(f"Representative mode: {repr_mode}")
+        self._append_formatted_value_line(lines, "BBox score", bbox_score, "float3")
+        if bbox_xywh is not None:
+            try:
+                x, y, w, h = [float(v) for v in bbox_xywh]
+                lines.append(f"Raw bbox xywh: x={x:.1f}, y={y:.1f}, w={w:.1f}, h={h:.1f}")
+            except Exception:
+                pass
+        if bbox_xyxy is not None:
+            try:
+                x0, y0, x1, y1 = [float(v) for v in bbox_xyxy]
+                lines.append(f"Raw bbox xyxy: x0={x0:.1f}, y0={y0:.1f}, x1={x1:.1f}, y1={y1:.1f}")
+            except Exception:
+                pass
+        self._append_formatted_value_line(lines, "BBox aspect ratio", bbox_aspect_ratio, "float3")
+        if rejected_reason:
+            lines.append(f"Filter: rejected ({rejected_reason})")
+        return True
+
     def _append_spot_backend_detail_lines(self, lines: list[str], spot: SpotROI) -> None:
         source = self._normalized_source_name(getattr(spot, "source", None))
         if self._append_point_tracker_detail_lines(lines, spot, source=source):
             return
         if self._append_mask_tracker_detail_lines(lines, spot, source=source):
             return
-        self._append_tomp_detail_lines(lines, spot, source=source)
+        if self._append_tomp_detail_lines(lines, spot, source=source):
+            return
+        self._append_ostrack_detail_lines(lines, spot, source=source)
 
     def _build_focus_point_payload_for_spot(self, track: Track, spot: SpotROI) -> list[dict]:
         source = self._normalized_source_name(getattr(spot, "source", None))
@@ -658,6 +715,44 @@ class TrackingDialog(QDialog):
             raw_x = getattr(spot, "tomp_raw_x", None)
             raw_y = getattr(spot, "tomp_raw_y", None)
             label = f"{'TAMOS' if source == 'tamos_offline' else 'TOMP'} T{track.track_id}"
+        elif source == "ostrack_offline":
+            raw_x = getattr(spot, "ostrack_raw_x", None)
+            raw_y = getattr(spot, "ostrack_raw_y", None)
+            refined_x = getattr(spot, "ostrack_refined_x", None)
+            refined_y = getattr(spot, "ostrack_refined_y", None)
+            label = f"OSTrack T{track.track_id}"
+            payload = []
+
+            def add_point(x_value, y_value, point_label: str) -> bool:
+                if x_value is None or y_value is None:
+                    return False
+                try:
+                    x_float = float(x_value)
+                    y_float = float(y_value)
+                except Exception:
+                    return False
+                if not (np.isfinite(x_float) and np.isfinite(y_float)):
+                    return False
+                payload.append({"x": x_float, "y": y_float, "label": point_label})
+                return True
+
+            raw_added = add_point(raw_x, raw_y, f"{label} raw")
+            stored_added = False
+            if refined_x is not None and refined_y is not None:
+                try:
+                    same_as_raw = (
+                        raw_added
+                        and np.isclose(float(refined_x), float(raw_x))
+                        and np.isclose(float(refined_y), float(raw_y))
+                    )
+                except Exception:
+                    same_as_raw = False
+                if not same_as_raw:
+                    stored_added = add_point(refined_x, refined_y, f"{label} stored")
+            if raw_added or stored_added:
+                return payload
+            raw_x = spot.center_x
+            raw_y = spot.center_y
         else:
             return []
 
@@ -1856,6 +1951,86 @@ class TrackingDialog(QDialog):
             tomp_params,
             title=f"Re-tracking spot with {variant_label}...",
             method_label=f"{variant_label} re-tracking",
+        )
+
+    def initiate_retrack_ostrack(self, spot_id: int):
+        """Prepares and launches OSTrack re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("ostrack_offline")
+
+        ostrack_params = self._tracker_params_for_spec(tracker_spec)
+        if not ostrack_params:
+            QMessageBox.warning(
+                self,
+                "OSTrack Settings Missing",
+                "OSTrack parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None:
+            return
+
+        model_variant = (
+            ostrack_params.get("model_variant")
+            or getattr(start_spot, "ostrack_model_variant", None)
+            or "vitb_256_mae_ce_32x4_ep300"
+        )
+        model_variant = str(model_variant).strip().replace("-", "_")
+        if not model_variant:
+            model_variant = "vitb_256_mae_ce_32x4_ep300"
+
+        backend_mode = str(
+            ostrack_params.get("backend_mode") or "subprocess"
+        ).strip().lower()
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=ostrack_params.get("ostrack_models_dir"),
+            checkpoint_path=ostrack_params.get("checkpoint_path"),
+            repo_path=(
+                ostrack_params.get("repo_path")
+                or ostrack_params.get("ostrack_repo_path")
+            ),
+            python_executable=(
+                ostrack_params.get("python_executable")
+                if backend_mode == "subprocess"
+                else None
+            ),
+            config_name=model_variant,
+        )
+        selected_checkpoint_obj = status.selected_checkpoint
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.config_exists
+            and selected_checkpoint_obj is not None
+            and selected_checkpoint_obj.exists()
+        )
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            ostrack_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            title="OSTrack Unavailable",
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
+
+        if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists():
+            ostrack_params["checkpoint_path"] = str(selected_checkpoint_obj.resolve())
+        ostrack_params["roi_size"] = self.roi_size
+        ostrack_params["model_variant"] = model_variant
+
+        self._launch_registered_retrack(
+            tracker_spec,
+            track_to_retrack,
+            current_frame_id,
+            ostrack_params,
+            title="Re-tracking spot with OSTrack...",
+            method_label="OSTrack re-tracking",
         )
 
     def launch_retrack_worker(

@@ -252,9 +252,98 @@ class OstrackBackendTests(unittest.TestCase):
         self.assertTrue(np.all(result.visible_mask))
         self.assertEqual(result.checkpoint_name, "OSTrack_ep0300.pth.tar")
         command = run_mock.call_args.args[0]
+        run_kwargs = run_mock.call_args.kwargs
         self.assertIn("run_ostrack_subprocess.py", " ".join(command))
         self.assertIn("--model-variant", command)
         self.assertIn("vitb_256_mae_ce_32x4_ep300", command)
+        self.assertIn("env", run_kwargs)
+        self.assertIn("timeout", run_kwargs)
+        self.assertEqual(run_kwargs["timeout"], 30.0)
+
+    def test_run_ostrack_subprocess_reports_runner_failure_context(self) -> None:
+        frames = np.zeros((2, 16, 20, 3), dtype=np.uint8)
+        query_points = np.asarray([[0.0, 8.0, 10.0]], dtype=np.float32)
+        settings = ostrack_backend.OstrackRuntimeSettings(
+            checkpoint_path="OSTrack_ep0300.pth.tar",
+            repo_path="C:/repo/ostrack",
+            python_executable=sys.executable,
+            backend_mode="subprocess",
+            model_variant="vitb_256_mae_ce_32x4_ep300",
+        )
+
+        def fake_run(command, **kwargs):
+            return mock.Mock(
+                returncode=7,
+                stdout="runner stdout",
+                stderr="runner stderr",
+            )
+
+        with mock.patch.object(ostrack_backend.subprocess, "run", side_effect=fake_run):
+            with self.assertRaises(RuntimeError) as error_context:
+                ostrack_backend.run_ostrack_offline(frames, query_points, settings)
+
+        message = str(error_context.exception)
+        self.assertIn("OSTrack subprocess inference failed", message)
+        self.assertIn("run_ostrack_subprocess.py", message)
+        self.assertIn('"returncode": 7', message)
+        self.assertIn("runner stdout", message)
+        self.assertIn("runner stderr", message)
+
+    def test_run_ostrack_subprocess_reports_timeout_context(self) -> None:
+        frames = np.zeros((2, 16, 20, 3), dtype=np.uint8)
+        query_points = np.asarray([[0.0, 8.0, 10.0]], dtype=np.float32)
+        settings = ostrack_backend.OstrackRuntimeSettings(
+            checkpoint_path="OSTrack_ep0300.pth.tar",
+            repo_path="C:/repo/ostrack",
+            python_executable=sys.executable,
+            backend_mode="subprocess",
+            model_variant="vitb_256_mae_ce_32x4_ep300",
+            subprocess_timeout_sec=12.5,
+        )
+
+        def fake_run(command, **kwargs):
+            raise ostrack_backend.subprocess.TimeoutExpired(
+                command,
+                timeout=kwargs["timeout"],
+                output=b"partial stdout",
+                stderr=b"partial stderr",
+            )
+
+        with mock.patch.object(ostrack_backend.subprocess, "run", side_effect=fake_run):
+            with self.assertRaises(RuntimeError) as error_context:
+                ostrack_backend.run_ostrack_offline(frames, query_points, settings)
+
+        message = str(error_context.exception)
+        self.assertIn("OSTrack subprocess inference timed out", message)
+        self.assertIn("run_ostrack_subprocess.py", message)
+        self.assertIn('"timeout_sec": 12.5', message)
+        self.assertIn("partial stdout", message)
+        self.assertIn("partial stderr", message)
+
+    def test_run_ostrack_subprocess_reports_missing_output_context(self) -> None:
+        frames = np.zeros((2, 16, 20, 3), dtype=np.uint8)
+        query_points = np.asarray([[0.0, 8.0, 10.0]], dtype=np.float32)
+        settings = ostrack_backend.OstrackRuntimeSettings(
+            checkpoint_path="OSTrack_ep0300.pth.tar",
+            repo_path="C:/repo/ostrack",
+            python_executable=sys.executable,
+            backend_mode="subprocess",
+            model_variant="vitb_256_mae_ce_32x4_ep300",
+        )
+
+        def fake_run(command, **kwargs):
+            return mock.Mock(returncode=0, stdout="ok stdout", stderr="ok stderr")
+
+        with mock.patch.object(ostrack_backend.subprocess, "run", side_effect=fake_run):
+            with self.assertRaises(RuntimeError) as error_context:
+                ostrack_backend.run_ostrack_offline(frames, query_points, settings)
+
+        message = str(error_context.exception)
+        self.assertIn("OSTrack subprocess did not create output", message)
+        self.assertIn("run_ostrack_subprocess.py", message)
+        self.assertIn('"expected_output":', message)
+        self.assertIn("ok stdout", message)
+        self.assertIn("ok stderr", message)
 
     def test_backend_smoke_test_formats_result_with_mocked_backend(self) -> None:
         fake_result = ostrack_backend.OstrackOfflineResult(
@@ -309,21 +398,36 @@ class OstrackBackendTests(unittest.TestCase):
         finally:
             sys.modules.pop("_trackleed_check_ostrack_env_import_test", None)
 
-    def test_run_ostrack_subprocess_script_is_importable(self) -> None:
+    def test_run_ostrack_subprocess_script_imports_without_pyqt(self) -> None:
         script_path = Path(__file__).resolve().parents[2] / "scripts" / "run_ostrack_subprocess.py"
-        spec = importlib.util.spec_from_file_location(
-            "_trackleed_run_ostrack_subprocess_import_test",
-            script_path,
-        )
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
+        original_pyqt_modules = {
+            module_name: sys.modules.get(module_name)
+            for module_name in ("PyQt6", "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets")
+        }
         try:
+            for module_name in original_pyqt_modules:
+                sys.modules.pop(module_name, None)
+
+            spec = importlib.util.spec_from_file_location(
+                "_trackleed_run_ostrack_subprocess_import_test",
+                script_path,
+            )
+            self.assertIsNotNone(spec)
+            self.assertIsNotNone(spec.loader)
+            module = importlib.util.module_from_spec(spec)
             sys.modules[spec.name] = module
             spec.loader.exec_module(module)
+
             self.assertTrue(callable(module.main))
+            self.assertTrue(callable(module._bootstrap_windows_conda_dlls))
+            self.assertNotIn("PyQt6", sys.modules)
         finally:
             sys.modules.pop("_trackleed_run_ostrack_subprocess_import_test", None)
+            for module_name, original_module in original_pyqt_modules.items():
+                if original_module is None:
+                    sys.modules.pop(module_name, None)
+                else:
+                    sys.modules[module_name] = original_module
 
 
 if __name__ == "__main__":

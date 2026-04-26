@@ -158,6 +158,12 @@ class TrackingDialogImportMixin:
                 run_retrack=lambda *args, **kwargs: ("deva_offline", args, kwargs),
                 has_visualizer_retrack=True,
             ),
+            "ostrack_offline": SimpleNamespace(
+                tracker_id="ostrack_offline",
+                params_argument_name="ostrack_params",
+                run_retrack=lambda *args, **kwargs: ("ostrack_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
         }
 
         source_to_spec = {
@@ -168,6 +174,7 @@ class TrackingDialogImportMixin:
             "sam2_offline": tracker_specs["sam2_offline"],
             "xmem2_offline": tracker_specs["xmem2_offline"],
             "deva_offline": tracker_specs["deva_offline"],
+            "ostrack_offline": tracker_specs["ostrack_offline"],
         }
 
         tracker_registry_module = types.ModuleType("trackleed.gui.tracker_registry")
@@ -301,6 +308,10 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             dialog._backend_retrack_action_text(self._track("tamos_offline", "manual_corr")),
             "Re-track from this point (TaMOs)",
         )
+        self.assertEqual(
+            dialog._backend_retrack_action_text(self._track("ostrack_offline", "manual_corr")),
+            "Re-track from this point (OSTrack)",
+        )
         self.assertIsNone(dialog._backend_retrack_action_text(self._track("manual_corr")))
 
     def test_tracker_params_for_spec_returns_dict_copy(self) -> None:
@@ -368,6 +379,7 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             initiate_retrack_cutie=lambda spot_id: calls.append(("cutie", spot_id)),
             initiate_retrack_xmem2=lambda spot_id: calls.append(("xmem2", spot_id)),
             initiate_retrack_tomp=lambda spot_id: calls.append(("tomp", spot_id)),
+            initiate_retrack_ostrack=lambda spot_id: calls.append(("ostrack", spot_id)),
             initiate_retrack_sam2=lambda spot_id: calls.append(("sam2", spot_id)),
             initiate_retrack_deva=lambda spot_id: calls.append(("deva", spot_id)),
         )
@@ -392,8 +404,16 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             self.tracker_specs["deva_offline"],
             44,
         )
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["ostrack_offline"],
+            55,
+        )
 
-        self.assertEqual(calls, [("tapir", 11), ("tomp", 22), ("sam2", 33), ("deva", 44)])
+        self.assertEqual(
+            calls,
+            [("tapir", 11), ("tomp", 22), ("sam2", 33), ("deva", 44), ("ostrack", 55)],
+        )
 
     def test_initiate_retrack_for_tracker_spec_rejects_unknown_tracker(self) -> None:
         dialog = SimpleNamespace()
@@ -404,6 +424,83 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
                 SimpleNamespace(tracker_id="unknown_tracker"),
                 5,
             )
+
+    def test_initiate_retrack_ostrack_launches_registered_worker_with_validated_checkpoint(self) -> None:
+        recorded: dict[str, object] = {}
+        probe_kwargs: dict[str, object] = {}
+
+        class _Checkpoint:
+            def exists(self) -> bool:
+                return True
+
+            def resolve(self) -> str:
+                return "C:/models/OSTrack_ep0300.pth.tar"
+
+        tracker_spec = SimpleNamespace(
+            tracker_id="ostrack_offline",
+            params_argument_name="ostrack_params",
+            supports_subprocess=True,
+            supports_direct=True,
+            run_retrack=lambda *args, **kwargs: None,
+        )
+        status = SimpleNamespace(
+            repo_path="C:/ostrack",
+            config_exists=True,
+            selected_checkpoint=_Checkpoint(),
+            is_ready=True,
+        )
+        params = {
+            "backend_mode": "subprocess",
+            "model_variant": "vitb_256_mae_ce_32x4_ep300",
+            "checkpoint_path": "tracking_models/ostrack/OSTrack_ep0300.pth.tar",
+            "python_executable": "C:/Users/rlewa/anaconda3/envs/ostrack/python.exe",
+            "ostrack_models_dir": "tracking_models/ostrack",
+            "repo_path": "C:/ostrack",
+        }
+        track = SimpleNamespace(
+            track_id=7,
+            spots_by_image_id={
+                2: SimpleNamespace(
+                    source="ostrack_offline",
+                    ostrack_model_variant="vitb_256_mae_ce_32x4_ep300",
+                )
+            },
+        )
+
+        def launch_retrack(tracker_spec_arg, track_arg, frame_id_arg, params_arg, *, title, method_label):
+            recorded["tracker_spec"] = tracker_spec_arg
+            recorded["track"] = track_arg
+            recorded["frame_id"] = frame_id_arg
+            recorded["params"] = params_arg
+            recorded["title"] = title
+            recorded["method_label"] = method_label
+
+        dialog = SimpleNamespace(
+            roi_size=32,
+            _get_retrack_target=lambda: (track, 2),
+            _tracker_params_for_spec=lambda spec: dict(params),
+            _probe_tracker_environment_for_spec=lambda spec, **kwargs: (
+                probe_kwargs.update(kwargs) or status
+            ),
+            _ensure_registered_retrack_runtime_ready=lambda *args, **kwargs: True,
+            _launch_registered_retrack=launch_retrack,
+        )
+        original_require_tracker_spec = self.module.require_tracker_spec
+        self.module.require_tracker_spec = lambda tracker_id: tracker_spec
+        self.addCleanup(setattr, self.module, "require_tracker_spec", original_require_tracker_spec)
+
+        self.module.TrackingDialog.initiate_retrack_ostrack(dialog, 1)
+
+        self.assertIs(recorded["tracker_spec"], tracker_spec)
+        self.assertIs(recorded["track"], track)
+        self.assertEqual(recorded["frame_id"], 2)
+        self.assertEqual(recorded["title"], "Re-tracking spot with OSTrack...")
+        self.assertEqual(recorded["method_label"], "OSTrack re-tracking")
+        self.assertEqual(probe_kwargs["config_name"], "vitb_256_mae_ce_32x4_ep300")
+        launched_params = recorded["params"]
+        self.assertEqual(launched_params["checkpoint_path"], "C:/models/OSTrack_ep0300.pth.tar")
+        self.assertEqual(launched_params["roi_size"], 32)
+        self.assertEqual(launched_params["model_variant"], "vitb_256_mae_ce_32x4_ep300")
 
 
 class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
@@ -483,3 +580,92 @@ class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.Test
         payload = dialog._build_focus_point_payload_for_spot(track, spot)
 
         self.assertEqual(payload, [{"x": 20.5, "y": 21.5, "label": "DEVA T9"}])
+
+
+class TrackingDialogOstrackVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        self.module, self.tracker_specs = self.import_tracking_dialog()
+
+    def _dialog_with_detail_helpers(self):
+        dialog = SimpleNamespace()
+        dialog._append_formatted_value_line = types.MethodType(
+            self.module.TrackingDialog._append_formatted_value_line,
+            dialog,
+        )
+        dialog._append_ostrack_detail_lines = types.MethodType(
+            self.module.TrackingDialog._append_ostrack_detail_lines,
+            dialog,
+        )
+        dialog._normalized_source_name = types.MethodType(
+            self.module.TrackingDialog._normalized_source_name,
+            dialog,
+        )
+        dialog._build_focus_point_payload_for_spot = types.MethodType(
+            self.module.TrackingDialog._build_focus_point_payload_for_spot,
+            dialog,
+        )
+        return dialog
+
+    def test_ostrack_detail_lines_expose_bbox_metadata_and_filter_reason(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        spot = SimpleNamespace(
+            source="ostrack_offline",
+            center_x=12.0,
+            center_y=34.0,
+            ostrack_raw_x=12.345,
+            ostrack_raw_y=34.567,
+            ostrack_refined_x=12.0,
+            ostrack_refined_y=34.0,
+            ostrack_visibility=True,
+            ostrack_repr_mode="peak_in_bbox",
+            ostrack_model_variant="vitb_256_mae_ce_32x4_ep300",
+            ostrack_checkpoint_name="OSTrack_ep0300.pth.tar",
+            ostrack_bbox_score=0.87654,
+            ostrack_bbox_xywh=(3.0, 4.0, 10.0, 12.0),
+            ostrack_bbox_xyxy=(3.0, 4.0, 13.0, 16.0),
+            ostrack_bbox_aspect_ratio=0.8333333,
+            ostrack_filter_rejected_reason="max_bbox_center_jump",
+        )
+        lines: list[str] = []
+
+        handled = dialog._append_ostrack_detail_lines(
+            lines,
+            spot,
+            source="ostrack_offline",
+        )
+
+        self.assertTrue(handled)
+        self.assertIn("Representative point: (12.35, 34.57)", lines)
+        self.assertIn("Stored point: (12.00, 34.00)", lines)
+        self.assertIn("Visible: yes", lines)
+        self.assertIn("Model variant: vitb_256_mae_ce_32x4_ep300", lines)
+        self.assertIn("Checkpoint: OSTrack_ep0300.pth.tar", lines)
+        self.assertIn("Representative mode: peak_in_bbox", lines)
+        self.assertIn("BBox score: 0.877", lines)
+        self.assertIn("Raw bbox xywh: x=3.0, y=4.0, w=10.0, h=12.0", lines)
+        self.assertIn("Raw bbox xyxy: x0=3.0, y0=4.0, x1=13.0, y1=16.0", lines)
+        self.assertIn("BBox aspect ratio: 0.833", lines)
+        self.assertIn("Filter: rejected (max_bbox_center_jump)", lines)
+
+    def test_ostrack_focus_payload_exposes_raw_and_stored_points(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        track = SimpleNamespace(track_id=9)
+        spot = SimpleNamespace(
+            source="ostrack_offline",
+            center_x=10.0,
+            center_y=11.0,
+            ostrack_raw_x=20.5,
+            ostrack_raw_y=21.5,
+            ostrack_refined_x=22.0,
+            ostrack_refined_y=24.0,
+        )
+
+        payload = dialog._build_focus_point_payload_for_spot(track, spot)
+
+        self.assertEqual(
+            payload,
+            [
+                {"x": 20.5, "y": 21.5, "label": "OSTrack T9 raw"},
+                {"x": 22.0, "y": 24.0, "label": "OSTrack T9 stored"},
+            ],
+        )

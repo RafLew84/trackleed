@@ -177,6 +177,10 @@ _PUBLIC_TRACKING_SHIM_EXPORTS = {
         "trackleed.analysis.tracking_bbox_backends",
         "track_spots_tomp_offline",
     ),
+    "track_spots_ostrack_offline": (
+        "trackleed.analysis.tracking_bbox_backends",
+        "track_spots_ostrack_offline",
+    ),
     "track_spots_cutie_offline": (
         "trackleed.analysis.tracking_mask_backends",
         "track_spots_cutie_offline",
@@ -231,6 +235,10 @@ _PUBLIC_RETRACK_SHIM_EXPORTS = {
     "retrack_single_spot_tomp_offline": (
         "trackleed.analysis.tracking_retrack",
         "retrack_single_spot_tomp_offline",
+    ),
+    "retrack_single_spot_ostrack_offline": (
+        "trackleed.analysis.tracking_retrack",
+        "retrack_single_spot_ostrack_offline",
     ),
     "retrack_single_spot_cutie_offline": (
         "trackleed.analysis.tracking_retrack",

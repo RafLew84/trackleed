@@ -27,6 +27,10 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "format_mftiq_environment_report",
         "probe_mftiq_environment",
     ),
+    "trackleed.analysis.ostrack_backend": (
+        "format_ostrack_environment_report",
+        "probe_ostrack_environment",
+    ),
     "trackleed.analysis.pipspp_backend": (
         "format_pipspp_environment_report",
         "probe_pipspp_environment",
@@ -51,7 +55,10 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "format_trackonr_environment_report",
         "probe_trackonr_environment",
     ),
-    "trackleed.analysis.tracking_bbox_backends": ("track_spots_tomp_offline",),
+    "trackleed.analysis.tracking_bbox_backends": (
+        "track_spots_ostrack_offline",
+        "track_spots_tomp_offline",
+    ),
     "trackleed.analysis.tracking_mask_backends": (
         "track_spots_cutie_offline",
         "track_spots_deva_offline",
@@ -74,6 +81,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "retrack_single_spot_deva_offline",
         "retrack_single_spot_locotrack_offline",
         "retrack_single_spot_mftiq_offline",
+        "retrack_single_spot_ostrack_offline",
         "retrack_single_spot_pipspp_offline",
         "retrack_single_spot_sam2_offline",
         "retrack_single_spot_tapir_offline",
@@ -217,6 +225,18 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
         self.assertTrue(spec.supports_direct)
         self.assertTrue(spec.has_visualizer_retrack)
         self.assertEqual(spec.default_conda_env_name, "deva")
+
+    def test_ostrack_is_registered_as_subprocess_bbox_tracker_with_retrack_ui(self) -> None:
+        spec = self.registry.require_tracker_spec("ostrack_offline")
+
+        self.assertEqual(spec.scenario_name, "Offline OSTrack")
+        self.assertEqual(spec.family, "bbox")
+        self.assertEqual(spec.source_names, ("ostrack_offline",))
+        self.assertTrue(spec.supports_subprocess)
+        self.assertTrue(spec.supports_direct)
+        self.assertTrue(spec.has_visualizer_retrack)
+        self.assertEqual(spec.default_conda_env_name, "ostrack")
+        self.assertEqual(spec.variant_selector_attr, "ostrack_model_variant_combo")
 
     def test_require_helpers_raise_for_unknown_values(self) -> None:
         self.assertIsNone(self.registry.get_tracker_spec("missing_tracker"))

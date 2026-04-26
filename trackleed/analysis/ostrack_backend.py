@@ -923,28 +923,52 @@ def _run_ostrack_subprocess_offline(
                 ]
             )
 
-        completed = subprocess.run(
-            command,
-            cwd=str(Path(__file__).resolve().parents[2]),
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=float(settings.subprocess_timeout_sec),
-            env=_build_windows_conda_subprocess_env(python_executable, settings.repo_path),
-        )
+        subprocess_timeout_sec = float(settings.subprocess_timeout_sec)
+        subprocess_cwd = str(Path(__file__).resolve().parents[2])
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=subprocess_cwd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=subprocess_timeout_sec,
+                env=_build_windows_conda_subprocess_env(python_executable, settings.repo_path),
+            )
+        except subprocess.TimeoutExpired as error:
+            payload = _build_ostrack_subprocess_failure_payload(
+                command=command,
+                timeout_sec=subprocess_timeout_sec,
+                stdout=error.stdout,
+                stderr=error.stderr,
+            )
+            raise RuntimeError(
+                "OSTrack subprocess inference timed out:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            ) from error
         if completed.returncode != 0:
-            payload = {
-                "command": command,
-                "returncode": completed.returncode,
-                "stdout": completed.stdout.strip(),
-                "stderr": completed.stderr.strip(),
-            }
+            payload = _build_ostrack_subprocess_failure_payload(
+                command=command,
+                returncode=completed.returncode,
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+            )
             raise RuntimeError(
                 "OSTrack subprocess inference failed:\n"
                 + json.dumps(payload, indent=2, ensure_ascii=False)
             )
         if not output_path.exists():
-            raise FileNotFoundError(f"OSTrack subprocess did not create output: {output_path}")
+            payload = _build_ostrack_subprocess_failure_payload(
+                command=command,
+                returncode=completed.returncode,
+                stdout=completed.stdout,
+                stderr=completed.stderr,
+                expected_output=str(output_path),
+            )
+            raise RuntimeError(
+                "OSTrack subprocess did not create output:\n"
+                + json.dumps(payload, indent=2, ensure_ascii=False)
+            )
 
         with np.load(output_path, allow_pickle=False) as data:
             return OstrackOfflineResult(
@@ -960,6 +984,37 @@ def _run_ostrack_subprocess_offline(
                 representative_point_mode=str(data["representative_point_mode"].tolist()),
                 initial_bbox_padding_px=float(data["initial_bbox_padding_px"].tolist()),
             )
+
+
+def _normalize_subprocess_output(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode(errors="replace").strip()
+    return str(value).strip()
+
+
+def _build_ostrack_subprocess_failure_payload(
+    *,
+    command: list[str],
+    returncode: int | None = None,
+    timeout_sec: float | None = None,
+    stdout=None,
+    stderr=None,
+    expected_output: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "command": command,
+        "stdout": _normalize_subprocess_output(stdout),
+        "stderr": _normalize_subprocess_output(stderr),
+    }
+    if returncode is not None:
+        payload["returncode"] = int(returncode)
+    if timeout_sec is not None:
+        payload["timeout_sec"] = float(timeout_sec)
+    if expected_output is not None:
+        payload["expected_output"] = str(expected_output)
+    return payload
 
 
 def _run_ostrack_bbox_probe_subprocess(
