@@ -301,6 +301,14 @@ class ShimImportMixin:
         ostrack_module = types.ModuleType("trackleed.analysis.ostrack_backend")
         ostrack_module.DEFAULT_OSTRACK_CONFIG_NAME = "vitb_256_mae_ce_32x4_ep300"
         ostrack_module.DEFAULT_OSTRACK_MODELS_DIR = Path("tracking_models/ostrack")
+        ostrack_module.SUPPORTED_OSTRACK_CONFIG_NAMES = (
+            "vitb_256_mae_ce_32x4_ep300",
+            "vitb_384_mae_ce_32x4_ep300",
+            "vitb_256_mae_32x4_ep300",
+            "vitb_384_mae_32x4_ep300",
+            "vitb_256_mae_ce_32x4_got10k_ep100",
+            "vitb_384_mae_ce_32x4_got10k_ep100",
+        )
         ostrack_module.OstrackRuntimeSettings = _RuntimeSettings
         ostrack_module.discover_ostrack_checkpoints = lambda *args, **kwargs: []
         ostrack_module.run_ostrack_offline = _stub_callable(

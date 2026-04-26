@@ -28,6 +28,7 @@ from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDet
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
 from trackleed.analysis.ostrack_backend import (
     DEFAULT_OSTRACK_CONFIG_NAME,
+    SUPPORTED_OSTRACK_CONFIG_NAMES,
     select_default_ostrack_checkpoint,
 )
 from trackleed.analysis.tapir_backend import (
@@ -565,23 +566,68 @@ TOMP_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
 }
 
 
-OSTRACK_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
-    DEFAULT_OSTRACK_CONFIG_NAME: {
-        "representative_point_mode": "bbox_center",
+OSTRACK_MODEL_VARIANT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("ViT-B 256 MAE CE", DEFAULT_OSTRACK_CONFIG_NAME),
+    ("ViT-B 384 MAE CE", "vitb_384_mae_ce_32x4_ep300"),
+    ("ViT-B 256 MAE", "vitb_256_mae_32x4_ep300"),
+    ("ViT-B 384 MAE", "vitb_384_mae_32x4_ep300"),
+    ("ViT-B 256 MAE CE GOT-10k", "vitb_256_mae_ce_32x4_got10k_ep100"),
+    ("ViT-B 384 MAE CE GOT-10k", "vitb_384_mae_ce_32x4_got10k_ep100"),
+)
+
+OSTRACK_MODEL_VARIANT_LABELS: dict[str, str] = {
+    variant_key: f"OSTrack {label}" for label, variant_key in OSTRACK_MODEL_VARIANT_OPTIONS
+}
+
+OSTRACK_VARIANT_DEFAULT_PRESET_KEY = "variant_default"
+
+OSTRACK_SCENARIO_PRESETS: dict[str, dict[str, Any]] = {
+    "small_bright_spots": {
+        "label": "Small bright spots",
+        "representative_point_mode": "peak_in_bbox",
         "window_size": 64,
         "window_overlap": 8,
         "initial_bbox_padding_px": 0.0,
+        "inference_resolution": None,
         "use_presence_score_gating": False,
         "presence_threshold": 0.0,
         "max_step_distance_px": 0.0,
         "max_reacquisition_gap": 0,
         "terminate_after_invisible_frames": 0,
     },
-    "vitb_384_mae_ce_32x4_ep300": {
-        "representative_point_mode": "bbox_center",
-        "window_size": 64,
+    "dim_low_contrast": {
+        "label": "Dim / low contrast",
+        "representative_point_mode": "gaussian_in_bbox",
+        "window_size": 96,
+        "window_overlap": 12,
+        "initial_bbox_padding_px": 0.0,
+        "inference_resolution": None,
+        "use_presence_score_gating": False,
+        "presence_threshold": 0.0,
+        "max_step_distance_px": 0.0,
+        "max_reacquisition_gap": 2,
+        "terminate_after_invisible_frames": 0,
+    },
+    "crowded_spots": {
+        "label": "Crowded spots",
+        "representative_point_mode": "peak_in_bbox",
+        "window_size": 48,
         "window_overlap": 8,
         "initial_bbox_padding_px": 0.0,
+        "inference_resolution": None,
+        "use_presence_score_gating": False,
+        "presence_threshold": 0.0,
+        "max_step_distance_px": 12.0,
+        "max_reacquisition_gap": 1,
+        "terminate_after_invisible_frames": 0,
+    },
+    "low_vram": {
+        "label": "Low VRAM",
+        "representative_point_mode": "bbox_center",
+        "window_size": 32,
+        "window_overlap": 4,
+        "initial_bbox_padding_px": 0.0,
+        "inference_resolution": 256,
         "use_presence_score_gating": False,
         "presence_threshold": 0.0,
         "max_step_distance_px": 0.0,
@@ -589,6 +635,45 @@ OSTRACK_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
         "terminate_after_invisible_frames": 0,
     },
 }
+
+OSTRACK_VARIANT_PRESETS: dict[str, dict[str, Any]] = {
+    DEFAULT_OSTRACK_CONFIG_NAME: {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+    },
+    "vitb_384_mae_ce_32x4_ep300": {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+        "window_size": 96,
+        "window_overlap": 12,
+    },
+    "vitb_256_mae_32x4_ep300": {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+    },
+    "vitb_384_mae_32x4_ep300": {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+        "window_size": 96,
+        "window_overlap": 12,
+    },
+    "vitb_256_mae_ce_32x4_got10k_ep100": {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+    },
+    "vitb_384_mae_ce_32x4_got10k_ep100": {
+        **OSTRACK_SCENARIO_PRESETS["small_bright_spots"],
+        "label": "Variant default",
+        "window_size": 96,
+        "window_overlap": 12,
+    },
+}
+
+if set(OSTRACK_MODEL_VARIANT_LABELS) != set(SUPPORTED_OSTRACK_CONFIG_NAMES):
+    raise RuntimeError("OSTrack GUI variant options are out of sync with backend support.")
+
+if set(OSTRACK_VARIANT_PRESETS) != set(SUPPORTED_OSTRACK_CONFIG_NAMES):
+    raise RuntimeError("OSTrack GUI presets are out of sync with backend support.")
 
 
 class MainWindow(QMainWindow):
@@ -3814,12 +3899,8 @@ class MainWindow(QMainWindow):
         ostrack_layout.addRow("Backend mode:", self.ostrack_backend_mode_combo)
 
         self.ostrack_model_variant_combo = QComboBox()
-        self.ostrack_model_variant_combo.addItem(
-            "ViT-B 256 MAE CE", DEFAULT_OSTRACK_CONFIG_NAME
-        )
-        self.ostrack_model_variant_combo.addItem(
-            "ViT-B 384 MAE CE", "vitb_384_mae_ce_32x4_ep300"
-        )
+        for label, variant_key in OSTRACK_MODEL_VARIANT_OPTIONS:
+            self.ostrack_model_variant_combo.addItem(label, variant_key)
         ostrack_variant_idx = self.ostrack_model_variant_combo.findData(
             self.ostrack_settings.model_variant
         )
@@ -3833,6 +3914,20 @@ class MainWindow(QMainWindow):
             self._on_ostrack_variant_changed
         )
         ostrack_layout.addRow("Model variant:", self.ostrack_model_variant_combo)
+
+        self.ostrack_preset_combo = QComboBox()
+        self.ostrack_preset_combo.addItem(
+            "Variant default",
+            OSTRACK_VARIANT_DEFAULT_PRESET_KEY,
+        )
+        for preset_key, preset in OSTRACK_SCENARIO_PRESETS.items():
+            self.ostrack_preset_combo.addItem(str(preset.get("label", preset_key)), preset_key)
+        self.ostrack_preset_combo.setToolTip(
+            "Convenience presets for LEED spot conditions. They only update OSTrack parameters; "
+            "the selected model variant and checkpoint stay unchanged."
+        )
+        self.ostrack_preset_combo.currentIndexChanged.connect(self._on_ostrack_preset_changed)
+        ostrack_layout.addRow("Preset:", self.ostrack_preset_combo)
 
         self.ostrack_preset_hint_label = QLabel()
         self.ostrack_preset_hint_label.setWordWrap(True)
@@ -7685,12 +7780,26 @@ class MainWindow(QMainWindow):
 
     def _current_ostrack_variant_label(self) -> str:
         variant_key = self._current_ostrack_variant_key()
-        if variant_key == "vitb_384_mae_ce_32x4_ep300":
-            return "OSTrack ViT-B 384 MAE CE"
-        return "OSTrack ViT-B 256 MAE CE"
+        return OSTRACK_MODEL_VARIANT_LABELS.get(
+            variant_key,
+            f"OSTrack {variant_key}",
+        )
 
-    def _update_ostrack_preset_hint(self, variant_key: str):
-        preset = OSTRACK_VARIANT_PRESETS.get(str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME))
+    def _current_ostrack_preset_key(self) -> str:
+        if not hasattr(self, "ostrack_preset_combo"):
+            return OSTRACK_VARIANT_DEFAULT_PRESET_KEY
+        return str(
+            self.ostrack_preset_combo.currentData()
+            or OSTRACK_VARIANT_DEFAULT_PRESET_KEY
+        )
+
+    def _update_ostrack_preset_hint(
+        self,
+        variant_key: str,
+        preset: dict[str, Any] | None = None,
+        preset_label: str | None = None,
+    ):
+        preset = preset or OSTRACK_VARIANT_PRESETS.get(str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME))
         if not hasattr(self, "ostrack_preset_hint_label") or preset is None:
             return
         gating_text = (
@@ -7698,16 +7807,23 @@ class MainWindow(QMainWindow):
             if bool(preset.get("use_presence_score_gating", False))
             else "off"
         )
+        resolution = preset.get("inference_resolution")
+        resolution_text = str(resolution) if resolution else "native"
+        preset_label = preset_label or str(preset.get("label", "Variant default"))
         self.ostrack_preset_hint_label.setText(
-            "Preset for "
-            f"{self._current_ostrack_variant_label()}: "
+            f"{preset_label} for {self._current_ostrack_variant_label()}: "
             f"repr={preset.get('representative_point_mode', 'bbox_center')}, "
             f"window={int(preset.get('window_size', 64))}/{int(preset.get('window_overlap', 8))}, "
+            f"resolution={resolution_text}, "
             f"bbox score gating={gating_text}."
         )
 
-    def _apply_ostrack_variant_preset(self, variant_key: str):
-        preset = OSTRACK_VARIANT_PRESETS.get(str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME))
+    def _apply_ostrack_preset_fields(
+        self,
+        preset: dict[str, Any],
+        variant_key: str,
+        preset_label: str | None = None,
+    ):
         if preset is None:
             return
 
@@ -7715,6 +7831,12 @@ class MainWindow(QMainWindow):
             repr_idx = self.ostrack_repr_mode_combo.findData(preset.get("representative_point_mode"))
             if repr_idx >= 0:
                 self.ostrack_repr_mode_combo.setCurrentIndex(repr_idx)
+        if hasattr(self, "ostrack_inference_resolution_combo"):
+            res_idx = self.ostrack_inference_resolution_combo.findData(
+                preset.get("inference_resolution")
+            )
+            if res_idx >= 0:
+                self.ostrack_inference_resolution_combo.setCurrentIndex(res_idx)
         if hasattr(self, "ostrack_window_size_spinbox"):
             self.ostrack_window_size_spinbox.setValue(int(preset.get("window_size", 64)))
         if hasattr(self, "ostrack_window_overlap_spinbox"):
@@ -7743,6 +7865,7 @@ class MainWindow(QMainWindow):
         self.ostrack_settings.representative_point_mode = str(
             preset.get("representative_point_mode", "bbox_center")
         )
+        self.ostrack_settings.inference_resolution = preset.get("inference_resolution")
         self.ostrack_settings.window_size = int(preset.get("window_size", 64))
         self.ostrack_settings.window_overlap = int(preset.get("window_overlap", 8))
         self.ostrack_settings.initial_bbox_padding_px = float(
@@ -7761,7 +7884,34 @@ class MainWindow(QMainWindow):
         self.ostrack_settings.terminate_after_invisible_frames = int(
             preset.get("terminate_after_invisible_frames", 0)
         )
-        self._update_ostrack_preset_hint(variant_key)
+        self._update_ostrack_preset_hint(variant_key, preset, preset_label)
+
+    def _apply_ostrack_variant_preset(self, variant_key: str):
+        variant_key = str(variant_key or DEFAULT_OSTRACK_CONFIG_NAME)
+        preset = OSTRACK_VARIANT_PRESETS.get(variant_key)
+        if preset is None:
+            return
+
+        if hasattr(self, "ostrack_preset_combo"):
+            self.ostrack_preset_combo.blockSignals(True)
+            preset_idx = self.ostrack_preset_combo.findData(OSTRACK_VARIANT_DEFAULT_PRESET_KEY)
+            if preset_idx >= 0:
+                self.ostrack_preset_combo.setCurrentIndex(preset_idx)
+            self.ostrack_preset_combo.blockSignals(False)
+
+        self._apply_ostrack_preset_fields(preset, variant_key, "Variant default")
+
+    def _apply_ostrack_named_preset(self, preset_key: str):
+        variant_key = self._current_ostrack_variant_key()
+        if preset_key == OSTRACK_VARIANT_DEFAULT_PRESET_KEY:
+            preset = OSTRACK_VARIANT_PRESETS.get(variant_key)
+            preset_label = "Variant default"
+        else:
+            preset = OSTRACK_SCENARIO_PRESETS.get(str(preset_key))
+            preset_label = str(preset.get("label", preset_key)) if preset is not None else None
+        if preset is None:
+            return
+        self._apply_ostrack_preset_fields(preset, variant_key, preset_label)
 
     def _refresh_ostrack_checkpoints(self):
         tracker_spec = require_tracker_spec("ostrack_offline")
@@ -7910,6 +8060,14 @@ class MainWindow(QMainWindow):
         self._apply_ostrack_variant_preset(self.ostrack_settings.model_variant)
         self.ostrack_settings.checkpoint_path = None
         self._refresh_ostrack_checkpoints()
+
+    def _on_ostrack_preset_changed(self, index: int):
+        preset_key = (
+            self.ostrack_preset_combo.itemData(index)
+            if hasattr(self, "ostrack_preset_combo")
+            else OSTRACK_VARIANT_DEFAULT_PRESET_KEY
+        )
+        self._apply_ostrack_named_preset(str(preset_key or OSTRACK_VARIANT_DEFAULT_PRESET_KEY))
 
     def _on_ostrack_checkpoint_selected(self, index: int):
         checkpoint_path = self.ostrack_checkpoint_combo.itemData(index)

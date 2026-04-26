@@ -11,6 +11,7 @@ from trackleed.analysis.ostrack_backend import (
     DEFAULT_OSTRACK_CONFIG_NAME,
     DEFAULT_OSTRACK_MODELS_DIR,
     OstrackRuntimeSettings,
+    SUPPORTED_OSTRACK_CONFIG_NAMES,
     discover_ostrack_checkpoints,
     run_ostrack_offline,
     select_default_ostrack_checkpoint,
@@ -75,14 +76,7 @@ def _normalize_ostrack_model_variant_key(model_variant: str | None) -> str:
     normalized = normalized.replace("-", "_")
     if normalized in {"ostrack", "vitb_256", "vitb_256_mae_ce"}:
         return DEFAULT_OSTRACK_CONFIG_NAME
-    if normalized in {
-        DEFAULT_OSTRACK_CONFIG_NAME,
-        "vitb_384_mae_ce_32x4_ep300",
-        "vitb_256_mae_32x4_ep300",
-        "vitb_384_mae_32x4_ep300",
-        "vitb_256_mae_ce_32x4_got10k_ep100",
-        "vitb_384_mae_ce_32x4_got10k_ep100",
-    }:
+    if normalized in SUPPORTED_OSTRACK_CONFIG_NAMES:
         return normalized
     raise ValueError(
         "Unsupported OSTrack model variant. Expected an OSTrack config name, "

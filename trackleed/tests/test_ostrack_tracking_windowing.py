@@ -133,6 +133,14 @@ class OstrackTrackingWindowingTests(unittest.TestCase):
         ostrack_module = types.ModuleType("trackleed.analysis.ostrack_backend")
         ostrack_module.DEFAULT_OSTRACK_CONFIG_NAME = "vitb_256_mae_ce_32x4_ep300"
         ostrack_module.DEFAULT_OSTRACK_MODELS_DIR = Path("tracking_models/ostrack")
+        ostrack_module.SUPPORTED_OSTRACK_CONFIG_NAMES = (
+            "vitb_256_mae_ce_32x4_ep300",
+            "vitb_384_mae_ce_32x4_ep300",
+            "vitb_256_mae_32x4_ep300",
+            "vitb_384_mae_32x4_ep300",
+            "vitb_256_mae_ce_32x4_got10k_ep100",
+            "vitb_384_mae_ce_32x4_got10k_ep100",
+        )
         ostrack_module.OstrackRuntimeSettings = _StubRuntimeSettings
         ostrack_module.discover_ostrack_checkpoints = lambda *args, **kwargs: []
         ostrack_module.select_default_ostrack_checkpoint = (
@@ -188,6 +196,14 @@ class OstrackTrackingWindowingTests(unittest.TestCase):
             coverage=None,
             spots=list(spots or []),
         )
+
+    def test_ostrack_model_variant_normalizer_accepts_supported_upstream_configs(self) -> None:
+        for variant_key in self.bbox_backends.SUPPORTED_OSTRACK_CONFIG_NAMES:
+            with self.subTest(variant_key=variant_key):
+                self.assertEqual(
+                    self.bbox_backends._normalize_ostrack_model_variant_key(variant_key),
+                    variant_key,
+                )
 
     def test_ostrack_windowing_reseeds_each_window_from_local_zero(self) -> None:
         all_files_map = {frame_id: self._file(frame_id) for frame_id in range(5)}

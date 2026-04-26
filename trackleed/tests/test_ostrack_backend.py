@@ -29,6 +29,26 @@ class OstrackBackendTests(unittest.TestCase):
 
         self.assertEqual(selected, preferred_checkpoint.resolve())
 
+    def test_checkpoint_selection_prefers_upstream_variant_subdirectory(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            models_dir = Path(temp_dir)
+            default_dir = models_dir / "vitb_256_mae_ce_32x4_ep300"
+            strong_dir = models_dir / "vitb_384_mae_ce_32x4_ep300"
+            default_dir.mkdir()
+            strong_dir.mkdir()
+            default_checkpoint = default_dir / "OSTrack_ep0300.pth.tar"
+            strong_checkpoint = strong_dir / "OSTrack_ep0300.pth.tar"
+            default_checkpoint.write_bytes(b"default")
+            strong_checkpoint.write_bytes(b"strong")
+
+            discovered = ostrack_backend.discover_ostrack_checkpoints(models_dir)
+            selected = ostrack_backend.select_default_ostrack_checkpoint(
+                discovered,
+                "vitb_384_mae_ce_32x4_ep300",
+            )
+
+        self.assertEqual(selected, strong_checkpoint.resolve())
+
     def test_import_probe_parser_ignores_noisy_stdout(self) -> None:
         stdout = (
             "WARNING: You are using tensorboardX instead\n"

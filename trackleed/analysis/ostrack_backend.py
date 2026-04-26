@@ -31,6 +31,14 @@ DEFAULT_OSTRACK_PROBE_TIMEOUT_SEC = 900.0
 DEFAULT_OSTRACK_SUBPROCESS_TIMEOUT_SEC = 1800.0
 DEFAULT_OSTRACK_BBOX_PADDING_CANDIDATES = (0, 4, 8, 12, 16)
 _IMPORT_PROBE_PREFIX = "__TRACKLEED_OSTRACK_IMPORT_PROBE__"
+SUPPORTED_OSTRACK_CONFIG_NAMES = (
+    DEFAULT_OSTRACK_CONFIG_NAME,
+    "vitb_384_mae_ce_32x4_ep300",
+    "vitb_256_mae_32x4_ep300",
+    "vitb_384_mae_32x4_ep300",
+    "vitb_256_mae_ce_32x4_got10k_ep100",
+    "vitb_384_mae_ce_32x4_got10k_ep100",
+)
 
 
 @dataclass
@@ -220,16 +228,37 @@ def select_default_ostrack_checkpoint(
 ) -> Optional[Path]:
     if not checkpoints:
         return None
+    normalized_config_name = str(config_name or DEFAULT_OSTRACK_CONFIG_NAME).lower()
     by_name = {path.name.lower(): path for path in checkpoints}
     preferred_names = (
         f"{config_name}.pth.tar",
         f"{config_name}.pth",
+        f"{config_name}.pt",
         DEFAULT_OSTRACK_CHECKPOINT_NAME,
     )
-    for name in preferred_names:
+    for name in preferred_names[:-1]:
         checkpoint = by_name.get(name.lower())
         if checkpoint is not None:
             return checkpoint
+    for path in checkpoints:
+        if (
+            path.name.lower() == DEFAULT_OSTRACK_CHECKPOINT_NAME.lower()
+            and path.parent.name.lower() == normalized_config_name
+        ):
+            return path
+    for path in checkpoints:
+        normalized_parts = {part.lower() for part in path.parts}
+        if (
+            path.name.lower() == DEFAULT_OSTRACK_CHECKPOINT_NAME.lower()
+            and normalized_config_name in normalized_parts
+        ):
+            return path
+    for path in checkpoints:
+        if normalized_config_name in path.name.lower():
+            return path
+    generic_checkpoint = by_name.get(DEFAULT_OSTRACK_CHECKPOINT_NAME.lower())
+    if generic_checkpoint is not None:
+        return generic_checkpoint
     return checkpoints[0]
 
 

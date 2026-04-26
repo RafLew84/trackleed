@@ -255,6 +255,14 @@ class MainWindowImportMixin:
             originals,
             "trackleed.analysis.ostrack_backend",
             DEFAULT_OSTRACK_CONFIG_NAME="vitb_256_mae_ce_32x4_ep300",
+            SUPPORTED_OSTRACK_CONFIG_NAMES=(
+                "vitb_256_mae_ce_32x4_ep300",
+                "vitb_384_mae_ce_32x4_ep300",
+                "vitb_256_mae_32x4_ep300",
+                "vitb_384_mae_32x4_ep300",
+                "vitb_256_mae_ce_32x4_got10k_ep100",
+                "vitb_384_mae_ce_32x4_got10k_ep100",
+            ),
             format_ostrack_environment_report=lambda status: f"ostrack:{status}",
             probe_ostrack_environment=_stub_callable(
                 "trackleed.analysis.ostrack_backend.probe_ostrack_environment"
@@ -830,3 +838,22 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
                 fake.sam2_settings.python_executable,
                 "C:/custom/sam2/python.exe",
             )
+
+    def test_ostrack_variant_options_and_presets_cover_supported_configs(self) -> None:
+        supported = set(self.main_window.SUPPORTED_OSTRACK_CONFIG_NAMES)
+
+        self.assertEqual(set(self.main_window.OSTRACK_MODEL_VARIANT_LABELS), supported)
+        self.assertEqual(set(self.main_window.OSTRACK_VARIANT_PRESETS), supported)
+        self.assertIn("dim_low_contrast", self.main_window.OSTRACK_SCENARIO_PRESETS)
+        self.assertIn("crowded_spots", self.main_window.OSTRACK_SCENARIO_PRESETS)
+        self.assertIn("low_vram", self.main_window.OSTRACK_SCENARIO_PRESETS)
+
+        for variant_key, preset in self.main_window.OSTRACK_VARIANT_PRESETS.items():
+            with self.subTest(variant_key=variant_key):
+                self.assertIn(
+                    preset["representative_point_mode"],
+                    {"bbox_center", "peak_in_bbox", "gaussian_in_bbox"},
+                )
+                self.assertGreaterEqual(int(preset["window_size"]), 2)
+                self.assertGreaterEqual(int(preset["window_overlap"]), 0)
+                self.assertFalse(bool(preset["use_presence_score_gating"]))
