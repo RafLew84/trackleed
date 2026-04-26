@@ -217,3 +217,4 @@ tracking_models/tamos/tamos_swin_base.pth.tar
 tracking_models/tomp/tomp101.pth.tar
 tracking_models/deva/DEVA-propagation.pth
 plan_ostrack.md
+tracking_models/ostrack/OSTrack_ep0300.pth.tar
