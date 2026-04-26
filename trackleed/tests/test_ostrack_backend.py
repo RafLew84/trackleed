@@ -49,6 +49,26 @@ class OstrackBackendTests(unittest.TestCase):
 
         self.assertEqual(selected, strong_checkpoint.resolve())
 
+    def test_checkpoint_selection_accepts_got10k_epoch_0100_in_variant_subdirectory(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            models_dir = Path(temp_dir)
+            default_dir = models_dir / "vitb_384_mae_32x4_ep300"
+            got10k_dir = models_dir / "vitb_384_mae_ce_32x4_got10k_ep100"
+            default_dir.mkdir()
+            got10k_dir.mkdir()
+            default_checkpoint = default_dir / "OSTrack_ep0300.pth.tar"
+            got10k_checkpoint = got10k_dir / "OSTrack_ep0100.pth.tar"
+            default_checkpoint.write_bytes(b"default")
+            got10k_checkpoint.write_bytes(b"got10k")
+
+            discovered = ostrack_backend.discover_ostrack_checkpoints(models_dir)
+            selected = ostrack_backend.select_default_ostrack_checkpoint(
+                discovered,
+                "vitb_384_mae_ce_32x4_got10k_ep100",
+            )
+
+        self.assertEqual(selected, got10k_checkpoint.resolve())
+
     def test_import_probe_parser_ignores_noisy_stdout(self) -> None:
         stdout = (
             "WARNING: You are using tensorboardX instead\n"

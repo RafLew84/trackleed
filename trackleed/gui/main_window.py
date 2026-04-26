@@ -7965,8 +7965,17 @@ class MainWindow(QMainWindow):
             self.ostrack_settings.checkpoint_path = None
         else:
             self.ostrack_checkpoint_combo.setEnabled(True)
+            checkpoint_name_counts: dict[str, int] = {}
+            for path in available_checkpoints:
+                checkpoint_name_counts[path.name] = checkpoint_name_counts.get(path.name, 0) + 1
+            models_root = Path(self.ostrack_models_dir).resolve()
             for path in available_checkpoints:
                 label = path.name
+                if checkpoint_name_counts.get(path.name, 0) > 1:
+                    try:
+                        label = str(path.resolve().relative_to(models_root))
+                    except ValueError:
+                        label = str(path.resolve())
                 self.ostrack_checkpoint_combo.addItem(label, userData=str(path.resolve()))
             self._ostrack_checkpoint_available = True
             selected_checkpoint = (

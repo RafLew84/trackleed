@@ -241,17 +241,11 @@ def select_default_ostrack_checkpoint(
         if checkpoint is not None:
             return checkpoint
     for path in checkpoints:
-        if (
-            path.name.lower() == DEFAULT_OSTRACK_CHECKPOINT_NAME.lower()
-            and path.parent.name.lower() == normalized_config_name
-        ):
+        if path.parent.name.lower() == normalized_config_name:
             return path
     for path in checkpoints:
         normalized_parts = {part.lower() for part in path.parts}
-        if (
-            path.name.lower() == DEFAULT_OSTRACK_CHECKPOINT_NAME.lower()
-            and normalized_config_name in normalized_parts
-        ):
+        if normalized_config_name in normalized_parts:
             return path
     for path in checkpoints:
         if normalized_config_name in path.name.lower():
