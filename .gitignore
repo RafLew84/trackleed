@@ -218,3 +218,9 @@ tracking_models/tomp/tomp101.pth.tar
 tracking_models/deva/DEVA-propagation.pth
 plan_ostrack.md
 tracking_models/ostrack/OSTrack_ep0300.pth.tar
+tracking_models/ostrack/vitb_256_mae_32x4_ep300/OSTrack_ep0300.pth.tar
+tracking_models/ostrack/vitb_256_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar
+tracking_models/ostrack/vitb_256_mae_ce_32x4_got10k_ep100/OSTrack_ep0100.pth.tar
+tracking_models/ostrack/vitb_384_mae_32x4_ep300/OSTrack_ep0300.pth.tar
+tracking_models/ostrack/vitb_384_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar
+tracking_models/ostrack/vitb_384_mae_ce_32x4_got10k_ep100/OSTrack_ep0100.pth.tar
