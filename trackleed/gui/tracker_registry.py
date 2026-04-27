@@ -39,6 +39,10 @@ from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
 )
+from trackleed.analysis.samurai_backend import (
+    format_samurai_environment_report,
+    probe_samurai_environment,
+)
 from trackleed.analysis.tapir_backend import (
     format_tapir_environment_report,
     probe_tapir_environment,
@@ -64,6 +68,7 @@ from trackleed.analysis.tracking_mask_backends import (
     track_spots_dam4sam_offline,
     track_spots_deva_offline,
     track_spots_sam2_offline,
+    track_spots_samurai_offline,
     track_spots_xmem2_offline,
 )
 from trackleed.analysis.tracking_point_backends import (
@@ -86,6 +91,7 @@ from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_ostrack_offline,
     retrack_single_spot_pipspp_offline,
     retrack_single_spot_sam2_offline,
+    retrack_single_spot_samurai_offline,
     retrack_single_spot_tapir_offline,
     retrack_single_spot_tapir_online,
     retrack_single_spot_tapnext_offline,
@@ -470,6 +476,33 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         default_conda_env_name="dam4sam",
         checkpoint_selector_attr="dam4sam_checkpoint_combo",
         variant_selector_attr="dam4sam_tracker_variant_combo",
+    ),
+    TrackerSpec(
+        tracker_id="samurai_offline",
+        display_name="Offline SAMURAI",
+        scenario_name="Offline SAMURAI",
+        family="mask",
+        source_names=("samurai_offline",),
+        settings_type_name="SamuraiTrackingSettings",
+        runtime_settings_type_name="SamuraiRuntimeSettings",
+        probe_environment=probe_samurai_environment,
+        format_environment_report=format_samurai_environment_report,
+        collect_params_method_name="_collect_samurai_tracking_params",
+        run_tracking=track_spots_samurai_offline,
+        run_retrack=retrack_single_spot_samurai_offline,
+        supports_direct=True,
+        supports_subprocess=True,
+        has_visualizer_retrack=True,
+        settings_attr_name="samurai_settings",
+        params_argument_name="samurai_params",
+        panel_group_attr="samurai_group",
+        warning_label_attr="samurai_warning_label",
+        backend_mode_widget_attr="samurai_backend_mode_combo",
+        repo_path_attr="samurai_repo_path_edit",
+        python_executable_attr="samurai_python_executable_edit",
+        default_conda_env_name="samurai",
+        checkpoint_selector_attr="samurai_checkpoint_combo",
+        variant_selector_attr="samurai_model_variant_combo",
     ),
     TrackerSpec(
         tracker_id="deva_offline",

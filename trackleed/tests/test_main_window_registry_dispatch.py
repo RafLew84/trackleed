@@ -80,6 +80,7 @@ class MainWindowImportMixin:
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
             "trackleed.analysis.sam2_backend",
+            "trackleed.analysis.samurai_backend",
             "trackleed.analysis.tracking_bbox_backends",
             "trackleed.analysis.tracking_mask_backends",
             "trackleed.analysis.tracking_point_backends",
@@ -288,6 +289,40 @@ class MainWindowImportMixin:
         )
         self._install_simple_stub(
             originals,
+            "trackleed.analysis.samurai_backend",
+            SAMURAI_MODEL_VARIANTS={
+                "sam2.1_hiera_large": (
+                    "sam2.1_hiera_large.pt",
+                    "sam2.1_hiera_l.yaml",
+                    "configs/samurai/sam2.1_hiera_l.yaml",
+                ),
+                "sam2.1_hiera_base_plus": (
+                    "sam2.1_hiera_base_plus.pt",
+                    "sam2.1_hiera_b+.yaml",
+                    "configs/samurai/sam2.1_hiera_b+.yaml",
+                ),
+                "sam2.1_hiera_small": (
+                    "sam2.1_hiera_small.pt",
+                    "sam2.1_hiera_s.yaml",
+                    "configs/samurai/sam2.1_hiera_s.yaml",
+                ),
+                "sam2.1_hiera_tiny": (
+                    "sam2.1_hiera_tiny.pt",
+                    "sam2.1_hiera_t.yaml",
+                    "configs/samurai/sam2.1_hiera_t.yaml",
+                ),
+            },
+            DEFAULT_SAMURAI_MODEL_VARIANT="sam2.1_hiera_base_plus",
+            format_samurai_environment_report=lambda status: f"samurai:{status}",
+            probe_samurai_environment=_stub_callable(
+                "trackleed.analysis.samurai_backend.probe_samurai_environment"
+            ),
+            select_default_samurai_checkpoint=lambda checkpoints, model_variant=None, models_dir=None: (
+                checkpoints[0] if checkpoints else None
+            ),
+        )
+        self._install_simple_stub(
+            originals,
             "trackleed.analysis.tomp_backend",
             expected_tomp_checkpoint_name_for_variant=lambda variant: f"{variant}.pth.tar",
             format_tomp_environment_report=lambda status: f"tomp:{status}",
@@ -321,6 +356,9 @@ class MainWindowImportMixin:
             ),
             track_spots_sam2_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_sam2_offline"
+            ),
+            track_spots_samurai_offline=_stub_callable(
+                "trackleed.analysis.tracking_mask_backends.track_spots_samurai_offline"
             ),
             track_spots_xmem2_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_xmem2_offline"
@@ -383,6 +421,9 @@ class MainWindowImportMixin:
             ),
             retrack_single_spot_sam2_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_sam2_offline"
+            ),
+            retrack_single_spot_samurai_offline=_stub_callable(
+                "trackleed.analysis.tracking_retrack.retrack_single_spot_samurai_offline"
             ),
             retrack_single_spot_tapir_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_tapir_offline"
@@ -831,12 +872,15 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
             locotrack_python = conda_root / "envs" / "locotrack-pytorch" / "python.exe"
             sam2_python = conda_root / "envs" / "sam2" / "python.exe"
             dam4sam_python = conda_root / "envs" / "dam4sam" / "python.exe"
+            samurai_python = conda_root / "envs" / "samurai" / "python.exe"
             locotrack_python.parent.mkdir(parents=True)
             sam2_python.parent.mkdir(parents=True)
             dam4sam_python.parent.mkdir(parents=True)
+            samurai_python.parent.mkdir(parents=True)
             locotrack_python.touch()
             sam2_python.touch()
             dam4sam_python.touch()
+            samurai_python.touch()
 
             fake = SimpleNamespace(
                 locotrack_settings=self.main_window.LocotrackTrackingSettings(),
@@ -844,6 +888,7 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
                     python_executable="C:/custom/sam2/python.exe"
                 ),
                 dam4sam_settings=self.main_window.Dam4SamTrackingSettings(),
+                samurai_settings=self.main_window.SamuraiTrackingSettings(),
             )
             fake._tracker_settings_for_spec = types.MethodType(
                 self.main_window.MainWindow._tracker_settings_for_spec,
@@ -869,6 +914,10 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
                 fake.dam4sam_settings.python_executable,
                 str(dam4sam_python.resolve()),
             )
+            self.assertEqual(
+                fake.samurai_settings.python_executable,
+                str(samurai_python.resolve()),
+            )
 
     def test_ostrack_variant_options_and_presets_cover_supported_configs(self) -> None:
         supported = set(self.main_window.SUPPORTED_OSTRACK_CONFIG_NAMES)
@@ -888,3 +937,12 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
                 self.assertGreaterEqual(int(preset["window_size"]), 2)
                 self.assertGreaterEqual(int(preset["window_overlap"]), 0)
                 self.assertFalse(bool(preset["use_presence_score_gating"]))
+
+    def test_samurai_variant_options_cover_supported_configs(self) -> None:
+        supported = set(self.main_window.SAMURAI_MODEL_VARIANTS)
+
+        self.assertEqual(set(self.main_window.SAMURAI_MODEL_VARIANT_LABELS), supported)
+        self.assertEqual(
+            self.main_window.SamuraiTrackingSettings().model_variant,
+            self.main_window.DEFAULT_SAMURAI_MODEL_VARIANT,
+        )

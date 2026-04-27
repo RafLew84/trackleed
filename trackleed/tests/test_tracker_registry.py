@@ -43,6 +43,10 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "format_sam2_environment_report",
         "probe_sam2_environment",
     ),
+    "trackleed.analysis.samurai_backend": (
+        "format_samurai_environment_report",
+        "probe_samurai_environment",
+    ),
     "trackleed.analysis.tapir_backend": (
         "format_tapir_environment_report",
         "probe_tapir_environment",
@@ -68,6 +72,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "track_spots_dam4sam_offline",
         "track_spots_deva_offline",
         "track_spots_sam2_offline",
+        "track_spots_samurai_offline",
         "track_spots_xmem2_offline",
     ),
     "trackleed.analysis.tracking_point_backends": (
@@ -90,6 +95,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "retrack_single_spot_ostrack_offline",
         "retrack_single_spot_pipspp_offline",
         "retrack_single_spot_sam2_offline",
+        "retrack_single_spot_samurai_offline",
         "retrack_single_spot_tapir_offline",
         "retrack_single_spot_tapir_online",
         "retrack_single_spot_tapnext_offline",
@@ -243,6 +249,18 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
         self.assertTrue(spec.has_visualizer_retrack)
         self.assertEqual(spec.default_conda_env_name, "dam4sam")
         self.assertEqual(spec.variant_selector_attr, "dam4sam_tracker_variant_combo")
+
+    def test_samurai_is_registered_as_subprocess_mask_tracker_with_visualizer_retrack(self) -> None:
+        spec = self.registry.require_tracker_spec("samurai_offline")
+
+        self.assertEqual(spec.scenario_name, "Offline SAMURAI")
+        self.assertEqual(spec.family, "mask")
+        self.assertEqual(spec.source_names, ("samurai_offline",))
+        self.assertTrue(spec.supports_subprocess)
+        self.assertTrue(spec.supports_direct)
+        self.assertTrue(spec.has_visualizer_retrack)
+        self.assertEqual(spec.default_conda_env_name, "samurai")
+        self.assertEqual(spec.variant_selector_attr, "samurai_model_variant_combo")
 
     def test_ostrack_is_registered_as_subprocess_bbox_tracker_with_retrack_ui(self) -> None:
         spec = self.registry.require_tracker_spec("ostrack_offline")

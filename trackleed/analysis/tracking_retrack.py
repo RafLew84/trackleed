@@ -13,6 +13,7 @@ from trackleed.analysis.tracking_mask_backends import (
     retrack_single_spot_dam4sam_offline,
     retrack_single_spot_deva_offline,
     retrack_single_spot_sam2_offline,
+    retrack_single_spot_samurai_offline,
     retrack_single_spot_xmem2_offline,
 )
 from trackleed.analysis.tracking_point_backends import (

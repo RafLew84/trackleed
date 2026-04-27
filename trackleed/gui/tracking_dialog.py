@@ -46,6 +46,7 @@ TRACKER_METHOD_LABEL_BY_SOURCE = {
     "ostrack_offline": "OSTrack",
     "sam2_offline": "SAM2",
     "dam4sam_offline": "DAM4SAM",
+    "samurai_offline": "SAMURAI",
     "deva_offline": "DEVA",
 }
 
@@ -65,6 +66,7 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
     "ostrack_offline": "OSTrack + Manual",
     "sam2_offline": "SAM2 + Manual",
     "dam4sam_offline": "DAM4SAM + Manual",
+    "samurai_offline": "SAMURAI + Manual",
     "deva_offline": "DEVA + Manual",
 }
 
@@ -83,6 +85,7 @@ TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
     "ostrack_offline": "initiate_retrack_ostrack",
     "sam2_offline": "initiate_retrack_sam2",
     "dam4sam_offline": "initiate_retrack_dam4sam",
+    "samurai_offline": "initiate_retrack_samurai",
     "deva_offline": "initiate_retrack_deva",
 }
 
@@ -101,6 +104,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "ostrack_offline": "OSTrack Unavailable",
     "sam2_offline": "SAM2 Unavailable",
     "dam4sam_offline": "DAM4SAM Unavailable",
+    "samurai_offline": "SAMURAI Unavailable",
     "deva_offline": "DEVA Unavailable",
 }
 
@@ -115,6 +119,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
     "dam4sam_offline": "dam4sam",
+    "samurai_offline": "samurai",
     "deva_offline": "deva",
 }
 
@@ -184,6 +189,19 @@ MASK_TRACKER_DETAIL_SPECS = {
             ("Config", "dam4sam_config_name"),
         ),
     },
+    "samurai_offline": {
+        "prefix": "samurai",
+        "focus_label": "SAMURAI",
+        "include_initial_mask_mode": False,
+        "include_memory_anchor": False,
+        "include_prompt_mode": False,
+        "include_component_count": True,
+        "runtime_fields": (
+            ("Model variant", "samurai_model_variant"),
+            ("Checkpoint", "samurai_checkpoint_name"),
+            ("Config", "samurai_config_name"),
+        ),
+    },
     "deva_offline": {
         "prefix": "deva",
         "focus_label": "DEVA",
@@ -220,6 +238,7 @@ class TrackingDialog(QDialog):
         ostrack_params: dict | None = None,
         sam2_params: dict | None = None,
         dam4sam_params: dict | None = None,
+        samurai_params: dict | None = None,
         deva_params: dict | None = None,
         parent=None,
         save_session_callback=None,
@@ -253,6 +272,7 @@ class TrackingDialog(QDialog):
         self.ostrack_params = dict(ostrack_params or {})
         self.sam2_params = dict(sam2_params or {})
         self.dam4sam_params = dict(dam4sam_params or {})
+        self.samurai_params = dict(samurai_params or {})
         self.deva_params = dict(deva_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
@@ -1912,6 +1932,84 @@ class TrackingDialog(QDialog):
             dam4sam_params,
             title="Re-tracking spot with DAM4SAM...",
             method_label="DAM4SAM re-tracking",
+        )
+
+    def initiate_retrack_samurai(self, spot_id: int):
+        """Prepares and launches SAMURAI re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("samurai_offline")
+
+        samurai_params = self._tracker_params_for_spec(tracker_spec)
+        if not samurai_params:
+            QMessageBox.warning(
+                self,
+                "SAMURAI Settings Missing",
+                "SAMURAI parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None:
+            return
+
+        model_variant = (
+            samurai_params.get("model_variant")
+            or samurai_params.get("samurai_model_variant")
+            or getattr(start_spot, "samurai_model_variant", None)
+            or "sam2.1_hiera_base_plus"
+        )
+        backend_mode = str(
+            samurai_params.get("backend_mode") or "subprocess"
+        ).strip().lower()
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=samurai_params.get("samurai_models_dir"),
+            checkpoint_path=samurai_params.get("checkpoint_path"),
+            repo_path=(
+                samurai_params.get("repo_path")
+                or samurai_params.get("samurai_repo_path")
+            ),
+            python_executable=(
+                samurai_params.get("python_executable")
+                if backend_mode == "subprocess"
+                else None
+            ),
+            model_variant=model_variant,
+        )
+        selected_checkpoint_obj = status.selected_checkpoint
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.config_exists
+            and selected_checkpoint_obj is not None
+            and selected_checkpoint_obj.exists()
+        )
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            samurai_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            title="SAMURAI Unavailable",
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
+
+        if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists():
+            samurai_params["checkpoint_path"] = str(selected_checkpoint_obj.resolve())
+        samurai_params["roi_size"] = self.roi_size
+        samurai_params["model_variant"] = model_variant
+        samurai_params["samurai_model_variant"] = model_variant
+
+        self._launch_registered_retrack(
+            tracker_spec,
+            track_to_retrack,
+            current_frame_id,
+            samurai_params,
+            title="Re-tracking spot with SAMURAI...",
+            method_label="SAMURAI re-tracking",
         )
 
     def initiate_retrack_deva(self, spot_id: int):

@@ -164,6 +164,12 @@ class TrackingDialogImportMixin:
                 run_retrack=lambda *args, **kwargs: ("dam4sam_offline", args, kwargs),
                 has_visualizer_retrack=True,
             ),
+            "samurai_offline": SimpleNamespace(
+                tracker_id="samurai_offline",
+                params_argument_name="samurai_params",
+                run_retrack=lambda *args, **kwargs: ("samurai_offline", args, kwargs),
+                has_visualizer_retrack=True,
+            ),
             "ostrack_offline": SimpleNamespace(
                 tracker_id="ostrack_offline",
                 params_argument_name="ostrack_params",
@@ -181,6 +187,7 @@ class TrackingDialogImportMixin:
             "xmem2_offline": tracker_specs["xmem2_offline"],
             "deva_offline": tracker_specs["deva_offline"],
             "dam4sam_offline": tracker_specs["dam4sam_offline"],
+            "samurai_offline": tracker_specs["samurai_offline"],
             "ostrack_offline": tracker_specs["ostrack_offline"],
         }
 
@@ -323,6 +330,10 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             dialog._backend_retrack_action_text(self._track("dam4sam_offline", "manual_corr")),
             "Re-track from this point (DAM4SAM)",
         )
+        self.assertEqual(
+            dialog._backend_retrack_action_text(self._track("samurai_offline", "manual_corr")),
+            "Re-track from this point (SAMURAI)",
+        )
         self.assertIsNone(dialog._backend_retrack_action_text(self._track("manual_corr")))
 
     def test_tracker_params_for_spec_returns_dict_copy(self) -> None:
@@ -393,6 +404,7 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             initiate_retrack_ostrack=lambda spot_id: calls.append(("ostrack", spot_id)),
             initiate_retrack_sam2=lambda spot_id: calls.append(("sam2", spot_id)),
             initiate_retrack_dam4sam=lambda spot_id: calls.append(("dam4sam", spot_id)),
+            initiate_retrack_samurai=lambda spot_id: calls.append(("samurai", spot_id)),
             initiate_retrack_deva=lambda spot_id: calls.append(("deva", spot_id)),
         )
 
@@ -426,6 +438,11 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             self.tracker_specs["dam4sam_offline"],
             66,
         )
+        self.module.TrackingDialog._initiate_retrack_for_tracker_spec(
+            dialog,
+            self.tracker_specs["samurai_offline"],
+            77,
+        )
 
         self.assertEqual(
             calls,
@@ -436,6 +453,7 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
                 ("deva", 44),
                 ("ostrack", 55),
                 ("dam4sam", 66),
+                ("samurai", 77),
             ],
         )
 
@@ -611,6 +629,91 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
         self.assertEqual(launched_params["tracker_name"], "sam21pp-L")
         self.assertEqual(launched_params["dam4sam_tracker_name"], "sam21pp-L")
 
+    def test_initiate_retrack_samurai_launches_registered_worker_with_validated_checkpoint(self) -> None:
+        recorded: dict[str, object] = {}
+        probe_kwargs: dict[str, object] = {}
+
+        class _Checkpoint:
+            def exists(self) -> bool:
+                return True
+
+            def resolve(self) -> str:
+                return "C:/models/sam2.1_hiera_base_plus.pt"
+
+        tracker_spec = SimpleNamespace(
+            tracker_id="samurai_offline",
+            params_argument_name="samurai_params",
+            supports_subprocess=True,
+            supports_direct=True,
+            run_retrack=lambda *args, **kwargs: None,
+        )
+        status = SimpleNamespace(
+            repo_path="C:/samurai",
+            config_exists=True,
+            selected_checkpoint=_Checkpoint(),
+            is_ready=True,
+        )
+        params = {
+            "backend_mode": "subprocess",
+            "model_variant": "sam2.1_hiera_base_plus",
+            "checkpoint_path": "tracking_models/samurai/sam2.1_hiera_base_plus.pt",
+            "python_executable": "C:/Users/rlewa/anaconda3/envs/samurai/python.exe",
+            "samurai_models_dir": "tracking_models/samurai",
+            "repo_path": "C:/samurai",
+        }
+        track = SimpleNamespace(
+            track_id=7,
+            spots_by_image_id={
+                2: SimpleNamespace(
+                    source="samurai_offline",
+                    samurai_model_variant="sam2.1_hiera_base_plus",
+                )
+            },
+        )
+
+        def launch_retrack(tracker_spec_arg, track_arg, frame_id_arg, params_arg, *, title, method_label):
+            recorded["tracker_spec"] = tracker_spec_arg
+            recorded["track"] = track_arg
+            recorded["frame_id"] = frame_id_arg
+            recorded["params"] = params_arg
+            recorded["title"] = title
+            recorded["method_label"] = method_label
+
+        dialog = SimpleNamespace(
+            roi_size=32,
+            _get_retrack_target=lambda: (track, 2),
+            _tracker_params_for_spec=lambda spec: dict(params),
+            _probe_tracker_environment_for_spec=lambda spec, **kwargs: (
+                probe_kwargs.update(kwargs) or status
+            ),
+            _ensure_registered_retrack_runtime_ready=lambda *args, **kwargs: True,
+            _launch_registered_retrack=launch_retrack,
+        )
+        original_require_tracker_spec = self.module.require_tracker_spec
+        self.module.require_tracker_spec = lambda tracker_id: tracker_spec
+        self.addCleanup(setattr, self.module, "require_tracker_spec", original_require_tracker_spec)
+
+        self.module.TrackingDialog.initiate_retrack_samurai(dialog, 1)
+
+        self.assertIs(recorded["tracker_spec"], tracker_spec)
+        self.assertIs(recorded["track"], track)
+        self.assertEqual(recorded["frame_id"], 2)
+        self.assertEqual(recorded["title"], "Re-tracking spot with SAMURAI...")
+        self.assertEqual(recorded["method_label"], "SAMURAI re-tracking")
+        self.assertEqual(probe_kwargs["models_dir"], "tracking_models/samurai")
+        self.assertEqual(probe_kwargs["checkpoint_path"], "tracking_models/samurai/sam2.1_hiera_base_plus.pt")
+        self.assertEqual(probe_kwargs["repo_path"], "C:/samurai")
+        self.assertEqual(
+            probe_kwargs["python_executable"],
+            "C:/Users/rlewa/anaconda3/envs/samurai/python.exe",
+        )
+        self.assertEqual(probe_kwargs["model_variant"], "sam2.1_hiera_base_plus")
+        launched_params = recorded["params"]
+        self.assertEqual(launched_params["checkpoint_path"], "C:/models/sam2.1_hiera_base_plus.pt")
+        self.assertEqual(launched_params["roi_size"], 32)
+        self.assertEqual(launched_params["model_variant"], "sam2.1_hiera_base_plus")
+        self.assertEqual(launched_params["samurai_model_variant"], "sam2.1_hiera_base_plus")
+
 
 class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
     def setUp(self) -> None:
@@ -778,6 +881,95 @@ class TrackingDialogDam4SamVisualizerTests(TrackingDialogImportMixin, unittest.T
         payload = dialog._build_focus_point_payload_for_spot(track, spot)
 
         self.assertEqual(payload, [{"x": 20.5, "y": 21.5, "label": "DAM4SAM T9"}])
+
+
+class TrackingDialogSamuraiVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
+    def setUp(self) -> None:
+        self.module, self.tracker_specs = self.import_tracking_dialog()
+
+    def _dialog_with_detail_helpers(self):
+        dialog = SimpleNamespace()
+        dialog._append_formatted_value_line = types.MethodType(
+            self.module.TrackingDialog._append_formatted_value_line,
+            dialog,
+        )
+        dialog._append_mask_tracker_detail_lines = types.MethodType(
+            self.module.TrackingDialog._append_mask_tracker_detail_lines,
+            dialog,
+        )
+        dialog._normalized_source_name = types.MethodType(
+            self.module.TrackingDialog._normalized_source_name,
+            dialog,
+        )
+        dialog._build_focus_point_payload_for_spot = types.MethodType(
+            self.module.TrackingDialog._build_focus_point_payload_for_spot,
+            dialog,
+        )
+        return dialog
+
+    def test_samurai_detail_lines_expose_mask_metadata_without_polygon_fields(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        spot = SimpleNamespace(
+            source="samurai_offline",
+            center_x=12.0,
+            center_y=34.0,
+            samurai_raw_x=12.345,
+            samurai_raw_y=34.567,
+            samurai_refined_x=12.0,
+            samurai_refined_y=34.0,
+            samurai_visibility=True,
+            samurai_repr_mode="gaussian_in_bbox",
+            samurai_model_variant="sam2.1_hiera_base_plus",
+            samurai_checkpoint_name="sam2.1_hiera_base_plus.pt",
+            samurai_config_name="sam2.1_hiera_b+.yaml",
+            samurai_mask_area=123.4,
+            samurai_mask_score=1.0,
+            samurai_mask_component_count=2,
+            samurai_mask_bbox_xywh=(3.0, 4.0, 10.0, 12.0),
+            samurai_mask_bbox_xyxy=(3.0, 4.0, 13.0, 16.0),
+            samurai_mask_bbox_aspect_ratio=0.8333333,
+            samurai_filter_rejected_reason="max_mask_components",
+        )
+        lines: list[str] = []
+
+        handled = dialog._append_mask_tracker_detail_lines(
+            lines,
+            spot,
+            source="samurai_offline",
+        )
+
+        self.assertTrue(handled)
+        self.assertIn("Representative point: (12.35, 34.57)", lines)
+        self.assertIn("Stored point: (12.00, 34.00)", lines)
+        self.assertIn("Visible: yes", lines)
+        self.assertIn("Representative mode: gaussian_in_bbox", lines)
+        self.assertIn("Model variant: sam2.1_hiera_base_plus", lines)
+        self.assertIn("Checkpoint: sam2.1_hiera_base_plus.pt", lines)
+        self.assertIn("Config: sam2.1_hiera_b+.yaml", lines)
+        self.assertIn("Mask area: 123.4", lines)
+        self.assertIn("Mask score: 1.000", lines)
+        self.assertIn("Mask components: 2", lines)
+        self.assertIn("Mask bbox xywh: x=3.0, y=4.0, w=10.0, h=12.0", lines)
+        self.assertIn("Mask bbox: x0=3.0, y0=4.0, x1=13.0, y1=16.0", lines)
+        self.assertIn("BBox aspect ratio: 0.833", lines)
+        self.assertIn("Filter: rejected (max_mask_components)", lines)
+        self.assertNotIn("Initial mask mode: bbox", lines)
+        self.assertNotIn("Prompt mode: bbox", lines)
+
+    def test_samurai_focus_point_uses_mask_tracker_spec(self) -> None:
+        dialog = self._dialog_with_detail_helpers()
+        track = SimpleNamespace(track_id=9)
+        spot = SimpleNamespace(
+            source="samurai_offline",
+            center_x=10.0,
+            center_y=11.0,
+            samurai_raw_x=20.5,
+            samurai_raw_y=21.5,
+        )
+
+        payload = dialog._build_focus_point_payload_for_spot(track, spot)
+
+        self.assertEqual(payload, [{"x": 20.5, "y": 21.5, "label": "SAMURAI T9"}])
 
 
 class TrackingDialogOstrackVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
