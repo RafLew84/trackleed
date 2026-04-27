@@ -89,6 +89,7 @@ class ShimImportMixin:
             "trackleed.analysis.sam2_backend",
             "trackleed.analysis.cutie_backend",
             "trackleed.analysis.deva_backend",
+            "trackleed.analysis.dam4sam_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
             "trackleed.analysis.ostrack_backend",
@@ -286,6 +287,19 @@ class ShimImportMixin:
             },
         )
         self._install_backend_stub(
+            "trackleed.analysis.dam4sam_backend",
+            default_models_dir="tracking_models/dam4sam",
+            runtime_settings=("Dam4SamRuntimeSettings",),
+            extra_attrs={
+                "DEFAULT_DAM4SAM_TRACKER_NAME": "sam21pp-L",
+                "discover_dam4sam_checkpoints": lambda *args, **kwargs: [],
+                "run_dam4sam_offline": _stub_callable(
+                    "trackleed.analysis.dam4sam_backend.run_dam4sam_offline"
+                ),
+                "select_default_dam4sam_checkpoint": lambda *args, **kwargs: None,
+            },
+        )
+        self._install_backend_stub(
             "trackleed.analysis.xmem2_backend",
             default_models_dir="tracking_models/xmem2",
             runtime_settings=("XMem2RuntimeSettings",),
@@ -410,6 +424,7 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.assertIs(self.tracking.track_spots_xmem2_offline, self.mask_backends.track_spots_xmem2_offline)
         self.assertIs(self.tracking.track_spots_sam2_offline, self.mask_backends.track_spots_sam2_offline)
         self.assertIs(self.tracking.track_spots_deva_offline, self.mask_backends.track_spots_deva_offline)
+        self.assertIs(self.tracking.track_spots_dam4sam_offline, self.mask_backends.track_spots_dam4sam_offline)
 
     def test_tracking_shim_reexports_retrack_entrypoints(self) -> None:
         self.assertIs(

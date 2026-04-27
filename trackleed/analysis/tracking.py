@@ -197,6 +197,10 @@ _PUBLIC_TRACKING_SHIM_EXPORTS = {
         "trackleed.analysis.tracking_mask_backends",
         "track_spots_deva_offline",
     ),
+    "track_spots_dam4sam_offline": (
+        "trackleed.analysis.tracking_mask_backends",
+        "track_spots_dam4sam_offline",
+    ),
 }
 
 _PUBLIC_RETRACK_SHIM_EXPORTS = {
