@@ -232,3 +232,7 @@ tracking_models/dam4sam/sam2.1_hiera_base_plus.pt
 tracking_models/dam4sam/sam2.1_hiera_large.pt
 tracking_models/dam4sam/sam2.1_hiera_small.pt
 tracking_models/dam4sam/sam2.1_hiera_tiny.pt
+tracking_models/samurai/sam2.1_hiera_base_plus.pt
+tracking_models/samurai/sam2.1_hiera_large.pt
+tracking_models/samurai/sam2.1_hiera_small.pt
+tracking_models/samurai/sam2.1_hiera_tiny.pt
