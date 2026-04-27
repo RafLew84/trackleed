@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+import importlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
-from typing import Any, Optional
+from tempfile import TemporaryDirectory
+from typing import Any, Iterator, Optional
+
+import numpy as np
 
 
 DEFAULT_DAM4SAM_MODELS_DIR = Path("tracking_models") / "dam4sam"
@@ -20,6 +25,8 @@ DEFAULT_DAM4SAM_REPO_CANDIDATES = (
 DEFAULT_DAM4SAM_TRACKER_NAME = "sam21pp-L"
 DEFAULT_DAM4SAM_IMPORT_PROBE_TIMEOUT_SEC = 60.0
 DEFAULT_DAM4SAM_SMOKE_TIMEOUT_SEC = 600.0
+DEFAULT_DAM4SAM_SUBPROCESS_TIMEOUT_SEC = 1800.0
+DEFAULT_DAM4SAM_SUBPROCESS_SCRIPT = Path("scripts") / "run_dam4sam_subprocess.py"
 _IMPORT_PROBE_PREFIX = "__TRACKLEED_DAM4SAM_IMPORT_PROBE__"
 _SMOKE_TEST_PREFIX = "__TRACKLEED_DAM4SAM_SMOKE_TEST__"
 
@@ -123,6 +130,56 @@ class Dam4SamSmokeTestResult:
     @property
     def succeeded(self) -> bool:
         return self.returncode == 0 and bool(self.payload.get("ok"))
+
+
+@dataclass
+class Dam4SamRuntimeSettings:
+    checkpoint_path: str | Path
+    repo_path: str | Path | None = None
+    python_executable: str | Path | None = None
+    backend_mode: str = "subprocess"
+    tracker_name: str = DEFAULT_DAM4SAM_TRACKER_NAME
+    device: str = "auto"
+    representative_point_mode: str = "mask_centroid"
+    inference_resolution: int | tuple[int, int] | None = None
+    initial_bbox_padding_px: float = 12.0
+    subprocess_timeout_sec: float = DEFAULT_DAM4SAM_SUBPROCESS_TIMEOUT_SEC
+
+
+@dataclass
+class Dam4SamOfflineResult:
+    masks: np.ndarray
+    tracks_xy: np.ndarray
+    visible_mask: np.ndarray
+    mask_areas: np.ndarray
+    mask_bboxes_xyxy: np.ndarray
+    mask_bboxes_xywh: np.ndarray
+    mask_scores: np.ndarray
+    inference_resolution: tuple[int, int]
+    original_resolution: tuple[int, int]
+    checkpoint_name: str
+    tracker_name: str
+    config_name: str
+    representative_point_mode: str
+    backend_mode: str
+
+
+@dataclass
+class Dam4SamBackendSmokeTestResult:
+    checkpoint_name: str
+    tracker_name: str
+    backend_mode: str
+    representative_point_mode: str
+    masks_shape: tuple[int, int, int, int]
+    tracks_shape: tuple[int, int, int]
+    visible_shape: tuple[int, int]
+    visible_count: int
+    first_track_point_xy: tuple[float, float]
+    last_visible_point_xy: tuple[float, float]
+    first_mask_area: float
+    last_mask_area: float
+    first_bbox_xyxy: tuple[float, float, float, float]
+    last_bbox_xyxy: tuple[float, float, float, float]
 
 
 def discover_dam4sam_checkpoints(
@@ -304,7 +361,7 @@ def probe_dam4sam_environment(
 
 
 def format_dam4sam_environment_report(status: Dam4SamEnvironmentStatus) -> str:
-    available = ", ".join(path.name for path in status.available_checkpoints) or "none"
+    available = _format_available_checkpoints(status.available_checkpoints)
     selected = str(status.selected_checkpoint) if status.selected_checkpoint else "None"
     lines = [
         "DAM4SAM environment diagnostics",
@@ -424,6 +481,418 @@ def format_dam4sam_smoke_test_report(result: Dam4SamSmokeTestResult) -> str:
             lines.append("- stderr:")
             lines.append(result.stderr.strip())
     return "\n".join(lines)
+
+
+def run_dam4sam_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray | None,
+    settings: Dam4SamRuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
+) -> Dam4SamOfflineResult:
+    """Run DAM4SAM on a sequence using bbox or mask prompts."""
+
+    if frames is None or np.asarray(frames).size == 0:
+        raise ValueError("No frames provided for DAM4SAM inference.")
+    frames_np = np.asarray(frames)
+    if frames_np.ndim not in (3, 4):
+        raise ValueError(f"Expected frames with ndim 3 or 4, got shape {frames_np.shape}.")
+
+    backend_mode = str(settings.backend_mode or "subprocess").strip().lower()
+    if backend_mode == "auto":
+        backend_mode = "subprocess"
+    if backend_mode == "direct":
+        return _run_dam4sam_direct_offline(
+            frames_np,
+            query_points_tyx,
+            settings,
+            query_boxes_xyxy=query_boxes_xyxy,
+            query_initial_masks=query_initial_masks,
+            backend_mode="direct",
+        )
+    if backend_mode != "subprocess":
+        raise ValueError(
+            f"Unsupported DAM4SAM backend mode: {settings.backend_mode}. "
+            "Expected `subprocess` or `direct`."
+        )
+    return _run_dam4sam_subprocess_offline(
+        frames_np,
+        query_points_tyx,
+        settings,
+        query_boxes_xyxy=query_boxes_xyxy,
+        query_initial_masks=query_initial_masks,
+    )
+
+
+def run_dam4sam_backend_smoke_test(
+    *,
+    repo_path: str | Path,
+    checkpoint_path: str | Path,
+    python_executable: str | Path | None = None,
+    tracker_name: str = DEFAULT_DAM4SAM_TRACKER_NAME,
+    device: str = "auto",
+    backend_mode: str = "subprocess",
+    representative_point_mode: str = "mask_centroid",
+    timeout_sec: float = DEFAULT_DAM4SAM_SUBPROCESS_TIMEOUT_SEC,
+) -> Dam4SamBackendSmokeTestResult:
+    frames, query_points_tyx, query_boxes_xyxy = _build_dam4sam_backend_smoke_inputs()
+    result = run_dam4sam_offline(
+        frames,
+        query_points_tyx,
+        Dam4SamRuntimeSettings(
+            checkpoint_path=checkpoint_path,
+            repo_path=repo_path,
+            python_executable=python_executable,
+            backend_mode=backend_mode,
+            tracker_name=tracker_name,
+            device=device,
+            representative_point_mode=representative_point_mode,
+            initial_bbox_padding_px=0.0,
+            subprocess_timeout_sec=timeout_sec,
+        ),
+        query_boxes_xyxy=query_boxes_xyxy,
+    )
+
+    visible_indexes = np.flatnonzero(result.visible_mask[0])
+    if visible_indexes.size == 0:
+        first_index = last_index = 0
+        first_point = last_point = (float("nan"), float("nan"))
+        first_bbox = last_bbox = (float("nan"), float("nan"), float("nan"), float("nan"))
+    else:
+        first_index = int(visible_indexes[0])
+        last_index = int(visible_indexes[-1])
+        first_point = tuple(float(v) for v in result.tracks_xy[0, first_index].tolist())
+        last_point = tuple(float(v) for v in result.tracks_xy[0, last_index].tolist())
+        first_bbox = tuple(float(v) for v in result.mask_bboxes_xyxy[0, first_index].tolist())
+        last_bbox = tuple(float(v) for v in result.mask_bboxes_xyxy[0, last_index].tolist())
+
+    return Dam4SamBackendSmokeTestResult(
+        checkpoint_name=result.checkpoint_name,
+        tracker_name=result.tracker_name,
+        backend_mode=result.backend_mode,
+        representative_point_mode=result.representative_point_mode,
+        masks_shape=tuple(int(v) for v in result.masks.shape),
+        tracks_shape=tuple(int(v) for v in result.tracks_xy.shape),
+        visible_shape=tuple(int(v) for v in result.visible_mask.shape),
+        visible_count=int(np.count_nonzero(result.visible_mask)),
+        first_track_point_xy=first_point,
+        last_visible_point_xy=last_point,
+        first_mask_area=float(result.mask_areas[0, first_index]),
+        last_mask_area=float(result.mask_areas[0, last_index]),
+        first_bbox_xyxy=first_bbox,
+        last_bbox_xyxy=last_bbox,
+    )
+
+
+def format_dam4sam_backend_smoke_test_report(result: Dam4SamBackendSmokeTestResult) -> str:
+    return "\n".join(
+        [
+            "DAM4SAM backend smoke test",
+            f"- checkpoint: {result.checkpoint_name}",
+            f"- backend mode: {result.backend_mode}",
+            f"- tracker variant: {result.tracker_name}",
+            f"- representative point mode: {result.representative_point_mode}",
+            f"- masks shape: {result.masks_shape}",
+            f"- tracks shape: {result.tracks_shape}",
+            f"- visible mask shape: {result.visible_shape}",
+            f"- visible count: {result.visible_count}",
+            f"- first track point: {list(result.first_track_point_xy)}",
+            f"- last visible point: {list(result.last_visible_point_xy)}",
+            f"- first mask area: {result.first_mask_area:g}",
+            f"- last mask area: {result.last_mask_area:g}",
+            f"- first bbox xyxy: {list(result.first_bbox_xyxy)}",
+            f"- last bbox xyxy: {list(result.last_bbox_xyxy)}",
+        ]
+    )
+
+
+def _run_dam4sam_direct_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray | None,
+    settings: Dam4SamRuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
+    backend_mode: str = "direct",
+) -> Dam4SamOfflineResult:
+    resolved_repo_path = _resolve_dam4sam_repo_path(settings.repo_path)
+    if resolved_repo_path is None:
+        raise FileNotFoundError(
+            "Could not resolve the DAM4SAM repo. Pass repo_path pointing at the local clone."
+        )
+    checkpoint_file = _resolve_existing_dam4sam_checkpoint_file(settings.checkpoint_path)
+    tracker_name = _normalize_tracker_name(settings.tracker_name)
+    config_name = _config_name_for_tracker(tracker_name)
+    if config_name is None:
+        raise ValueError(f"Unsupported DAM4SAM tracker variant: {tracker_name}")
+    representative_point_mode = _normalize_representative_point_mode(
+        settings.representative_point_mode
+    )
+
+    frames_rgb, original_resolution = _prepare_frames_rgb(frames)
+    inference_resolution = _normalize_optional_resolution(
+        settings.inference_resolution,
+        original_resolution,
+    )
+    resized_frames = _resize_video_numpy(frames_rgb, inference_resolution)
+    frames_gray_original = _video_to_gray_float(frames_rgb)
+
+    num_queries = _infer_num_queries(
+        query_points_tyx=query_points_tyx,
+        query_boxes_xyxy=query_boxes_xyxy,
+        query_initial_masks=query_initial_masks,
+    )
+    query_points = _normalize_query_points_tyx(query_points_tyx, num_queries)
+    query_boxes = _normalize_query_boxes_xyxy(query_boxes_xyxy, num_queries)
+    query_masks = _normalize_query_initial_masks(
+        query_initial_masks,
+        num_queries=num_queries,
+        frame_shape=original_resolution,
+    )
+    scaled_query_points = (
+        _scale_query_points_tyx(
+            query_points,
+            source_resolution=original_resolution,
+            target_resolution=inference_resolution,
+        )
+        if query_points is not None
+        else None
+    )
+    scaled_query_boxes = (
+        _scale_boxes_xyxy(
+            query_boxes,
+            source_resolution=original_resolution,
+            target_resolution=inference_resolution,
+        )
+        if query_boxes is not None
+        else None
+    )
+    scaled_query_masks = (
+        np.stack(
+            [
+                _resize_mask_bool(mask, inference_resolution)
+                for mask in np.asarray(query_masks, dtype=bool)
+            ],
+            axis=0,
+        )
+        if query_masks is not None
+        else None
+    )
+    seed_frames = _extract_query_seed_frames(
+        query_points,
+        total_frames=int(frames_rgb.shape[0]),
+        num_queries=num_queries,
+    )
+    seed_boxes_xywh = _build_seed_boxes_xywh(
+        scaled_query_points,
+        scaled_query_boxes,
+        resolution=inference_resolution,
+        initial_bbox_padding_px=float(settings.initial_bbox_padding_px),
+        num_queries=num_queries,
+    )
+
+    num_frames = int(frames_rgb.shape[0])
+    masks = np.zeros((num_queries, num_frames, original_resolution[0], original_resolution[1]), dtype=bool)
+    tracks_xy = np.full((num_queries, num_frames, 2), np.nan, dtype=np.float32)
+    visible_mask = np.zeros((num_queries, num_frames), dtype=bool)
+    mask_areas = np.zeros((num_queries, num_frames), dtype=np.float32)
+    mask_bboxes_xyxy = np.full((num_queries, num_frames, 4), np.nan, dtype=np.float32)
+    mask_bboxes_xywh = np.full((num_queries, num_frames, 4), np.nan, dtype=np.float32)
+    mask_scores = np.full((num_queries, num_frames), np.nan, dtype=np.float32)
+
+    with _dam4sam_import_context(resolved_repo_path):
+        torch_module = importlib.import_module("torch")
+        _validate_dam4sam_device(torch_module, settings.device)
+        dam4sam_module = importlib.import_module("dam4sam_tracker")
+        pil_image_module = importlib.import_module("PIL.Image")
+
+        for query_index in range(num_queries):
+            tracker = _build_dam4sam_tracker(
+                dam4sam_module,
+                tracker_name=tracker_name,
+                checkpoint_path=checkpoint_file,
+                config_name=config_name,
+            )
+            seed_frame = int(seed_frames[query_index])
+            seed_bbox_xywh = tuple(float(v) for v in seed_boxes_xywh[query_index].tolist())
+            initial_mask = (
+                np.asarray(scaled_query_masks[query_index], dtype=np.uint8)
+                if scaled_query_masks is not None
+                else None
+            )
+            image = pil_image_module.fromarray(resized_frames[seed_frame])
+            output = tracker.initialize(image, initial_mask, bbox=seed_bbox_xywh)
+            _record_dam4sam_output(
+                output,
+                query_index=query_index,
+                frame_index=seed_frame,
+                masks=masks,
+                tracks_xy=tracks_xy,
+                visible_mask=visible_mask,
+                mask_areas=mask_areas,
+                mask_bboxes_xyxy=mask_bboxes_xyxy,
+                mask_bboxes_xywh=mask_bboxes_xywh,
+                mask_scores=mask_scores,
+                frame_gray=frames_gray_original[seed_frame],
+                representative_point_mode=representative_point_mode,
+                original_resolution=original_resolution,
+            )
+
+            for frame_index in range(seed_frame + 1, num_frames):
+                image = pil_image_module.fromarray(resized_frames[frame_index])
+                output = tracker.track(image)
+                _record_dam4sam_output(
+                    output,
+                    query_index=query_index,
+                    frame_index=frame_index,
+                    masks=masks,
+                    tracks_xy=tracks_xy,
+                    visible_mask=visible_mask,
+                    mask_areas=mask_areas,
+                    mask_bboxes_xyxy=mask_bboxes_xyxy,
+                    mask_bboxes_xywh=mask_bboxes_xywh,
+                    mask_scores=mask_scores,
+                    frame_gray=frames_gray_original[frame_index],
+                    representative_point_mode=representative_point_mode,
+                    original_resolution=original_resolution,
+                )
+
+    return Dam4SamOfflineResult(
+        masks=masks,
+        tracks_xy=tracks_xy,
+        visible_mask=visible_mask,
+        mask_areas=mask_areas,
+        mask_bboxes_xyxy=mask_bboxes_xyxy,
+        mask_bboxes_xywh=mask_bboxes_xywh,
+        mask_scores=mask_scores,
+        inference_resolution=tuple(int(v) for v in inference_resolution),
+        original_resolution=tuple(int(v) for v in original_resolution),
+        checkpoint_name=checkpoint_file.name,
+        tracker_name=tracker_name,
+        config_name=config_name,
+        representative_point_mode=representative_point_mode,
+        backend_mode=str(backend_mode),
+    )
+
+
+def _run_dam4sam_subprocess_offline(
+    frames: np.ndarray,
+    query_points_tyx: np.ndarray | None,
+    settings: Dam4SamRuntimeSettings,
+    *,
+    query_boxes_xyxy: np.ndarray | None = None,
+    query_initial_masks: np.ndarray | None = None,
+) -> Dam4SamOfflineResult:
+    resolved_repo_path = _resolve_dam4sam_repo_path(settings.repo_path)
+    if resolved_repo_path is None:
+        raise FileNotFoundError(
+            "Could not resolve the DAM4SAM repo. Pass repo_path pointing at the local clone."
+        )
+    resolved_python = _resolve_dam4sam_python_executable(settings.python_executable)
+    if resolved_python is None or not resolved_python.exists():
+        raise FileNotFoundError(f"DAM4SAM Python executable not found: {resolved_python}")
+    checkpoint_file = _resolve_existing_dam4sam_checkpoint_file(settings.checkpoint_path)
+    representative_point_mode = _normalize_representative_point_mode(
+        settings.representative_point_mode
+    )
+    inference_resolution = settings.inference_resolution
+
+    script_path = Path(__file__).resolve().parents[2] / DEFAULT_DAM4SAM_SUBPROCESS_SCRIPT
+    if not script_path.exists():
+        raise FileNotFoundError(f"DAM4SAM subprocess script not found: {script_path}")
+
+    with TemporaryDirectory(prefix="trackleed_dam4sam_") as temp_dir:
+        temp_root = Path(temp_dir)
+        input_path = temp_root / "dam4sam_input.npz"
+        output_path = temp_root / "dam4sam_output.npz"
+        np.savez_compressed(
+            input_path,
+            frames=np.asarray(frames),
+            has_query_points=np.asarray(query_points_tyx is not None),
+            query_points_tyx=(
+                np.asarray(query_points_tyx, dtype=np.float32)
+                if query_points_tyx is not None
+                else np.empty((0, 3), dtype=np.float32)
+            ),
+            has_query_boxes=np.asarray(query_boxes_xyxy is not None),
+            query_boxes_xyxy=(
+                np.asarray(query_boxes_xyxy, dtype=np.float32)
+                if query_boxes_xyxy is not None
+                else np.empty((0, 4), dtype=np.float32)
+            ),
+            has_query_initial_masks=np.asarray(query_initial_masks is not None),
+            query_initial_masks=(
+                np.asarray(query_initial_masks, dtype=bool)
+                if query_initial_masks is not None
+                else np.empty((0, 1, 1), dtype=bool)
+            ),
+        )
+
+        command = [
+            str(resolved_python),
+            str(script_path),
+            "--input-npz",
+            str(input_path),
+            "--output-npz",
+            str(output_path),
+            "--checkpoint",
+            str(checkpoint_file),
+            "--repo-path",
+            str(resolved_repo_path),
+            "--tracker-name",
+            _normalize_tracker_name(settings.tracker_name),
+            "--device",
+            str(settings.device or "auto"),
+            "--representative-point-mode",
+            representative_point_mode,
+            "--initial-bbox-padding-px",
+            str(float(settings.initial_bbox_padding_px)),
+            "--subprocess-timeout-sec",
+            str(float(settings.subprocess_timeout_sec)),
+        ]
+        if inference_resolution is not None:
+            height, width = _normalize_optional_resolution(inference_resolution, (1, 1))
+            command.extend(["--height", str(int(height)), "--width", str(int(width))])
+
+        completed = subprocess.run(
+            command,
+            cwd=str(Path(__file__).resolve().parents[2]),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=float(settings.subprocess_timeout_sec),
+            env=_build_windows_conda_subprocess_env(resolved_python, resolved_repo_path),
+        )
+        if completed.returncode != 0 or not output_path.exists():
+            details = {
+                "command": command,
+                "returncode": int(completed.returncode),
+                "stdout": completed.stdout,
+                "stderr": completed.stderr,
+            }
+            raise RuntimeError(
+                "DAM4SAM subprocess inference failed:\n"
+                + json.dumps(details, indent=2, ensure_ascii=False)
+            )
+
+        with np.load(output_path, allow_pickle=False) as data:
+            return Dam4SamOfflineResult(
+                masks=np.asarray(data["masks"], dtype=bool),
+                tracks_xy=np.asarray(data["tracks_xy"], dtype=np.float32),
+                visible_mask=np.asarray(data["visible_mask"], dtype=bool),
+                mask_areas=np.asarray(data["mask_areas"], dtype=np.float32),
+                mask_bboxes_xyxy=np.asarray(data["mask_bboxes_xyxy"], dtype=np.float32),
+                mask_bboxes_xywh=np.asarray(data["mask_bboxes_xywh"], dtype=np.float32),
+                mask_scores=np.asarray(data["mask_scores"], dtype=np.float32),
+                inference_resolution=tuple(int(v) for v in np.asarray(data["inference_resolution"]).tolist()),
+                original_resolution=tuple(int(v) for v in np.asarray(data["original_resolution"]).tolist()),
+                checkpoint_name=str(np.asarray(data["checkpoint_name"]).tolist()),
+                tracker_name=str(np.asarray(data["tracker_name"]).tolist()),
+                config_name=str(np.asarray(data["config_name"]).tolist()),
+                representative_point_mode=str(np.asarray(data["representative_point_mode"]).tolist()),
+                backend_mode=str(np.asarray(data["backend_mode"]).tolist()),
+            )
 
 
 def _resolve_dam4sam_repo_path(repo_path: str | Path | None) -> Optional[Path]:
@@ -553,6 +1022,8 @@ def _apply_import_probe_result(
 
     for key, value in sorted(payload.items()):
         if key.endswith("_error") and value:
+            if key == "sam2_cuda_extension_error":
+                continue
             status.errors.append(f"{key[:-6]} import failed: {value}")
 
 
@@ -561,6 +1032,23 @@ def _parse_prefixed_json_stdout(stdout: str, prefix: str) -> dict[str, Any]:
         if line.startswith(prefix):
             return json.loads(line[len(prefix):])
     return {}
+
+
+def _format_available_checkpoints(checkpoints: list[Path]) -> str:
+    if not checkpoints:
+        return "none"
+    by_name: dict[str, list[Path]] = {}
+    for path in checkpoints:
+        by_name.setdefault(path.name, []).append(path)
+
+    parts: list[str] = []
+    for name in sorted(by_name, key=str.lower):
+        paths = by_name[name]
+        if len(paths) == 1:
+            parts.append(name)
+        else:
+            parts.append(f"{name} ({len(paths)} paths)")
+    return ", ".join(parts)
 
 
 def _build_windows_conda_subprocess_env(
@@ -602,6 +1090,457 @@ def _numpy_major_version(version: str | None) -> Optional[int]:
         return int(first_chunk)
     except ValueError:
         return None
+
+
+@contextmanager
+def _dam4sam_import_context(repo_path: Path) -> Iterator[None]:
+    repo_str = str(repo_path)
+    old_path = list(sys.path)
+    if repo_str in sys.path:
+        sys.path.remove(repo_str)
+    sys.path.insert(0, repo_str)
+    try:
+        yield
+    finally:
+        sys.path[:] = old_path
+
+
+def _resolve_existing_dam4sam_checkpoint_file(checkpoint_path: str | Path) -> Path:
+    checkpoint_file = Path(checkpoint_path).expanduser().resolve()
+    if not checkpoint_file.exists():
+        raise FileNotFoundError(f"DAM4SAM checkpoint not found: {checkpoint_file}")
+    return checkpoint_file
+
+
+def _validate_dam4sam_device(torch_module: Any, device: str | None) -> None:
+    normalized = str(device or "auto").strip().lower()
+    if normalized in {"auto", ""}:
+        normalized = "cuda"
+    if normalized not in {"cuda", "cuda:0"}:
+        raise ValueError(
+            "DAM4SAM upstream tracker currently hardcodes CUDA device 0. "
+            "Use --device auto, cuda, or cuda:0."
+        )
+    if not bool(torch_module.cuda.is_available()):
+        raise RuntimeError("DAM4SAM requires CUDA, but torch.cuda.is_available() is false.")
+
+
+def _build_dam4sam_tracker(
+    dam4sam_module: Any,
+    *,
+    tracker_name: str,
+    checkpoint_path: Path,
+    config_name: str,
+) -> Any:
+    original_determine_tracker = getattr(dam4sam_module, "determine_tracker", None)
+
+    def determine_tracker_override(_: str) -> tuple[str, str]:
+        return str(checkpoint_path), str(config_name)
+
+    dam4sam_module.determine_tracker = determine_tracker_override
+    try:
+        return dam4sam_module.DAM4SAMTracker(tracker_name=tracker_name)
+    finally:
+        if original_determine_tracker is not None:
+            dam4sam_module.determine_tracker = original_determine_tracker
+
+
+def _prepare_frames_rgb(frames: np.ndarray) -> tuple[np.ndarray, tuple[int, int]]:
+    frames_np = np.asarray(frames)
+    if frames_np.ndim == 3:
+        frames_np = np.stack([frames_np] * 3, axis=-1)
+    elif frames_np.ndim == 4 and frames_np.shape[-1] == 1:
+        frames_np = np.repeat(frames_np, 3, axis=-1)
+    elif frames_np.ndim == 4 and frames_np.shape[-1] >= 3:
+        frames_np = frames_np[..., :3]
+    else:
+        raise ValueError(f"Unsupported DAM4SAM frame shape: {frames_np.shape}")
+
+    if frames_np.dtype != np.uint8:
+        frames_np = _normalize_to_uint8(frames_np)
+
+    original_resolution = (int(frames_np.shape[1]), int(frames_np.shape[2]))
+    return frames_np, original_resolution
+
+
+def _normalize_to_uint8(image: np.ndarray) -> np.ndarray:
+    arr = np.asarray(image, dtype=np.float32)
+    if arr.size == 0:
+        return arr.astype(np.uint8)
+    finite_mask = np.isfinite(arr)
+    if not np.any(finite_mask):
+        return np.zeros_like(arr, dtype=np.uint8)
+    min_val = float(np.nanmin(arr[finite_mask]))
+    max_val = float(np.nanmax(arr[finite_mask]))
+    if max_val <= min_val:
+        return np.zeros_like(arr, dtype=np.uint8)
+    scaled = (arr - min_val) / (max_val - min_val)
+    scaled = np.clip(scaled * 255.0, 0.0, 255.0)
+    return scaled.astype(np.uint8)
+
+
+def _normalize_optional_resolution(
+    resolution: int | tuple[int, int] | None,
+    default_resolution: tuple[int, int],
+) -> tuple[int, int]:
+    if resolution is None:
+        return tuple(int(v) for v in default_resolution)
+    if isinstance(resolution, int):
+        return (int(resolution), int(resolution))
+    if len(resolution) != 2:
+        raise ValueError(f"Invalid DAM4SAM resolution: {resolution}")
+    height, width = int(resolution[0]), int(resolution[1])
+    if height <= 0 or width <= 0:
+        raise ValueError(f"Invalid DAM4SAM resolution: {(height, width)}")
+    return (height, width)
+
+
+def _resize_video_numpy(frames: np.ndarray, target: tuple[int, int]) -> np.ndarray:
+    target_h, target_w = int(target[0]), int(target[1])
+    if frames.shape[1] == target_h and frames.shape[2] == target_w:
+        return frames
+    pil_image_module = importlib.import_module("PIL.Image")
+    resized_frames = []
+    for frame in frames:
+        resized = pil_image_module.fromarray(frame).resize(
+            (target_w, target_h),
+            resample=pil_image_module.Resampling.BILINEAR,
+        )
+        resized_frames.append(np.asarray(resized, dtype=np.uint8))
+    return np.stack(resized_frames, axis=0)
+
+
+def _resize_mask_bool(mask: np.ndarray, target: tuple[int, int]) -> np.ndarray:
+    target_h, target_w = int(target[0]), int(target[1])
+    mask_bool = np.asarray(mask, dtype=bool)
+    if mask_bool.shape == (target_h, target_w):
+        return mask_bool
+    pil_image_module = importlib.import_module("PIL.Image")
+    resized = pil_image_module.fromarray(mask_bool.astype(np.uint8) * 255).resize(
+        (target_w, target_h),
+        resample=pil_image_module.Resampling.NEAREST,
+    )
+    return np.asarray(resized, dtype=np.uint8) > 0
+
+
+def _video_to_gray_float(frames: np.ndarray) -> np.ndarray:
+    frames_np = np.asarray(frames, dtype=np.float32)
+    if frames_np.ndim != 4 or frames_np.shape[-1] < 3:
+        raise ValueError(f"Expected RGB frames for grayscale conversion, got {frames_np.shape}.")
+    gray = (
+        0.2989 * frames_np[..., 0]
+        + 0.5870 * frames_np[..., 1]
+        + 0.1140 * frames_np[..., 2]
+    )
+    return gray.astype(np.float32, copy=False)
+
+
+def _infer_num_queries(
+    *,
+    query_points_tyx: np.ndarray | None,
+    query_boxes_xyxy: np.ndarray | None,
+    query_initial_masks: np.ndarray | None,
+) -> int:
+    candidates: list[int] = []
+    if query_points_tyx is not None:
+        candidates.append(int(np.asarray(query_points_tyx).shape[0]))
+    if query_boxes_xyxy is not None:
+        candidates.append(int(np.asarray(query_boxes_xyxy).shape[0]))
+    if query_initial_masks is not None:
+        candidates.append(int(np.asarray(query_initial_masks).shape[0]))
+    if not candidates:
+        raise ValueError("DAM4SAM requires at least one query point, bbox, or initial mask.")
+    if len(set(candidates)) != 1:
+        raise ValueError(f"DAM4SAM query inputs disagree on object count: {candidates}.")
+    num_queries = candidates[0]
+    if num_queries <= 0:
+        raise ValueError("DAM4SAM requires at least one query.")
+    return num_queries
+
+
+def _normalize_query_points_tyx(
+    query_points_tyx: np.ndarray | None,
+    num_queries: int,
+) -> np.ndarray | None:
+    if query_points_tyx is None:
+        return None
+    points = np.asarray(query_points_tyx, dtype=np.float32)
+    if points.shape != (num_queries, 3):
+        raise ValueError(
+            f"query_points_tyx must have shape {(num_queries, 3)}, got {points.shape}."
+        )
+    return points
+
+
+def _normalize_query_boxes_xyxy(
+    query_boxes_xyxy: np.ndarray | None,
+    num_queries: int,
+) -> np.ndarray | None:
+    if query_boxes_xyxy is None:
+        return None
+    boxes = np.asarray(query_boxes_xyxy, dtype=np.float32)
+    if boxes.shape != (num_queries, 4):
+        raise ValueError(
+            f"query_boxes_xyxy must have shape {(num_queries, 4)}, got {boxes.shape}."
+        )
+    return boxes
+
+
+def _normalize_query_initial_masks(
+    query_initial_masks: np.ndarray | None,
+    *,
+    num_queries: int,
+    frame_shape: tuple[int, int],
+) -> np.ndarray | None:
+    if query_initial_masks is None:
+        return None
+    masks = np.asarray(query_initial_masks, dtype=bool)
+    expected_shape = (num_queries, int(frame_shape[0]), int(frame_shape[1]))
+    if masks.shape != expected_shape:
+        raise ValueError(f"query_initial_masks must have shape {expected_shape}, got {masks.shape}.")
+    return masks
+
+
+def _extract_query_seed_frames(
+    query_points_tyx: np.ndarray | None,
+    *,
+    total_frames: int,
+    num_queries: int,
+) -> np.ndarray:
+    if query_points_tyx is None:
+        return np.zeros((num_queries,), dtype=np.int32)
+    seed_frames = np.rint(np.asarray(query_points_tyx, dtype=np.float32)[:, 0]).astype(np.int32)
+    if np.any(seed_frames < 0) or np.any(seed_frames >= int(total_frames)):
+        raise ValueError(
+            f"DAM4SAM seed frame index out of range 0..{int(total_frames) - 1}: "
+            f"{seed_frames.tolist()}"
+        )
+    return seed_frames
+
+
+def _scale_query_points_tyx(
+    query_points_tyx: np.ndarray,
+    source_resolution: tuple[int, int],
+    target_resolution: tuple[int, int],
+) -> np.ndarray:
+    src_h, src_w = source_resolution
+    dst_h, dst_w = target_resolution
+    scaled = np.asarray(query_points_tyx, dtype=np.float32).copy()
+    scaled[:, 1] *= float(dst_h) / float(src_h)
+    scaled[:, 2] *= float(dst_w) / float(src_w)
+    return scaled
+
+
+def _scale_boxes_xyxy(
+    boxes_xyxy: np.ndarray,
+    source_resolution: tuple[int, int],
+    target_resolution: tuple[int, int],
+) -> np.ndarray:
+    src_h, src_w = source_resolution
+    dst_h, dst_w = target_resolution
+    scaled = np.asarray(boxes_xyxy, dtype=np.float32).copy()
+    scaled[:, [0, 2]] *= float(dst_w) / float(src_w)
+    scaled[:, [1, 3]] *= float(dst_h) / float(src_h)
+    return scaled
+
+
+def _build_seed_boxes_xywh(
+    query_points_tyx: np.ndarray | None,
+    query_boxes_xyxy: np.ndarray | None,
+    *,
+    resolution: tuple[int, int],
+    initial_bbox_padding_px: float,
+    num_queries: int,
+) -> np.ndarray:
+    height, width = int(resolution[0]), int(resolution[1])
+    seed_boxes = np.zeros((num_queries, 4), dtype=np.float32)
+    if query_boxes_xyxy is not None:
+        boxes = np.asarray(query_boxes_xyxy, dtype=np.float32)
+        x0 = np.minimum(boxes[:, 0], boxes[:, 2])
+        y0 = np.minimum(boxes[:, 1], boxes[:, 3])
+        x1 = np.maximum(boxes[:, 0], boxes[:, 2])
+        y1 = np.maximum(boxes[:, 1], boxes[:, 3])
+        seed_boxes[:, 0] = x0
+        seed_boxes[:, 1] = y0
+        seed_boxes[:, 2] = np.maximum(1.0, x1 - x0)
+        seed_boxes[:, 3] = np.maximum(1.0, y1 - y0)
+    elif query_points_tyx is not None:
+        points = np.asarray(query_points_tyx, dtype=np.float32)
+        half = max(1.0, float(initial_bbox_padding_px))
+        seed_boxes[:, 0] = points[:, 2] - half
+        seed_boxes[:, 1] = points[:, 1] - half
+        seed_boxes[:, 2] = half * 2.0
+        seed_boxes[:, 3] = half * 2.0
+    else:
+        seed_boxes[:, :] = np.asarray([0.0, 0.0, float(width), float(height)], dtype=np.float32)
+
+    for index in range(num_queries):
+        seed_boxes[index] = np.asarray(
+            _clip_bbox_xywh(seed_boxes[index], image_shape=(height, width)),
+            dtype=np.float32,
+        )
+    return seed_boxes
+
+
+def _clip_bbox_xywh(
+    bbox_xywh: np.ndarray,
+    *,
+    image_shape: tuple[int, int],
+) -> tuple[float, float, float, float]:
+    height, width = int(image_shape[0]), int(image_shape[1])
+    x, y, w, h = [float(v) for v in np.asarray(bbox_xywh, dtype=np.float32).tolist()]
+    x0 = min(max(0.0, x), max(0.0, width - 1.0))
+    y0 = min(max(0.0, y), max(0.0, height - 1.0))
+    x1 = min(max(x0 + 1.0, x + max(1.0, w)), float(width))
+    y1 = min(max(y0 + 1.0, y + max(1.0, h)), float(height))
+    return (x0, y0, max(1.0, x1 - x0), max(1.0, y1 - y0))
+
+
+def _record_dam4sam_output(
+    output: dict[str, Any],
+    *,
+    query_index: int,
+    frame_index: int,
+    masks: np.ndarray,
+    tracks_xy: np.ndarray,
+    visible_mask: np.ndarray,
+    mask_areas: np.ndarray,
+    mask_bboxes_xyxy: np.ndarray,
+    mask_bboxes_xywh: np.ndarray,
+    mask_scores: np.ndarray,
+    frame_gray: np.ndarray,
+    representative_point_mode: str,
+    original_resolution: tuple[int, int],
+) -> None:
+    if "pred_mask" not in output:
+        raise RuntimeError("DAM4SAM output did not contain `pred_mask`.")
+    mask_bool = np.asarray(output["pred_mask"]) > 0
+    mask_bool = _resize_mask_bool(mask_bool, original_resolution)
+    masks[query_index, frame_index] = mask_bool
+    area = float(np.count_nonzero(mask_bool))
+    mask_areas[query_index, frame_index] = area
+    if area <= 0:
+        return
+
+    bbox_xyxy = _mask_to_bbox_xyxy(mask_bool)
+    if bbox_xyxy is None:
+        return
+    bbox_xywh = _bbox_xyxy_to_xywh(bbox_xyxy)
+    mask_bboxes_xyxy[query_index, frame_index, :] = np.asarray(bbox_xyxy, dtype=np.float32)
+    mask_bboxes_xywh[query_index, frame_index, :] = np.asarray(bbox_xywh, dtype=np.float32)
+
+    score = output.get("score")
+    if score is not None:
+        try:
+            mask_scores[query_index, frame_index] = float(score)
+        except (TypeError, ValueError):
+            pass
+
+    point = _mask_to_representative_point(
+        mask_bool,
+        frame_gray=frame_gray,
+        mode=representative_point_mode,
+    )
+    if point is None:
+        return
+    x, y = point
+    if not np.isfinite(x) or not np.isfinite(y):
+        return
+    tracks_xy[query_index, frame_index, :] = np.asarray([x, y], dtype=np.float32)
+    visible_mask[query_index, frame_index] = True
+
+
+def _mask_to_bbox_xyxy(mask_bool: np.ndarray) -> tuple[float, float, float, float] | None:
+    ys, xs = np.nonzero(mask_bool)
+    if ys.size == 0 or xs.size == 0:
+        return None
+    x0 = float(np.min(xs))
+    y0 = float(np.min(ys))
+    x1 = float(np.max(xs) + 1)
+    y1 = float(np.max(ys) + 1)
+    return (x0, y0, x1, y1)
+
+
+def _bbox_xyxy_to_xywh(
+    bbox_xyxy: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    x0, y0, x1, y1 = bbox_xyxy
+    return (float(x0), float(y0), float(x1 - x0), float(y1 - y0))
+
+
+def _mask_to_representative_point(
+    mask_bool: np.ndarray,
+    *,
+    frame_gray: np.ndarray,
+    mode: str,
+) -> tuple[float, float] | None:
+    bbox = _mask_to_bbox_xyxy(mask_bool)
+    if bbox is None:
+        return None
+    x0, y0, x1, y1 = bbox
+    if mode == "bbox_center":
+        return (float((x0 + x1) * 0.5), float((y0 + y1) * 0.5))
+
+    ys, xs = np.nonzero(mask_bool)
+    if xs.size == 0 or ys.size == 0:
+        return None
+    if mode == "mask_centroid":
+        return (float(np.mean(xs)), float(np.mean(ys)))
+    if mode == "peak_in_mask":
+        return _peak_in_mask(mask_bool, frame_gray)
+    raise ValueError(f"Unsupported DAM4SAM representative point mode: {mode}")
+
+
+def _peak_in_mask(mask_bool: np.ndarray, frame_gray: np.ndarray) -> tuple[float, float] | None:
+    masked = np.where(mask_bool, np.asarray(frame_gray, dtype=np.float32), -np.inf)
+    try:
+        peak_index = int(np.nanargmax(masked))
+    except ValueError:
+        return None
+    peak_y, peak_x = np.unravel_index(peak_index, masked.shape)
+    if not np.isfinite(masked[peak_y, peak_x]):
+        return None
+    return (float(peak_x), float(peak_y))
+
+
+def _normalize_representative_point_mode(mode: str | None) -> str:
+    normalized = str(mode or "mask_centroid").strip().lower().replace(" ", "_")
+    aliases = {
+        "centroid": "mask_centroid",
+        "mask_centroid": "mask_centroid",
+        "maskcenter": "mask_centroid",
+        "peak": "peak_in_mask",
+        "peak_in_mask": "peak_in_mask",
+        "peakinmask": "peak_in_mask",
+        "bbox_center": "bbox_center",
+        "bboxcenter": "bbox_center",
+    }
+    if normalized not in aliases:
+        raise ValueError(
+            f"Unsupported DAM4SAM representative point mode: {mode}. "
+            "Expected mask_centroid, peak_in_mask, or bbox_center."
+        )
+    return aliases[normalized]
+
+
+def _build_dam4sam_backend_smoke_inputs() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    frames = []
+    for dx in (0, 3, 6):
+        frame = np.zeros((112, 144, 3), dtype=np.uint8)
+        frame[..., 0] = 12
+        frame[..., 1] = 14
+        frame[..., 2] = 18
+        yy, xx = np.ogrid[:112, :144]
+        target = ((xx - (64 + dx)) ** 2) / (12.0 ** 2) + ((yy - 54) ** 2) / (12.0 ** 2) <= 1.0
+        distractor = ((xx - 105) ** 2) / (11.0 ** 2) + ((yy - 54) ** 2) / (10.0 ** 2) <= 1.0
+        frame[target] = np.asarray([240, 205, 80], dtype=np.uint8)
+        frame[distractor] = np.asarray([80, 130, 210], dtype=np.uint8)
+        frames.append(frame)
+    frames_np = np.stack(frames, axis=0)
+    query_points_tyx = np.asarray([[0.0, 54.0, 64.0]], dtype=np.float32)
+    query_boxes_xyxy = np.asarray([[52.0, 42.0, 76.0, 66.0]], dtype=np.float32)
+    return frames_np, query_points_tyx, query_boxes_xyxy
+
 
 
 _DAM4SAM_IMPORT_PROBE_CODE = r"""

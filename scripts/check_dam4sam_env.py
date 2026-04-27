@@ -16,10 +16,13 @@ from trackleed.analysis.dam4sam_backend import (  # noqa: E402
     DEFAULT_DAM4SAM_IMPORT_PROBE_TIMEOUT_SEC,
     DEFAULT_DAM4SAM_MODELS_DIR,
     DEFAULT_DAM4SAM_SMOKE_TIMEOUT_SEC,
+    DEFAULT_DAM4SAM_SUBPROCESS_TIMEOUT_SEC,
     DEFAULT_DAM4SAM_TRACKER_NAME,
+    format_dam4sam_backend_smoke_test_report,
     format_dam4sam_environment_report,
     format_dam4sam_smoke_test_report,
     probe_dam4sam_environment,
+    run_dam4sam_backend_smoke_test,
     run_dam4sam_smoke_test,
 )
 
@@ -57,6 +60,11 @@ def main() -> int:
         help="Build DAM4SAMTracker and run a tiny non-interactive two-frame RGB smoke test.",
     )
     parser.add_argument(
+        "--backend-smoke-test",
+        action="store_true",
+        help="Run Trackleed's DAM4SAM subprocess backend on a tiny synthetic sequence.",
+    )
+    parser.add_argument(
         "--import-probe-timeout-sec",
         type=float,
         default=DEFAULT_DAM4SAM_IMPORT_PROBE_TIMEOUT_SEC,
@@ -67,6 +75,12 @@ def main() -> int:
         type=float,
         default=DEFAULT_DAM4SAM_SMOKE_TIMEOUT_SEC,
         help="Timeout for --smoke-test execution.",
+    )
+    parser.add_argument(
+        "--backend-timeout-sec",
+        type=float,
+        default=DEFAULT_DAM4SAM_SUBPROCESS_TIMEOUT_SEC,
+        help="Timeout for --backend-smoke-test execution.",
     )
     args = parser.parse_args()
 
@@ -92,6 +106,19 @@ def main() -> int:
         print(format_dam4sam_smoke_test_report(result))
         if not result.succeeded:
             return result.returncode or 1
+
+    if args.backend_smoke_test:
+        result = run_dam4sam_backend_smoke_test(
+            repo_path=status.repo_path,
+            checkpoint_path=status.selected_checkpoint,
+            python_executable=status.python_executable,
+            tracker_name=args.tracker_name,
+            device="auto",
+            backend_mode="subprocess",
+            representative_point_mode="mask_centroid",
+            timeout_sec=float(args.backend_timeout_sec),
+        )
+        print(format_dam4sam_backend_smoke_test_report(result))
 
     return 0
 
