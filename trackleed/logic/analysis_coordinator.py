@@ -73,6 +73,7 @@ def run_full_analysis(
     temporal_circle_mode = center_mode == "circle_fit_temporal"
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
+    _reset_per_frame_analysis_state(all_files_map, all_frame_ids)
 
     per_frame_centers: Dict[int, Dict] = {}
     centers_for_median: List[Dict[str, float]] = []
@@ -196,6 +197,19 @@ def run_full_analysis(
 
     print("[Analysis] Analysis completed successfully.")
     return tracks_to_analyze
+
+
+def _reset_per_frame_analysis_state(
+    all_files_map: Dict[int, LeedFile],
+    frame_ids: List[int],
+) -> None:
+    """Clear frame-level analysis fields before a new analysis run."""
+    for frame_id in frame_ids:
+        leed_file = all_files_map.get(frame_id)
+        if leed_file is None:
+            continue
+        leed_file.pattern_center = None
+        leed_file.post_analysis_results = {}
 
 
 def _estimate_center_for_frame(spot_positions_on_this_frame: List[Dict[str, float]], center_mode: str) -> Optional[Dict[str, float]]:
@@ -462,19 +476,35 @@ def _update_average_radius(
     tracks_to_analyze: List[Track],
     frame_id: int,
 ) -> None:
-    radii_on_this_frame = [
-        t.analysis_results[frame_id]['radius']
-        for t in tracks_to_analyze
-        if frame_id in t.analysis_results and t.analysis_results[frame_id] and 'radius' in t.analysis_results[frame_id]
-    ]
+    leed_file = all_files_map.get(frame_id)
+    if leed_file is None:
+        return
+
+    radii_on_this_frame = []
+    for track in tracks_to_analyze:
+        results = getattr(track, "analysis_results", {}).get(frame_id)
+        if not results or "radius" not in results:
+            continue
+        try:
+            radius = float(results["radius"])
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(radius):
+            radii_on_this_frame.append(radius)
 
     if len(radii_on_this_frame) > 1:
         avg_radius = np.mean(radii_on_this_frame)
         avg_radius_error = np.std(radii_on_this_frame) / np.sqrt(len(radii_on_this_frame))
-        if not hasattr(all_files_map[frame_id], 'post_analysis_results'):
-            all_files_map[frame_id].post_analysis_results = {}
-        all_files_map[frame_id].post_analysis_results['avg_radius'] = avg_radius
-        all_files_map[frame_id].post_analysis_results['avg_radius_error'] = avg_radius_error
+        if not hasattr(leed_file, 'post_analysis_results'):
+            leed_file.post_analysis_results = {}
+        leed_file.post_analysis_results['avg_radius'] = avg_radius
+        leed_file.post_analysis_results['avg_radius_error'] = avg_radius_error
+        return
+
+    post_analysis_results = getattr(leed_file, 'post_analysis_results', None)
+    if post_analysis_results:
+        post_analysis_results.pop('avg_radius', None)
+        post_analysis_results.pop('avg_radius_error', None)
 
 def _is_fit_valid(fit_results: Optional[Dict], roi_shape: Tuple) -> bool:
     """Checks if the Gaussian fit results are physically plausible."""
