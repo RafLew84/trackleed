@@ -7,6 +7,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import mock
 
+import numpy as np
+
 from trackleed.analysis import samurai_backend
 
 
@@ -191,6 +193,94 @@ class SamuraiBackendTests(unittest.TestCase):
             self.assertTrue(callable(module.main))
         finally:
             sys.modules.pop("_trackleed_check_samurai_env_import_test", None)
+
+    def test_run_samurai_offline_subprocess_reads_npz_result(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo_path = self._make_repo(root)
+            models_dir = root / "tracking_models" / "samurai"
+            models_dir.mkdir(parents=True)
+            checkpoint = models_dir / "sam2.1_hiera_base_plus.pt"
+            checkpoint.write_bytes(b"checkpoint")
+            frames = np.zeros((2, 8, 10, 3), dtype=np.uint8)
+            query_points = np.asarray([[0.0, 4.0, 5.0]], dtype=np.float32)
+            query_boxes_xywh = np.asarray([[3.0, 2.0, 4.0, 4.0]], dtype=np.float32)
+
+            def fake_subprocess_run(command, **kwargs):
+                input_path = Path(command[command.index("--input-npz") + 1])
+                with np.load(input_path, allow_pickle=False) as input_data:
+                    self.assertFalse(bool(input_data["has_query_boxes"].tolist()))
+                    self.assertTrue(bool(input_data["has_query_boxes_xywh"].tolist()))
+                    self.assertEqual(
+                        np.asarray(input_data["query_boxes_xywh"], dtype=np.float32).tolist(),
+                        query_boxes_xywh.tolist(),
+                    )
+                output_path = Path(command[command.index("--output-npz") + 1])
+                np.savez_compressed(
+                    output_path,
+                    masks=np.ones((1, 2, 8, 10), dtype=bool),
+                    tracks_xy=np.asarray([[[5.0, 4.0], [6.0, 4.0]]], dtype=np.float32),
+                    visible_mask=np.ones((1, 2), dtype=bool),
+                    mask_areas=np.asarray([[12.0, 13.0]], dtype=np.float32),
+                    mask_bboxes_xyxy=np.asarray(
+                        [[[3.0, 2.0, 7.0, 6.0], [4.0, 2.0, 8.0, 6.0]]],
+                        dtype=np.float32,
+                    ),
+                    mask_bboxes_xywh=np.asarray(
+                        [[[3.0, 2.0, 4.0, 4.0], [4.0, 2.0, 4.0, 4.0]]],
+                        dtype=np.float32,
+                    ),
+                    mask_scores=np.ones((1, 2), dtype=np.float32),
+                    inference_resolution=np.asarray([8, 10], dtype=np.int32),
+                    original_resolution=np.asarray([8, 10], dtype=np.int32),
+                    checkpoint_name=np.asarray("sam2.1_hiera_base_plus.pt"),
+                    model_variant=np.asarray("sam2.1_hiera_base_plus"),
+                    config_name=np.asarray("sam2.1_hiera_b+.yaml"),
+                    representative_point_mode=np.asarray("mask_centroid"),
+                    backend_mode=np.asarray("subprocess"),
+                )
+                return mock.Mock(returncode=0, stdout="", stderr="")
+
+            with mock.patch.object(
+                samurai_backend.subprocess,
+                "run",
+                side_effect=fake_subprocess_run,
+            ) as run_mock:
+                result = samurai_backend.run_samurai_offline(
+                    frames,
+                    query_points,
+                    samurai_backend.SamuraiRuntimeSettings(
+                        checkpoint_path=checkpoint,
+                        repo_path=repo_path,
+                        python_executable=sys.executable,
+                        backend_mode="subprocess",
+                        model_variant="base_plus",
+                    ),
+                    query_boxes_xywh=query_boxes_xywh,
+                )
+
+        self.assertEqual(result.backend_mode, "subprocess")
+        self.assertEqual(result.model_variant, "sam2.1_hiera_base_plus")
+        self.assertEqual(result.masks.shape, (1, 2, 8, 10))
+        np.testing.assert_allclose(result.tracks_xy[0, 1], [6.0, 4.0])
+        command = run_mock.call_args.args[0]
+        self.assertIn("--model-variant", command)
+        self.assertIn("sam2.1_hiera_base_plus", command)
+
+    def test_run_samurai_subprocess_script_is_importable(self) -> None:
+        script_path = Path(__file__).resolve().parents[2] / "scripts" / "run_samurai_subprocess.py"
+        spec = importlib.util.spec_from_file_location(
+            "_trackleed_run_samurai_subprocess_import_test",
+            script_path,
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+            self.assertTrue(callable(module.main))
+        finally:
+            sys.modules.pop("_trackleed_run_samurai_subprocess_import_test", None)
 
 
 if __name__ == "__main__":

@@ -109,6 +109,7 @@ class Dam4SamTrackingIntegrationTests(unittest.TestCase):
             "trackleed.analysis.cutie_backend",
             "trackleed.analysis.deva_backend",
             "trackleed.analysis.dam4sam_backend",
+            "trackleed.analysis.samurai_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tracking_mask_backends",
         ):
@@ -165,6 +166,14 @@ class Dam4SamTrackingIntegrationTests(unittest.TestCase):
                 "select_name": "select_default_xmem2_checkpoint",
                 "default_name": "DEFAULT_XMEM2_MODELS_DIR",
             },
+            "trackleed.analysis.samurai_backend": {
+                "models_dir": "tracking_models/samurai",
+                "settings_name": "SamuraiRuntimeSettings",
+                "discover_name": "discover_samurai_checkpoints",
+                "run_name": "run_samurai_offline",
+                "select_name": "select_default_samurai_checkpoint",
+                "default_name": "DEFAULT_SAMURAI_MODELS_DIR",
+            },
         }
         for module_name, spec in backend_specs.items():
             module = types.ModuleType(module_name)
@@ -179,6 +188,8 @@ class Dam4SamTrackingIntegrationTests(unittest.TestCase):
                     AssertionError("Unexpected non-DAM4SAM backend call.")
                 ),
             )
+            if module_name == "trackleed.analysis.samurai_backend":
+                module.DEFAULT_SAMURAI_MODEL_VARIANT = "sam2.1_hiera_base_plus"
             sys.modules[module_name] = module
 
         dam4sam_module = types.ModuleType("trackleed.analysis.dam4sam_backend")

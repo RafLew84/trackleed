@@ -17,9 +17,12 @@ from trackleed.analysis.samurai_backend import (  # noqa: E402
     DEFAULT_SAMURAI_MODEL_VARIANT,
     DEFAULT_SAMURAI_MODELS_DIR,
     DEFAULT_SAMURAI_SMOKE_TIMEOUT_SEC,
+    DEFAULT_SAMURAI_SUBPROCESS_TIMEOUT_SEC,
+    format_samurai_backend_smoke_test_report,
     format_samurai_environment_report,
     format_samurai_smoke_test_report,
     probe_samurai_environment,
+    run_samurai_backend_smoke_test,
     run_samurai_smoke_test,
 )
 
@@ -65,6 +68,11 @@ def main() -> int:
         help="Build the SAMURAI video predictor and run a tiny two-frame RGB/JPG bbox smoke test.",
     )
     parser.add_argument(
+        "--backend-smoke-test",
+        action="store_true",
+        help="Run the Trackleed SAMURAI backend through its .npz subprocess contract.",
+    )
+    parser.add_argument(
         "--import-probe-timeout-sec",
         type=float,
         default=DEFAULT_SAMURAI_IMPORT_PROBE_TIMEOUT_SEC,
@@ -75,6 +83,12 @@ def main() -> int:
         type=float,
         default=DEFAULT_SAMURAI_SMOKE_TIMEOUT_SEC,
         help="Timeout for --smoke-test execution.",
+    )
+    parser.add_argument(
+        "--backend-timeout-sec",
+        type=float,
+        default=DEFAULT_SAMURAI_SUBPROCESS_TIMEOUT_SEC,
+        help="Timeout for --backend-smoke-test execution.",
     )
     args = parser.parse_args()
 
@@ -102,6 +116,18 @@ def main() -> int:
         print(format_samurai_smoke_test_report(result))
         if not result.succeeded:
             return result.returncode or 1
+
+    if args.backend_smoke_test:
+        backend_result = run_samurai_backend_smoke_test(
+            repo_path=status.repo_path,
+            checkpoint_path=status.selected_checkpoint,
+            python_executable=status.python_executable,
+            model_variant=status.model_variant,
+            device=args.device,
+            backend_mode="subprocess",
+            timeout_sec=float(args.backend_timeout_sec),
+        )
+        print(format_samurai_backend_smoke_test_report(backend_result))
 
     return 0
 
