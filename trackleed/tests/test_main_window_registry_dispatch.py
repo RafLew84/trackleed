@@ -75,6 +75,7 @@ class MainWindowImportMixin:
             "trackleed.analysis.pipspp_backend",
             "trackleed.analysis.mftiq_backend",
             "trackleed.analysis.ostrack_backend",
+            "trackleed.analysis.dam4sam_backend",
             "trackleed.analysis.cutie_backend",
             "trackleed.analysis.xmem2_backend",
             "trackleed.analysis.tomp_backend",
@@ -271,6 +272,22 @@ class MainWindowImportMixin:
         )
         self._install_simple_stub(
             originals,
+            "trackleed.analysis.dam4sam_backend",
+            DAM4SAM_TRACKER_VARIANTS={
+                "sam21pp-L": ("sam2.1_hiera_large.pt", "sam21pp_hiera_l.yaml"),
+                "sam21pp-B": ("sam2.1_hiera_base_plus.pt", "sam21pp_hiera_b+.yaml"),
+            },
+            DEFAULT_DAM4SAM_TRACKER_NAME="sam21pp-L",
+            format_dam4sam_environment_report=lambda status: f"dam4sam:{status}",
+            probe_dam4sam_environment=_stub_callable(
+                "trackleed.analysis.dam4sam_backend.probe_dam4sam_environment"
+            ),
+            select_default_dam4sam_checkpoint=lambda checkpoints, tracker_name=None, models_dir=None: (
+                checkpoints[0] if checkpoints else None
+            ),
+        )
+        self._install_simple_stub(
+            originals,
             "trackleed.analysis.tomp_backend",
             expected_tomp_checkpoint_name_for_variant=lambda variant: f"{variant}.pth.tar",
             format_tomp_environment_report=lambda status: f"tomp:{status}",
@@ -298,6 +315,9 @@ class MainWindowImportMixin:
             ),
             track_spots_deva_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_deva_offline"
+            ),
+            track_spots_dam4sam_offline=_stub_callable(
+                "trackleed.analysis.tracking_mask_backends.track_spots_dam4sam_offline"
             ),
             track_spots_sam2_offline=_stub_callable(
                 "trackleed.analysis.tracking_mask_backends.track_spots_sam2_offline"
@@ -342,6 +362,9 @@ class MainWindowImportMixin:
             ),
             retrack_single_spot_cutie_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_cutie_offline"
+            ),
+            retrack_single_spot_dam4sam_offline=_stub_callable(
+                "trackleed.analysis.tracking_retrack.retrack_single_spot_dam4sam_offline"
             ),
             retrack_single_spot_deva_offline=_stub_callable(
                 "trackleed.analysis.tracking_retrack.retrack_single_spot_deva_offline"
@@ -807,16 +830,20 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
             conda_root = Path(temp_dir)
             locotrack_python = conda_root / "envs" / "locotrack-pytorch" / "python.exe"
             sam2_python = conda_root / "envs" / "sam2" / "python.exe"
+            dam4sam_python = conda_root / "envs" / "dam4sam" / "python.exe"
             locotrack_python.parent.mkdir(parents=True)
             sam2_python.parent.mkdir(parents=True)
+            dam4sam_python.parent.mkdir(parents=True)
             locotrack_python.touch()
             sam2_python.touch()
+            dam4sam_python.touch()
 
             fake = SimpleNamespace(
                 locotrack_settings=self.main_window.LocotrackTrackingSettings(),
                 sam2_settings=self.main_window.Sam2TrackingSettings(
                     python_executable="C:/custom/sam2/python.exe"
                 ),
+                dam4sam_settings=self.main_window.Dam4SamTrackingSettings(),
             )
             fake._tracker_settings_for_spec = types.MethodType(
                 self.main_window.MainWindow._tracker_settings_for_spec,
@@ -837,6 +864,10 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
             self.assertEqual(
                 fake.sam2_settings.python_executable,
                 "C:/custom/sam2/python.exe",
+            )
+            self.assertEqual(
+                fake.dam4sam_settings.python_executable,
+                str(dam4sam_python.resolve()),
             )
 
     def test_ostrack_variant_options_and_presets_cover_supported_configs(self) -> None:

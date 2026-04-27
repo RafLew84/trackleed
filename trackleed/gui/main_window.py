@@ -26,6 +26,11 @@ from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
 from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
 from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
+from trackleed.analysis.dam4sam_backend import (
+    DAM4SAM_TRACKER_VARIANTS,
+    DEFAULT_DAM4SAM_TRACKER_NAME,
+    select_default_dam4sam_checkpoint,
+)
 from trackleed.analysis.ostrack_backend import (
     DEFAULT_OSTRACK_CONFIG_NAME,
     SUPPORTED_OSTRACK_CONFIG_NAMES,
@@ -86,6 +91,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "tomp_offline": "ToMP / TaMOs Unavailable",
     "ostrack_offline": "OSTrack Unavailable",
     "sam2_offline": "SAM2 Unavailable",
+    "dam4sam_offline": "DAM4SAM Unavailable",
     "deva_offline": "DEVA Unavailable",
 }
 
@@ -99,7 +105,19 @@ TRACKER_ENV_HINT_BY_ID = {
     "tomp_offline": "tomp",
     "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
+    "dam4sam_offline": "dam4sam",
     "deva_offline": "deva",
+}
+
+DAM4SAM_TRACKER_VARIANT_LABELS = {
+    "sam21pp-L": "SAM2.1++ Large",
+    "sam21pp-B": "SAM2.1++ Base+",
+    "sam21pp-S": "SAM2.1++ Small",
+    "sam21pp-T": "SAM2.1++ Tiny",
+    "sam2pp-L": "SAM2++ Large",
+    "sam2pp-B": "SAM2++ Base+",
+    "sam2pp-S": "SAM2++ Small",
+    "sam2pp-T": "SAM2++ Tiny",
 }
 
 
@@ -350,6 +368,37 @@ class Sam2TrackingSettings:
     offload_video_to_cpu: bool = True
     offload_state_to_cpu: bool = False
     async_loading_frames: bool = False
+    subprocess_timeout_sec: float = 1800.0
+    keep_invisible_points_as_gaps: bool = True
+    max_step_distance_px: float = 0.0
+    max_reacquisition_gap: int = 0
+    terminate_after_invisible_frames: int = 0
+    max_mask_area_ratio_change: float = 0.0
+    max_bbox_aspect_ratio_change: float = 0.0
+    max_mask_components: int = 0
+    max_bbox_center_jump_px: float = 0.0
+    center_mode: str = "auto"
+    manual_center_x: float = 0.0
+    manual_center_y: float = 0.0
+    direction_mode: str = "none"
+    lateral_angle_tolerance_deg: float = 20.0
+    max_radial_jump_px: float = 0.0
+
+
+@dataclass
+class Dam4SamTrackingSettings:
+    repo_path: str | None = None
+    checkpoint_path: str | None = None
+    python_executable: str | None = None
+    tracker_name: str = DEFAULT_DAM4SAM_TRACKER_NAME
+    config_path: str | None = None
+    device: str = "auto"
+    backend_mode: str = "subprocess"
+    representative_point_mode: str = "mask_centroid"
+    inference_resolution: int | None = None
+    window_size: int = 64
+    window_overlap: int = 8
+    initial_bbox_padding_px: float = 12.0
     subprocess_timeout_sec: float = 1800.0
     keep_invisible_points_as_gaps: bool = True
     max_step_distance_px: float = 0.0
@@ -729,6 +778,8 @@ class MainWindow(QMainWindow):
         self.cutie_models_dir = self.tracking_models_dir / "cutie"
         self.xmem2_models_dir = self.tracking_models_dir / "xmem2"
         self.sam2_models_dir = self.tracking_models_dir / "sam2"
+        self.dam4sam_settings = Dam4SamTrackingSettings()
+        self.dam4sam_models_dir = self.tracking_models_dir / "dam4sam"
         self.deva_models_dir = self.tracking_models_dir / "deva"
         default_locotrack_repo = Path(__file__).resolve().parents[3] / "locotrack"
         if default_locotrack_repo.exists():
@@ -763,6 +814,9 @@ class MainWindow(QMainWindow):
         default_sam2_repo = Path(__file__).resolve().parents[3] / "sam2"
         if default_sam2_repo.exists():
             self.sam2_settings.repo_path = str(default_sam2_repo.resolve())
+        default_dam4sam_repo = Path(__file__).resolve().parents[3] / "dam4sam"
+        if default_dam4sam_repo.exists():
+            self.dam4sam_settings.repo_path = str(default_dam4sam_repo.resolve())
         default_deva_repo = Path(__file__).resolve().parents[3] / "deva"
         if default_deva_repo.exists():
             self.deva_settings.repo_path = str(default_deva_repo.resolve())
@@ -782,6 +836,7 @@ class MainWindow(QMainWindow):
         self._cutie_checkpoint_available = False
         self._xmem2_checkpoint_available = False
         self._sam2_checkpoint_available = False
+        self._dam4sam_checkpoint_available = False
         self._deva_checkpoint_available = False
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
@@ -5112,6 +5167,301 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.sam2_group)
 
+        # --- Offline DAM4SAM parameters ---
+        self.dam4sam_group = QGroupBox("Offline DAM4SAM")
+        dam4sam_layout = QFormLayout(self.dam4sam_group)
+
+        self.dam4sam_repo_path_edit = QLineEdit(self.dam4sam_settings.repo_path or "")
+        self.dam4sam_repo_path_edit.setPlaceholderText("Path to local dam4sam repo root")
+        self.dam4sam_repo_path_edit.setToolTip(
+            "Local clone of the DAM4SAM repository. Must contain dam4sam_tracker.py and sam2/."
+        )
+        self.dam4sam_repo_path_edit.editingFinished.connect(self._refresh_dam4sam_checkpoints)
+        dam4sam_layout.addRow("Repo path:", self.dam4sam_repo_path_edit)
+
+        self.dam4sam_python_executable_edit = QLineEdit(self.dam4sam_settings.python_executable or "")
+        self.dam4sam_python_executable_edit.setPlaceholderText(
+            "Path to python.exe inside the dedicated dam4sam env"
+        )
+        self.dam4sam_python_executable_edit.setToolTip(
+            "Used by the recommended subprocess backend. Point it at the interpreter inside the dedicated dam4sam env."
+        )
+        self.dam4sam_python_executable_edit.editingFinished.connect(self._refresh_dam4sam_checkpoints)
+        dam4sam_layout.addRow("Python executable:", self.dam4sam_python_executable_edit)
+
+        self.dam4sam_backend_mode_combo = QComboBox()
+        self.dam4sam_backend_mode_combo.addItem("Subprocess (Recommended)", "subprocess")
+        self.dam4sam_backend_mode_combo.addItem("Direct import (Current env)", "direct")
+        dam4sam_backend_idx = self.dam4sam_backend_mode_combo.findData(
+            self.dam4sam_settings.backend_mode
+        )
+        self.dam4sam_backend_mode_combo.setCurrentIndex(
+            dam4sam_backend_idx if dam4sam_backend_idx >= 0 else 0
+        )
+        self.dam4sam_backend_mode_combo.setToolTip(
+            "Subprocess keeps DAM4SAM isolated in its own env. Direct import requires running Trackleed in the DAM4SAM env."
+        )
+        self.dam4sam_backend_mode_combo.currentIndexChanged.connect(self._on_dam4sam_backend_mode_changed)
+        dam4sam_layout.addRow("Backend mode:", self.dam4sam_backend_mode_combo)
+
+        self.dam4sam_tracker_variant_combo = QComboBox()
+        for variant_key in DAM4SAM_TRACKER_VARIANTS:
+            label = DAM4SAM_TRACKER_VARIANT_LABELS.get(variant_key, variant_key)
+            self.dam4sam_tracker_variant_combo.addItem(label, variant_key)
+        dam4sam_variant_idx = self.dam4sam_tracker_variant_combo.findData(
+            self.dam4sam_settings.tracker_name
+        )
+        self.dam4sam_tracker_variant_combo.setCurrentIndex(
+            dam4sam_variant_idx if dam4sam_variant_idx >= 0 else 0
+        )
+        self.dam4sam_tracker_variant_combo.setToolTip(
+            "DAM4SAM/SAM2.1 variant. Start with SAM2.1++ Large or Base+ when VRAM allows it."
+        )
+        self.dam4sam_tracker_variant_combo.currentIndexChanged.connect(self._on_dam4sam_variant_changed)
+        dam4sam_layout.addRow("Tracker variant:", self.dam4sam_tracker_variant_combo)
+
+        dam4sam_model_row_widget = QWidget()
+        dam4sam_model_row_layout = QHBoxLayout(dam4sam_model_row_widget)
+        dam4sam_model_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.dam4sam_checkpoint_combo = QComboBox()
+        self.dam4sam_checkpoint_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.dam4sam_checkpoint_combo.setToolTip(
+            "Select a DAM4SAM/SAM2.1 checkpoint from tracking_models/dam4sam."
+        )
+        self.dam4sam_checkpoint_combo.currentIndexChanged.connect(self._on_dam4sam_checkpoint_selected)
+        self.dam4sam_refresh_button = QPushButton("Refresh")
+        self.dam4sam_refresh_button.setToolTip(
+            "Re-scan tracking_models/dam4sam and re-run DAM4SAM environment diagnostics."
+        )
+        self.dam4sam_refresh_button.clicked.connect(self._refresh_dam4sam_checkpoints)
+        dam4sam_model_row_layout.addWidget(self.dam4sam_checkpoint_combo)
+        dam4sam_model_row_layout.addWidget(self.dam4sam_refresh_button)
+        dam4sam_layout.addRow("Checkpoint:", dam4sam_model_row_widget)
+
+        self.dam4sam_checkpoint_hint_label = QLabel(
+            "Hint: DAM4SAM MVP uses bbox seeds from existing spot ROIs. Polygon seeds are not required."
+        )
+        self.dam4sam_checkpoint_hint_label.setWordWrap(True)
+        self.dam4sam_checkpoint_hint_label.setStyleSheet("color: #6c757d;")
+        dam4sam_layout.addRow(self.dam4sam_checkpoint_hint_label)
+
+        self.dam4sam_config_path_edit = QLineEdit(self.dam4sam_settings.config_path or "")
+        self.dam4sam_config_path_edit.setReadOnly(True)
+        self.dam4sam_config_path_edit.setPlaceholderText("Resolved automatically from tracker variant")
+        self.dam4sam_config_path_edit.setToolTip(
+            "DAM4SAM config resolved from the selected tracker variant inside the local dam4sam repo."
+        )
+        dam4sam_layout.addRow("Resolved config:", self.dam4sam_config_path_edit)
+
+        self.dam4sam_device_combo = QComboBox()
+        self.dam4sam_device_combo.addItem("Auto", "auto")
+        self.dam4sam_device_combo.addItem("GPU", "cuda")
+        dam4sam_device_idx = self.dam4sam_device_combo.findData(self.dam4sam_settings.device)
+        self.dam4sam_device_combo.setCurrentIndex(dam4sam_device_idx if dam4sam_device_idx >= 0 else 0)
+        self.dam4sam_device_combo.setToolTip("Device passed to the DAM4SAM runtime. Upstream DAM4SAM is CUDA-only.")
+        dam4sam_layout.addRow("Device:", self.dam4sam_device_combo)
+
+        self.dam4sam_inference_resolution_combo = QComboBox()
+        self.dam4sam_inference_resolution_combo.addItem("Native", None)
+        for label, value in (
+            ("512 x 512", 512),
+            ("768 x 768", 768),
+            ("1024 x 1024", 1024),
+        ):
+            self.dam4sam_inference_resolution_combo.addItem(label, value)
+        dam4sam_res_idx = self.dam4sam_inference_resolution_combo.findData(
+            self.dam4sam_settings.inference_resolution
+        )
+        self.dam4sam_inference_resolution_combo.setCurrentIndex(
+            dam4sam_res_idx if dam4sam_res_idx >= 0 else 0
+        )
+        self.dam4sam_inference_resolution_combo.setToolTip(
+            "Optional square input resolution for DAM4SAM. Native keeps the original LEED frame size."
+        )
+        dam4sam_layout.addRow("Inference resolution:", self.dam4sam_inference_resolution_combo)
+
+        self.dam4sam_window_size_spinbox = QSpinBox()
+        self.dam4sam_window_size_spinbox.setRange(2, 4096)
+        self.dam4sam_window_size_spinbox.setValue(self.dam4sam_settings.window_size)
+        self.dam4sam_window_size_spinbox.setToolTip(
+            "Number of frames processed by one Trackleed DAM4SAM window. Smaller values reduce VRAM pressure."
+        )
+        dam4sam_layout.addRow("Window size:", self.dam4sam_window_size_spinbox)
+
+        self.dam4sam_window_overlap_spinbox = QSpinBox()
+        self.dam4sam_window_overlap_spinbox.setRange(0, 1024)
+        self.dam4sam_window_overlap_spinbox.setValue(self.dam4sam_settings.window_overlap)
+        self.dam4sam_window_overlap_spinbox.setToolTip(
+            "Number of overlapping frames between consecutive DAM4SAM windows."
+        )
+        dam4sam_layout.addRow("Window overlap:", self.dam4sam_window_overlap_spinbox)
+
+        self.dam4sam_repr_mode_combo = QComboBox()
+        self.dam4sam_repr_mode_combo.addItem("Mask centroid", "mask_centroid")
+        self.dam4sam_repr_mode_combo.addItem("Peak in mask", "peak_in_mask")
+        self.dam4sam_repr_mode_combo.addItem("BBox center", "bbox_center")
+        self.dam4sam_repr_mode_combo.addItem("Gaussian in mask", "gaussian_in_mask")
+        dam4sam_repr_idx = self.dam4sam_repr_mode_combo.findData(
+            self.dam4sam_settings.representative_point_mode
+        )
+        self.dam4sam_repr_mode_combo.setCurrentIndex(dam4sam_repr_idx if dam4sam_repr_idx >= 0 else 0)
+        self.dam4sam_repr_mode_combo.setToolTip(
+            "How Trackleed converts the propagated DAM4SAM mask into one representative point."
+        )
+        dam4sam_layout.addRow("Representative point:", self.dam4sam_repr_mode_combo)
+
+        self.dam4sam_bbox_padding_spinbox = QDoubleSpinBox()
+        self.dam4sam_bbox_padding_spinbox.setDecimals(1)
+        self.dam4sam_bbox_padding_spinbox.setRange(0.0, 256.0)
+        self.dam4sam_bbox_padding_spinbox.setSingleStep(1.0)
+        self.dam4sam_bbox_padding_spinbox.setValue(self.dam4sam_settings.initial_bbox_padding_px)
+        self.dam4sam_bbox_padding_spinbox.setToolTip(
+            "Extra padding in pixels added around roi_rect before building the initial DAM4SAM bbox prompt."
+        )
+        dam4sam_layout.addRow("Init bbox padding (px):", self.dam4sam_bbox_padding_spinbox)
+
+        self.dam4sam_keep_gaps_checkbox = QCheckBox("Keep invalid masks as gaps")
+        self.dam4sam_keep_gaps_checkbox.setChecked(self.dam4sam_settings.keep_invisible_points_as_gaps)
+        self.dam4sam_keep_gaps_checkbox.setToolTip(
+            "If enabled, invalid/invisible DAM4SAM masks produce gaps instead of forced representative points."
+        )
+        dam4sam_layout.addRow(self.dam4sam_keep_gaps_checkbox)
+
+        self.dam4sam_max_step_spinbox = QDoubleSpinBox()
+        self.dam4sam_max_step_spinbox.setDecimals(1)
+        self.dam4sam_max_step_spinbox.setRange(0.0, 10000.0)
+        self.dam4sam_max_step_spinbox.setSingleStep(1.0)
+        self.dam4sam_max_step_spinbox.setValue(self.dam4sam_settings.max_step_distance_px)
+        self.dam4sam_max_step_spinbox.setToolTip(
+            "Reject representative points that jump farther than this distance from the last accepted DAM4SAM point. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max jump (px):", self.dam4sam_max_step_spinbox)
+
+        self.dam4sam_max_gap_spinbox = QSpinBox()
+        self.dam4sam_max_gap_spinbox.setRange(0, 4096)
+        self.dam4sam_max_gap_spinbox.setValue(self.dam4sam_settings.max_reacquisition_gap)
+        self.dam4sam_max_gap_spinbox.setToolTip(
+            "If a DAM4SAM track stays invalid longer than this gap, later reacquisition attempts are discarded. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max reacquisition gap:", self.dam4sam_max_gap_spinbox)
+
+        self.dam4sam_terminate_gap_spinbox = QSpinBox()
+        self.dam4sam_terminate_gap_spinbox.setRange(0, 4096)
+        self.dam4sam_terminate_gap_spinbox.setValue(self.dam4sam_settings.terminate_after_invisible_frames)
+        self.dam4sam_terminate_gap_spinbox.setToolTip(
+            "Stop writing any more DAM4SAM points after this many consecutive invalid frames. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Terminate after gap:", self.dam4sam_terminate_gap_spinbox)
+
+        self.dam4sam_max_area_ratio_spinbox = QDoubleSpinBox()
+        self.dam4sam_max_area_ratio_spinbox.setDecimals(2)
+        self.dam4sam_max_area_ratio_spinbox.setRange(0.0, 100.0)
+        self.dam4sam_max_area_ratio_spinbox.setSingleStep(0.05)
+        self.dam4sam_max_area_ratio_spinbox.setValue(self.dam4sam_settings.max_mask_area_ratio_change)
+        self.dam4sam_max_area_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask area between accepted frames. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max area drift x:", self.dam4sam_max_area_ratio_spinbox)
+
+        self.dam4sam_max_aspect_ratio_spinbox = QDoubleSpinBox()
+        self.dam4sam_max_aspect_ratio_spinbox.setDecimals(2)
+        self.dam4sam_max_aspect_ratio_spinbox.setRange(0.0, 100.0)
+        self.dam4sam_max_aspect_ratio_spinbox.setSingleStep(0.05)
+        self.dam4sam_max_aspect_ratio_spinbox.setValue(self.dam4sam_settings.max_bbox_aspect_ratio_change)
+        self.dam4sam_max_aspect_ratio_spinbox.setToolTip(
+            "Maximum allowed multiplicative change of mask bbox aspect ratio between accepted frames. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max aspect drift x:", self.dam4sam_max_aspect_ratio_spinbox)
+
+        self.dam4sam_max_components_spinbox = QSpinBox()
+        self.dam4sam_max_components_spinbox.setRange(0, 1024)
+        self.dam4sam_max_components_spinbox.setValue(self.dam4sam_settings.max_mask_components)
+        self.dam4sam_max_components_spinbox.setToolTip(
+            "Reject masks split into more connected components than this. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max components:", self.dam4sam_max_components_spinbox)
+
+        self.dam4sam_bbox_jump_spinbox = QDoubleSpinBox()
+        self.dam4sam_bbox_jump_spinbox.setDecimals(1)
+        self.dam4sam_bbox_jump_spinbox.setRange(0.0, 10000.0)
+        self.dam4sam_bbox_jump_spinbox.setSingleStep(1.0)
+        self.dam4sam_bbox_jump_spinbox.setValue(self.dam4sam_settings.max_bbox_center_jump_px)
+        self.dam4sam_bbox_jump_spinbox.setToolTip(
+            "Maximum accepted shift of the propagated mask bbox center between accepted frames. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max bbox jump (px):", self.dam4sam_bbox_jump_spinbox)
+
+        self.dam4sam_center_mode_combo = QComboBox()
+        self.dam4sam_center_mode_combo.addItem("Auto (RANSAC/Image)", "auto")
+        self.dam4sam_center_mode_combo.addItem("Manual", "manual")
+        dam4sam_center_idx = self.dam4sam_center_mode_combo.findData(self.dam4sam_settings.center_mode)
+        self.dam4sam_center_mode_combo.setCurrentIndex(dam4sam_center_idx if dam4sam_center_idx >= 0 else 0)
+        self.dam4sam_center_mode_combo.setToolTip(
+            "Reference center used by DAM4SAM direction gating. Auto estimates the LEED pattern center from detections."
+        )
+        self.dam4sam_center_mode_combo.currentIndexChanged.connect(self._on_dam4sam_center_mode_changed)
+        dam4sam_layout.addRow("Direction center:", self.dam4sam_center_mode_combo)
+
+        dam4sam_center_row_widget = QWidget()
+        dam4sam_center_row_layout = QHBoxLayout(dam4sam_center_row_widget)
+        dam4sam_center_row_layout.setContentsMargins(0, 0, 0, 0)
+        self.dam4sam_center_x_spinbox = QDoubleSpinBox()
+        self.dam4sam_center_x_spinbox.setRange(0.0, 10000.0)
+        self.dam4sam_center_x_spinbox.setDecimals(1)
+        self.dam4sam_center_x_spinbox.setValue(self.dam4sam_settings.manual_center_x)
+        self.dam4sam_center_y_spinbox = QDoubleSpinBox()
+        self.dam4sam_center_y_spinbox.setRange(0.0, 10000.0)
+        self.dam4sam_center_y_spinbox.setDecimals(1)
+        self.dam4sam_center_y_spinbox.setValue(self.dam4sam_settings.manual_center_y)
+        dam4sam_center_row_layout.addWidget(self.dam4sam_center_x_spinbox)
+        dam4sam_center_row_layout.addWidget(QLabel(","))
+        dam4sam_center_row_layout.addWidget(self.dam4sam_center_y_spinbox)
+        dam4sam_layout.addRow("Manual center (x, y):", dam4sam_center_row_widget)
+
+        self.dam4sam_direction_mode_combo = QComboBox()
+        self.dam4sam_direction_mode_combo.addItem("None", "none")
+        self.dam4sam_direction_mode_combo.addItem("Auto", "auto")
+        self.dam4sam_direction_mode_combo.addItem("Inward", "inward")
+        self.dam4sam_direction_mode_combo.addItem("Outward", "outward")
+        dam4sam_direction_idx = self.dam4sam_direction_mode_combo.findData(
+            self.dam4sam_settings.direction_mode
+        )
+        self.dam4sam_direction_mode_combo.setCurrentIndex(
+            dam4sam_direction_idx if dam4sam_direction_idx >= 0 else 0
+        )
+        self.dam4sam_direction_mode_combo.setToolTip(
+            "Optional directional prior applied to the DAM4SAM representative point."
+        )
+        dam4sam_layout.addRow("Direction mode:", self.dam4sam_direction_mode_combo)
+
+        self.dam4sam_lateral_tol_spinbox = QDoubleSpinBox()
+        self.dam4sam_lateral_tol_spinbox.setRange(1.0, 180.0)
+        self.dam4sam_lateral_tol_spinbox.setSingleStep(1.0)
+        self.dam4sam_lateral_tol_spinbox.setValue(self.dam4sam_settings.lateral_angle_tolerance_deg)
+        self.dam4sam_lateral_tol_spinbox.setToolTip(
+            "Maximum angular deviation from the expected inward/outward direction."
+        )
+        dam4sam_layout.addRow("Angular tol (deg):", self.dam4sam_lateral_tol_spinbox)
+
+        self.dam4sam_max_radial_jump_spinbox = QDoubleSpinBox()
+        self.dam4sam_max_radial_jump_spinbox.setRange(0.0, 500.0)
+        self.dam4sam_max_radial_jump_spinbox.setSingleStep(1.0)
+        self.dam4sam_max_radial_jump_spinbox.setValue(self.dam4sam_settings.max_radial_jump_px)
+        self.dam4sam_max_radial_jump_spinbox.setToolTip(
+            "Maximum allowed change in radius relative to the LEED center between accepted frames. Set 0 to disable."
+        )
+        dam4sam_layout.addRow("Max radial jump (px):", self.dam4sam_max_radial_jump_spinbox)
+
+        self.dam4sam_warning_label = QLabel()
+        self.dam4sam_warning_label.setStyleSheet("color: #d9534f;")
+        self.dam4sam_warning_label.setWordWrap(True)
+        dam4sam_layout.addRow(self.dam4sam_warning_label)
+
+        self._on_dam4sam_backend_mode_changed(self.dam4sam_backend_mode_combo.currentIndex())
+        self._on_dam4sam_center_mode_changed(self.dam4sam_center_mode_combo.currentIndex())
+
+        form_layout.addRow(self.dam4sam_group)
+
         # --- Offline DEVA parameters ---
         self.deva_group = QGroupBox("Offline DEVA")
         deva_layout = QFormLayout(self.deva_group)
@@ -5521,6 +5871,7 @@ class MainWindow(QMainWindow):
         self._refresh_cutie_checkpoints()
         self._refresh_xmem2_checkpoints()
         self._refresh_sam2_checkpoints()
+        self._refresh_dam4sam_checkpoints()
         self._refresh_deva_checkpoints()
         self._on_spot_backend_changed(self.spot_backend_combo.currentText())
         self._update_spot_polygon_buttons()
@@ -6878,6 +7229,178 @@ class MainWindow(QMainWindow):
         self.sam2_settings.checkpoint_path = checkpoint_path
         self._refresh_sam2_checkpoints()
 
+    def _refresh_dam4sam_checkpoints(self):
+        tracker_spec = require_tracker_spec("dam4sam_offline")
+        repo_path = self.dam4sam_repo_path_edit.text().strip() or self.dam4sam_settings.repo_path
+        if repo_path:
+            self.dam4sam_settings.repo_path = repo_path
+        self.dam4sam_settings.python_executable = (
+            self.dam4sam_python_executable_edit.text().strip() or None
+        )
+        self.dam4sam_settings.backend_mode = self.dam4sam_backend_mode_combo.currentData()
+        self.dam4sam_settings.tracker_name = (
+            self.dam4sam_tracker_variant_combo.currentData()
+            or self.dam4sam_settings.tracker_name
+            or DEFAULT_DAM4SAM_TRACKER_NAME
+        )
+
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=self.dam4sam_models_dir,
+            checkpoint_path=self.dam4sam_settings.checkpoint_path,
+            repo_path=self.dam4sam_settings.repo_path,
+            python_executable=(
+                self.dam4sam_settings.python_executable
+                if self.dam4sam_settings.backend_mode == "subprocess"
+                else None
+            ),
+            tracker_name=self.dam4sam_settings.tracker_name,
+        )
+
+        self.dam4sam_checkpoint_combo.blockSignals(True)
+        self.dam4sam_checkpoint_combo.clear()
+
+        expected_checkpoint = select_default_dam4sam_checkpoint(
+            status.available_checkpoints,
+            self.dam4sam_settings.tracker_name,
+            self.dam4sam_models_dir,
+        )
+        preferred_models_dir = self.dam4sam_models_dir.resolve()
+        checkpoints_by_name: dict[str, Path] = {}
+        for path in status.available_checkpoints:
+            key = path.name.lower()
+            existing = checkpoints_by_name.get(key)
+            try:
+                in_models_dir = path.resolve().parent == preferred_models_dir
+            except Exception:
+                in_models_dir = False
+            if existing is None or in_models_dir:
+                checkpoints_by_name[key] = path
+        deduped_checkpoints = sorted(
+            checkpoints_by_name.values(),
+            key=lambda path: (path.name.lower(), str(path).lower()),
+        )
+        available_checkpoints = (
+            [path for path in deduped_checkpoints if path.name == expected_checkpoint.name]
+            if expected_checkpoint is not None
+            else deduped_checkpoints
+        )
+        if not available_checkpoints:
+            available_checkpoints = deduped_checkpoints
+
+        if not available_checkpoints:
+            self.dam4sam_checkpoint_combo.addItem("No checkpoints found", userData=None)
+            self.dam4sam_checkpoint_combo.setEnabled(False)
+            self._dam4sam_checkpoint_available = False
+            self.dam4sam_settings.checkpoint_path = None
+        else:
+            self.dam4sam_checkpoint_combo.setEnabled(True)
+            for path in available_checkpoints:
+                self.dam4sam_checkpoint_combo.addItem(path.name, userData=str(path.resolve()))
+            self._dam4sam_checkpoint_available = True
+            selected_checkpoint = (
+                str(status.selected_checkpoint.resolve())
+                if status.selected_checkpoint is not None and status.selected_checkpoint.exists()
+                else None
+            )
+            if selected_checkpoint:
+                idx = self.dam4sam_checkpoint_combo.findData(selected_checkpoint)
+                if idx >= 0:
+                    self.dam4sam_checkpoint_combo.setCurrentIndex(idx)
+                    self.dam4sam_settings.checkpoint_path = selected_checkpoint
+            if not self.dam4sam_settings.checkpoint_path and self.dam4sam_checkpoint_combo.count() > 0:
+                self.dam4sam_checkpoint_combo.setCurrentIndex(0)
+                self.dam4sam_settings.checkpoint_path = self.dam4sam_checkpoint_combo.currentData()
+
+        self.dam4sam_checkpoint_combo.blockSignals(False)
+        self.dam4sam_repo_path_edit.setText(
+            str(status.repo_path) if status.repo_path else (self.dam4sam_settings.repo_path or "")
+        )
+        self.dam4sam_settings.repo_path = (
+            str(status.repo_path) if status.repo_path else self.dam4sam_settings.repo_path
+        )
+        self.dam4sam_settings.config_path = (
+            str(status.config_path.resolve())
+            if status.config_path is not None and status.config_path.exists()
+            else None
+        )
+        self.dam4sam_config_path_edit.setText(self.dam4sam_settings.config_path or "")
+
+        python_executable = self.dam4sam_settings.python_executable
+        python_path_ok = bool(
+            python_executable and Path(python_executable).expanduser().exists()
+        )
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.selected_checkpoint is not None
+            and status.checkpoint_exists
+            and status.config_exists
+        )
+
+        if status.is_ready:
+            details = []
+            if status.torch_version:
+                details.append(f"torch {status.torch_version}")
+            details.append("CUDA" if status.cuda_available else "CPU")
+            details.append(status.tracker_name)
+            if status.selected_checkpoint is not None:
+                details.append(status.selected_checkpoint.name)
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#5cb85c",
+                text="DAM4SAM ready. " + ", ".join(details),
+                status=status,
+            )
+        elif (
+            self.dam4sam_settings.backend_mode == "subprocess"
+            and structural_ready
+            and python_path_ok
+        ):
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#f0ad4e",
+                text=(
+                    "DAM4SAM subprocess configured. Current app env is not DAM4SAM-ready, "
+                    "so Trackleed will use the external Python executable."
+                ),
+                status=status,
+            )
+        else:
+            summary = []
+            if status.errors:
+                summary.append(status.errors[0])
+            if status.warnings:
+                summary.extend(status.warnings[:1])
+            if (
+                self.dam4sam_settings.backend_mode == "subprocess"
+                and structural_ready
+                and not python_path_ok
+                and not status.is_ready
+            ):
+                summary.append(
+                    "Set the Python executable of the dedicated dam4sam env, or run Trackleed from that env."
+                )
+            if not summary:
+                summary.append("Configure the dedicated dam4sam env or run Trackleed from that env.")
+            self._set_tracker_warning_label_for_spec(
+                tracker_spec,
+                color="#d9534f",
+                text="\n".join(summary),
+                status=status,
+            )
+
+    def _on_dam4sam_checkpoint_selected(self, index: int):
+        checkpoint_path = self.dam4sam_checkpoint_combo.itemData(index)
+        self.dam4sam_settings.checkpoint_path = checkpoint_path
+        self._refresh_dam4sam_checkpoints()
+
+    def _on_dam4sam_variant_changed(self, index: int):
+        self.dam4sam_settings.tracker_name = (
+            self.dam4sam_tracker_variant_combo.itemData(index) or DEFAULT_DAM4SAM_TRACKER_NAME
+        )
+        self.dam4sam_settings.checkpoint_path = None
+        self._refresh_dam4sam_checkpoints()
+
     def _refresh_deva_checkpoints(self):
         tracker_spec = require_tracker_spec("deva_offline")
         repo_path = self.deva_repo_path_edit.text().strip() or self.deva_settings.repo_path
@@ -7346,6 +7869,7 @@ class MainWindow(QMainWindow):
             "cutie_offline": self._refresh_cutie_checkpoints,
             "xmem2_offline": self._refresh_xmem2_checkpoints,
             "sam2_offline": self._refresh_sam2_checkpoints,
+            "dam4sam_offline": self._refresh_dam4sam_checkpoints,
             "deva_offline": self._refresh_deva_checkpoints,
         }
         if tracker_spec is not None:
@@ -8093,6 +8617,12 @@ class MainWindow(QMainWindow):
         if hasattr(self, "sam2_warning_label"):
             self._refresh_sam2_checkpoints()
 
+    def _on_dam4sam_backend_mode_changed(self, idx: int):
+        backend_mode = self.dam4sam_backend_mode_combo.itemData(idx)
+        self.dam4sam_python_executable_edit.setEnabled(backend_mode == "subprocess")
+        if hasattr(self, "dam4sam_warning_label"):
+            self._refresh_dam4sam_checkpoints()
+
     def _on_deva_backend_mode_changed(self, idx: int):
         backend_mode = self.deva_backend_mode_combo.itemData(idx)
         self.deva_python_executable_edit.setEnabled(backend_mode == "subprocess")
@@ -8103,6 +8633,11 @@ class MainWindow(QMainWindow):
         manual = self.sam2_center_mode_combo.itemData(idx) == "manual"
         self.sam2_center_x_spinbox.setEnabled(manual)
         self.sam2_center_y_spinbox.setEnabled(manual)
+
+    def _on_dam4sam_center_mode_changed(self, idx: int):
+        manual = self.dam4sam_center_mode_combo.itemData(idx) == "manual"
+        self.dam4sam_center_x_spinbox.setEnabled(manual)
+        self.dam4sam_center_y_spinbox.setEnabled(manual)
 
     def _on_mftiq_center_mode_changed(self, idx: int):
         manual = self.mftiq_center_mode_combo.itemData(idx) == "manual"
@@ -9313,6 +9848,56 @@ class MainWindow(QMainWindow):
             "roi_size": self.roi_size_spinbox.value(),
         }
 
+    def _collect_dam4sam_tracking_params(self) -> dict:
+        """Collect the current DAM4SAM tracking settings from the UI."""
+        repo_path = self.dam4sam_repo_path_edit.text().strip() or self.dam4sam_settings.repo_path
+        config_path = self.dam4sam_settings.config_path
+        if config_path and not Path(config_path).expanduser().exists():
+            config_path = None
+        inference_resolution = self.dam4sam_inference_resolution_combo.currentData()
+        if inference_resolution in {"", 0}:
+            inference_resolution = None
+        tracker_name = (
+            self.dam4sam_tracker_variant_combo.currentData()
+            or self.dam4sam_settings.tracker_name
+            or DEFAULT_DAM4SAM_TRACKER_NAME
+        )
+        return {
+            "dam4sam_models_dir": str(self.dam4sam_models_dir.resolve()),
+            "dam4sam_repo_path": repo_path,
+            "repo_path": repo_path,
+            "checkpoint_path": self.dam4sam_settings.checkpoint_path,
+            "python_executable": self.dam4sam_python_executable_edit.text().strip() or None,
+            "config_path": config_path,
+            "tracker_name": tracker_name,
+            "dam4sam_tracker_name": tracker_name,
+            "device": self.dam4sam_device_combo.currentData(),
+            "backend_mode": self.dam4sam_backend_mode_combo.currentData(),
+            "representative_point_mode": self.dam4sam_repr_mode_combo.currentData(),
+            "inference_resolution": inference_resolution,
+            "window_size": self.dam4sam_window_size_spinbox.value(),
+            "window_overlap": self.dam4sam_window_overlap_spinbox.value(),
+            "initial_bbox_padding_px": self.dam4sam_bbox_padding_spinbox.value(),
+            "subprocess_timeout_sec": self.dam4sam_settings.subprocess_timeout_sec,
+            "keep_invisible_points_as_gaps": self.dam4sam_keep_gaps_checkbox.isChecked(),
+            "max_step_distance_px": self.dam4sam_max_step_spinbox.value(),
+            "max_reacquisition_gap": self.dam4sam_max_gap_spinbox.value(),
+            "terminate_after_invisible_frames": self.dam4sam_terminate_gap_spinbox.value(),
+            "max_mask_area_ratio_change": self.dam4sam_max_area_ratio_spinbox.value(),
+            "max_bbox_aspect_ratio_change": self.dam4sam_max_aspect_ratio_spinbox.value(),
+            "max_mask_components": self.dam4sam_max_components_spinbox.value(),
+            "max_bbox_center_jump_px": self.dam4sam_bbox_jump_spinbox.value(),
+            "center_mode": self.dam4sam_center_mode_combo.currentData(),
+            "manual_center": (
+                self.dam4sam_center_x_spinbox.value(),
+                self.dam4sam_center_y_spinbox.value(),
+            ),
+            "direction_mode": self.dam4sam_direction_mode_combo.currentData(),
+            "lateral_angle_tolerance_deg": self.dam4sam_lateral_tol_spinbox.value(),
+            "max_radial_jump_px": self.dam4sam_max_radial_jump_spinbox.value(),
+            "roi_size": self.roi_size_spinbox.value(),
+        }
+
     def _collect_deva_tracking_params(self) -> dict:
         """Collect the current DEVA tracking settings from the UI."""
         repo_path = self.deva_repo_path_edit.text().strip() or self.deva_settings.repo_path
@@ -9870,6 +10455,68 @@ class MainWindow(QMainWindow):
                 and status.checkpoint_exists
                 and status.config_exists
                 and status.config_identifier is not None
+            )
+            if not self._ensure_registered_tracker_runtime_ready(
+                tracker_spec,
+                status,
+                ready_for_direct=status.is_ready,
+                structural_ready=structural_ready,
+                env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_id),
+            ):
+                return None
+
+            tracker_params = self._collect_tracker_params_for_spec(tracker_spec)
+            return self._create_registered_tracker_worker(
+                tracker_spec,
+                ref_file,
+                tracker_params,
+                cancel_event,
+            )
+
+        if tracker_id == "dam4sam_offline":
+            ref_file = self._tracking_reference_file_or_warn("Offline DAM4SAM")
+            if ref_file is None:
+                return None
+
+            self._sync_registered_tracker_settings_from_widgets(tracker_spec)
+            self.dam4sam_settings.tracker_name = (
+                self.dam4sam_tracker_variant_combo.currentData()
+                or self.dam4sam_settings.tracker_name
+                or DEFAULT_DAM4SAM_TRACKER_NAME
+            )
+            status = self._probe_tracker_environment_for_spec(
+                tracker_spec,
+                models_dir=self.dam4sam_models_dir,
+                checkpoint_path=self.dam4sam_settings.checkpoint_path,
+                repo_path=self.dam4sam_settings.repo_path,
+                python_executable=(
+                    self.dam4sam_settings.python_executable
+                    if self.dam4sam_settings.backend_mode == "subprocess"
+                    else None
+                ),
+                tracker_name=self.dam4sam_settings.tracker_name,
+            )
+            selected_checkpoint_obj = (
+                status.selected_checkpoint
+                if status.selected_checkpoint is not None
+                else select_default_dam4sam_checkpoint(
+                    status.available_checkpoints,
+                    self.dam4sam_settings.tracker_name,
+                    self.dam4sam_models_dir,
+                )
+            )
+            structural_ready = bool(
+                status.repo_path is not None
+                and selected_checkpoint_obj is not None
+                and selected_checkpoint_obj.exists()
+                and status.config_exists
+            )
+            if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists():
+                self.dam4sam_settings.checkpoint_path = str(selected_checkpoint_obj.resolve())
+            self.dam4sam_settings.config_path = (
+                str(status.config_path.resolve())
+                if status.config_path is not None and status.config_path.exists()
+                else None
             )
             if not self._ensure_registered_tracker_runtime_ready(
                 tracker_spec,

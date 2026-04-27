@@ -45,6 +45,7 @@ TRACKER_METHOD_LABEL_BY_SOURCE = {
     "tamos_offline": "TaMOs",
     "ostrack_offline": "OSTrack",
     "sam2_offline": "SAM2",
+    "dam4sam_offline": "DAM4SAM",
     "deva_offline": "DEVA",
 }
 
@@ -63,6 +64,7 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
     "tamos_offline": "TaMOs + Manual",
     "ostrack_offline": "OSTrack + Manual",
     "sam2_offline": "SAM2 + Manual",
+    "dam4sam_offline": "DAM4SAM + Manual",
     "deva_offline": "DEVA + Manual",
 }
 
@@ -80,6 +82,7 @@ TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
     "tomp_offline": "initiate_retrack_tomp",
     "ostrack_offline": "initiate_retrack_ostrack",
     "sam2_offline": "initiate_retrack_sam2",
+    "dam4sam_offline": "initiate_retrack_dam4sam",
     "deva_offline": "initiate_retrack_deva",
 }
 
@@ -97,6 +100,7 @@ TRACKER_UNAVAILABLE_TITLE_BY_ID = {
     "tomp_offline": "ToMP / TaMOs Unavailable",
     "ostrack_offline": "OSTrack Unavailable",
     "sam2_offline": "SAM2 Unavailable",
+    "dam4sam_offline": "DAM4SAM Unavailable",
     "deva_offline": "DEVA Unavailable",
 }
 
@@ -110,6 +114,7 @@ TRACKER_ENV_HINT_BY_ID = {
     "tomp_offline": "tomp",
     "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
+    "dam4sam_offline": "dam4sam",
     "deva_offline": "deva",
 }
 
@@ -166,6 +171,19 @@ MASK_TRACKER_DETAIL_SPECS = {
         "include_prompt_mode": True,
         "include_component_count": True,
     },
+    "dam4sam_offline": {
+        "prefix": "dam4sam",
+        "focus_label": "DAM4SAM",
+        "include_initial_mask_mode": False,
+        "include_memory_anchor": False,
+        "include_prompt_mode": False,
+        "include_component_count": True,
+        "runtime_fields": (
+            ("Tracker variant", "dam4sam_tracker_name"),
+            ("Checkpoint", "dam4sam_checkpoint_name"),
+            ("Config", "dam4sam_config_name"),
+        ),
+    },
     "deva_offline": {
         "prefix": "deva",
         "focus_label": "DEVA",
@@ -201,6 +219,7 @@ class TrackingDialog(QDialog):
         tomp_params: dict | None = None,
         ostrack_params: dict | None = None,
         sam2_params: dict | None = None,
+        dam4sam_params: dict | None = None,
         deva_params: dict | None = None,
         parent=None,
         save_session_callback=None,
@@ -233,6 +252,7 @@ class TrackingDialog(QDialog):
         self.tomp_params = dict(tomp_params or {})
         self.ostrack_params = dict(ostrack_params or {})
         self.sam2_params = dict(sam2_params or {})
+        self.dam4sam_params = dict(dam4sam_params or {})
         self.deva_params = dict(deva_params or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
@@ -556,6 +576,7 @@ class TrackingDialog(QDialog):
         mask_area = getattr(spot, f"{prefix}_mask_area", None)
         mask_score = getattr(spot, f"{prefix}_mask_score", None)
         mask_bbox_xyxy = getattr(spot, f"{prefix}_mask_bbox_xyxy", None)
+        mask_bbox_xywh = getattr(spot, f"{prefix}_mask_bbox_xywh", None)
         mask_bbox_aspect_ratio = getattr(spot, f"{prefix}_mask_bbox_aspect_ratio", None)
 
         if raw_x is not None and raw_y is not None:
@@ -576,6 +597,10 @@ class TrackingDialog(QDialog):
                 lines.append(f"Prompt mode: {prompt_mode}")
         if spec["include_memory_anchor"] and bool(getattr(spot, "xmem2_permanent_reference", False)):
             lines.append("Permanent memory anchor: yes")
+        for label, attr_name in spec.get("runtime_fields", ()):
+            value = getattr(spot, attr_name, None)
+            if value:
+                lines.append(f"{label}: {value}")
         self._append_formatted_value_line(lines, "Mask area", mask_area, "float1")
         self._append_formatted_value_line(lines, "Mask score", mask_score, "float3")
         if spec["include_component_count"]:
@@ -585,6 +610,14 @@ class TrackingDialog(QDialog):
                 getattr(spot, f"{prefix}_mask_component_count", None),
                 "int",
             )
+        if mask_bbox_xywh is not None:
+            try:
+                x, y, width, height = [float(v) for v in mask_bbox_xywh]
+                lines.append(
+                    f"Mask bbox xywh: x={x:.1f}, y={y:.1f}, w={width:.1f}, h={height:.1f}"
+                )
+            except Exception:
+                pass
         if mask_bbox_xyxy is not None:
             try:
                 x0, y0, x1, y1 = [float(v) for v in mask_bbox_xyxy]
@@ -1801,6 +1834,84 @@ class TrackingDialog(QDialog):
             sam2_params,
             title="Re-tracking spot with SAM2...",
             method_label="SAM2 re-tracking",
+        )
+
+    def initiate_retrack_dam4sam(self, spot_id: int):
+        """Prepares and launches DAM4SAM re-tracking from the current point."""
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track_to_retrack, current_frame_id = target
+        tracker_spec = require_tracker_spec("dam4sam_offline")
+
+        dam4sam_params = self._tracker_params_for_spec(tracker_spec)
+        if not dam4sam_params:
+            QMessageBox.warning(
+                self,
+                "DAM4SAM Settings Missing",
+                "DAM4SAM parameters were not provided to the tracking visualizer.",
+            )
+            return
+
+        start_spot = track_to_retrack.spots_by_image_id.get(current_frame_id)
+        if start_spot is None:
+            return
+
+        tracker_name = (
+            dam4sam_params.get("tracker_name")
+            or dam4sam_params.get("dam4sam_tracker_name")
+            or getattr(start_spot, "dam4sam_tracker_name", None)
+            or "sam21pp-L"
+        )
+        backend_mode = str(
+            dam4sam_params.get("backend_mode") or "subprocess"
+        ).strip().lower()
+        status = self._probe_tracker_environment_for_spec(
+            tracker_spec,
+            models_dir=dam4sam_params.get("dam4sam_models_dir"),
+            checkpoint_path=dam4sam_params.get("checkpoint_path"),
+            repo_path=(
+                dam4sam_params.get("repo_path")
+                or dam4sam_params.get("dam4sam_repo_path")
+            ),
+            python_executable=(
+                dam4sam_params.get("python_executable")
+                if backend_mode == "subprocess"
+                else None
+            ),
+            tracker_name=tracker_name,
+        )
+        selected_checkpoint_obj = status.selected_checkpoint
+        structural_ready = bool(
+            status.repo_path is not None
+            and status.config_exists
+            and selected_checkpoint_obj is not None
+            and selected_checkpoint_obj.exists()
+        )
+        if not self._ensure_registered_retrack_runtime_ready(
+            tracker_spec,
+            status,
+            dam4sam_params,
+            ready_for_direct=status.is_ready,
+            structural_ready=structural_ready,
+            title="DAM4SAM Unavailable",
+            env_name=TRACKER_ENV_HINT_BY_ID.get(tracker_spec.tracker_id),
+        ):
+            return
+
+        if selected_checkpoint_obj is not None and selected_checkpoint_obj.exists():
+            dam4sam_params["checkpoint_path"] = str(selected_checkpoint_obj.resolve())
+        dam4sam_params["roi_size"] = self.roi_size
+        dam4sam_params["tracker_name"] = tracker_name
+        dam4sam_params["dam4sam_tracker_name"] = tracker_name
+
+        self._launch_registered_retrack(
+            tracker_spec,
+            track_to_retrack,
+            current_frame_id,
+            dam4sam_params,
+            title="Re-tracking spot with DAM4SAM...",
+            method_label="DAM4SAM re-tracking",
         )
 
     def initiate_retrack_deva(self, spot_id: int):

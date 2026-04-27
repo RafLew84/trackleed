@@ -11,6 +11,10 @@ from trackleed.analysis.cutie_backend import (
     format_cutie_environment_report,
     probe_cutie_environment,
 )
+from trackleed.analysis.dam4sam_backend import (
+    format_dam4sam_environment_report,
+    probe_dam4sam_environment,
+)
 from trackleed.analysis.deva_backend import (
     format_deva_environment_report,
     probe_deva_environment,
@@ -57,6 +61,7 @@ from trackleed.analysis.tracking_bbox_backends import (
 )
 from trackleed.analysis.tracking_mask_backends import (
     track_spots_cutie_offline,
+    track_spots_dam4sam_offline,
     track_spots_deva_offline,
     track_spots_sam2_offline,
     track_spots_xmem2_offline,
@@ -74,6 +79,7 @@ from trackleed.analysis.tracking_point_backends import (
 from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_cotracker3_offline,
     retrack_single_spot_cutie_offline,
+    retrack_single_spot_dam4sam_offline,
     retrack_single_spot_deva_offline,
     retrack_single_spot_locotrack_offline,
     retrack_single_spot_mftiq_offline,
@@ -437,6 +443,33 @@ TRACKER_SPECS: tuple[TrackerSpec, ...] = (
         python_executable_attr="sam2_python_executable_edit",
         default_conda_env_name="sam2",
         checkpoint_selector_attr="sam2_checkpoint_combo",
+    ),
+    TrackerSpec(
+        tracker_id="dam4sam_offline",
+        display_name="Offline DAM4SAM",
+        scenario_name="Offline DAM4SAM",
+        family="mask",
+        source_names=("dam4sam_offline",),
+        settings_type_name="Dam4SamTrackingSettings",
+        runtime_settings_type_name="Dam4SamRuntimeSettings",
+        probe_environment=probe_dam4sam_environment,
+        format_environment_report=format_dam4sam_environment_report,
+        collect_params_method_name="_collect_dam4sam_tracking_params",
+        run_tracking=track_spots_dam4sam_offline,
+        run_retrack=retrack_single_spot_dam4sam_offline,
+        supports_direct=True,
+        supports_subprocess=True,
+        has_visualizer_retrack=True,
+        settings_attr_name="dam4sam_settings",
+        params_argument_name="dam4sam_params",
+        panel_group_attr="dam4sam_group",
+        warning_label_attr="dam4sam_warning_label",
+        backend_mode_widget_attr="dam4sam_backend_mode_combo",
+        repo_path_attr="dam4sam_repo_path_edit",
+        python_executable_attr="dam4sam_python_executable_edit",
+        default_conda_env_name="dam4sam",
+        checkpoint_selector_attr="dam4sam_checkpoint_combo",
+        variant_selector_attr="dam4sam_tracker_variant_combo",
     ),
     TrackerSpec(
         tracker_id="deva_offline",

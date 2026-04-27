@@ -319,6 +319,76 @@ class Dam4SamTrackingIntegrationTests(unittest.TestCase):
         self.assertEqual(spot.dam4sam_mask_bbox_xyxy, (7.0, 10.0, 11.0, 14.0))
         self.assertEqual(spot.dam4sam_mask_bbox_xywh, (7.0, 10.0, 4.0, 4.0))
 
+    def test_dam4sam_retrack_trims_future_points_and_uses_current_roi_seed(self) -> None:
+        all_files_map = {frame_id: self._file(frame_id) for frame_id in range(4)}
+        start_spot = self._spot(1, 10.0, 12.0)
+        original_first_spot = self._spot(1, 8.0, 11.0)
+        stale_future_spot = self._spot(1, 99.0, 99.0)
+        track = self.data_models.Track(
+            track_id=1,
+            spots_by_image_id={
+                0: original_first_spot,
+                1: start_spot,
+                2: stale_future_spot,
+            },
+        )
+        fake_support = _FakeTrackingSupport()
+        run_calls: list[dict] = []
+
+        def fake_run_dam4sam_offline(*, frames, query_points_tyx, settings, query_boxes_xyxy=None):
+            run_calls.append(
+                {
+                    "frame_ids": [int(value) for value in frames[:, 0, 0, 0].tolist()],
+                    "query_points_tyx": np.asarray(query_points_tyx, dtype=np.float32).copy(),
+                    "query_boxes_xyxy": np.asarray(query_boxes_xyxy, dtype=np.float32).copy(),
+                    "settings": settings,
+                }
+            )
+            tracks_xy = np.asarray([[[10.0, 12.0], [11.0, 13.0], [12.0, 14.0]]], dtype=np.float32)
+            return self._fake_result(frame_count=int(frames.shape[0]), tracks_xy=tracks_xy)
+
+        with (
+            mock.patch.object(self.mask_backends, "_tracking_support", return_value=fake_support),
+            mock.patch.object(
+                self.mask_backends,
+                "run_dam4sam_offline",
+                side_effect=fake_run_dam4sam_offline,
+            ),
+        ):
+            updated_track = self.mask_backends.retrack_single_spot_dam4sam_offline(
+                track,
+                1,
+                all_files_map,
+                [0, 1, 2, 3],
+                {
+                    "checkpoint_path": "sam2.1_hiera_large.pt",
+                    "dam4sam_repo_path": "repo",
+                    "python_executable": "python.exe",
+                    "backend_mode": "subprocess",
+                    "roi_size": 8,
+                    "keep_invisible_points_as_gaps": False,
+                    "max_mask_components": 4,
+                },
+            )
+
+        self.assertIs(updated_track, track)
+        self.assertEqual(fake_support.load_calls, [[1, 2, 3]])
+        self.assertEqual(run_calls[0]["frame_ids"], [1, 2, 3])
+        np.testing.assert_allclose(run_calls[0]["query_points_tyx"][0], [0.0, 12.0, 10.0])
+        np.testing.assert_allclose(run_calls[0]["query_boxes_xyxy"][0], [6.0, 7.0, 14.0, 17.0])
+        self.assertEqual(run_calls[0]["settings"].tracker_name, "sam21pp-L")
+
+        self.assertEqual(sorted(track.spots_by_image_id), [0, 1, 2, 3])
+        self.assertIs(track.spots_by_image_id[0], original_first_spot)
+        self.assertIs(track.spots_by_image_id[1], start_spot)
+        self.assertIsNot(track.spots_by_image_id[2], stale_future_spot)
+        retracked_spot = track.spots_by_image_id[2]
+        self.assertEqual(retracked_spot.source, "dam4sam_offline")
+        self.assertTrue(retracked_spot.dam4sam_visibility)
+        self.assertEqual(retracked_spot.dam4sam_tracker_name, "sam21pp-L")
+        self.assertEqual(retracked_spot.dam4sam_checkpoint_name, "sam2.1_hiera_large.pt")
+        self.assertEqual(retracked_spot.dam4sam_config_name, "sam21pp_hiera_l.yaml")
+
     def test_dam4sam_rejected_motion_keeps_rejection_metadata_on_forced_spot(self) -> None:
         all_files_map = {frame_id: self._file(frame_id) for frame_id in range(2)}
         all_files_map[0].spots = [self._spot(1, 8.0, 11.0)]

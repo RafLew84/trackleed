@@ -15,6 +15,10 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
         "format_cutie_environment_report",
         "probe_cutie_environment",
     ),
+    "trackleed.analysis.dam4sam_backend": (
+        "format_dam4sam_environment_report",
+        "probe_dam4sam_environment",
+    ),
     "trackleed.analysis.deva_backend": (
         "format_deva_environment_report",
         "probe_deva_environment",
@@ -61,6 +65,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
     ),
     "trackleed.analysis.tracking_mask_backends": (
         "track_spots_cutie_offline",
+        "track_spots_dam4sam_offline",
         "track_spots_deva_offline",
         "track_spots_sam2_offline",
         "track_spots_xmem2_offline",
@@ -78,6 +83,7 @@ DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
     "trackleed.analysis.tracking_retrack": (
         "retrack_single_spot_cotracker3_offline",
         "retrack_single_spot_cutie_offline",
+        "retrack_single_spot_dam4sam_offline",
         "retrack_single_spot_deva_offline",
         "retrack_single_spot_locotrack_offline",
         "retrack_single_spot_mftiq_offline",
@@ -225,6 +231,18 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
         self.assertTrue(spec.supports_direct)
         self.assertTrue(spec.has_visualizer_retrack)
         self.assertEqual(spec.default_conda_env_name, "deva")
+
+    def test_dam4sam_is_registered_as_subprocess_mask_tracker_with_visualizer_retrack(self) -> None:
+        spec = self.registry.require_tracker_spec("dam4sam_offline")
+
+        self.assertEqual(spec.scenario_name, "Offline DAM4SAM")
+        self.assertEqual(spec.family, "mask")
+        self.assertEqual(spec.source_names, ("dam4sam_offline",))
+        self.assertTrue(spec.supports_subprocess)
+        self.assertTrue(spec.supports_direct)
+        self.assertTrue(spec.has_visualizer_retrack)
+        self.assertEqual(spec.default_conda_env_name, "dam4sam")
+        self.assertEqual(spec.variant_selector_attr, "dam4sam_tracker_variant_combo")
 
     def test_ostrack_is_registered_as_subprocess_bbox_tracker_with_retrack_ui(self) -> None:
         spec = self.registry.require_tracker_spec("ostrack_offline")
