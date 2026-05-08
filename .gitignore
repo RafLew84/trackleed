@@ -236,3 +236,8 @@ tracking_models/samurai/sam2.1_hiera_base_plus.pt
 tracking_models/samurai/sam2.1_hiera_large.pt
 tracking_models/samurai/sam2.1_hiera_small.pt
 tracking_models/samurai/sam2.1_hiera_tiny.pt
+UsersrlewaDocumentsPROJEKTYtrackleedtracking_modelstapnexttapnext_ckpt.npz
+tracking_models/trackonr/trackon2_dinov3_checkpoint.pt
+tracking_models/tapnext/tapnext_ckpt.npz
+tracking_models/tapnext/bootstapnext_ckpt.npz
+tracking_models/sam2/sam2.1_hiera_tiny.pt
