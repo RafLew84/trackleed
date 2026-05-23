@@ -334,6 +334,7 @@ def fit_circle_center(spot_positions: List[Dict[str, float]]) -> Optional[Dict[s
         "center_y": float(center_y),
         "error_x": float(error_x),
         "error_y": float(error_y),
+        "circle_radius": float(radius),
     }
 
 

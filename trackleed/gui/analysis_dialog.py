@@ -326,6 +326,7 @@ class AnalysisResultsDialog(QDialog):
         self.center_mode_combo = QComboBox()
         self.center_mode_combo.addItem("Per-frame (RANSAC)", "per_frame")
         self.center_mode_combo.addItem("Per-frame (circle fit)", "circle_fit")
+        self.center_mode_combo.addItem("Per-frame (circle fit + bbox fallback)", "circle_fit_bbox_fallback")
         self.center_mode_combo.addItem("Per-frame (ellipse fit)", "ellipse_fit")
         self.center_mode_combo.addItem("Per-frame (circle fit + temporal smoothing)", "circle_fit_temporal")
         self.center_mode_combo.addItem("Global median (all frames)", "global_median")
@@ -783,6 +784,14 @@ class AnalysisResultsDialog(QDialog):
                 text = (f"Pattern Center (X,Y): "
                         f"({center_info['center_x']:.2f} +/- {center_info['error_x']:.2f}, "
                         f"{center_info['center_y']:.2f} +/- {center_info['error_y']:.2f})")
+                circle_radius = center_info.get("circle_radius")
+                if circle_radius is not None:
+                    try:
+                        circle_radius_value = float(circle_radius)
+                        if np.isfinite(circle_radius_value) and circle_radius_value > 0:
+                            text += f" | Circle R: {circle_radius_value:.2f}"
+                    except (TypeError, ValueError):
+                        pass
                 self.pattern_center_label.setText(text)
             else:
                 self.pattern_center_label.setText("Pattern Center (0,0): Not calculated")
@@ -1367,6 +1376,9 @@ class AnalysisResultsDialog(QDialog):
         if center_info:
             center_point = QPointF(center_info['center_x'], center_info['center_y'])
             self.image_viewer_2d.draw_pattern_center(center_point)
+            circle_radius = center_info.get("circle_radius")
+            if circle_radius is not None:
+                self.image_viewer_2d.draw_pattern_circle(center_point, circle_radius)
 
     def on_position_plot_config_changed(self):
         """

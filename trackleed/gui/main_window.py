@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QScrollArea, QStackedWidget, QSizePolicy, QInputDialog, QLineEdit)
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
-from trackleed.io.file_parser import parse_directory
+from trackleed.io.file_parser import parse_directory, repair_duplicate_frame_ids
 from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.analysis.spot_finding import find_spots
@@ -11325,8 +11325,9 @@ class MainWindow(QMainWindow):
                 "max_gap": self.hung_max_gap_spinbox.value(),
                 "min_track_length": self.hung_min_len_spinbox.value(),
             }
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
+            file_map, sorted_ids = self._build_detection_linking_file_map()
+            if file_map is None:
+                return
             if not sorted_ids:
                 QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
                 return
@@ -11357,8 +11358,9 @@ class MainWindow(QMainWindow):
                 "max_misses": self.dir_max_misses_spinbox.value(),
                 "min_track_length": self.dir_min_len_spinbox.value(),
             }
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
+            file_map, sorted_ids = self._build_detection_linking_file_map()
+            if file_map is None:
+                return
             if not sorted_ids:
                 QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
                 return
@@ -11379,6 +11381,33 @@ class MainWindow(QMainWindow):
 
         if worker:
             self._launch_worker_with_progress(worker, "Running tracking...", cancel_event)
+
+    def _build_detection_linking_file_map(self):
+        """Build a unique frame-id map for detection-linking trackers."""
+        repaired_source = repair_duplicate_frame_ids(self.data_files)
+        if repaired_source:
+            print(f"Repaired duplicate frame IDs from {repaired_source} filename tokens before detection linking.")
+
+        file_map = {}
+        duplicate_ids = set()
+        for leed_file in self.data_files:
+            if leed_file.id is None:
+                continue
+            if leed_file.id in file_map:
+                duplicate_ids.add(leed_file.id)
+            file_map[leed_file.id] = leed_file
+
+        if duplicate_ids:
+            sample = ", ".join(str(value) for value in sorted(duplicate_ids)[:5])
+            QMessageBox.warning(
+                self,
+                "Duplicate Frame IDs",
+                "Detection linking requires unique frame IDs, but duplicate IDs are still present "
+                f"after checking T, C and E filename tokens. Duplicate examples: {sample}.",
+            )
+            return None, []
+
+        return file_map, sorted(file_map.keys())
 
     def _launch_worker_with_progress(self, worker: GenericWorker, title: str, cancel_event: Event):
         """Helper method to run any worker with a progress dialog."""

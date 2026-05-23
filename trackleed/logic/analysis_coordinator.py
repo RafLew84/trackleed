@@ -65,11 +65,18 @@ def run_full_analysis(
     center_mode = (center_mode or "per_frame").lower()
     manual_ellipse_mode = center_mode == "manual_ellipse"
     ellipse_fit_mode = center_mode == "ellipse_fit"
+    circle_bbox_fallback_mode = center_mode == "circle_fit_bbox_fallback"
     ellipse_info = _normalize_manual_ellipse(manual_ellipse) if manual_ellipse_mode else None
     if manual_ellipse_mode and ellipse_info is None:
         raise ValueError("center_mode='manual_ellipse' requires a valid manual_ellipse definition.")
 
-    per_frame_mode = center_mode in {"per_frame", "circle_fit", "manual_ellipse", "ellipse_fit"}
+    per_frame_mode = center_mode in {
+        "per_frame",
+        "circle_fit",
+        "circle_fit_bbox_fallback",
+        "manual_ellipse",
+        "ellipse_fit",
+    }
     temporal_circle_mode = center_mode == "circle_fit_temporal"
     all_frame_ids = sorted(list({fid for t in tracks_to_analyze for fid in t.spots_by_image_id}))
     if not all_frame_ids: return tracks_to_analyze
@@ -126,6 +133,8 @@ def run_full_analysis(
                 fit_results['global_center_x'] = global_x
                 fit_results['global_center_y'] = global_y
                 spot_positions_on_this_frame.append({'center_x': global_x, 'center_y': global_y})
+            elif circle_bbox_fallback_mode:
+                spot_positions_on_this_frame.append(_bbox_center_position(rect))
         
         center_info = _estimate_center_for_frame(spot_positions_on_this_frame, center_mode)
         if manual_ellipse_mode:
@@ -212,6 +221,13 @@ def _reset_per_frame_analysis_state(
         leed_file.post_analysis_results = {}
 
 
+def _bbox_center_position(rect) -> Dict[str, float]:
+    return {
+        "center_x": float(rect.x()) + float(rect.width()) / 2.0,
+        "center_y": float(rect.y()) + float(rect.height()) / 2.0,
+    }
+
+
 def _estimate_center_for_frame(spot_positions_on_this_frame: List[Dict[str, float]], center_mode: str) -> Optional[Dict[str, float]]:
     """Estimate per-frame center using the selected center mode."""
     if not spot_positions_on_this_frame:
@@ -220,6 +236,8 @@ def _estimate_center_for_frame(spot_positions_on_this_frame: List[Dict[str, floa
         return None
     if center_mode == "ellipse_fit":
         return fit_ellipse_center(spot_positions_on_this_frame)
+    if center_mode == "circle_fit_bbox_fallback":
+        return fit_circle_center(spot_positions_on_this_frame)
     if center_mode in {"circle_fit", "circle_fit_temporal"}:
         return fit_circle_center(spot_positions_on_this_frame)
     return find_pattern_center(spot_positions_on_this_frame)
@@ -296,6 +314,7 @@ def _smooth_centers_temporally(all_frame_ids: List[int], raw_centers: Dict[int, 
     center_y = np.full(n_frames, np.nan, dtype=np.float64)
     error_x = np.full(n_frames, np.nan, dtype=np.float64)
     error_y = np.full(n_frames, np.nan, dtype=np.float64)
+    circle_radius = np.full(n_frames, np.nan, dtype=np.float64)
 
     fid_to_idx = {fid: i for i, fid in enumerate(all_frame_ids)}
     for fid, info in raw_centers.items():
@@ -306,6 +325,7 @@ def _smooth_centers_temporally(all_frame_ids: List[int], raw_centers: Dict[int, 
         center_y[idx] = float(info.get("center_y", np.nan))
         error_x[idx] = float(info.get("error_x", np.nan))
         error_y[idx] = float(info.get("error_y", np.nan))
+        circle_radius[idx] = float(info.get("circle_radius", np.nan))
 
     valid = np.isfinite(center_x) & np.isfinite(center_y)
     if not np.any(valid):
@@ -313,10 +333,12 @@ def _smooth_centers_temporally(all_frame_ids: List[int], raw_centers: Dict[int, 
 
     cx = _interpolate_nans(center_x)
     cy = _interpolate_nans(center_y)
+    radius = _interpolate_nans(circle_radius)
 
     # Keep center drift smooth but responsive.
     cx = _ema(_rolling_median(cx, window=5), alpha=0.25)
     cy = _ema(_rolling_median(cy, window=5), alpha=0.25)
+    radius = _ema(_rolling_median(radius, window=5), alpha=0.25)
 
     # Robust step clamp based on raw (interpolated) trajectory statistics.
     step = np.sqrt(np.diff(_interpolate_nans(center_x)) ** 2 + np.diff(_interpolate_nans(center_y)) ** 2)
@@ -352,6 +374,8 @@ def _smooth_centers_temporally(all_frame_ids: List[int], raw_centers: Dict[int, 
             "error_x": float(ex),
             "error_y": float(ey),
         }
+        if np.isfinite(radius[i]) and radius[i] > 0:
+            smoothed[fid]["circle_radius"] = float(radius[i])
 
     return smoothed
 

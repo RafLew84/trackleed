@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 import types
 import unittest
 
+import numpy as np
+
 
 try:
     from PyQt6.QtCore import QRect
@@ -153,6 +155,99 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
 
         self.assertAlmostEqual(leed_file.post_analysis_results["avg_radius"], 201.0)
         self.assertAlmostEqual(leed_file.post_analysis_results["avg_radius_error"], 1.41421356237)
+
+    def test_circle_fit_bbox_fallback_requires_at_least_three_points(self) -> None:
+        center = analysis_coordinator._estimate_center_for_frame(
+            [
+                {"center_x": 70.0, "center_y": 50.0},
+                {"center_x": 65.0, "center_y": 62.0},
+            ],
+            "circle_fit_bbox_fallback",
+        )
+
+        self.assertIsNone(center)
+
+    def test_circle_fit_bbox_fallback_accepts_non_symmetric_arc_points(self) -> None:
+        center = analysis_coordinator._estimate_center_for_frame(
+            [
+                {"center_x": 75.0, "center_y": 50.0},
+                {"center_x": 65.0, "center_y": 70.0},
+                {"center_x": 50.0, "center_y": 75.0},
+            ],
+            "circle_fit_bbox_fallback",
+        )
+
+        self.assertIsNotNone(center)
+        self.assertAlmostEqual(center["center_x"], 50.0, places=6)
+        self.assertAlmostEqual(center["center_y"], 50.0, places=6)
+        self.assertAlmostEqual(center["circle_radius"], 25.0, places=6)
+
+    def test_run_full_analysis_uses_bbox_centers_when_gaussian_fails_for_circle_fit_fallback(self) -> None:
+        leed_file = _leed_file(1)
+        tracks = [
+            Track(
+                track_id=1,
+                spots_by_image_id={
+                    1: SpotROI(
+                        id=1,
+                        roi_rect=QRect(71, 46, 8, 8),
+                        center_x=75.0,
+                        center_y=50.0,
+                        intensity=1.0,
+                        source="test",
+                    )
+                },
+            ),
+            Track(
+                track_id=2,
+                spots_by_image_id={
+                    1: SpotROI(
+                        id=2,
+                        roi_rect=QRect(61, 66, 8, 8),
+                        center_x=65.0,
+                        center_y=70.0,
+                        intensity=1.0,
+                        source="test",
+                    )
+                },
+            ),
+            Track(
+                track_id=3,
+                spots_by_image_id={
+                    1: SpotROI(
+                        id=3,
+                        roi_rect=QRect(46, 71, 8, 8),
+                        center_x=50.0,
+                        center_y=75.0,
+                        intensity=1.0,
+                        source="test",
+                    )
+                },
+            ),
+        ]
+
+        original_load_tiff = analysis_coordinator.load_tiff
+        original_fit_spot_to_gaussian = analysis_coordinator.fit_spot_to_gaussian
+        analysis_coordinator.load_tiff = lambda _filepath: np.ones((100, 100), dtype=np.float32)
+        analysis_coordinator.fit_spot_to_gaussian = lambda _roi: None
+        try:
+            result = analysis_coordinator.run_full_analysis(
+                tracks_to_analyze=tracks,
+                analysis_config={},
+                all_files_map={1: leed_file},
+                background_file=None,
+                progress_callback=lambda _progress: None,
+                center_mode="circle_fit_bbox_fallback",
+            )
+        finally:
+            analysis_coordinator.load_tiff = original_load_tiff
+            analysis_coordinator.fit_spot_to_gaussian = original_fit_spot_to_gaussian
+
+        self.assertEqual(result, tracks)
+        self.assertIsNotNone(leed_file.pattern_center)
+        self.assertAlmostEqual(leed_file.pattern_center["center_x"], 50.0, places=6)
+        self.assertAlmostEqual(leed_file.pattern_center["center_y"], 50.0, places=6)
+        self.assertAlmostEqual(leed_file.pattern_center["circle_radius"], 25.0, places=6)
 
     def test_set_switch_average_radius_export_does_not_include_inherited_values(self) -> None:
         all_files_map = {1: _leed_file(1), 2: _leed_file(2)}

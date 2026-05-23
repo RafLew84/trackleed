@@ -53,6 +53,7 @@ class LeedImageViewer(QGraphicsView):
         self._track_path_item: QGraphicsPathItem | None = None
         self._track_path_items = []
         self._pattern_center_item = None
+        self._pattern_circle_item: QGraphicsEllipseItem | None = None
         self._analysis_circle_item: QGraphicsEllipseItem | None = None
         self._analysis_ellipse_item: QGraphicsEllipseItem | None = None
         self._positions_overlay_items: List[Any] = []
@@ -134,6 +135,35 @@ class LeedImageViewer(QGraphicsView):
         self._scene.addItem(ellipse)
         self._pattern_center_item = ellipse
 
+    def draw_pattern_circle(self, center_point: QPointF, radius: float):
+        """Draw the fitted diffraction circle for the current pattern center."""
+        self.clear_pattern_circle()
+        try:
+            r = float(radius)
+        except (TypeError, ValueError):
+            return
+        if not np.isfinite(r) or r <= 0:
+            return
+
+        pen = QPen(QColor(255, 215, 0, 210))
+        pen.setWidth(2)
+        pen.setCosmetic(True)
+        ellipse = QGraphicsEllipseItem(
+            center_point.x() - r,
+            center_point.y() - r,
+            2.0 * r,
+            2.0 * r,
+        )
+        ellipse.setPen(pen)
+        self._scene.addItem(ellipse)
+        self._pattern_circle_item = ellipse
+
+    def clear_pattern_circle(self):
+        """Remove the fitted diffraction circle overlay from the scene."""
+        if self._pattern_circle_item:
+            self._scene.removeItem(self._pattern_circle_item)
+            self._pattern_circle_item = None
+
     def clear_pattern_center(self):
         """
         Removes the previously drawn pattern center marker from the scene.
@@ -142,6 +172,7 @@ class LeedImageViewer(QGraphicsView):
         if self._pattern_center_item:
             self._scene.removeItem(self._pattern_center_item)
             self._pattern_center_item = None
+        self.clear_pattern_circle()
 
     def set_mode(self, mode: str):
         """
@@ -401,6 +432,7 @@ class LeedImageViewer(QGraphicsView):
         if self._analysis_ellipse_item:
             self._scene.removeItem(self._analysis_ellipse_item)
             self._analysis_ellipse_item = None
+        self.clear_pattern_center()
         self.clear_positions_overlay()
         self.clear_polygon_overlay()
 
