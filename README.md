@@ -168,6 +168,36 @@ Fits with `quality_status=warning` retain their width values and warning flags. 
 FWHM-error, and theta fields are empty. Export uses the fit results already stored in the
 positions-analysis session; it does not reload TIFF files or rerun Gaussian fitting.
 
+### Non-destructive publication export
+
+Use the batch exporter to create a separate, self-contained copy of saved exports and
+analysis sessions with FWHM fields added where stored fit data permits:
+
+```bash
+python scripts/export_publication_data.py \
+  --source data \
+  --destination publication_exports
+```
+
+The destination must be outside the source tree. Dedicated export directories such as
+`eksport`, `results`, `wew`, `zew`, and `group_*` are copied in full, including unrelated
+sidecar files and visualization directories. Standalone result CSV files and saved
+`.positions.json`/`.lts.json` sessions are copied without copying neighboring raw TIFF
+images.
+
+Copied per-spot CSV files retain every original row and column. The exporter uses existing
+`sigma_x` and `sigma_y` values when needed without adding new sigma columns, and completes
+`fwhm_x`, `fwhm_y`, their FWHM errors,
+`fwhm_mean`, `fwhm_geometric`, and `fwhm_source`. The provenance value is `stored`,
+`calculated_from_sigma`, or `missing`; failed fits retain their rows but publish no width
+values. Each copied CSV receives `fwhm_per_frame.csv`, and the output root receives
+`export_manifest.json` with source/output hashes, row counts, provenance counts, and the
+input fingerprint.
+
+The command never reads TIFF pixel data or reruns Gaussian fitting. It reuses an existing
+destination only when its manifest fingerprint exactly matches the current inputs;
+otherwise it fails instead of overwriting files.
+
 ## Notes
 
 - YOLO models: place `.pt` checkpoints in `tracking_models/yolo/` and click **Refresh**.
