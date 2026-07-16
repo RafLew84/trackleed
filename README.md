@@ -144,6 +144,30 @@ When you click **Export Results**, the following are written:
 - `track_legend.csv`: track IDs with their starting positions.
 - `track_visualizations/`: PNG overlays with track traces (every 5th frame).
 
+### Exported positions-analysis outputs
+
+The **Positions Analysis -> Export Results** action writes one directory per configured
+group. Each group directory contains `positions_analysis_results_group_XX.csv` and a
+`positions_overlay_images/` directory.
+
+The positions CSV preserves the position columns (`frame_id`, `group_id`, `point_role`,
+`track_id`, `distance_from_reference`, `x`, and `y`) and also exports the stored Gaussian
+fit metadata:
+
+- `position_source`: `gaussian_fit` when `x`/`y` come from an accepted fit, otherwise
+  `tracked_center` when the tracked ROI center is used as a fallback.
+- `fit_ok`, `quality_status`, and `quality_flags`: fit validation outcome and diagnostics.
+- `sigma_x`, `sigma_y`, `fwhm_x`, `fwhm_y`, `fwhm_x_error`, and `fwhm_y_error`: Gaussian
+  widths in pixels. The X/Y names refer to the principal axes of the rotated Gaussian,
+  not fixed image axes.
+- `theta`: rotation of the Gaussian principal axes in radians.
+- `r_squared`: goodness-of-fit diagnostic when available.
+
+Fits with `quality_status=warning` retain their width values and warning flags. Rows with
+`fit_ok=false` retain their tracked position and diagnostics, but their sigma, FWHM,
+FWHM-error, and theta fields are empty. Export uses the fit results already stored in the
+positions-analysis session; it does not reload TIFF files or rerun Gaussian fitting.
+
 ## Notes
 
 - YOLO models: place `.pt` checkpoints in `tracking_models/yolo/` and click **Refresh**.

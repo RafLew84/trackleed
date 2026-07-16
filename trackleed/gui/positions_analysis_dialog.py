@@ -1765,6 +1765,18 @@ class PositionsAnalysisDialog(QDialog):
             "distance_from_reference",
             "x",
             "y",
+            "position_source",
+            "fit_ok",
+            "quality_status",
+            "quality_flags",
+            "sigma_x",
+            "sigma_y",
+            "fwhm_x",
+            "fwhm_y",
+            "fwhm_x_error",
+            "fwhm_y_error",
+            "theta",
+            "r_squared",
         ]
 
         with output_path.open("w", encoding="utf-8", newline="") as handle:
@@ -3397,6 +3409,7 @@ class PositionsAnalysisDialog(QDialog):
                 if self._has_overlay_point(reference_point):
                     reference_key = (frame_id, group_id, int(reference_track_id))
                     if reference_key not in seen_reference_keys:
+                        fit_payload = frame_fits.get(int(reference_track_id), {}) or {}
                         export_rows.append(
                             {
                                 "frame_id": int(frame_id),
@@ -3406,6 +3419,10 @@ class PositionsAnalysisDialog(QDialog):
                                 "distance_from_reference": 0.0,
                                 "x": float(reference_point["x"]),
                                 "y": float(reference_point["y"]),
+                                **self._build_fit_export_fields(
+                                    fit_payload,
+                                    from_fit=bool(reference_point.get("from_fit")),
+                                ),
                             }
                         )
                         seen_reference_keys.add(reference_key)
@@ -3433,6 +3450,7 @@ class PositionsAnalysisDialog(QDialog):
                             )
                         )
 
+                    fit_payload = frame_fits.get(int(track_id), {}) or {}
                     export_rows.append(
                         {
                             "frame_id": int(frame_id),
@@ -3442,10 +3460,42 @@ class PositionsAnalysisDialog(QDialog):
                             "distance_from_reference": distance,
                             "x": float(satellite_point["x"]),
                             "y": float(satellite_point["y"]),
+                            **self._build_fit_export_fields(
+                                fit_payload,
+                                from_fit=bool(satellite_point.get("from_fit")),
+                            ),
                         }
                     )
 
         return export_rows
+
+    @classmethod
+    def _build_fit_export_fields(cls, fit_payload: dict | None, *, from_fit: bool) -> dict:
+        if not isinstance(fit_payload, dict):
+            fit_payload = {}
+
+        fit_ok = bool(fit_payload.get("fit_ok", False)) and from_fit
+        raw_fit_results = fit_payload.get("fit_results")
+        fit_results = raw_fit_results if isinstance(raw_fit_results, dict) else {}
+        export_fit_results = fit_results if fit_ok else {}
+        r_squared = cls._safe_float(
+            fit_payload.get("r_squared", fit_results.get("r_squared"))
+        )
+
+        return {
+            "position_source": "gaussian_fit" if from_fit else "tracked_center",
+            "fit_ok": fit_ok,
+            "quality_status": fit_payload.get("quality_status", "failed"),
+            "quality_flags": fit_payload.get("quality_flags") or [],
+            "sigma_x": export_fit_results.get("sigma_x"),
+            "sigma_y": export_fit_results.get("sigma_y"),
+            "fwhm_x": export_fit_results.get("fwhm_x"),
+            "fwhm_y": export_fit_results.get("fwhm_y"),
+            "fwhm_x_error": export_fit_results.get("fwhm_x_error"),
+            "fwhm_y_error": export_fit_results.get("fwhm_y_error"),
+            "theta": export_fit_results.get("theta"),
+            "r_squared": r_squared,
+        }
 
     def _draw_export_roi(self, draw: ImageDraw.ImageDraw, payload: dict, font):
         rect = payload.get("rect")
