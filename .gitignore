@@ -193,6 +193,7 @@ plan_samurai.md
 instructions/track-on-r_instructions.md
 papers/
 publication_exports/
+mail.md
 third_party/
 notebooks/
 notebooks
@@ -246,3 +247,5 @@ tracking_models/micro_sam/models/tmp_w7z6fp7
 tracking_models/micro_sam/models/vit_t
 tracking_models/micro_sam/models/vit_t_lm
 tracking_models/micro_sam/models/vit_t_lm_decoder
+/output
+tmp/research/figure_methods_evidence.md
