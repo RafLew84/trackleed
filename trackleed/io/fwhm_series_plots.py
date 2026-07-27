@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 import math
 from pathlib import Path
 from typing import Iterable
+
+from trackleed.analysis.fwhm_series import numeric_sort_key
 
 
 PALETTE = (
@@ -20,6 +23,17 @@ PALETTE = (
 )
 
 
+@dataclass(frozen=True)
+class PlotSeries:
+    """One named line in a FWHM plot."""
+
+    label: str
+    color: str
+    line_width: int
+    x_values: list[float]
+    y_values: list[float]
+
+
 def write_fwhm_plots(
     output_dir: Path,
     rows: list[dict[str, str]],
@@ -30,21 +44,26 @@ def write_fwhm_plots(
     for row in rows:
         rows_by_track[str(row.get("track_id", ""))].append(row)
     for track_rows in rows_by_track.values():
-        track_rows.sort(key=lambda row: _sort_key(row.get("frame_id", "")))
-    track_ids = sorted(rows_by_track, key=_sort_key)
+        track_rows.sort(
+            key=lambda row: numeric_sort_key(row.get("frame_id", ""))
+        )
+    track_ids = sorted(rows_by_track, key=numeric_sort_key)
 
     effective_path = output_dir / "fwhm_effective_by_track.png"
     _render_line_plot(
         effective_path,
-        title="Equivalent FWHM by track",
-        y_label="Equivalent FWHM (px)",
+        title="Effective FWHM by track",
+        y_label="Effective FWHM (px)",
         series=[
-            (
-                f"Track {track_id}",
-                PALETTE[index % len(PALETTE)],
-                3,
-                _numeric_frames(rows_by_track[track_id]),
-                _valid_values(rows_by_track[track_id], "fwhm_effective"),
+            PlotSeries(
+                label=f"Track {track_id}",
+                color=PALETTE[index % len(PALETTE)],
+                line_width=3,
+                x_values=_numeric_frames(rows_by_track[track_id]),
+                y_values=_valid_values(
+                    rows_by_track[track_id],
+                    "fwhm_effective",
+                ),
             )
             for index, track_id in enumerate(track_ids)
         ],
@@ -58,19 +77,19 @@ def write_fwhm_plots(
         color = PALETTE[index % len(PALETTE)]
         major_minor_series.extend(
             [
-                (
-                    f"Track {track_id} major",
-                    color,
-                    4,
-                    frames,
-                    _valid_values(track_rows, "fwhm_major"),
+                PlotSeries(
+                    label=f"Track {track_id} major",
+                    color=color,
+                    line_width=4,
+                    x_values=frames,
+                    y_values=_valid_values(track_rows, "fwhm_major"),
                 ),
-                (
-                    f"Track {track_id} minor",
-                    color,
-                    1,
-                    frames,
-                    _valid_values(track_rows, "fwhm_minor"),
+                PlotSeries(
+                    label=f"Track {track_id} minor",
+                    color=color,
+                    line_width=1,
+                    x_values=frames,
+                    y_values=_valid_values(track_rows, "fwhm_minor"),
                 ),
             ]
         )
@@ -88,12 +107,15 @@ def write_fwhm_plots(
         y_label="Major / minor",
         reference_y=1.0,
         series=[
-            (
-                f"Track {track_id}",
-                PALETTE[index % len(PALETTE)],
-                3,
-                _numeric_frames(rows_by_track[track_id]),
-                _valid_values(rows_by_track[track_id], "fwhm_anisotropy"),
+            PlotSeries(
+                label=f"Track {track_id}",
+                color=PALETTE[index % len(PALETTE)],
+                line_width=3,
+                x_values=_numeric_frames(rows_by_track[track_id]),
+                y_values=_valid_values(
+                    rows_by_track[track_id],
+                    "fwhm_anisotropy",
+                ),
             )
             for index, track_id in enumerate(track_ids)
         ],
@@ -121,7 +143,7 @@ def _render_line_plot(
     *,
     title: str,
     y_label: str,
-    series: list[tuple[str, str, int, list[float], list[float]]],
+    series: list[PlotSeries],
     reference_y: float | None = None,
 ) -> None:
     from PIL import Image, ImageDraw, ImageFont
@@ -134,11 +156,11 @@ def _render_line_plot(
     small_font = _load_font(ImageFont, size=18)
     title_font = _load_font(ImageFont, size=32, bold=True)
 
-    all_x = [value for _, _, _, x_values, _ in series for value in x_values]
+    all_x = [value for item in series for value in item.x_values]
     all_y = [
         value
-        for _, _, _, _, y_values in series
-        for value in y_values
+        for item in series
+        for value in item.y_values
         if math.isfinite(value)
     ]
     x_min, x_max = _plot_limits(all_x)
@@ -178,15 +200,19 @@ def _render_line_plot(
         y_pixel = map_y(reference_y)
         draw.line((left, y_pixel, right, y_pixel), fill="#6B7280", width=2)
 
-    for _, color, line_width, x_values, y_values in series:
+    for item in series:
         previous: tuple[float, float] | None = None
-        for x_value, y_value in zip(x_values, y_values):
+        for x_value, y_value in zip(item.x_values, item.y_values):
             if not math.isfinite(y_value):
                 previous = None
                 continue
             current = map_x(x_value), map_y(y_value)
             if previous is not None:
-                draw.line((*previous, *current), fill=color, width=line_width)
+                draw.line(
+                    (*previous, *current),
+                    fill=item.color,
+                    width=item.line_width,
+                )
             previous = current
 
     draw.text((left, 35), title, fill="#111827", font=title_font)
@@ -199,15 +225,15 @@ def _render_line_plot(
     draw.text((30, 65), y_label, fill="#111827", font=regular_font)
 
     legend_x, legend_y = right + 35, top
-    for label, color, line_width, _, _ in series:
+    for item in series:
         draw.line(
             (legend_x, legend_y + 10, legend_x + 42, legend_y + 10),
-            fill=color,
-            width=max(2, line_width),
+            fill=item.color,
+            width=max(2, item.line_width),
         )
         draw.text(
             (legend_x + 55, legend_y),
-            label,
+            item.label,
             fill="#111827",
             font=small_font,
         )
@@ -244,10 +270,3 @@ def _load_font(font_module, *, size: int, bold: bool = False):
         return font_module.truetype(font_name, size)
     except OSError:
         return font_module.load_default()
-
-
-def _sort_key(value: str) -> tuple[int, float | str]:
-    try:
-        return 0, float(value)
-    except ValueError:
-        return 1, value
