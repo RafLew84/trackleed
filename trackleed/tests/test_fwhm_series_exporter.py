@@ -3,11 +3,13 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
 from scripts.export_fwhm_series import main as export_fwhm_series_main
 from trackleed.io.fwhm_series_exporter import export_fwhm_series
+from trackleed.io.fwhm_series_plots import write_fwhm_plots
 
 
 class FwhmSeriesExporterTests(unittest.TestCase):
@@ -187,6 +189,46 @@ class FwhmSeriesExporterTests(unittest.TestCase):
                         self.assertEqual(image.format, "PNG")
                         self.assertGreaterEqual(image.width, 800)
                         self.assertGreaterEqual(image.height, 500)
+
+    def test_x_y_plot_uses_raw_fit_axes_and_marks_quality_gaps(self) -> None:
+        rows = [
+            {
+                "track_id": "1",
+                "frame_id": "1",
+                "fwhm_x": "8",
+                "fwhm_y": "10",
+                "fwhm_effective": "9",
+                "fwhm_anisotropy": "1.25",
+                "fwhm_valid": "true",
+            },
+            {
+                "track_id": "1",
+                "frame_id": "2",
+                "fwhm_x": "30",
+                "fwhm_y": "40",
+                "fwhm_effective": "35",
+                "fwhm_anisotropy": "1.33",
+                "fwhm_valid": "false",
+            },
+        ]
+
+        with patch(
+            "trackleed.io.fwhm_series_plots._render_line_plot"
+        ) as render:
+            write_fwhm_plots(Path("unused"), rows)
+
+        x_y_call = render.call_args_list[1]
+        self.assertEqual(
+            x_y_call.kwargs["title"],
+            "Raw Gaussian fit-axis FWHM by track (X/Y labels may swap)",
+        )
+        x_series, y_series = x_y_call.kwargs["series"]
+        self.assertEqual(x_series.label, "Track 1 X")
+        self.assertEqual(y_series.label, "Track 1 Y")
+        self.assertEqual(x_series.y_values[0], 8.0)
+        self.assertEqual(y_series.y_values[0], 10.0)
+        self.assertTrue(math.isnan(x_series.y_values[1]))
+        self.assertTrue(math.isnan(y_series.y_values[1]))
 
     def test_export_reports_quality_reasons_per_track(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

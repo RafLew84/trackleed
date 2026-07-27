@@ -95,7 +95,7 @@ def write_fwhm_plots(
         )
     _render_line_plot(
         x_y_path,
-        title="FWHM X and Y by track",
+        title="Raw Gaussian fit-axis FWHM by track (X/Y labels may swap)",
         y_label="FWHM (px)",
         series=x_y_series,
     )
