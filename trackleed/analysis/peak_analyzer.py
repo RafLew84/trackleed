@@ -14,6 +14,7 @@ from scipy.ndimage import center_of_mass, gaussian_filter
 from trackleed.analysis.fwhm_metrics import (
     FWHM_FACTOR,
     calculate_gaussian_width_properties,
+    canonicalize_axial_angle,
 )
 
 
@@ -258,8 +259,8 @@ def fit_spot_to_gaussian(
         lower_center_y = -height
         upper_center_y = 2 * height
 
-    lower_bounds = [0,       lower_center_x, lower_center_y, 0.5,   0.5,   -np.pi, 0]
-    upper_bounds = [np.inf,  upper_center_x, upper_center_y, width, height, np.pi, np.inf]
+    lower_bounds = [0,       lower_center_x, lower_center_y, 0.5,   0.5,   -np.inf, 0]
+    upper_bounds = [np.inf,  upper_center_x, upper_center_y, width, height, np.inf, np.inf]
     bounds = (lower_bounds, upper_bounds)
     
     # Names of the parameters corresponding to the initial_guess list.
@@ -269,6 +270,10 @@ def fit_spot_to_gaussian(
         # Perform the actual curve fitting.
         # `popt` will contain the optimal parameters, `pcov` the covariance matrix.
         popt, pcov = curve_fit(f=gaussian_2d, xdata=(x, y), ydata=roi_data.ravel(), p0=initial_guess, bounds=bounds)
+        # The rotated Gaussian is periodic in theta with period pi. Keep theta
+        # unbounded during optimization so the solver cannot get trapped at an
+        # artificial angular boundary, then store the equivalent canonical angle.
+        popt[5] = canonicalize_axial_angle(popt[5])
         
         # --- Process Results ---
         

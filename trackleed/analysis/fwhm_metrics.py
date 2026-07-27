@@ -10,6 +10,12 @@ import numpy as np
 FWHM_FACTOR = 2.0 * np.sqrt(2.0 * np.log(2.0))
 
 
+def canonicalize_axial_angle(angle: float) -> float:
+    """Return an equivalent pi-periodic angle in [-pi/2, pi/2)."""
+
+    return float((float(angle) + np.pi / 2.0) % np.pi - np.pi / 2.0)
+
+
 def _standard_error_from_variance(variance: object) -> float:
     """Return a standard error without turning invalid covariance into zero."""
     try:
@@ -84,9 +90,7 @@ def calculate_gaussian_width_properties(
     else:
         # gaussian_2d's mixed-term sign makes the sigma_x axis equal to -theta.
         theta_major = -theta if sigma_x > sigma_y else np.pi / 2.0 - theta
-        theta_major = float(
-            (theta_major + np.pi / 2.0) % np.pi - np.pi / 2.0
-        )
+        theta_major = canonicalize_axial_angle(theta_major)
 
     covariance_matrix = np.asarray(
         fit_params.get("covariance_matrix"),

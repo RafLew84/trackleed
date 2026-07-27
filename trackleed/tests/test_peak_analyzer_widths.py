@@ -4,11 +4,36 @@ import numpy as np
 
 from trackleed.analysis.peak_analyzer import (
     calculate_spot_properties,
+    fit_spot_to_gaussian,
     gaussian_2d,
 )
 
 
 class GaussianWidthTests(unittest.TestCase):
+    def _asymmetric_spot_roi(self) -> np.ndarray:
+        y, x = np.mgrid[0:38, 0:38]
+        roi_data = gaussian_2d(
+            (x, y),
+            1.0,
+            18.0,
+            18.0,
+            4.792246244317086,
+            4.423022483822282,
+            1.884678103127568,
+            0.08,
+        ).reshape(x.shape)
+        roi_data += gaussian_2d(
+            (x, y),
+            0.5640144145369694,
+            14.250886166295894,
+            10.335906762771708,
+            2.172092470808118,
+            6.811169545312385,
+            -1.2365114508417054,
+            0.0,
+        ).reshape(x.shape)
+        return roi_data
+
     def _properties(self, *, sigma_x: float, sigma_y: float, theta: float) -> dict:
         y, x = np.mgrid[0:41, 0:41]
         fit_params = {
@@ -221,6 +246,21 @@ class GaussianWidthTests(unittest.TestCase):
         ):
             with self.subTest(field=field):
                 self.assertTrue(np.isnan(properties[field]))
+
+    def test_fit_escapes_periodic_angle_boundary_for_asymmetric_spot(
+        self,
+    ) -> None:
+        result = fit_spot_to_gaussian(self._asymmetric_spot_roi())
+
+        self.assertIsNotNone(result)
+        self.assertGreater(result["r_squared"], 0.94)
+
+    def test_fit_returns_theta_in_canonical_period(self) -> None:
+        result = fit_spot_to_gaussian(self._asymmetric_spot_roi())
+
+        self.assertIsNotNone(result)
+        self.assertGreaterEqual(result["theta"], -np.pi / 2.0)
+        self.assertLess(result["theta"], np.pi / 2.0)
 
 
 if __name__ == "__main__":
