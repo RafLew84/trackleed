@@ -145,6 +145,7 @@ def _render_line_plot(
     y_label: str,
     series: list[PlotSeries],
     reference_y: float | None = None,
+    x_label: str = "Frame ID",
 ) -> None:
     from PIL import Image, ImageDraw, ImageFont
 
@@ -216,9 +217,11 @@ def _render_line_plot(
             previous = current
 
     draw.text((left, 35), title, fill="#111827", font=title_font)
+    x_label_box = draw.textbbox((0, 0), x_label, font=regular_font)
+    x_label_width = x_label_box[2] - x_label_box[0]
     draw.text(
-        ((left + right) / 2 - 50, bottom + 58),
-        "Frame ID",
+        ((left + right - x_label_width) / 2, bottom + 58),
+        x_label,
         fill="#111827",
         font=regular_font,
     )
