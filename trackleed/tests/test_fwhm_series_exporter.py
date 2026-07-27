@@ -176,7 +176,7 @@ class FwhmSeriesExporterTests(unittest.TestCase):
 
             plot_names = (
                 "fwhm_effective_by_track.png",
-                "fwhm_major_minor_by_track.png",
+                "fwhm_x_y_by_track.png",
                 "fwhm_anisotropy_by_track.png",
             )
             for plot_name in plot_names:

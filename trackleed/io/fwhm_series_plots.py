@@ -69,35 +69,35 @@ def write_fwhm_plots(
         ],
     )
 
-    major_minor_path = output_dir / "fwhm_major_minor_by_track.png"
-    major_minor_series = []
+    x_y_path = output_dir / "fwhm_x_y_by_track.png"
+    x_y_series = []
     for index, track_id in enumerate(track_ids):
         track_rows = rows_by_track[track_id]
         frames = _numeric_frames(track_rows)
         color = PALETTE[index % len(PALETTE)]
-        major_minor_series.extend(
+        x_y_series.extend(
             [
                 PlotSeries(
-                    label=f"Track {track_id} major",
+                    label=f"Track {track_id} X",
                     color=color,
                     line_width=4,
                     x_values=frames,
-                    y_values=_valid_values(track_rows, "fwhm_major"),
+                    y_values=_valid_values(track_rows, "fwhm_x"),
                 ),
                 PlotSeries(
-                    label=f"Track {track_id} minor",
+                    label=f"Track {track_id} Y",
                     color=color,
                     line_width=1,
                     x_values=frames,
-                    y_values=_valid_values(track_rows, "fwhm_minor"),
+                    y_values=_valid_values(track_rows, "fwhm_y"),
                 ),
             ]
         )
     _render_line_plot(
-        major_minor_path,
-        title="Major and minor FWHM by track",
+        x_y_path,
+        title="FWHM X and Y by track",
         y_label="FWHM (px)",
-        series=major_minor_series,
+        series=x_y_series,
     )
 
     anisotropy_path = output_dir / "fwhm_anisotropy_by_track.png"
@@ -121,7 +121,7 @@ def write_fwhm_plots(
         ],
     )
 
-    return effective_path, major_minor_path, anisotropy_path
+    return effective_path, x_y_path, anisotropy_path
 
 
 def _numeric_frames(rows: Iterable[dict[str, str]]) -> list[float]:
