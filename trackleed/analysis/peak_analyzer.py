@@ -11,6 +11,12 @@ from skimage.color import rgb2gray
 
 from scipy.ndimage import center_of_mass, gaussian_filter
 
+from trackleed.analysis.fwhm_metrics import (
+    FWHM_FACTOR,
+    calculate_gaussian_width_properties,
+)
+
+
 def gaussian_2d(
     xy_data: Tuple[np.ndarray, np.ndarray],
     amplitude: float,
@@ -84,10 +90,11 @@ def calculate_spot_properties(
 
     # Full Width at Half Maximum (FWHM) for both axes.
     # The conversion factor is 2 * sqrt(2 * ln(2)) ≈ 2.355.
-    fwhm_x = 2 * np.sqrt(2 * np.log(2)) * fit_params['sigma_x']
-    fwhm_y = 2 * np.sqrt(2 * np.log(2)) * fit_params['sigma_y']
+    fwhm_x = FWHM_FACTOR * fit_params['sigma_x']
+    fwhm_y = FWHM_FACTOR * fit_params['sigma_y']
+    gaussian_widths = calculate_gaussian_width_properties(fit_params)
 
-    # Asymmetry: The ratio of the widths, quantifies the peak's ellipticity.
+    # Preserve the historical principal-axis ratio for existing consumers.
     asymmetry = fit_params['sigma_x'] / fit_params['sigma_y'] if fit_params['sigma_y'] != 0 else 0
 
     # --- Goodness-of-Fit Statistics ---
@@ -124,8 +131,8 @@ def calculate_spot_properties(
     }
     
 
-    fwhm_x_error = 2 * np.sqrt(2 * np.log(2)) * param_errors['sigma_x_error']
-    fwhm_y_error = 2 * np.sqrt(2 * np.log(2)) * param_errors['sigma_y_error']
+    fwhm_x_error = FWHM_FACTOR * param_errors['sigma_x_error']
+    fwhm_y_error = FWHM_FACTOR * param_errors['sigma_y_error']
     
     A, sX, sY = fit_params['amplitude'], fit_params['sigma_x'], fit_params['sigma_y']
     err_A, err_sX, err_sY = param_errors.get('amplitude_error', 0), param_errors.get('sigma_x_error', 0), param_errors.get('sigma_y_error', 0)
@@ -139,6 +146,7 @@ def calculate_spot_properties(
         'fwhm_x': fwhm_x, 
         'fwhm_y': fwhm_y, 
         'asymmetry': asymmetry,
+        **gaussian_widths,
         'r_squared': r_squared, 
         'chi_squared_reduced': chi_squared_reduced,
         **param_errors,

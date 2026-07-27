@@ -6,6 +6,9 @@ from typing import List, Dict
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from trackleed.analysis.result_parameters import (
+    GAUSSIAN_DERIVED_EXPORT_FIELDS,
+)
 from trackleed.core.data_models import LeedFile, Track
 from trackleed.io.image_reader import load_tiff
 
@@ -38,8 +41,14 @@ def _save_full_data_csv(tracks: List[Track], all_files_map: Dict[int, LeedFile],
         'radius', 'radius_error',
         'volume', 'volume_error', 
         'amplitude', 'amplitude_error',
+        'sigma_x', 'sigma_x_error',
+        'sigma_y', 'sigma_y_error',
+        'theta', 'theta_error',
+        'offset', 'offset_error',
         'fwhm_x', 'fwhm_x_error', 
-        'fwhm_y', 'fwhm_y_error', 
+        'fwhm_y', 'fwhm_y_error',
+        *GAUSSIAN_DERIVED_EXPORT_FIELDS,
+        'theta_major', 'theta_major_error',
         'asymmetry', 'r_squared'
     ]
     existing_columns = [col for col in preferred_order if col in df.columns]

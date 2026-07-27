@@ -25,6 +25,7 @@ from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.analysis_coordinator import run_full_analysis
 from trackleed.core.data_models import LeedFile
 from trackleed.analysis.peak_analyzer import gaussian_2d
+from trackleed.analysis.result_parameters import ANALYSIS_RESULT_PARAMETERS
 from trackleed.io.image_reader import load_tiff
 
 import matplotlib
@@ -37,6 +38,7 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 
 from PyQt6.QtWidgets import QFileDialog
 from trackleed.io.results_exporter import export_full_results
+
 
 class MplCanvas(FigureCanvas):
     """
@@ -498,7 +500,7 @@ class AnalysisResultsDialog(QDialog):
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(QLabel("Y-Axis:"))
         self.y_axis_combo = QComboBox()
-        self.y_axis_combo.addItems(["Radius", "Global Center X", "Global Center Y", "Volume", "Amplitude", "FWHM X", "FWHM Y", "Asymmetry", "R-Squared"])
+        self.y_axis_combo.addItems(list(ANALYSIS_RESULT_PARAMETERS))
         controls_layout.addWidget(self.y_axis_combo)
         controls_layout.addStretch()
         controls_layout.addWidget(QLabel("X-Axis:"))
@@ -704,7 +706,7 @@ class AnalysisResultsDialog(QDialog):
         axis_layout = QHBoxLayout()
         axis_layout.addWidget(QLabel("Y:"))
         self.compare_y_axis_combo = QComboBox()
-        self.compare_y_axis_combo.addItems(["Radius", "Global Center X", "Global Center Y", "Volume", "Amplitude", "FWHM X", "FWHM Y", "Asymmetry", "R-Squared"])
+        self.compare_y_axis_combo.addItems(list(ANALYSIS_RESULT_PARAMETERS))
         axis_layout.addWidget(self.compare_y_axis_combo)
         axis_layout.addWidget(QLabel("X:"))
         self.compare_x_axis_combo = QComboBox()
@@ -931,19 +933,13 @@ class AnalysisResultsDialog(QDialog):
 
         # --- Updated data mapping tables ---
         param_map = {
-            "Radius": "radius", # <-- DODANE
-            "Global Center X": "global_center_x", "Global Center Y": "global_center_y",
-            "Volume": "volume", "Amplitude": "amplitude", "FWHM X": "fwhm_x",
-            "FWHM Y": "fwhm_y", "Asymmetry": "asymmetry", "R-Squared": "r_squared"
+            label: result_key
+            for label, (result_key, _error_key) in ANALYSIS_RESULT_PARAMETERS.items()
         }
         error_map = {
-            'radius': 'radius_error', # <-- DODANE
-            'global_center_x': 'center_x_error',
-            'global_center_y': 'center_y_error',
-            'volume': 'volume_error',
-            'amplitude': 'amplitude_error',
-            'fwhm_x': 'fwhm_x_error',
-            'fwhm_y': 'fwhm_y_error'
+            result_key: error_key
+            for result_key, error_key in ANALYSIS_RESULT_PARAMETERS.values()
+            if error_key is not None
         }
         
         # --- Populate the table (loop logic unchanged) ---
@@ -1016,10 +1012,8 @@ class AnalysisResultsDialog(QDialog):
         
         # Map user-friendly names to the actual data keys in our results dictionaries.
         y_axis_map = {
-            "Radius": "radius",
-            "Global Center X": "global_center_x", "Global Center Y": "global_center_y",
-            "Volume": "volume", "Amplitude": "amplitude", "FWHM X": "fwhm_x",
-            "FWHM Y": "fwhm_y", "Asymmetry": "asymmetry", "R-Squared": "r_squared"
+            label: result_key
+            for label, (result_key, _error_key) in ANALYSIS_RESULT_PARAMETERS.items()
         }
         x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy", "Coverage": "coverage"}
         y_data_key = y_axis_map.get(y_key)
@@ -1589,10 +1583,8 @@ class AnalysisResultsDialog(QDialog):
     
         # Map user-friendly names from the dropdowns to internal data keys.
         y_axis_map = {
-            "Radius": "radius",
-            "Global Center X": "global_center_x", "Global Center Y": "global_center_y",
-            "Volume": "volume", "Amplitude": "amplitude", "FWHM X": "fwhm_x",
-            "FWHM Y": "fwhm_y", "Asymmetry": "asymmetry", "R-Squared": "r_squared"
+            label: result_key
+            for label, (result_key, _error_key) in ANALYSIS_RESULT_PARAMETERS.items()
         }
         x_axis_map = {"Frame ID": "id", "Temperature": "temperature", "Energy": "energy", "Coverage": "coverage"}
         
@@ -1902,7 +1894,7 @@ class AnalysisResultsDialog(QDialog):
             self.param_grid_layout.itemAt(i).widget().setParent(None)
         self.param_checkboxes.clear()
 
-        params_to_show = ["Radius", "Global Center X", "Global Center Y", "Volume", "Amplitude", "FWHM X", "FWHM Y", "Asymmetry", "R-Squared"]
+        params_to_show = list(ANALYSIS_RESULT_PARAMETERS)
         num_columns = 3
 
         for i, param_name in enumerate(params_to_show):
@@ -1925,14 +1917,6 @@ class AnalysisResultsDialog(QDialog):
         # Clear the lists first to handle cases where analysis is run multiple times.
         self.track_checklist.clear()
         self.compare_track_checklist.clear()
-
-        # self.param_checklist.clear()
-        # params_to_show = ["Global Center X", "Global Center Y", "Volume", "Amplitude", "FWHM X", "FWHM Y", "Asymmetry", "R-Squared"]
-        # for param_name in params_to_show:
-        #     item = QListWidgetItem(param_name)
-        #     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-        #     item.setCheckState(Qt.CheckState.Checked)
-        #     self.param_checklist.addItem(item)
 
         for track in self.tracks:
             # Create an item for the "Position Plot" tab's checklist.

@@ -3,7 +3,6 @@ from __future__ import annotations
 # stal/gui/positions_analysis_dialog.py
 
 import json
-import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import Event
@@ -45,6 +44,10 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian, gaussian_2d
 from trackleed.io.image_reader import load_tiff
+from trackleed.io.positions_results_exporter import (
+    build_positions_fit_export_fields,
+    write_positions_results_csv,
+)
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.positions_analysis_coordinator import (
     DEFAULT_VALIDATION_CONFIG,
@@ -1757,48 +1760,7 @@ class PositionsAnalysisDialog(QDialog):
         suffix = f"_group_{group_id:02d}" if group_id is not None else ""
         output_path = export_dir / f"positions_analysis_results{suffix}.csv"
         rows = self._build_export_point_rows(group_id_filter=group_id)
-        fieldnames = [
-            "frame_id",
-            "group_id",
-            "point_role",
-            "track_id",
-            "distance_from_reference",
-            "x",
-            "y",
-            "position_source",
-            "fit_ok",
-            "quality_status",
-            "quality_flags",
-            "sigma_x",
-            "sigma_y",
-            "fwhm_x",
-            "fwhm_y",
-            "fwhm_x_error",
-            "fwhm_y_error",
-            "theta",
-            "r_squared",
-        ]
-
-        with output_path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in sorted(
-                rows,
-                key=lambda current: (
-                    current.get("frame_id", -1),
-                    current.get("group_id", -1),
-                    str(current.get("point_role", "")),
-                    current.get("track_id", -1),
-                ),
-            ):
-                writer.writerow(
-                    {
-                        fieldname: self._csv_safe_value(row.get(fieldname))
-                        for fieldname in fieldnames
-                    }
-                )
-
-        return output_path
+        return write_positions_results_csv(output_path, rows)
 
     def _export_positions_overlay_images(self, export_dir: Path, *, group_id: int | None = None) -> Path:
         images_dir = export_dir / "positions_overlay_images"
@@ -3419,9 +3381,16 @@ class PositionsAnalysisDialog(QDialog):
                                 "distance_from_reference": 0.0,
                                 "x": float(reference_point["x"]),
                                 "y": float(reference_point["y"]),
-                                **self._build_fit_export_fields(
+                                **build_positions_fit_export_fields(
                                     fit_payload,
                                     from_fit=bool(reference_point.get("from_fit")),
+                                    raw_fit_is_current=(
+                                        (
+                                            frame_id,
+                                            int(reference_track_id),
+                                        )
+                                        not in self.pending_manual_recompute
+                                    ),
                                 ),
                             }
                         )
@@ -3460,42 +3429,18 @@ class PositionsAnalysisDialog(QDialog):
                             "distance_from_reference": distance,
                             "x": float(satellite_point["x"]),
                             "y": float(satellite_point["y"]),
-                            **self._build_fit_export_fields(
+                            **build_positions_fit_export_fields(
                                 fit_payload,
                                 from_fit=bool(satellite_point.get("from_fit")),
+                                raw_fit_is_current=(
+                                    (frame_id, int(track_id))
+                                    not in self.pending_manual_recompute
+                                ),
                             ),
                         }
                     )
 
         return export_rows
-
-    @classmethod
-    def _build_fit_export_fields(cls, fit_payload: dict | None, *, from_fit: bool) -> dict:
-        if not isinstance(fit_payload, dict):
-            fit_payload = {}
-
-        fit_ok = bool(fit_payload.get("fit_ok", False)) and from_fit
-        raw_fit_results = fit_payload.get("fit_results")
-        fit_results = raw_fit_results if isinstance(raw_fit_results, dict) else {}
-        export_fit_results = fit_results if fit_ok else {}
-        r_squared = cls._safe_float(
-            fit_payload.get("r_squared", fit_results.get("r_squared"))
-        )
-
-        return {
-            "position_source": "gaussian_fit" if from_fit else "tracked_center",
-            "fit_ok": fit_ok,
-            "quality_status": fit_payload.get("quality_status", "failed"),
-            "quality_flags": fit_payload.get("quality_flags") or [],
-            "sigma_x": export_fit_results.get("sigma_x"),
-            "sigma_y": export_fit_results.get("sigma_y"),
-            "fwhm_x": export_fit_results.get("fwhm_x"),
-            "fwhm_y": export_fit_results.get("fwhm_y"),
-            "fwhm_x_error": export_fit_results.get("fwhm_x_error"),
-            "fwhm_y_error": export_fit_results.get("fwhm_y_error"),
-            "theta": export_fit_results.get("theta"),
-            "r_squared": r_squared,
-        }
 
     def _draw_export_roi(self, draw: ImageDraw.ImageDraw, payload: dict, font):
         rect = payload.get("rect")
@@ -3730,19 +3675,6 @@ class PositionsAnalysisDialog(QDialog):
         if not isinstance(color, QColor):
             color = QColor(0, 170, 255)
         return (int(color.red()), int(color.green()), int(color.blue()))
-
-    @staticmethod
-    def _csv_safe_value(value):
-        if isinstance(value, (list, tuple)):
-            return "; ".join(str(item) for item in value)
-        if isinstance(value, (np.integer,)):
-            return int(value)
-        if isinstance(value, (np.bool_,)):
-            return bool(value)
-        if isinstance(value, (np.floating, float)):
-            numeric = float(value)
-            return numeric
-        return value
 
     @staticmethod
     def _combine_quality_statuses(reference_status: str | None, satellite_status: str | None) -> str:

@@ -184,7 +184,24 @@ class PositionsAnalysisExportTests(PositionsAnalysisDialogImportMixin, unittest.
                 "fwhm_y": 20.694953472623695,
                 "fwhm_x_error": 0.7090809330934775,
                 "fwhm_y_error": 0.7548464654868482,
+                "fwhm_profile_x": 18.9,
+                "fwhm_profile_x_error": 0.71,
+                "fwhm_profile_y": 20.45,
+                "fwhm_profile_y_error": 0.75,
+                "fwhm_minor": 18.633149104398942,
+                "fwhm_minor_error": 0.7090809330934775,
+                "fwhm_major": 20.694953472623695,
+                "fwhm_major_error": 0.7548464654868482,
+                "fwhm_effective": 19.636,
+                "fwhm_effective_error": 0.52,
+                "fwhm_anisotropy": 1.1107,
+                "fwhm_anisotropy_error": 0.031,
                 "theta": 2.771682403608941,
+                "theta_error": 0.02,
+                "theta_major": 1.2008860768140445,
+                "theta_major_error": 0.04,
+                "major_axis_angle_deg": 68.805,
+                "major_axis_angle_deg_error": 2.2918,
                 "r_squared": 0.9143446543807014,
             },
         }
@@ -261,10 +278,21 @@ class PositionsAnalysisExportTests(PositionsAnalysisDialogImportMixin, unittest.
         self.assertEqual(row["sigma_y"], "8.788337570122774")
         self.assertEqual(row["fwhm_x_error"], "0.7090809330934775")
         self.assertEqual(row["fwhm_y_error"], "0.7548464654868482")
+        self.assertEqual(row["fwhm_profile_x"], "18.9")
+        self.assertEqual(row["fwhm_profile_y"], "20.45")
+        self.assertEqual(row["fwhm_minor"], "18.633149104398942")
+        self.assertEqual(row["fwhm_major"], "20.694953472623695")
+        self.assertEqual(row["fwhm_effective"], "19.636")
+        self.assertEqual(row["fwhm_anisotropy"], "1.1107")
+        self.assertEqual(row["fwhm_anisotropy_error"], "0.031")
         self.assertEqual(row["theta"], "2.771682403608941")
+        self.assertEqual(row["theta_error"], "0.02")
+        self.assertAlmostEqual(float(row["theta_major"]), 1.2008860768140445)
+        self.assertEqual(row["major_axis_angle_deg"], "68.805")
+        self.assertEqual(row["major_axis_angle_deg_error"], "2.2918")
         self.assertEqual(row["r_squared"], "0.9143446543807014")
 
-    def test_failed_fit_uses_tracked_position_and_leaves_widths_empty(self) -> None:
+    def test_failed_fit_uses_tracked_position_and_preserves_raw_fit(self) -> None:
         module = self.import_positions_analysis_dialog()
         fit_payload = self._fit_payload(
             quality_status="failed",
@@ -289,16 +317,13 @@ class PositionsAnalysisExportTests(PositionsAnalysisDialogImportMixin, unittest.
         self.assertEqual(row["quality_flags"], "low_r_squared")
         self.assertEqual(row["x"], "375.0")
         self.assertEqual(row["y"], "399.0")
-        for fieldname in (
-            "sigma_x",
-            "sigma_y",
-            "fwhm_x",
-            "fwhm_y",
-            "fwhm_x_error",
-            "fwhm_y_error",
-            "theta",
-        ):
-            self.assertEqual(row[fieldname], "")
+        self.assertEqual(row["sigma_x"], "7.9127698711916")
+        self.assertEqual(row["sigma_y"], "8.788337570122774")
+        self.assertEqual(row["fwhm_x"], "18.633149104398942")
+        self.assertEqual(row["fwhm_y"], "20.694953472623695")
+        self.assertEqual(row["fwhm_profile_x"], "18.9")
+        self.assertEqual(row["fwhm_profile_y"], "20.45")
+        self.assertEqual(row["fwhm_effective"], "19.636")
         self.assertEqual(row["r_squared"], "0.41")
 
     def test_missing_spot_is_omitted_from_export(self) -> None:
@@ -418,7 +443,24 @@ class PositionsAnalysisExportTests(PositionsAnalysisDialogImportMixin, unittest.
             "fwhm_y",
             "fwhm_x_error",
             "fwhm_y_error",
+            "fwhm_profile_x",
+            "fwhm_profile_y",
+            "fwhm_profile_x_error",
+            "fwhm_profile_y_error",
+            "fwhm_minor",
+            "fwhm_minor_error",
+            "fwhm_major",
+            "fwhm_major_error",
+            "fwhm_effective",
+            "fwhm_effective_error",
+            "fwhm_anisotropy",
+            "fwhm_anisotropy_error",
             "theta",
+            "theta_error",
+            "theta_major",
+            "theta_major_error",
+            "major_axis_angle_deg",
+            "major_axis_angle_deg_error",
             "r_squared",
         ):
             self.assertEqual(row[fieldname], "")
