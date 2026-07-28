@@ -26,28 +26,28 @@
 
 ## Methods completeness
 
-- [ ] Describe all frozen datasets, frame counts, energies, temperatures, and pair
+- [x] Describe all frozen datasets, frame counts, energies, temperatures, and pair
       selections.
-- [ ] State that seeds are inputs and are not ground truth.
-- [ ] Define proposal representations and the `48 x 48` common measurement ROI.
-- [ ] Define the Gaussian model, acceptance gates, and missing-value policy.
-- [ ] Define `D`, `Delta D/D`, ScanE midpoint drift, visibility regimes, and
+- [x] State that seeds are inputs and are not ground truth.
+- [x] Define proposal representations and the `48 x 48` common measurement ROI.
+- [x] Define the Gaussian model, acceptance gates, and missing-value policy.
+- [x] Define `D`, `Delta D/D`, ScanE midpoint drift, visibility regimes, and
       post-gap recovery.
-- [ ] State propagation direction, initialization count, and zero-reset policy for
+- [x] State propagation direction, initialization count, and zero-reset policy for
       every experiment.
-- [ ] State all common denominators before reporting conditional metrics.
+- [x] State all common denominators before reporting conditional metrics.
 - [ ] Record software versions, hashes, checkpoints, and execution environments.
 
 ## Statistical and presentation decisions
 
 - [ ] Decide on clustered uncertainty intervals using series/pair/trial as the
       replication level.
-- [ ] Do not treat successive frames as independent replicates.
+- [x] Do not treat successive frames as independent replicates.
 - [ ] Decide which exact values stay in the main text and which move to tables or
       supplementary material.
-- [ ] Keep coverage, recovery, geometry inconsistency, and conditional residual
+- [x] Keep coverage, recovery, geometry inconsistency, and conditional residual
       separate.
-- [ ] Do not create a composite score or absolute-accuracy ranking.
+- [x] Do not create a composite score or absolute-accuracy ranking.
 - [ ] Use one method color palette across every figure.
 - [ ] Mark rejected fits and visibility gaps explicitly.
 

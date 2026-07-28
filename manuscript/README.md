@@ -1,6 +1,8 @@
 # Manuscript workspace
 
-Status: outline.
+Status: partial draft. Sections 2 (data and measurement model) and 4
+(validation protocol) are written as manuscript prose; the remaining sections
+are still a structured outline.
 
 Working title:
 
@@ -23,7 +25,8 @@ is part of the validation protocol rather than the central scientific claim.
 
 ## Files
 
-- [`manuscript.md`](manuscript.md) - section-by-section paper outline.
+- [`manuscript.md`](manuscript.md) - working manuscript with drafted Methods
+  sections and section-by-section placeholders for the remaining text.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
   anchors, evidence sources, and limitations.
 - [`figures-and-tables.md`](figures-and-tables.md) - planned main and supplementary
