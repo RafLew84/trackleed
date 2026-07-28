@@ -144,6 +144,8 @@ Columns:
 
 ### Table 2 - Tracking methods and common output contract
 
+Drafted in Section 3 of
+[the working manuscript](manuscript.md#33-domain-specific-references).
 Columns:
 
 - method;

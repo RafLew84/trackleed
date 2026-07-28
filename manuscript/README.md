@@ -1,8 +1,8 @@
 # Manuscript workspace
 
-Status: partial draft. Sections 2 (data and measurement model) and 4
-(validation protocol) are written as manuscript prose; the remaining sections
-are still a structured outline.
+Status: partial draft. Sections 2 (data and measurement model), 3 (tracking
+strategies and comparison contract), and 4 (validation protocol) are written
+as manuscript prose; the remaining sections are still a structured outline.
 
 Working title:
 
@@ -39,6 +39,8 @@ describes the corresponding physical state or experimental role.
 
 - [`manuscript.md`](manuscript.md) - working manuscript with drafted Methods
   sections and section-by-section placeholders for the remaining text.
+- [`references.bib`](references.bib) - primary-source bibliography used by the
+  manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
   anchors, evidence sources, and limitations.
 - [`figures-and-tables.md`](figures-and-tables.md) - planned main and supplementary

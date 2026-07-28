@@ -1,6 +1,6 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 2 and 4 are drafted, while the
+Draft status: working manuscript; Sections 2–4 are drafted, while the
 remaining sections retain structured-outline placeholders.
 
 ## Authors
@@ -270,39 +270,201 @@ pair distance and was not used to recenter the primary endpoint.
 
 ## 3. Tracking strategies and comparison contract
 
+The comparison was organized by the representation propagated by each method
+rather than by treating all native coordinates as equivalent position
+measurements. The main panel comprised a point tracker, a bounding-box tracker,
+a mask tracker, optical flow, and a LEED-specific Kalman tracker. Each method
+received the prompt native to its family, derived from the same
+Gaussian-refined seed center: point methods received the center coordinate,
+whereas box- and mask-based methods received a 48 × 48 pixel box centered on
+that coordinate. The native output was reduced to one proposal coordinate and
+then passed to the common measurement chain defined in Section 2. Tracker
+scores and internal fit diagnostics could determine whether a native proposal
+was available according to the frozen method contract, but they never replaced
+the common Gaussian-refined position or served as a physical intensity.
+
+Run-specific statements in this section were transcribed from the frozen
+[five-method Cu(111) run
+manifest](../.scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/run_manifest.json),
+[controlled-translation
+contract](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/contract.json),
+[independent Ag(111) energy-scan
+artifact](../.scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/README.md),
+[SAM2-family
+artifact](../.scratch/trackleed-physics-method-paper/prototypes/scane_tracer/README.md),
+and [domain-baseline execution
+record](../.scratch/trackleed-physics-method-paper/artifacts/domain-baselines-installation.md).
+These records establish the executed revisions, checkpoints and hashes, input
+conversion, prompt convention, thresholds, failure policy, propagation
+direction, and proposal-to-ROI adapters; the upstream citations below establish
+the published method designs. The local links are working-draft provenance and
+will be replaced by the archived dataset DOI and Table S1 in the submitted
+manuscript.
+
 ### 3.1 Main five-strategy panel
 
-Summarize LocoTrack, OSTrack, DAM4SAM, Lucas-Kanade, and EasyLEED. For each method
-report:
+**LocoTrack.** LocoTrack is a tracking-any-point model that combines local
+all-pair correspondence with temporal modeling to propagate queried points
+through a video [@cho2024locotrack]. We used the Base model in offline mode
+from upstream revision `3385a23`, with the published `locotrack_base.ckpt`
+checkpoint [@locotrackSoftware]. A query consisted of the image index and the
+common seed point.
+The finite predicted point was the proposal coordinate. The model also returned
+occlusion and expected-distance logits. In the energy scans, the frozen
+adapter combined these outputs as
 
-- upstream source and version/revision;
-- checkpoint and configuration hash where applicable;
-- initialization representation;
-- native output reduced to the common proposal coordinate;
-- direction of propagation and reset policy;
-- native diagnostic signal retained but excluded from the physical observable.
+$$
+P_{\mathrm{vis}} =
+\left[1-\operatorname{sigmoid}(o)\right]
+\left[1-\operatorname{sigmoid}(d)\right],
+$$
+
+where \(o\) and \(d\) are the occlusion and expected-distance logits,
+respectively. A threshold of 0.5 defined native proposal availability. In the
+Cu(111) positive control and controlled translations, every finite point was
+passed to the common measurement and the same probability was retained only
+as a diagnostic. No visibility or uncertainty correction was applied to the
+point coordinate.
+
+**OSTrack.** OSTrack is a single-object bounding-box tracker that unifies
+template and search-region feature extraction and their relation modeling in
+one transformer stream [@ye2022ostrack]. We used upstream revision `33b5e12`
+and the ViT-B/256 MAE-CE configuration
+`vitb_256_mae_ce_32x4_ep300` with its epoch-300 checkpoint
+[@ostrackSoftware]. The initial 48 × 48 box was treated as the object
+template. A finite predicted box with positive width and height defined an
+available proposal; its arithmetic center, \((x+w/2,y+h/2)\), was passed to
+the common ROI. The native box score was retained as a diagnostic and did not
+gate or weight the Gaussian fit.
+
+**DAM4SAM.** DAM4SAM adapts the SAM2.1 video-segmentation architecture to
+visual object tracking by adding distractor-aware memory and an
+introspection-based memory-update strategy [@videnovic2025dam4sam]. We used
+upstream revision `9c95450` [@dam4samSoftware]. The Cu(111) and
+controlled-translation experiments used `sam21pp-L` with the SAM2.1 Hiera
+Large checkpoint. The independent energy scans used `sam21pp-B` with the
+Hiera Base+ checkpoint so that the mask representative was also one member of
+the matched SAM2-family experiment described in Section 3.2. DAM4SAM received
+only the common initial box. An available proposal required a finite, nonempty
+binary mask, and the arithmetic centroid of its true pixels was used as the
+proposal coordinate. Native mask scores, areas, bounding boxes, and
+connected-component counts were retained as diagnostics.
+
+**Lucas--Kanade optical flow.** The classical Lucas--Kanade method estimates a
+local image displacement from spatial intensity gradients
+[@lucas1981iterative]. We used the TrackLEED pyramidal *skip-anchor*
+implementation rather than a learned tracker. Its frozen settings were a
+41 × 41 window, a maximum pyramid level of 4 (five levels including the base
+image), at most 50 iterations with a convergence tolerance of 0.01, and a
+minimum eigenvalue threshold of \(10^{-5}\). A match was accepted only if the
+native residual did not exceed 30 and the forward--backward closure error did
+not exceed 8 pixels. Normalized cross-correlation and centroid recentering
+were disabled. On a rejected image, the result was recorded as missing and the
+last successful image and position remained the anchor for a later attempt; no
+coordinate was interpolated. The Cu(111) and translation experiments used the
+common 256 × 256 grayscale cache.
+For the energy scans, the frozen TrackLEED implementation operated on the
+original image grid after its standard grayscale, high-pass, and white-top-hat
+preprocessing. The accepted optical-flow point was the proposal coordinate.
+
+**EasyLEED.** EasyLEED is a LEED-specific tracker designed for automatic
+extraction of intensity--energy spectra [@mayer2012easyleed]. Its tracker
+combines an energy-dependent radial motion model, a Kalman state containing
+position and velocity, and an internal elliptical-Gaussian image observation.
+If the internal observation is rejected, the Kalman prediction can remain
+available for a later update. We used EasyLEED 2.5.2 at upstream revision
+`bbe4acd` with one tracker per spot, a 12-pixel tracking radius in the method's
+input grid, Gaussian initialization, window scaling enabled, and no manual
+correction [@easyleedSoftware]. The exported Kalman \(x,y\) coordinate was the
+proposal. The adapter retained the native EasyLEED intensity and tracking
+radius and recorded its internal fit thresholds as diagnostics. In particular,
+the EasyLEED internal Gaussian observation was not substituted for the common
+TrackLEED Gaussian fit. The Cu(111) and translation runs used the common
+256 × 256 cache, whereas the energy-scan adapter preserved every original
+image and its identity using EasyLEED's native image loader.
+
+Input resolution was method- and regime-specific rather than shared across the
+panel. LocoTrack and OSTrack used 256 × 256 input throughout; DAM4SAM,
+Lucas--Kanade, and EasyLEED used the regime-specific inputs stated above. This
+family-native inference was upstream of a common coordinate system: every
+proposal was returned to the original 1000 × 1000 grid before placement of the
+identical raw-image ROI. Thus, the experiment controls the physical measurement
+after proposal generation rather than claiming that the internal image
+representations of heterogeneous trackers are identical.
 
 ### 3.2 Controlled SAM2-family panel
 
-Compare:
+SAM2, SAMURAI, and DAM4SAM form a related family of promptable mask
+propagators. SAM2 provides the reference streaming-memory architecture for
+promptable video segmentation [@ravi2025sam2]. SAMURAI adapts SAM2 to
+zero-shot visual object tracking by adding a Kalman motion model and
+motion-aware mask and memory selection [@yang2024samurai]. DAM4SAM instead
+uses distractor-aware memory and introspection-based updates
+[@videnovic2025dam4sam].
 
-- SAM2: vanilla propagation memory;
-- SAMURAI: motion-aware memory;
-- DAM4SAM: distractor-aware memory.
+The comparison used upstream revisions `2b90b9f` for SAM2, `76ba195` for
+SAMURAI, and `9c95450` for DAM4SAM
+[@sam2Software; @samuraiSoftware; @dam4samSoftware]. All three environments
+loaded byte-identical `sam2.1_hiera_base_plus` weights with SHA-256
+`a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5`.
+For every branch, the three methods received the same single-object
+48 × 48 box at 187.9 eV, the same ordered images in each propagation
+direction, and no subsequent prompt or manual reset. Each nonempty mask was
+reduced to its pixel centroid and passed to the same 48 × 48 raw-image ROI,
+Gaussian estimator, and physical-consistency gates.
 
-Freeze byte-identical SAM2.1 base-plus weights, the same `48 x 48` bounding-box
-prompt, initialization, image sequence, and downstream Gaussian measurement.
-Interpret this panel as a memory-mechanism experiment, not a general ranking of
-backbone quality.
+This matched design controls the backbone weights, prompt information, input
+sequence, proposal reduction, and downstream position measurement. It does
+not reduce the three trackers to a one-line ablation: their motion prediction,
+mask selection, visibility logic, and memory-update implementations are part
+of the strategies being compared. The panel is therefore interpreted as a
+mechanistic comparison of vanilla, motion-aware, and distractor-aware memory
+strategies under a matched measurement contract, not as proof that one
+isolated memory component caused every observed difference and not as a
+general ranking of SAM2-derived trackers.
 
 ### 3.3 Domain-specific references
 
-- EasyLEED participates in the main comparison as the LEED-domain tracking
-  baseline.
-- ViPErLEED is evaluated on the frozen high-energy subset of the memory-analysis
-  scan as an external whole-pattern reference.
-- Explain the different initialization and output contracts before comparing
-  their downstream Gaussian centers.
+EasyLEED participated in the common five-strategy panel because one
+independently initialized Kalman tracker yields one spot proposal and can
+therefore enter the same single-spot contract as the four general computer
+vision strategies. Its LEED-specific radial motion model makes it a
+physics-informed domain baseline rather than another generic point tracker.
+
+ViPErLEED has a different purpose and input contract. It identifies and tracks
+a LEED pattern using reciprocal-lattice geometry, the expected
+\(1/\sqrt{E}\) scaling, a global screen mapping, and local information from
+neighboring spots, and is designed primarily for extraction and processing of
+LEED \(I(V)\) curves [@schmid2025viperleed]. We used ViPErLEED ImageJ plugin
+1.03 from revision `2ed1044` with the frozen 18-beam Ag(111) pattern and a
+reciprocal-space-to-screen registration at 187.9 eV [@viperleedSoftware]. Its
+whole-pattern output was reduced to the four coordinates corresponding to the
+two frozen pairs and then passed to the same Gaussian measurement as the
+EasyLEED coordinates.
+
+Because ViPErLEED received global pattern information rather than one seed per
+tracked spot, it was not inserted as a sixth row in the common strategy
+matrix. The restricted high-energy comparison instead asks whether the
+single-spot EasyLEED and whole-pattern ViPErLEED outputs place the intended
+spots within the capture region of the same downstream estimator. It does not
+use either output as external position ground truth.
+
+**Table 2. Tracking methods and their reduction to the common measurement
+contract.** Full source revisions, configuration hashes, checkpoint hashes,
+and execution environments are retained in the frozen records linked at the
+start of this section and will be reported in Table S1.
+
+| Panel | Method | Propagated representation and frozen configuration | Initialization | Native availability/output | Proposal coordinate | Manual reset/correction | Study role |
+|---|---|---|---|---|---|---|---|
+| Main | LocoTrack | Point; Base offline | Common seed point | Point plus occlusion and expected-distance logits | Native point | Prohibited | General point tracker |
+| Main | OSTrack | Box; ViT-B/256 MAE-CE, epoch 300 | Common 48 × 48 box | Finite positive-area box plus score | Box center | Prohibited | General bounding-box tracker |
+| Main | DAM4SAM | Mask; `sam21pp-L` on Cu(111), `sam21pp-B` on energy scans | Common 48 × 48 box | Nonempty binary mask plus mask diagnostics | Mask centroid | Prohibited | General mask tracker with distractor-aware memory |
+| Main | Lucas--Kanade | Point; pyramidal skip-anchor with forward--backward gate | Common seed point | Accepted optical-flow match or explicit missing value | Accepted point | Prohibited; last success remains anchor | Classical motion baseline |
+| Main | EasyLEED 2.5.2 | Position; LEED motion model and Kalman filter | Common seed point, tracking radius, and pattern center | Kalman position plus native intensity and radius | Kalman \(x,y\) | Prohibited | LEED-domain single-spot baseline |
+| Controlled family | SAM2.1 | Mask; Hiera Base+ | Common 48 × 48 box | Nonempty mask | Mask centroid | Prohibited | Vanilla streaming-memory control |
+| Controlled family | SAMURAI | Mask; same Hiera Base+ weights | Common 48 × 48 box | Nonempty mask plus motion-aware selection | Mask centroid | Prohibited | Motion-aware memory strategy |
+| Controlled family | DAM4SAM | Mask; `sam21pp-B`, same Hiera Base+ weights | Common 48 × 48 box | Nonempty mask plus distractor-aware diagnostics | Mask centroid | Prohibited | Distractor-aware memory strategy |
+| External reference | ViPErLEED 1.03 | Whole-pattern LEED geometry | Frozen 18-beam pattern and screen registration | Pattern-associated spot coordinates | Coordinate of corresponding beam | Prohibited | Separate whole-pattern reference |
 
 ## 4. Validation protocol
 
@@ -469,9 +631,9 @@ memory-analysis scan. Each branch received the same single 48 × 48 bounding-box
 prompt at 187.9 eV and was propagated toward increasing energy and, in
 reversed image order, toward decreasing energy. The three environments used
 byte-identical SAM2.1 base-plus checkpoint weights. The methods differed in
-their propagation and memory mechanisms, while the prompt, image sequence,
-mask-centroid proposal reduction, Gaussian estimator, acceptance gates, and
-post-processing were fixed.
+their propagation, mask-selection, visibility, and memory mechanisms, while
+the prompt, image sequence, mask-centroid proposal reduction, Gaussian
+estimator, acceptance gates, and physical-consistency evaluation were fixed.
 
 The same coverage, gap-recovery, and geometry-inconsistency definitions used
 for the independent energy-scan comparison were applied. The pooled

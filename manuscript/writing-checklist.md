@@ -14,14 +14,14 @@
 
 - [ ] Cite the physical basis and established practice of quantitative LEED spot
       analysis.
-- [ ] Cite EasyLEED and ViPErLEED without claiming that automated LEED tracking is
+- [x] Cite EasyLEED and ViPErLEED without claiming that automated LEED tracking is
       new.
-- [ ] Cite the original publications and repositories for LocoTrack, OSTrack,
+- [x] Cite the original publications and repositories for LocoTrack, OSTrack,
       SAM2, SAMURAI, and DAM4SAM.
-- [ ] Cite Lucas-Kanade optical flow.
+- [x] Cite Lucas-Kanade optical flow.
 - [ ] Check the current author instructions for the selected journal immediately
       before formatting the submission.
-- [ ] Record every citation in one reference database; do not leave method URLs as
+- [x] Record every citation in one reference database; do not leave method URLs as
       substitutes for scholarly citations where a paper exists.
 
 ## Methods completeness
