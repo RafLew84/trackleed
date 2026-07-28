@@ -17,25 +17,25 @@ Proposed panels:
 - **b.** Common conversion: tracking proposal -> `48 x 48` ROI -> elliptical
   Gaussian-refined center.
 - **c.** Pairwise endpoint: two refined centers -> `D` -> `Delta D/D`.
-- **d.** Four evidence roles: Cu positive control, known translations, ScanE
-  stress test, and SAM2-family memory analysis.
+- **d.** Four evidence roles: Cu positive control, known translations, Ag(111)
+  energy-scan stress test, and SAM2-family memory analysis.
 
 Source: schematic assembled from frozen contract definitions.  
 Primary claim: the tracker proposes where to measure; it does not directly define
 the final quantitative position.
 
-### Figure 2 - Controlled equivariance and ScanE geometry
+### Figure 2 - Controlled equivariance and energy-scan geometry
 
 **Question:** Does the complete measurement chain recover a known displacement,
-and why is pair distance used for ScanE?
+and why is pair distance used for the energy scans?
 
 Proposed panels:
 
-- **a.** Closed six-step translation path over one representative Cu frame.
+- **a.** Closed six-step translation path over one representative Cu image.
 - **b.** Native-proposal versus Gaussian-refined displacement error.
 - **c.** Gaussian measurement coverage for the five trackers.
 - **d.** Maximum absolute pairwise `Delta D/D` under common translation.
-- **e.** ScanE pair geometry showing `D(E)` and midpoint drift as separate
+- **e.** Energy-scan pair geometry showing `D(E)` and midpoint drift as separate
   quantities.
 
 Primary sources:
@@ -51,7 +51,7 @@ Existing draft asset:
 Required caption limitation: known translations test equivariance, not
 experimental dynamics or absolute spot identity.
 
-### Figure 3 - Five-strategy ScanE stress test
+### Figure 3 - Five-strategy Ag(111) energy-scan stress test
 
 **Question:** How do strategies differ under radial motion and true I(V)
 visibility gaps?
@@ -73,7 +73,7 @@ Proposed panels:
 
 Primary source:
 
-- [independent ScanE aggregate results](../.scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv)
+- [independent energy-scan aggregate results](../.scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv)
 - [EasyLEED/ViPErLEED external reference](../.scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/README.md)
 
 Caption requirement: coverage and recovery must appear before the conditional
@@ -108,10 +108,12 @@ ranking.
 
 Proposed panels:
 
-- **a.** Temperature profile and frozen reference/plateau/minimum/final windows.
+- **a.** Temperature profile and frozen reference/plateau/post-plateau
+  `Delta R/R` minimum/final windows.
 - **b.** `Delta R/R` for pair `1-6`, five methods.
 - **c.** `Delta R/R` for pair `3-5`, five methods.
-- **d.** Between-method spread at plateau, minimum, and final frame.
+- **d.** Between-method spread at the plateau, post-plateau `Delta R/R`
+  minimum, and final image.
 - **e.** Separate saved-YOLO-trajectory diagnostic for pair `2-4`: 24
   amplitude-gate rejections despite available YOLO proposals. Mark this panel as
   outside the five-method run.
@@ -132,9 +134,9 @@ strategies were run on spots 2 and 4.
 
 Columns:
 
-- dataset/series;
+- scientific series label;
 - control variable and range;
-- frame count;
+- image count;
 - frozen spots/pairs;
 - evidence role;
 - primary endpoint;
@@ -165,22 +167,25 @@ Group headers:
 
 - controlled translation;
 - Cu(111) positive control;
-- independent ScanE stress test.
+- independent Ag(111) energy-scan stress test.
 
 Do not add an overall score, rank column, or color scale suggesting one.
 
 ## Supplementary display items
 
 - **Figure S1:** all 24 frozen Cu diagnostic overlays.
-- **Figure S2:** per-series and per-pair ScanE trajectories and visibility regimes.
+- **Figure S2:** per-series and per-pair energy-scan trajectories and visibility
+  regimes.
 - **Figure S3:** native proposal error versus Gaussian-refined error for every
   controlled translation.
 - **Figure S4:** EasyLEED/ViPErLEED high-energy external-reference overlays.
 - **Figure S5:** accepted but geometry-inconsistent continuation examples.
 - **Table S1:** full versions, hashes, checkpoints, and environments.
 - **Table S2:** Gaussian fit gates and all validation denominators.
-- **Table S3:** per-pair ScanE coverage, recovery, and conditional residuals.
-- **Table S4:** Cu plateau, minimum, and final endpoint values by method and pair.
+- **Table S3:** per-pair energy-scan coverage, recovery, and conditional
+  residuals.
+- **Table S4:** Cu plateau, post-plateau `Delta R/R` minimum, and final endpoint
+  values by method and pair.
 
 ## Asset policy
 

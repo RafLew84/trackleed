@@ -26,12 +26,12 @@
 
 ## Methods completeness
 
-- [x] Describe all frozen datasets, frame counts, energies, temperatures, and pair
+- [x] Describe all frozen datasets, image counts, energies, temperatures, and pair
       selections.
 - [x] State that seeds are inputs and are not ground truth.
 - [x] Define proposal representations and the `48 x 48` common measurement ROI.
 - [x] Define the Gaussian model, acceptance gates, and missing-value policy.
-- [x] Define `D`, `Delta D/D`, ScanE midpoint drift, visibility regimes, and
+- [x] Define `D`, `Delta D/D`, energy-scan midpoint drift, visibility regimes, and
       post-gap recovery.
 - [x] State propagation direction, initialization count, and zero-reset policy for
       every experiment.
@@ -42,7 +42,7 @@
 
 - [ ] Decide on clustered uncertainty intervals using series/pair/trial as the
       replication level.
-- [x] Do not treat successive frames as independent replicates.
+- [x] Do not treat successive images as independent replicates.
 - [ ] Decide which exact values stay in the main text and which move to tables or
       supplementary material.
 - [x] Keep coverage, recovery, geometry inconsistency, and conditional residual
