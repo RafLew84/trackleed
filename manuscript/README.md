@@ -46,6 +46,8 @@ describes the corresponding physical state or experimental role.
   anchors, evidence sources, and limitations.
 - [`figures-and-tables.md`](figures-and-tables.md) - planned main and supplementary
   display items.
+- [`figures/`](figures/) - deterministic builders, source-data tables, manifests,
+  and final publication assets.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
 

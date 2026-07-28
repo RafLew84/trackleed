@@ -1,0 +1,18 @@
+{
+  "crop_height_px": 128,
+  "crop_width_px": 128,
+  "crop_x0_original_px": 77,
+  "crop_y0_original_px": 649,
+  "display_intensity_high": 125.23400000000038,
+  "display_intensity_low": 0.0,
+  "display_percentile_high": 99.8,
+  "display_percentile_low": 1.0,
+  "energy_ev": 56.0,
+  "raw_relative_path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0000_T0010_E0560_C0000.tiff",
+  "raw_sha256": "fcff874ed7c3cb97fd3952d52618e5f8943dfbc79e064bc78f57ecac94336283",
+  "roi_size_original_px": 48,
+  "seed_x_crop_px": 63.79239482543693,
+  "seed_y_crop_px": 63.60654284717339,
+  "spot_id": 1,
+  "temperature_c": 10.0
+}

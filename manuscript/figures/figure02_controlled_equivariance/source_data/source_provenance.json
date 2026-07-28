@@ -1,0 +1,26 @@
+{
+  "figure": "Figure 2",
+  "schema_version": "1.0",
+  "sources": {
+    "controlled_translation_contract": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/contract.json",
+      "sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f"
+    },
+    "controlled_translation_method_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv",
+      "sha256": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01"
+    },
+    "energy_scan_branch_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/scan_measurements.csv",
+      "sha256": "2fb9b8ace5d50fe25f0411b488ea26f8998359f81034f83540d61c7497a7970d"
+    },
+    "energy_scan_pair_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair_measurements.csv",
+      "sha256": "da43c8b0a715340001b733fb83f5e518f9c2b825434aa6f61142d59f6582fe70"
+    },
+    "representative_cu_raw_image": {
+      "path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0000_T0010_E0560_C0000.tiff",
+      "sha256": "fcff874ed7c3cb97fd3952d52618e5f8943dfbc79e064bc78f57ecac94336283"
+    }
+  }
+}

@@ -29,6 +29,8 @@ the final quantitative position.
 **Question:** Does the complete measurement chain recover a known displacement,
 and why is pair distance used for the energy scans?
 
+**Status:** generated and validated.
+
 Proposed panels:
 
 - **a.** Closed six-step translation path over one representative Cu image.
@@ -43,10 +45,14 @@ Primary sources:
 - [equivariance results](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/equivariance_results.csv)
 - [pair invariance](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/pair_invariance.csv)
 - [controlled-translation method summary](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv)
+- [energy-scan pair geometry](../.scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair_measurements.csv)
 
-Existing draft asset:
+Final artifact:
 
-- [controlled-translation summary figure](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/controlled_translation_summary.png)
+- [artifact README](figures/figure02_controlled_equivariance/README.md)
+- [PNG](figures/figure02_controlled_equivariance/output/figure02_controlled_equivariance.png)
+- [PDF](figures/figure02_controlled_equivariance/output/pdf/figure02_controlled_equivariance.pdf)
+- [manifest](figures/figure02_controlled_equivariance/manifest.json)
 
 Required caption limitation: known translations test equivariance, not
 experimental dynamics or absolute spot identity.
