@@ -1,6 +1,6 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 2–4 are drafted, while the
+Draft status: working manuscript; Sections 2–5 are drafted, while the
 remaining sections retain structured-outline placeholders.
 
 ## Authors
@@ -693,82 +693,156 @@ identity-ground-truth proof of a specific misassociation.
 
 ### 5.1 Known translations isolate the measurement-chain behavior
 
-Evidence anchors:
+LocoTrack, OSTrack, and DAM4SAM each returned a proposal and a valid common
+Gaussian measurement for all 80 evaluated spot opportunities (Figure 2;
+Table 3). Lucas--Kanade returned 76/80 proposals, all of which produced valid
+Gaussian measurements. EasyLEED returned 80/80 Kalman proposals, but six did
+not yield an accepted common fit, giving 74/80 measurement coverage. The
+corresponding pairwise endpoint coverage was 40/40 for LocoTrack, OSTrack, and
+DAM4SAM, 36/40 for Lucas--Kanade, and 34/40 for EasyLEED. Missingness
+therefore arose at different stages of the measurement chain and was not
+absorbed into the displacement-error statistic.
 
-- LocoTrack, OSTrack, and DAM4SAM: `80/80` Gaussian measurements.
-- Lucas-Kanade: `76/80`.
-- EasyLEED: `74/80`.
-- Median full-chain displacement error: `0.0043-0.0265 px`.
-- Oracle ROI median: `0.0053 px`.
-- Maximum absolute `Delta D/D` below `0.002` percentage points for LocoTrack,
-  OSTrack, DAM4SAM, and Lucas-Kanade; `0.062943` percentage points for EasyLEED.
+Before Gaussian refinement, the median displacement-equivariance error was
+0.433 px for LocoTrack, 2.183 px for OSTrack, 1.493 px for DAM4SAM, and
+0.087 px for Lucas--Kanade. After refinement, the corresponding medians were
+0.0043, 0.0048, 0.0060, and 0.0050 px. These values were of the same order as
+the 0.0053 px median of the oracle-ROI control, which includes interpolation
+and estimator error but no tracker. EasyLEED showed the same suppression at a
+larger scale: its median native error of 14.758 px was reduced to 0.0265 px
+after the common fit. Its 95th-percentile refined error nevertheless remained
+0.382 px, compared with 0.0127--0.0168 px for the other four methods.
 
-Interpretation: conditional error can approach the estimator floor after a valid
-proposal, but coverage remains an independent outcome.
-
-TODO[FIGURE]: Figure 2.
+The pair-distance endpoint was also insensitive to a common translation when
+both spots remained measurable. The maximum absolute change in
+\(\Delta D/D\) was 0.001229 percentage points for LocoTrack, 0.001952 for
+OSTrack, 0.001869 for DAM4SAM, and 0.001042 for Lucas--Kanade, compared with
+0.001147 for the oracle control. EasyLEED reached 0.062943 percentage points
+and had the lowest pair coverage. Thus, a successfully captured spot could be
+localized near the estimator floor even when the native proposal was much less
+accurate, but this conditional result did not eliminate differences in
+measurement availability. The experiment establishes equivariance of the
+complete measurement chain under a known image transform, not absolute
+spot-identity accuracy.
 
 ### 5.2 Cu(111) is a positive control, not a tracker ranking
 
-Evidence anchors:
+All five strategies completed the Cu(111) positive control without a missing
+proposal or rejected common fit: each method produced 2,804/2,804 Gaussian
+measurements, and each primary pair produced 701/701 valid \(\Delta R/R\)
+endpoints (Figure 5; Table 3). The largest separation between two native
+method proposals was 16.759 px, whereas the largest separation between the
+corresponding Gaussian-refined centers was 0.0502 px. At the endpoint level,
+the maximum between-method difference over the entire sequence was only
+0.001710 percentage points for pair 1--6 and 0.002237 percentage points for
+pair 3--5.
 
-- `2804/2804` valid Gaussian measurements per method.
-- `701/701` valid endpoints for both primary pairs.
-- Native proposal separation reaches `16.759 px`, whereas the largest separation
-  between Gaussian-refined centers is `0.0502 px`.
-- Maximum between-method difference in `Delta R/R` is `0.001710` percentage
-  points for pair `1-6` and `0.002237` for pair `3-5`.
-- All five methods place the post-plateau \(\Delta R/R\) minimum (maximum
-  contraction) of both pairs in the same image acquired at 797 °C.
+The five methods also reproduced the same thermal-cycle features. Over the
+predefined five-image 800 °C plateau, their median \(\Delta R/R\) estimates
+ranged from \(-0.686676\%\) to \(-0.686244\%\) for pair 1--6 and from
+\(-1.570833\%\) to \(-1.570300\%\) for pair 3--5. All methods placed the
+post-plateau minimum of both pairs in the same image acquired at 797 °C. The
+minimum values ranged from \(-0.726482\%\) to \(-0.726195\%\) for pair 1--6
+and from \(-1.580123\%\) to \(-1.579795\%\) for pair 3--5. In the final
+cooled image at 92 °C, pair 1--6 reached \(+0.121606\%\) to \(+0.121691\%\),
+whereas pair 3--5 reached \(-0.152478\%\) to \(-0.152338\%\). The contraction
+therefore largely reversed on cooling, but the two sectors retained different
+endpoint values. With only two primary pairs, this sector difference was not
+interpreted as crystallographic anisotropy or used to infer a thermal-expansion
+coefficient or structural transition.
 
-Report the five-image 800 °C plateau, the post-plateau \(\Delta R/R\)
-minimum, and the final-image return. Preserve the sector-to-sector difference
-without interpreting two pairs as crystallographic anisotropy.
+The separate saved-trajectory diagnostic for pair 2--4 produced 24 consecutive
+missing measurements during the hottest part of the cycle despite a proposal
+being present in every image. Repeating the common Gaussian fit showed that
+all 24 candidates satisfied the \(R^2\), center, and width gates and failed
+only the amplitude threshold. This result demonstrates that a missing
+quantitative endpoint can arise from insufficient spot intensity rather than
+loss of a tracking proposal. Pair 2--4 was not part of the five-method run,
+and the diagnostic was not used to compare the five strategies.
 
-TODO[FIGURE]: Figure 5.
+### 5.3 Energy scans separate coverage, recovery, and geometric consistency
 
-### 5.3 Energy scans reveal coverage, recovery, and false continuity
+The independent Ag(111) energy scans separated the strategies in outcomes that
+were absent from the Cu(111) positive control (Figure 3; Table 3). LocoTrack
+had 217/221 branch-consistent measurements (98.19% coverage), followed by
+OSTrack and DAM4SAM with 216/221 each (97.74%), EasyLEED with 214/221
+(96.83%), and Lucas--Kanade with 188/221 (85.07%). The denominators were
+identical and included every baseline-visible opportunity, so the 33
+Lucas--Kanade measurements missing from the branch-consistent set were not
+discarded before comparison.
 
-| Method | Coverage | Gap recovery | Geometry-inconsistent accepted fits | Conditional median residual |
-|---|---:|---:|---:|---:|
-| LocoTrack | 217/221 | 23/24 | 36/272 | 1.837 px |
-| OSTrack | 216/221 | 21/24 | 34/269 | 1.770 px |
-| DAM4SAM | 216/221 | 23/24 | 36/272 | 1.788 px |
-| Lucas-Kanade | 188/221 | 17/24 | 14/206 | 1.764 px |
-| EasyLEED | 214/221 | 22/24 | 4/222 | 1.737 px |
+Post-gap recovery produced a similar but non-identical ordering. LocoTrack and
+DAM4SAM recovered 23/24 natural I(V) gaps (95.83%), EasyLEED recovered 22/24
+(91.67%), OSTrack recovered 21/24 (87.50%), and Lucas--Kanade recovered 17/24
+(70.83%). No method was manually reinitialized after a gap. The frozen
+difficult pair that failed the auxiliary coherent-energy-law check remained in
+these denominators. The single EasyLEED Kalman divergence was likewise retained
+as a failure rather than corrected.
 
-Interpret the residual only on jointly geometry-consistent pair images. Use the
-Lucas-Kanade row to demonstrate why a similar conditional residual cannot
-compensate for missing coverage.
+Continuity did not always imply physical branch consistency. LocoTrack and
+DAM4SAM each produced 36 geometry-inconsistent accepted fits among 272
+accepted measurements in all visibility regimes (13.24%). OSTrack produced
+34/269 (12.64%), Lucas--Kanade 14/206 (6.80%), and EasyLEED 4/222 (1.80%).
+These events indicate that an image feature remained measurable outside the
+frozen radial branch; they do not constitute external ground-truth proof of a
+particular identity switch.
 
-TODO[FIGURE]: Figure 3.
+Among images on which both pair branches survived all proposal, fit, and
+geometry gates, the median absolute pair-distance residuals occupied a narrow
+range: 1.737 px for EasyLEED, 1.764 px for Lucas--Kanade, 1.770 px for
+OSTrack, 1.788 px for DAM4SAM, and 1.837 px for LocoTrack. In particular,
+Lucas--Kanade had a conditional residual similar to the other methods while
+losing substantially more visible measurements and gap recoveries. Conditional
+distance quality therefore did not summarize measurement-chain robustness;
+coverage, recovery, and geometry-inconsistent continuation remained separate
+outcomes.
 
-### 5.4 Memory improves continuity but can preserve a wrong association
+### 5.4 Memory-aware strategies show a continuity--consistency trade-off
 
-| Method | Coverage | Gap recovery | Geometry-inconsistent accepted fits |
-|---|---:|---:|---:|
-| SAM2 | 126/182 | 9/13 | 8/149 |
-| SAMURAI | 181/182 | 13/13 | 36/236 |
-| DAM4SAM | 179/182 | 13/13 | 36/233 |
+Under byte-identical SAM2.1 Base+ weights, vanilla SAM2 produced 126/182
+branch-consistent measurements (69.23% coverage) and recovered 9/13 natural
+I(V) gaps (69.23%; Figure 4). SAMURAI increased coverage to 181/182 (99.45%)
+and DAM4SAM to 179/182 (98.35%); both memory-aware variants recovered all
+13 gaps. The matched panel therefore associated the motion-aware and
+distractor-aware strategies with substantially greater continuity than the
+vanilla propagation contract.
 
-Interpret this as a continuity-versus-false-persistence trade-off under identical
-weights. Keep it supporting rather than primary evidence because it contains one
-series and two pairs.
-
-TODO[FIGURE]: Figure 4.
+The continuity gain was accompanied by more accepted measurements outside the
+frozen physical branch. SAM2 produced 8 such fits among 149 accepted
+measurements across all regimes (5.37%), compared with 36/236 for SAMURAI
+(15.25%) and 36/233 for DAM4SAM (15.45%). Thus, the variants that most
+consistently bridged visibility gaps also more often continued on a measurable
+but geometrically implausible feature. Because the implementations differ in
+motion prediction, mask selection, visibility handling, and memory update, the
+matched experiment supports a strategy-level continuity--false-persistence
+trade-off rather than attributing the entire effect to one isolated memory
+component. The result is supporting mechanism evidence from one series and two
+pairs, not a general ranking of SAM2-derived trackers.
 
 ### 5.5 Domain-specific external reference
 
-Report the frozen 15-image, two-pair EasyLEED/ViPErLEED comparison:
+EasyLEED and ViPErLEED each produced all 60 expected branch proposals over the
+15-image high-energy interval, despite using single-spot and whole-pattern
+initialization contracts, respectively (Figure 3f). For both methods, the
+common Gaussian estimator accepted the same 38/60 branch measurements with
+the same per-branch counts: 13/15 and 7/15 for the two branches of pair 1, and
+13/15 and 5/15 for pair 2. Both methods also passed all four predefined
+absence-to-recovery checks.
 
-- 60 proposals per method;
-- 38/60 accepted common Gaussian fits per method;
-- four frozen absence-to-recovery checks passed by both methods;
-- median native proposal separation `0.626 px`;
-- median common Gaussian-center separation `0.000986 px`.
+Across the 60 corresponding native proposals, the EasyLEED--ViPErLEED
+separation had a median of 0.626 px and a maximum of 1.696 px. For the 38
+jointly accepted common measurements, the separation between
+Gaussian-refined centers fell to a median of 0.000986 px and a maximum of
+0.0240 px. At the two terminal images acquired at 220.2 eV, the returning
+branch of each pair yielded a valid fit for both methods, while the opposite
+branch failed the Gaussian gate. These events established branch recovery but
+did not provide a terminal pair-distance measurement.
 
-Use this result to establish comparability of the downstream measurement contract,
-not superiority of either domain-specific method.
+The agreement after common refinement shows that both heterogeneous
+domain-specific outputs placed the corresponding high-energy spot features
+inside the capture region of the same estimator. It does not show equivalence
+outside this restricted interval, provide external position ground truth, or
+establish superiority of either the single-spot or whole-pattern contract.
 
 ## 6. Discussion
 
