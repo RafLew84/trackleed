@@ -1,4 +1,4 @@
-"""Quality-filtered FWHM plots on the temperature axis."""
+"""Quality-aware FWHM plots on the temperature axis."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 import matplotlib
 
@@ -37,14 +37,18 @@ AMPLITUDE_REQUIRED_COLUMNS = {
 
 
 @dataclass(frozen=True)
-class QualityFilteredFwhmPlotResult:
-    """Artifacts created by a non-destructive quality-filtered export."""
+class QualityFwhmPlotResult:
+    """Artifacts created by a non-destructive quality-aware export."""
 
     plot_path: Path
     data_path: Path
     manifest_path: Path
     accepted_count: int
     rejected_count: int
+
+
+# Preserve the public name used by the original quality-filtered exporter.
+QualityFilteredFwhmPlotResult = QualityFwhmPlotResult
 
 
 def export_quality_filtered_fwhm_temperature_plot(
@@ -54,9 +58,51 @@ def export_quality_filtered_fwhm_temperature_plot(
     *,
     min_amplitude: float = 0.10,
     min_r_squared: float = 0.90,
-) -> QualityFilteredFwhmPlotResult:
+) -> QualityFwhmPlotResult:
     """Create a new FWHM plot with unreliable Gaussian fits shown as gaps."""
 
+    return _export_quality_fwhm_temperature_plot(
+        fwhm_csv,
+        amplitude_csv,
+        output_stem,
+        min_amplitude=min_amplitude,
+        min_r_squared=min_r_squared,
+        render_plot=_render_filtered_plot,
+        rejected_values_are_plotted_as="gaps",
+    )
+
+
+def export_quality_marked_fwhm_temperature_plot(
+    fwhm_csv: Path | str,
+    amplitude_csv: Path | str,
+    output_stem: Path | str,
+    *,
+    min_amplitude: float = 0.10,
+    min_r_squared: float = 0.90,
+) -> QualityFwhmPlotResult:
+    """Create a FWHM plot that retains rejected fits as gray markers."""
+
+    return _export_quality_fwhm_temperature_plot(
+        fwhm_csv,
+        amplitude_csv,
+        output_stem,
+        min_amplitude=min_amplitude,
+        min_r_squared=min_r_squared,
+        render_plot=_render_marked_plot,
+        rejected_values_are_plotted_as="gray markers",
+    )
+
+
+def _export_quality_fwhm_temperature_plot(
+    fwhm_csv: Path | str,
+    amplitude_csv: Path | str,
+    output_stem: Path | str,
+    *,
+    min_amplitude: float,
+    min_r_squared: float,
+    render_plot: Callable[..., None],
+    rejected_values_are_plotted_as: str,
+) -> QualityFwhmPlotResult:
     if min_amplitude < 0.0:
         raise ValueError("Minimum amplitude must be non-negative")
     if not 0.0 <= min_r_squared <= 1.0:
@@ -72,7 +118,7 @@ def export_quality_filtered_fwhm_temperature_plot(
     existing = [path for path in output_paths if path.exists()]
     if existing:
         raise FileExistsError(
-            "Quality-filtered export does not overwrite existing files: "
+            "Quality-aware FWHM export does not overwrite existing files: "
             + ", ".join(str(path) for path in existing)
         )
 
@@ -131,7 +177,7 @@ def export_quality_filtered_fwhm_temperature_plot(
         if fieldname not in output_fieldnames:
             output_fieldnames.append(fieldname)
     _write_csv(data_path, output_fieldnames, exported_rows)
-    _render_plot(
+    render_plot(
         plot_path,
         exported_rows,
         min_amplitude=min_amplitude,
@@ -152,7 +198,9 @@ def export_quality_filtered_fwhm_temperature_plot(
                 "quality_filter": {
                     "minimum_amplitude_au": min_amplitude,
                     "minimum_r_squared": min_r_squared,
-                    "rejected_values_are_plotted_as": "gaps",
+                    "rejected_values_are_plotted_as": (
+                        rejected_values_are_plotted_as
+                    ),
                     "interpolation": False,
                 },
                 "row_count": len(exported_rows),
@@ -163,7 +211,7 @@ def export_quality_filtered_fwhm_temperature_plot(
         ),
         encoding="utf-8",
     )
-    return QualityFilteredFwhmPlotResult(
+    return QualityFwhmPlotResult(
         plot_path=plot_path,
         data_path=data_path,
         manifest_path=manifest_path,
@@ -197,7 +245,7 @@ def _quality_status(
     return True, "accepted"
 
 
-def _render_plot(
+def _render_filtered_plot(
     destination: Path,
     rows: Iterable[Mapping[str, str]],
     *,
@@ -276,6 +324,131 @@ def _render_plot(
     figure.tight_layout(rect=(0.02, 0.075, 1.0, 0.93))
     figure.savefig(destination, dpi=300, bbox_inches="tight")
     plt.close(figure)
+
+
+def _render_marked_plot(
+    destination: Path,
+    rows: Iterable[Mapping[str, str]],
+    *,
+    min_amplitude: float,
+    min_r_squared: float,
+) -> None:
+    grouped: dict[str, dict[str, list[Mapping[str, str]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for row in rows:
+        grouped[str(row["track_id"])][str(row["thermal_branch"])].append(row)
+
+    track_ids = sorted(grouped, key=_numeric_sort_key)
+    if not track_ids:
+        raise ValueError("FWHM CSV contains no result rows")
+    columns = min(3, len(track_ids))
+    rows_count = math.ceil(len(track_ids) / columns)
+    figure, axes = plt.subplots(
+        rows_count,
+        columns,
+        figsize=(16, 4.8 * rows_count),
+        squeeze=False,
+        sharey=True,
+    )
+
+    colors = {"x": "#0072B2", "y": "#D55E00"}
+    rejected_markers = {"x": "o", "y": "^"}
+    branch_styles = {"heating": "-", "cooling": "--"}
+    for axis, track_id in zip(axes.flat, track_ids):
+        for branch, branch_rows in grouped[track_id].items():
+            branch_rows.sort(key=lambda row: _numeric_sort_key(row["frame_order"]))
+            line_style = branch_styles.get(branch.lower(), ":")
+            for dimension in ("x", "y"):
+                value_column = f"fwhm_{dimension}_px"
+                x_values, y_values = _plot_values_with_gaps(
+                    branch_rows,
+                    value_column,
+                )
+                axis.plot(
+                    x_values,
+                    y_values,
+                    color=colors[dimension],
+                    linestyle=line_style,
+                    linewidth=1.7,
+                    zorder=2,
+                )
+                rejected_x, rejected_y = _rejected_plot_values(
+                    branch_rows,
+                    value_column,
+                )
+                axis.scatter(
+                    rejected_x,
+                    rejected_y,
+                    color="#777777",
+                    marker=rejected_markers[dimension],
+                    s=13,
+                    alpha=0.55,
+                    edgecolors="none",
+                    zorder=3,
+                )
+        axis.set_title(f"Track {track_id}", fontsize=14)
+        axis.grid(alpha=0.25)
+        axis.tick_params(labelsize=11)
+
+    for axis in axes.flat[len(track_ids):]:
+        axis.set_visible(False)
+
+    figure.supxlabel("Temperature (°C)", fontsize=15, y=0.035)
+    figure.supylabel("FWHM (px)", fontsize=15)
+    legend_handles = [
+        Line2D([0], [0], color=colors["x"], linestyle="-", label="FWHM X – Heating"),
+        Line2D([0], [0], color=colors["x"], linestyle="--", label="FWHM X – Cooling"),
+        Line2D([0], [0], color=colors["y"], linestyle="-", label="FWHM Y – Heating"),
+        Line2D([0], [0], color=colors["y"], linestyle="--", label="FWHM Y – Cooling"),
+        Line2D(
+            [0],
+            [0],
+            color="#777777",
+            marker="o",
+            linestyle="none",
+            label="Rejected by quality criteria",
+        ),
+    ]
+    figure.legend(
+        handles=legend_handles,
+        loc="upper center",
+        ncol=5,
+        frameon=False,
+        fontsize=11,
+    )
+    figure.text(
+        0.5,
+        0.008,
+        (
+            f"Quality criteria: amplitude ≥ {_format_number(min_amplitude)}, "
+            f"R² ≥ {_format_number(min_r_squared)}. Gray values are retained "
+            "but not connected."
+        ),
+        ha="center",
+        fontsize=10,
+        color="#444444",
+    )
+    figure.tight_layout(rect=(0.02, 0.075, 1.0, 0.93))
+    figure.savefig(destination, dpi=600, bbox_inches="tight")
+    plt.close(figure)
+
+
+def _rejected_plot_values(
+    rows: Iterable[Mapping[str, str]],
+    value_column: str,
+) -> tuple[list[float], list[float]]:
+    x_values: list[float] = []
+    y_values: list[float] = []
+    for row in rows:
+        if row.get("quality_valid") == "True":
+            continue
+        temperature = _finite_float(row.get("temperature_C"))
+        value = _finite_float(row.get(value_column))
+        if temperature is not None and value is not None:
+            x_values.append(temperature)
+            y_values.append(value)
+    return x_values, y_values
 
 
 def _plot_values_with_gaps(
