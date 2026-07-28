@@ -1,0 +1,57 @@
+# Manuscript workspace
+
+Status: outline.
+
+Working title:
+
+> Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
+
+Primary target: *Surface Science*.  
+Backup target: *Computer Physics Communications* only if the software,
+performance, and public-runner evidence is strengthened.
+
+## Scope
+
+The paper evaluates spot tracking as one component of a quantitative LEED
+measurement chain. Native tracker outputs are proposals for a common `48 x 48`
+measurement ROI; the reported position is the center of the same two-dimensional
+Gaussian fit for every method.
+
+TrackLEED is the reference implementation and reproducibility vehicle. The paper is
+not a GUI or software-feature article, and the absence of dense manual annotation
+is part of the validation protocol rather than the central scientific claim.
+
+## Files
+
+- [`manuscript.md`](manuscript.md) - section-by-section paper outline.
+- [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
+  anchors, evidence sources, and limitations.
+- [`figures-and-tables.md`](figures-and-tables.md) - planned main and supplementary
+  display items.
+- [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
+  required before submission.
+
+## Sources of truth
+
+- [Final publication concept](../.scratch/trackleed-physics-method-paper/issues/08-wybor-finalnej-koncepcji.md)
+- [Resolved publication map](../.scratch/trackleed-physics-method-paper/map.md)
+- [Cross-regime evidence matrix](../.scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/README.md)
+- [Controlled-translation artifact](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/README.md)
+- [Independent ScanE validation](../.scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/README.md)
+- [Five-method Cu(111) run](../.scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/README.md)
+- [Cu(111) pairwise endpoint](../.scratch/trackleed-physics-method-paper/artifacts/cu111-pairwise-delta-r/README.md)
+- [EasyLEED/ViPErLEED external reference](../.scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/README.md)
+
+## Drafting convention
+
+Use the following markers until the missing information is supplied:
+
+- `TODO[AUTHOR]` - author or affiliation input;
+- `TODO[CITATION]` - literature citation required;
+- `TODO[DECISION]` - scientific or editorial choice still to be made;
+- `TODO[FIGURE]` - display item not yet assembled;
+- `TODO[TEXT]` - prose not yet drafted.
+
+Numerical claims should be copied from a validated artifact, not recomputed in the
+manuscript. If an artifact changes, update the claim-evidence map before revising
+the prose.
