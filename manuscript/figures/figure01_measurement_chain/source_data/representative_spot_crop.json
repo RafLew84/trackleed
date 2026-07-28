@@ -1,0 +1,11 @@
+{
+  "crop_height_px": 128,
+  "crop_width_px": 128,
+  "crop_x0_original_px": 76,
+  "crop_y0_original_px": 646,
+  "intensity_encoding": "Lossless uint8 crop from the raw TIFF; no background subtraction or contrast transformation.",
+  "raw_relative_path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0700_T0092_E0560_C0000.tiff",
+  "raw_sha256": "6c03f5fb8d197108c868bd7edf3902a7a9b44f6ab3c11c3f4ad9c1e0c250026d",
+  "reference_center_x_original_px": 140.08772520769693,
+  "reference_center_y_original_px": 710.2035350538515
+}

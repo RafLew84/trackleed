@@ -1,0 +1,54 @@
+{
+  "figure": "Figure 1",
+  "schema_version": "1.0",
+  "sources": {
+    "contract_manifest": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/manifest.json",
+      "sha256": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6"
+    },
+    "diagnostic_probe_frames": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/diagnostic_probe_frames.csv",
+      "sha256": "f8c9a3a5ba6ab070bb8f21e4c7089f4a155bdb23236fc01a8e6e638c68a3cb97"
+    },
+    "five_method_run_manifest": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/run_manifest.json",
+      "sha256": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316"
+    },
+    "gaussian_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/gaussian_measurements.csv",
+      "sha256": "e6bcb78002f919b85d06329d574f53f3a99f37a0ad1b6db3db4fab42e7c03e92"
+    },
+    "native_payload_dam4sam_sam21pp_l": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/gpu-native-v1/dam4sam_sam21pp_l/dam4sam_sam21pp_l_spot_01.npz",
+      "sha256": "caa7802ac7d2e86c7751558b006d1cf44a760706c9bfbc2da5eacf1d488282ea"
+    },
+    "native_payload_easyleed_kalman": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/cpu-baselines-v1/native/easyleed_kalman/easyleed_kalman_spot_01.npz",
+      "sha256": "9839de51c38b5429321db98b9b881587424cffd7436eb06de9a362ea5522023c"
+    },
+    "native_payload_locotrack_base_offline": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/gpu-native-v1/locotrack_base_offline/locotrack_base_offline_spot_01.npz",
+      "sha256": "06f3ebd074465c27e7429265241b37e7aaca5f8b8300d361b083ceb59576e267"
+    },
+    "native_payload_lucas_kanade_skip_anchor": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/native/lucas_kanade_skip_anchor/lucas_kanade_skip_anchor_spot_01.npz",
+      "sha256": "1bb008e0d7c1f1551c6ca76ea8956e1e12eb528c0fc1d78468f79c86f9386f5f"
+    },
+    "native_payload_ostrack_vitb_256_mae_ce": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/gpu-native-v1/ostrack_vitb_256_mae_ce/ostrack_vitb_256_mae_ce_spot_01.npz",
+      "sha256": "e57d0cb0a84ccadd7499d958ed6109ee875700c63aeba49cb0e43bc06d4dc4a8"
+    },
+    "native_proposals": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/native_proposals.csv",
+      "sha256": "c7aa36079a48d219f09f013f6d66f67c5ac244b66dbdf0fc8b03c636c63897d9"
+    },
+    "representative_raw_image": {
+      "path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0700_T0092_E0560_C0000.tiff",
+      "sha256": "6c03f5fb8d197108c868bd7edf3902a7a9b44f6ab3c11c3f4ad9c1e0c250026d"
+    },
+    "seed_prompts": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/seed_prompts.csv",
+      "sha256": "e0c0f74ca6b51570e19c4c54656092907cefde5abea636dd5215798f1e158834"
+    }
+  }
+}

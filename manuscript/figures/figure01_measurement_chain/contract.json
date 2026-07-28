@@ -1,0 +1,93 @@
+{
+  "claim_limit": "This case is explanatory and was selected without tracker outputs; it is not a qualitative performance ranking.",
+  "comparison_contract": {
+    "box_and_mask_methods_receive": "48x48 original-pixel bbox centered on the same seed center",
+    "frame_count": 701,
+    "identity_label": "cu111_56ev:spot_01",
+    "manual_correction_or_reinitialization": "forbidden",
+    "methods": [
+      "locotrack_base_offline",
+      "ostrack_vitb_256_mae_ce",
+      "dam4sam_sam21pp_l",
+      "lucas_kanade_skip_anchor",
+      "easyleed_kalman"
+    ],
+    "pair": "1-6",
+    "point_methods_receive": "Gaussian-refined seed center",
+    "same_initialization": true,
+    "same_selected_spot": true,
+    "same_sequence": true,
+    "seed_center_x_original_px": 140.795,
+    "seed_center_y_original_px": 712.6157,
+    "seed_frame_id": 0,
+    "seed_frame_order": 0,
+    "seed_is_ground_truth": false,
+    "seed_source": "common_2d_gaussian_fit_from_frozen_yolo_roi",
+    "selected_spot_id": 1,
+    "sequence_order": "All 701 frames in chronological order, one forward pass from frame 0; no frame skipping, correction or reinitialization.",
+    "series_id": "cu111_56ev",
+    "shared_bbox_height_original_px": 48.0,
+    "shared_bbox_width_original_px": 48.0,
+    "shared_bbox_x0_original_px": 116.795,
+    "shared_bbox_x1_original_px": 164.795,
+    "shared_bbox_y0_original_px": 688.6157,
+    "shared_bbox_y1_original_px": 736.6157
+  },
+  "completeness": {
+    "manual_annotations": 0,
+    "methods": [
+      "locotrack_base_offline",
+      "ostrack_vitb_256_mae_ce",
+      "dam4sam_sam21pp_l",
+      "lucas_kanade_skip_anchor",
+      "easyleed_kalman"
+    ],
+    "native_proposals": "5/5",
+    "valid_common_gaussian_fits": "5/5"
+  },
+  "crop": {
+    "crop_height_px": 128,
+    "crop_width_px": 128,
+    "crop_x0_original_px": 76,
+    "crop_y0_original_px": 646,
+    "intensity_encoding": "Lossless uint8 crop from the raw TIFF; no background subtraction or contrast transformation.",
+    "raw_relative_path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0700_T0092_E0560_C0000.tiff",
+    "raw_sha256": "6c03f5fb8d197108c868bd7edf3902a7a9b44f6ab3c11c3f4ad9c1e0c250026d",
+    "reference_center_x_original_px": 140.08772520769693,
+    "reference_center_y_original_px": 710.2035350538515
+  },
+  "descriptive_geometry": {
+    "maximum_pairwise_gaussian_center_separation_px": 0.002306024132777095,
+    "maximum_pairwise_native_proposal_separation_px": 5.599510296578558
+  },
+  "figure": "Figure 1",
+  "intended_use": "Reader-facing explanation of heterogeneous proposal representations and their reduction to one common Gaussian measurement contract.",
+  "native_geometry_archive_gap": {
+    "affected_methods": [
+      "ostrack_vitb_256_mae_ce",
+      "dam4sam_sam21pp_l"
+    ],
+    "available": "Reduced bbox center for OSTrack and reduced mask centroid for DAM4SAM.",
+    "not_available": "The tracked bbox width/height and the native mask pixels for this frame were not retained by the publication runner.",
+    "rendering_constraint": "Do not draw an empirical OSTrack bbox or DAM4SAM mask from these archived files. Either perform a targeted native-geometry export or label those glyphs as schematic.",
+    "status": "explicit"
+  },
+  "schema_version": "1.0-frozen",
+  "selection": {
+    "frame": {
+      "energy_ev": 56.0,
+      "frame_id": 700,
+      "frame_order": 700,
+      "raw_relative_path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0700_T0092_E0560_C0000.tiff",
+      "raw_sha256": "6c03f5fb8d197108c868bd7edf3902a7a9b44f6ab3c11c3f4ad9c1e0c250026d",
+      "selection_group": "physical_metadata_anchor",
+      "selection_reason": "evaluation_range_end",
+      "temperature_c": 92.0
+    },
+    "rule": "Use the predeclared diagnostic probe whose selection_reason is 'evaluation_range_end', then use the lowest canonical core spot ID. Do not inspect tracker outputs when choosing the case.",
+    "spot_id": 1,
+    "spot_rule": "lowest canonical core spot ID",
+    "uses_tracker_outputs": false
+  },
+  "status": "representative_case_frozen"
+}

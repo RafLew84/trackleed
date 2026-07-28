@@ -1,0 +1,33 @@
+{
+  "box_and_mask_methods_receive": "48x48 original-pixel bbox centered on the same seed center",
+  "frame_count": 701,
+  "identity_label": "cu111_56ev:spot_01",
+  "manual_correction_or_reinitialization": "forbidden",
+  "methods": [
+    "locotrack_base_offline",
+    "ostrack_vitb_256_mae_ce",
+    "dam4sam_sam21pp_l",
+    "lucas_kanade_skip_anchor",
+    "easyleed_kalman"
+  ],
+  "pair": "1-6",
+  "point_methods_receive": "Gaussian-refined seed center",
+  "same_initialization": true,
+  "same_selected_spot": true,
+  "same_sequence": true,
+  "seed_center_x_original_px": 140.795,
+  "seed_center_y_original_px": 712.6157,
+  "seed_frame_id": 0,
+  "seed_frame_order": 0,
+  "seed_is_ground_truth": false,
+  "seed_source": "common_2d_gaussian_fit_from_frozen_yolo_roi",
+  "selected_spot_id": 1,
+  "sequence_order": "All 701 frames in chronological order, one forward pass from frame 0; no frame skipping, correction or reinitialization.",
+  "series_id": "cu111_56ev",
+  "shared_bbox_height_original_px": 48.0,
+  "shared_bbox_width_original_px": 48.0,
+  "shared_bbox_x0_original_px": 116.795,
+  "shared_bbox_x1_original_px": 164.795,
+  "shared_bbox_y0_original_px": 688.6157,
+  "shared_bbox_y1_original_px": 736.6157
+}
