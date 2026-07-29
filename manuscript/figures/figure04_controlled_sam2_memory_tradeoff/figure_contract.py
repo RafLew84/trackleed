@@ -41,7 +41,6 @@ METHOD_ORDER = tuple(spec.method for spec in METHOD_SPECS)
 DISPLAY_NAMES = {spec.method: spec.display_name for spec in METHOD_SPECS}
 METHOD_COLORS = {spec.method: spec.color for spec in METHOD_SPECS}
 METHOD_MARKERS = {spec.method: spec.marker for spec in METHOD_SPECS}
-PAIR_MARKERS = {"pair 1": "o", "pair 2": "D"}
 PANEL_ORDER = (
     "representative_visibility_gap",
     "coverage_by_pair",
@@ -119,7 +118,7 @@ def as_float(value: object) -> float:
 
 def optional_float(value: object) -> float | None:
     text = str(value).strip()
-    if not text:
+    if not text or text.lower() == "nan":
         return None
     return float(text)
 

@@ -123,12 +123,18 @@ def _render_panel_a(
     )
 
     energies = [float(value) for value in metadata["display_energies_ev"]]
-    role_by_energy = {
-        169.2: "pre-gap visible",
-        166.5: "I(V) gap",
-        163.9: "I(V) gap",
-        160.9: "first expected recovery",
-    }
+    role_by_energy: dict[float, str] = {}
+    for energy in energies:
+        roles = {
+            str(row["sequence_role"])
+            for row in gap_rows
+            if float(row["energy_ev"]) == energy
+        }
+        if len(roles) != 1:
+            raise ValueError(
+                f"Figure 4 sequence role is ambiguous at {energy:g} eV"
+            )
+        role_by_energy[energy] = roles.pop()
     vmin, vmax = shared_crop_intensity_limits()
     x0, y0, _x1, _y1 = [
         float(value) for value in metadata["crop_box_xyxy"]

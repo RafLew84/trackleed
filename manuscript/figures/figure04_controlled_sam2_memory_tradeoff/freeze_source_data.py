@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 from typing import Sequence
 
-from figure_contract import read_csv
+from figure_contract import as_bool, optional_float, read_csv
 
 
 FIGURE_ROOT = Path(__file__).resolve().parent
@@ -77,17 +77,6 @@ CROP_FILENAMES = {
     163.9: "b1_163p9ev.tiff",
     160.9: "b1_160p9ev.tiff",
 }
-
-
-def as_bool(value: object) -> bool:
-    return str(value).strip().lower() == "true"
-
-
-def optional_float(value: object) -> float | None:
-    text = str(value).strip()
-    if not text or text.lower() == "nan":
-        return None
-    return float(text)
 
 
 def sha256_file(path: Path) -> str:
