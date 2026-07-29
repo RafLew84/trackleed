@@ -49,6 +49,9 @@ describes the corresponding physical state or experimental role.
   display items.
 - [`figures/`](figures/) - deterministic builders, source-data tables, manifests,
   and final publication assets.
+- [`tables/table01_data_evidence_roles/`](tables/table01_data_evidence_roles/) -
+  deterministic main table separating four data regimes from five evidence
+  roles and recording their reporting units.
 - [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
   per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
   analysis, deterministic builder, and manifest.

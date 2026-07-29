@@ -1,0 +1,561 @@
+{
+  "status": "completed",
+  "scope": "Independent ScanE confirmation on two series and two frozen diametric pairs per series. This compares measurement-chain outcomes without claiming dense-manual-ground-truth accuracy.",
+  "series_count": 2,
+  "case_count": 4,
+  "method_count": 5,
+  "methods": [
+    "easyleed",
+    "locotrack",
+    "ostrack",
+    "dam4sam",
+    "lk"
+  ],
+  "baseline_cases": [
+    {
+      "series": "26a21",
+      "pair": "pair1",
+      "frame_count": 35,
+      "energy_range_ev": [
+        40.0,
+        220.5
+      ],
+      "reference_frame": 27,
+      "reference_energy_ev": 188.5,
+      "automatic_candidate_count": 16,
+      "frozen_seeds": [
+        {
+          "branch": "B1",
+          "detection_x": 270.0,
+          "detection_y": 521.0,
+          "center_x": 270.5660437559954,
+          "center_y": 518.7639020103123,
+          "reference_r2": 0.9475267115463623,
+          "reference_amplitude": 0.6049726650608068
+        },
+        {
+          "branch": "B2",
+          "detection_x": 712.0,
+          "detection_y": 457.0,
+          "center_x": 713.0009342062413,
+          "center_y": 457.8224355676349,
+          "reference_r2": 0.9604485848104812,
+          "reference_amplitude": 0.3033253650344358
+        }
+      ],
+      "visibility_gaps": [
+        {
+          "branch": "B1",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 49.5,
+          "end_energy_ev": 77.0,
+          "frame_count": 6,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 99.0,
+          "end_energy_ev": 99.0,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 104.5
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 161.0,
+          "end_energy_ev": 172.0,
+          "frame_count": 3,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 177.5
+        },
+        {
+          "branch": "B2",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 49.5,
+          "end_energy_ev": 82.5,
+          "frame_count": 7,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 149.5,
+          "end_energy_ev": 149.5,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 155.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 193.5,
+          "end_energy_ev": 199.0,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 204.5
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 215.0,
+          "end_energy_ev": 220.5,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 220.5
+        }
+      ],
+      "decision_checks": {
+        "known_transforms_recovered": true,
+        "coherent_pairwise_energy_law": false,
+        "natural_iv_gap_available": true
+      }
+    },
+    {
+      "series": "26a21",
+      "pair": "pair2",
+      "frame_count": 35,
+      "energy_range_ev": [
+        40.0,
+        220.5
+      ],
+      "reference_frame": 27,
+      "reference_energy_ev": 188.5,
+      "automatic_candidate_count": 16,
+      "frozen_seeds": [
+        {
+          "branch": "B1",
+          "detection_x": 572.0,
+          "detection_y": 274.0,
+          "center_x": 572.6216740181782,
+          "center_y": 273.5206842936438,
+          "reference_r2": 0.9504672958476035,
+          "reference_amplitude": 0.5971852314431195
+        },
+        {
+          "branch": "B2",
+          "detection_x": 407.0,
+          "detection_y": 695.0,
+          "center_x": 405.19466919066446,
+          "center_y": 694.6440004858089,
+          "reference_r2": 0.949945078364875,
+          "reference_amplitude": 0.30575498614661656
+        }
+      ],
+      "visibility_gaps": [
+        {
+          "branch": "B1",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 44.0,
+          "end_energy_ev": 60.5,
+          "frame_count": 4,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 99.0,
+          "end_energy_ev": 99.0,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 104.5
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 155.0,
+          "end_energy_ev": 161.0,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 166.5
+        },
+        {
+          "branch": "B2",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 55.0,
+          "end_energy_ev": 60.5,
+          "frame_count": 2,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 71.5,
+          "end_energy_ev": 71.5,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 77.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 82.5,
+          "end_energy_ev": 82.5,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 88.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 149.5,
+          "end_energy_ev": 149.5,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 155.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 193.5,
+          "end_energy_ev": 199.0,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 204.5
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 215.0,
+          "end_energy_ev": 220.5,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 220.5
+        }
+      ],
+      "decision_checks": {
+        "known_transforms_recovered": true,
+        "coherent_pairwise_energy_law": true,
+        "natural_iv_gap_available": true
+      }
+    },
+    {
+      "series": "26a21b",
+      "pair": "pair1",
+      "frame_count": 46,
+      "energy_range_ev": [
+        40.0,
+        220.4
+      ],
+      "reference_frame": 36,
+      "reference_energy_ev": 188.5,
+      "automatic_candidate_count": 16,
+      "frozen_seeds": [
+        {
+          "branch": "B1",
+          "detection_x": 272.0,
+          "detection_y": 518.0,
+          "center_x": 271.5026874801637,
+          "center_y": 518.7731172795925,
+          "reference_r2": 0.9492200789740717,
+          "reference_amplitude": 0.6057986321115225
+        },
+        {
+          "branch": "B2",
+          "detection_x": 712.0,
+          "detection_y": 457.0,
+          "center_x": 712.9142663386242,
+          "center_y": 458.0696393249053,
+          "reference_r2": 0.9525415351439274,
+          "reference_amplitude": 0.26687079500574823
+        }
+      ],
+      "visibility_gaps": [
+        {
+          "branch": "B1",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 51.2,
+          "end_energy_ev": 84.2,
+          "frame_count": 9,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 155.5,
+          "end_energy_ev": 155.5,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 159.6
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 163.8,
+          "end_energy_ev": 172.0,
+          "frame_count": 3,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 176.1
+        },
+        {
+          "branch": "B2",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 47.1,
+          "end_energy_ev": 67.8,
+          "frame_count": 6,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 76.0,
+          "end_energy_ev": 80.1,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 84.2
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 167.9,
+          "end_energy_ev": 167.9,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 172.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 192.2,
+          "end_energy_ev": 196.4,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 200.5
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 212.5,
+          "end_energy_ev": 220.4,
+          "frame_count": 3,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 220.4
+        }
+      ],
+      "decision_checks": {
+        "known_transforms_recovered": true,
+        "coherent_pairwise_energy_law": true,
+        "natural_iv_gap_available": true
+      }
+    },
+    {
+      "series": "26a21b",
+      "pair": "pair2",
+      "frame_count": 46,
+      "energy_range_ev": [
+        40.0,
+        220.4
+      ],
+      "reference_frame": 36,
+      "reference_energy_ev": 188.5,
+      "automatic_candidate_count": 16,
+      "frozen_seeds": [
+        {
+          "branch": "B1",
+          "detection_x": 572.0,
+          "detection_y": 274.0,
+          "center_x": 572.7154423087237,
+          "center_y": 274.19218003110893,
+          "reference_r2": 0.948483385963523,
+          "reference_amplitude": 0.6012561794698403
+        },
+        {
+          "branch": "B2",
+          "detection_x": 407.0,
+          "detection_y": 695.0,
+          "center_x": 405.896806278117,
+          "center_y": 694.3901680798803,
+          "reference_r2": 0.9390532514470352,
+          "reference_amplitude": 0.26061040797993607
+        }
+      ],
+      "visibility_gaps": [
+        {
+          "branch": "B1",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 43.0,
+          "end_energy_ev": 59.5,
+          "frame_count": 5,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 96.6,
+          "end_energy_ev": 100.8,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 104.9
+        },
+        {
+          "branch": "B1",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 155.5,
+          "end_energy_ev": 159.6,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 163.8
+        },
+        {
+          "branch": "B2",
+          "classification": "beam_onset_or_termination",
+          "start_energy_ev": 55.4,
+          "end_energy_ev": 71.9,
+          "frame_count": 5,
+          "recovered_without_reinitialization": false,
+          "recovery_energy_ev": null
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 80.1,
+          "end_energy_ev": 80.1,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 84.2
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 167.9,
+          "end_energy_ev": 167.9,
+          "frame_count": 1,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 172.0
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 192.2,
+          "end_energy_ev": 196.4,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 200.5
+        },
+        {
+          "branch": "B2",
+          "classification": "iv_visibility_gap",
+          "start_energy_ev": 212.5,
+          "end_energy_ev": 216.6,
+          "frame_count": 2,
+          "recovered_without_reinitialization": true,
+          "recovery_energy_ev": 220.4
+        }
+      ],
+      "decision_checks": {
+        "known_transforms_recovered": true,
+        "coherent_pairwise_energy_law": true,
+        "natural_iv_gap_available": true
+      }
+    }
+  ],
+  "aggregate_methods": {
+    "easyleed": {
+      "method": "easyleed",
+      "display_method": "EasyLEED",
+      "visible_opportunities": 221,
+      "branch_consistent_measurements": 214,
+      "weighted_fit_coverage": 0.9683257918552036,
+      "evaluated_gaps": 24,
+      "recovered_gaps": 22,
+      "weighted_gap_recovery_rate": 0.9166666666666666,
+      "accepted_measurements_all_frames": 222,
+      "geometry_inconsistent_accepted_fits": 4,
+      "geometry_inconsistent_fraction": 0.018018018018018018,
+      "jointly_consistent_pair_frames": 84,
+      "median_abs_distance_residual_px": 1.7367102643215162,
+      "p95_abs_distance_residual_px": 3.718843442381691,
+      "maximum_abs_distance_residual_px": 5.79722092960526
+    },
+    "locotrack": {
+      "method": "locotrack",
+      "display_method": "LocoTrack",
+      "visible_opportunities": 221,
+      "branch_consistent_measurements": 217,
+      "weighted_fit_coverage": 0.9819004524886877,
+      "evaluated_gaps": 24,
+      "recovered_gaps": 23,
+      "weighted_gap_recovery_rate": 0.9583333333333334,
+      "accepted_measurements_all_frames": 272,
+      "geometry_inconsistent_accepted_fits": 36,
+      "geometry_inconsistent_fraction": 0.1323529411764706,
+      "jointly_consistent_pair_frames": 91,
+      "median_abs_distance_residual_px": 1.8366454823238882,
+      "p95_abs_distance_residual_px": 5.973206417649465,
+      "maximum_abs_distance_residual_px": 8.735846376277095
+    },
+    "ostrack": {
+      "method": "ostrack",
+      "display_method": "OSTrack",
+      "visible_opportunities": 221,
+      "branch_consistent_measurements": 216,
+      "weighted_fit_coverage": 0.9773755656108597,
+      "evaluated_gaps": 24,
+      "recovered_gaps": 21,
+      "weighted_gap_recovery_rate": 0.875,
+      "accepted_measurements_all_frames": 269,
+      "geometry_inconsistent_accepted_fits": 34,
+      "geometry_inconsistent_fraction": 0.12639405204460966,
+      "jointly_consistent_pair_frames": 90,
+      "median_abs_distance_residual_px": 1.769749564042172,
+      "p95_abs_distance_residual_px": 5.937326048535333,
+      "maximum_abs_distance_residual_px": 8.735855086405877
+    },
+    "dam4sam": {
+      "method": "dam4sam",
+      "display_method": "DAM4SAM",
+      "visible_opportunities": 221,
+      "branch_consistent_measurements": 216,
+      "weighted_fit_coverage": 0.9773755656108597,
+      "evaluated_gaps": 24,
+      "recovered_gaps": 23,
+      "weighted_gap_recovery_rate": 0.9583333333333334,
+      "accepted_measurements_all_frames": 272,
+      "geometry_inconsistent_accepted_fits": 36,
+      "geometry_inconsistent_fraction": 0.1323529411764706,
+      "jointly_consistent_pair_frames": 91,
+      "median_abs_distance_residual_px": 1.788179181553403,
+      "p95_abs_distance_residual_px": 5.973203407546521,
+      "maximum_abs_distance_residual_px": 8.735839201916065
+    },
+    "lk": {
+      "method": "lk",
+      "display_method": "Lucas\u2013Kanade",
+      "visible_opportunities": 221,
+      "branch_consistent_measurements": 188,
+      "weighted_fit_coverage": 0.8506787330316742,
+      "evaluated_gaps": 24,
+      "recovered_gaps": 17,
+      "weighted_gap_recovery_rate": 0.7083333333333334,
+      "accepted_measurements_all_frames": 206,
+      "geometry_inconsistent_accepted_fits": 14,
+      "geometry_inconsistent_fraction": 0.06796116504854369,
+      "jointly_consistent_pair_frames": 68,
+      "median_abs_distance_residual_px": 1.763723634049228,
+      "p95_abs_distance_residual_px": 4.441505301861808,
+      "maximum_abs_distance_residual_px": 8.735756987484137
+    }
+  },
+  "observed_events": {
+    "easyleed_native_tracker_exceptions": 1,
+    "easyleed_exception_case": "26a21/pair2"
+  },
+  "interpretation": [
+    "LocoTrack and DAM4SAM jointly have the highest aggregate post-gap recovery (23/24); LocoTrack has the highest weighted fit coverage (217/221).",
+    "EasyLEED remains competitive (214/221 coverage, 22/24 gap recovery) and produces fewer geometry-inconsistent accepted fits, but its native Kalman state diverges once in pair2 of 26a21 and is not reinitialized.",
+    "Lucas-Kanade is materially weaker on coverage and recovery (188/221 and 17/24), although its residuals on the surviving accepted pair frames remain small; conditional residuals therefore cannot be used alone to rank trackers."
+  ],
+  "outputs": [
+    "case_results.csv",
+    "aggregate_method_results.csv",
+    "independent_scane_comparison.png"
+  ]
+}

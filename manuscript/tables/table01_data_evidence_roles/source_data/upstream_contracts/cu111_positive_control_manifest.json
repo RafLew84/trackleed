@@ -1,0 +1,372 @@
+{
+  "schema_version": "1.0-frozen",
+  "status": "frozen_ready_for_runner",
+  "frozen": true,
+  "created_date": "2026-07-27",
+  "repository_revision_at_freeze": "1617a7e85f3562b95f9c39082edb210028dbca9e",
+  "worktree_dirty_at_freeze": true,
+  "series": {
+    "series_id": "cu111_56ev",
+    "raw_directory": "data/25w28_ThExten_56eV_UD",
+    "energy_ev": 56.0,
+    "frame_count": 701,
+    "frame_orders": [
+      0,
+      700
+    ]
+  },
+  "design": {
+    "inference_sequence": "All 701 frames in chronological order, one forward pass from frame 0; no frame skipping, correction or reinitialization.",
+    "physical_scoring": "Automatic common Gaussian measurement and pairwise delta R/R on all 701 expected frames.",
+    "diagnostic_subset": "24 tracker-output-independent metadata/time probes used for overlays and targeted diagnostics, not as disconnected tracker input.",
+    "manual_framewise_annotation_required": false,
+    "manual_proposal_sweep_required": false,
+    "absolute_tracking_accuracy_claimed": false
+  },
+  "main_methods": [
+    "locotrack_base_offline",
+    "ostrack_vitb_256_mae_ce",
+    "dam4sam_sam21pp_l",
+    "lucas_kanade_skip_anchor",
+    "easyleed_kalman"
+  ],
+  "cu_scope": {
+    "core_spot_ids": [
+      1,
+      3,
+      5,
+      6
+    ],
+    "core_pairs": [
+      [
+        1,
+        6
+      ],
+      [
+        3,
+        5
+      ]
+    ],
+    "seed_count": 4,
+    "diagnostic_pair_2_4_in_method_comparison": false,
+    "diagnostic_pair_2_4_role": "Retained in the separate canonical-fit missingness artifact; not used to rank trackers."
+  },
+  "input_transform": {
+    "raw_shape": [
+      1000,
+      1000
+    ],
+    "tracking_cache_shape": [
+      256,
+      256
+    ],
+    "tracking_cache_mode": "8-bit grayscale PNG",
+    "resampling": "Pillow Image.Resampling.BOX",
+    "coordinate_scale_original_to_cache": 0.256,
+    "background_subtraction": false,
+    "local_contrast_enhancement": false,
+    "method_specific_denoising": false
+  },
+  "initialization": {
+    "seed_frame_order": 0,
+    "point_methods_receive": "Gaussian-refined seed center",
+    "box_and_mask_methods_receive": "48x48 original-pixel bbox centered on the same seed center",
+    "prompt_bbox_original_px": 48.0,
+    "prompt_bbox_cache_px": 12.288,
+    "seed_prompts": "seed_prompts.csv",
+    "seed_prompts_are_ground_truth": false
+  },
+  "measurement": {
+    "proposal_coordinates_returned_to_shape": [
+      1000,
+      1000
+    ],
+    "proposal_to_center_rules": {
+      "locotrack_base_offline": "native predicted point",
+      "ostrack_vitb_256_mae_ce": "x+w/2, y+h/2 from native bbox xywh",
+      "dam4sam_sam21pp_l": "arithmetic mean of x indices and y indices of all true mask pixels",
+      "lucas_kanade_skip_anchor": "accepted native LK point",
+      "easyleed_kalman": "native EasyLEED Kalman x/y position"
+    },
+    "common_roi_original_px": 48.0,
+    "roi_construction": "On the 1000x1000 grid: x0=int(round(center_x))-24 and y0=int(round(center_y))-24 using Python round-to-nearest ties-to-even; x1=x0+48, y1=y0+48.",
+    "roi_boundary_policy": "Do not clip or pad. If any ROI edge is outside the raw image, emit an explicit rejected measurement row with rejection_reason=roi_outside_image.",
+    "fit_image_source": "raw 1000x1000 uint8 TIFF",
+    "fit_intensity_conversion": "skimage.util.img_as_float: uint8 divided by 255 to float64 in [0,1]; no background subtraction or contrast enhancement",
+    "fit": "same rotated two-dimensional Gaussian for every method",
+    "fit_call": "trackleed.analysis.peak_analyzer.fit_spot_to_gaussian(roi, center_preference_factor=None)",
+    "fit_source": "trackleed/analysis/peak_analyzer.py",
+    "fit_source_sha256": "5d6af3da893300f4f8bb36196b73e7ad1584566d1f12f5db9a93bf2bb7013416",
+    "proposal_offset_role": "reported diagnostic; it is not a fit gate",
+    "fit_gates": {
+      "minimum_r_squared": 0.85,
+      "minimum_amplitude": 0.05,
+      "center_bounds": "-2 < center axis < ROI axis + 2",
+      "sigma_bounds": "0.5 < sigma axis < ROI axis"
+    },
+    "reference_frame_orders": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "minimum_valid_reference_distances": 8,
+    "pairwise_endpoint": "delta R/R = delta D/D",
+    "pattern_center_required": false,
+    "missing_value_policy": "No interpolation or forward filling."
+  },
+  "diagnostic_probes": {
+    "count": 24,
+    "frame_orders": [
+      1,
+      54,
+      82,
+      108,
+      151,
+      162,
+      215,
+      223,
+      269,
+      294,
+      323,
+      372,
+      376,
+      377,
+      431,
+      441,
+      485,
+      507,
+      538,
+      574,
+      592,
+      646,
+      651,
+      700
+    ],
+    "selection_uses_tracker_outputs": false,
+    "selection_basis": "12 time quantiles and 12 temperature-cycle anchors",
+    "rendering_unit": "One overlay per probe frame containing every core spot and method; no per-proposal manual annotation."
+  },
+  "workload": {
+    "run_audit_rows": 20,
+    "automatic_native_proposal_rows": 14020,
+    "automatic_gaussian_measurement_rows": 14020,
+    "automatic_pair_endpoint_rows": 7010,
+    "diagnostic_overlay_frames": 24,
+    "manual_annotations": 0
+  },
+  "method_configurations": {
+    "locotrack_base_offline": {
+      "tracker_input": "frozen 256x256 grayscale PNG cache",
+      "input_order": "frame_order 0..700",
+      "output_coordinates": "back-scaled to the original 1000x1000 grid",
+      "seed_frame_order": 0,
+      "correction_or_reinitialization": "forbidden",
+      "backend_mode": "subprocess",
+      "model_size": "base",
+      "device": "cuda",
+      "inference_resolution": 256,
+      "query_chunk_size": 4,
+      "use_visibility_gating_during_inference": false,
+      "use_uncertainty_gating_during_inference": false,
+      "visibility_diagnostic": "(1-sigmoid(occlusion_logit)) * (1-sigmoid(expected_distance_logit)) > 0.5",
+      "proposal_available_rule": "finite native point; visibility is diagnostic",
+      "proposal_reduction_rule": "native predicted point",
+      "subprocess_timeout_seconds": 1800.0,
+      "upstream_revision": "3385a233a270160b253a69050c6a3934527f7775",
+      "upstream_default_config": {
+        "relative_path": "../locotrack/locotrack_pytorch/config/default.ini",
+        "sha256": "b8cd20e5d5bc1bc5988ecde26ea182bc94de7a8d594bbf868e0f80defa9c86a7"
+      },
+      "adapter_source": "trackleed/analysis/locotrack_backend.py",
+      "adapter_source_sha256": "23cf5087bb90e874e8de20f33f3bd48142a83bcadec8862c162fd11e5e0923e4"
+    },
+    "ostrack_vitb_256_mae_ce": {
+      "tracker_input": "frozen 256x256 grayscale PNG cache",
+      "input_order": "frame_order 0..700",
+      "output_coordinates": "back-scaled to the original 1000x1000 grid",
+      "seed_frame_order": 0,
+      "correction_or_reinitialization": "forbidden",
+      "backend_mode": "subprocess",
+      "model_variant": "vitb_256_mae_ce_32x4_ep300",
+      "device": "cuda",
+      "inference_resolution": [
+        256,
+        256
+      ],
+      "representative_point_mode": "bbox_center",
+      "initial_bbox_padding_px": 0.0,
+      "proposal_available_rule": "finite valid bbox with positive width and height",
+      "proposal_reduction_rule": "x+w/2, y+h/2 from native bbox xywh",
+      "bbox_score_role": "diagnostic only; it does not gate the common fit",
+      "subprocess_timeout_seconds": 1800.0,
+      "upstream_revision": "33b5e12586216b7fd0e95d255bd01ba44cbec759",
+      "upstream_model_config": {
+        "relative_path": "../ostrack/experiments/ostrack/vitb_256_mae_ce_32x4_ep300.yaml",
+        "sha256": "7eff86b7bef5082378d3daadf54decaa9d00cf95b02687c6b3bf1a79b56da701"
+      },
+      "adapter_source": "trackleed/analysis/ostrack_backend.py",
+      "adapter_source_sha256": "33755330d3328801a42a807c35442302cb1438fad0167a39ab609dbafc52919c"
+    },
+    "dam4sam_sam21pp_l": {
+      "tracker_input": "frozen 256x256 grayscale PNG cache",
+      "input_order": "frame_order 0..700",
+      "output_coordinates": "back-scaled to the original 1000x1000 grid",
+      "seed_frame_order": 0,
+      "correction_or_reinitialization": "forbidden",
+      "backend_mode": "subprocess",
+      "tracker_name": "sam21pp-L",
+      "device": "cuda",
+      "inference_resolution": [
+        256,
+        256
+      ],
+      "representative_point_mode": "mask_centroid",
+      "initial_bbox_padding_px": 0.0,
+      "proposal_available_rule": "nonempty finite binary mask",
+      "proposal_reduction_rule": "arithmetic mean of x indices and y indices of all true mask pixels",
+      "mask_score_role": "diagnostic only; it does not gate the common fit",
+      "subprocess_timeout_seconds": 1800.0,
+      "upstream_revision": "9c954504b39ebca4c412f207be0787c26bfac85a",
+      "upstream_model_config": {
+        "relative_path": "../dam4sam/sam2/sam21pp_hiera_l.yaml",
+        "sha256": "742e07598bcab0b09012b3fdf0ed15fec2928c750916c7b226571e9deb3ec563"
+      },
+      "adapter_source": "trackleed/analysis/dam4sam_backend.py",
+      "adapter_source_sha256": "ee20f7898d6e74a6f9fc953c806b8e52cab1ba651772049b88849ea8c18c8586"
+    },
+    "lucas_kanade_skip_anchor": {
+      "tracker_input": "frozen 256x256 grayscale PNG cache",
+      "input_order": "frame_order 0..700",
+      "output_coordinates": "back-scaled to the original 1000x1000 grid",
+      "seed_frame_order": 0,
+      "correction_or_reinitialization": "forbidden",
+      "implementation": "pyramidal LK skip-anchor",
+      "win_size": [
+        41,
+        41
+      ],
+      "max_level": 4,
+      "termination": {
+        "type": "EPS|COUNT",
+        "max_iterations": 50,
+        "epsilon": 0.01
+      },
+      "min_eigen_threshold": 1e-05,
+      "error_threshold": 30.0,
+      "forward_backward_check": true,
+      "forward_backward_threshold": 8.0,
+      "max_skip_frames": 0,
+      "out_of_bounds_behavior": "skip",
+      "ncc_check": false,
+      "centroid_refinement": false,
+      "proposal_available_rule": "point passes all frozen LK gates",
+      "proposal_reduction_rule": "accepted native LK point",
+      "adapter_source": "trackleed/analysis/tracking.py",
+      "adapter_source_sha256": "554bc16ec6c2ebc0493b3eac65ccd8180b0f52cc65e56702ba2d60ff12c1275e"
+    },
+    "easyleed_kalman": {
+      "tracker_input": "frozen 256x256 grayscale PNG cache",
+      "input_order": "frame_order 0..700",
+      "output_coordinates": "back-scaled to the original 1000x1000 grid",
+      "seed_frame_order": 0,
+      "correction_or_reinitialization": "forbidden",
+      "version": "2.5.2",
+      "numpy_version": "1.26.4",
+      "upstream_revision": "bbe4acd2b5eeb0f5d50a8d018780ace3afd7ff73",
+      "tracking_radius_cache_px": 12.0,
+      "reference_energy_ev": 56.0,
+      "pattern_center_original_px": [
+        527.2887,
+        521.313
+      ],
+      "pattern_center_role": "EasyLEED motion-model input only; not used by pairwise delta R/R",
+      "input_precision_cache_px": 2.0,
+      "window_scaling": true,
+      "intensity_time_mode": false,
+      "minimum_tracking_window_cache_px": 0.0,
+      "native_guess_function": "Gaussian fit",
+      "process_noise_position": 0.1,
+      "process_noise_velocity": 0.0,
+      "native_gaussian_r_squared_min": 0.8,
+      "native_fit_region_factor": 1.5,
+      "validation_gamma": 8.0,
+      "native_intensity_background_subtraction": true,
+      "proposal_available_rule": "finite exported Kalman x/y position",
+      "proposal_reduction_rule": "native EasyLEED Kalman x/y position",
+      "native_fit_role": "tracker-internal only; never replaces or gates the common fit",
+      "adapter_source": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_easyleed_cu.py",
+      "adapter_source_sha256": "be5701c5a3f86736ae096ad3321980756e532ef457af13059ebf916ebb07e288"
+    }
+  },
+  "method_configuration_sha256": {
+    "locotrack_base_offline": "056238541ea2b81555857fd7746b4872e7f2dbfe9fe5418973bcef47b05446df",
+    "ostrack_vitb_256_mae_ce": "dc9bd17199ffc0aaea78fc00d0f68ba0b2b3047ef15fac30ec1c4997ed973736",
+    "dam4sam_sam21pp_l": "d2ffbdc023b7c5be3238a2dca229ebd0bcb980d994b11ca85a2b124d1c85daa1",
+    "lucas_kanade_skip_anchor": "e755aca300764ee823973948744fcdd1802a8a26d0009b00ef49911b6229e99e",
+    "easyleed_kalman": "54049d3d51c53f33ac8581366a4a979e4a25c2718d69f2b94e60970d6f99aecc"
+  },
+  "method_resources": {
+    "locotrack": {
+      "relative_path": "tracking_models/locotrack/locotrack_base.ckpt",
+      "sha256": "8a5adbaeb610d1f06adfbc7c9076b66f727d674c0fd1d668890201cf3339736c"
+    },
+    "ostrack": {
+      "relative_path": "tracking_models/ostrack/vitb_256_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar",
+      "sha256": "30c2147dd5799c7d78f5c114bf9ebaf00fa69638568865e6ade3d8cb04ea380f"
+    },
+    "dam4sam": {
+      "relative_path": "tracking_models/dam4sam/sam2.1_hiera_large.pt",
+      "sha256": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318"
+    },
+    "lucas_kanade": {
+      "implementation": "trackleed.analysis.tracking skip-anchor",
+      "parameters": {
+        "win_size": 41,
+        "max_level": 4,
+        "max_iterations": 50,
+        "epsilon": 0.01,
+        "min_eigen_threshold": 1e-05,
+        "error_threshold": 30.0,
+        "forward_backward_threshold": 8.0,
+        "max_skip_frames": 0,
+        "centroid_refinement": false
+      }
+    },
+    "easyleed": {
+      "version": "2.5.2",
+      "role": "physics-informed LEED-domain Kalman baseline"
+    }
+  },
+  "inputs": {
+    "source_frame_inventory": ".scratch/trackleed-physics-method-paper/artifacts/benchmark-reference-v1/manifests/frames.csv",
+    "source_frame_inventory_sha256": "73f69259d1282bc4493ffee06b9d231341c6de9c15aa196f7ad3a85f5ef73356",
+    "source_checkpoint_inventory": ".scratch/trackleed-physics-method-paper/artifacts/benchmark-reference-v1/manifests/checkpoints.csv",
+    "source_checkpoint_inventory_sha256": "d8afbc83460a1616d31053b4704157be264faca2020735a00770578a39c40a30",
+    "canonical_fit_csv": "publication_exports/25w28_ThExten_56eV_UD/full_analysis_per_spot.csv",
+    "canonical_fit_csv_sha256": "a0b9f8b0303fbdd232be72b226794403442233d6ec1a1b4bd48a8ae0f5f09361",
+    "pattern_center_csv": "publication_exports/25w28_ThExten_56eV_UD/pattern_center_data.csv",
+    "pattern_center_csv_sha256": "ef2ea247d92f324f3ccab1b983e9c24db735c6184a93f836a387c3810cea4649",
+    "proposal_session": "data/25w28_ThExten_56eV_UD/s2.lts.json",
+    "proposal_session_sha256": "10bb1d63442078374d6ecd031c361073ffab66d4177d0f46ea4a0eb19926c50a",
+    "easyleed_installation_record": ".scratch/trackleed-physics-method-paper/artifacts/domain-baselines-installation.md",
+    "easyleed_installation_record_sha256": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee"
+  },
+  "files": {
+    "inference_frames.csv": "247015e43fa30ee300a66d58d195c65b04e1abf686d40822ae2a723c6db55f66",
+    "diagnostic_probe_frames.csv": "f8c9a3a5ba6ab070bb8f21e4c7089f4a155bdb23236fc01a8e6e638c68a3cb97",
+    "seed_prompts.csv": "e0c0f74ca6b51570e19c4c54656092907cefde5abea636dd5215798f1e158834",
+    "output_contract.json": "0a8e2b14393eb2f5b93dac55b232f8d416e4c60ef8c92d7a117f20f8eb2078cf",
+    "validate_runner_outputs.py": "cbedd934972fabe4384be8cab49ef9cfe503dfa650735b087055367526842a2e",
+    "run_easyleed_cu.py": "be5701c5a3f86736ae096ad3321980756e532ef457af13059ebf916ebb07e288",
+    "run_gpu_cu.py": "823577a39997d5982b4f94b6a98eebc9fa0db0ccf4e77d33564566b5d8436652",
+    "run_headless.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+    "test_run_headless.py": "209a9549698fb22f48af7d848414e96a811632b78dc5c8ddf5fb342115fac218"
+  }
+}

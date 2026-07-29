@@ -1,0 +1,171 @@
+{
+  "prototype_scope": "Physics-scaling proposal plus common Gaussian measurement; not a tracker comparison.",
+  "dataset": "data\\26a24_ScanE",
+  "frame_count": 69,
+  "energy_range_ev": [
+    45.0,
+    220.2
+  ],
+  "reference_frame": 54,
+  "reference_energy_ev": 187.9,
+  "geometry": {
+    "center_x": 491.00030779190064,
+    "center_y": 472.01122086402023,
+    "aperture_radius_px": 114.01355267927885,
+    "screen_radius_px": 474.8787101681743
+  },
+  "automatic_candidate_count": 16,
+  "frozen_seeds": [
+    {
+      "branch": "B1",
+      "detection_x": 272.0,
+      "detection_y": 516.0,
+      "center_x": 272.7697717354655,
+      "center_y": 515.74845510848,
+      "reference_r2": 0.9400065407831502,
+      "reference_amplitude": 0.5977575972360232
+    },
+    {
+      "branch": "B2",
+      "detection_x": 715.0,
+      "detection_y": 463.0,
+      "center_x": 714.4012068520402,
+      "center_y": 464.38229982316034,
+      "reference_r2": 0.898943608440359,
+      "reference_amplitude": 0.2207952339281289
+    }
+  ],
+  "thresholds": {
+    "roi_size_px": 48,
+    "r_squared_min": 0.85,
+    "amplitude_min": 0.012,
+    "center_tolerance_px": 15.0,
+    "branch_tolerance_px": 18.0
+  },
+  "synthetic_transform_contract": {
+    "attempt_count": 16,
+    "accepted_count": 16,
+    "median_equivariance_error_px": 0.004797070566993367,
+    "max_equivariance_error_px": 0.032184850383046415
+  },
+  "scan_status_counts": {
+    "apparatus_absence": 4,
+    "beam_onset_or_termination": 27,
+    "visible_fit": 91,
+    "iv_visibility_gap": 16
+  },
+  "visible_branch_error_px": {
+    "median": 3.738311368612066,
+    "p95": 13.50906393702666
+  },
+  "pairwise_scan_geometry": {
+    "jointly_visible_frame_count": 36,
+    "absolute_distance_residual_px": {
+      "median": 0.9177207323775747,
+      "p95": 3.4047998220418094,
+      "max": 3.6639604310113327
+    },
+    "midpoint_drift_px": {
+      "median": 3.0139312421115454,
+      "p95": 10.856533245035152,
+      "max": 12.237350795127128
+    }
+  },
+  "visibility_gaps": [
+    {
+      "branch": "B1",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 47.2,
+      "end_energy_ev": 87.0,
+      "frame_count": 16,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 97.7,
+      "end_energy_ev": 97.7,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 100.4
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 163.9,
+      "end_energy_ev": 166.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 169.2
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 171.9,
+      "end_energy_ev": 171.9,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 174.8
+    },
+    {
+      "branch": "B1",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 220.2,
+      "end_energy_ev": 220.2,
+      "frame_count": 2,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B2",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 47.2,
+      "end_energy_ev": 68.6,
+      "frame_count": 9,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 76.6,
+      "end_energy_ev": 79.3,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 81.9
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 166.5,
+      "end_energy_ev": 169.2,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 171.9
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 190.6,
+      "end_energy_ev": 195.9,
+      "frame_count": 3,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 198.6
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 209.3,
+      "end_energy_ev": 219.8,
+      "frame_count": 5,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 220.2
+    }
+  ],
+  "decision_checks": {
+    "known_transforms_recovered": true,
+    "coherent_pairwise_energy_law": true,
+    "natural_iv_gap_available": true
+  }
+}

@@ -217,6 +217,8 @@ Final artifact:
 
 ### Table 1 - Data and evidence roles
 
+**Status:** generated and validated.
+
 Columns:
 
 - scientific series label;
@@ -226,6 +228,18 @@ Columns:
 - evidence role;
 - primary endpoint;
 - independence/replication unit.
+
+The five rows represent evidence roles, not five independent datasets.
+Controlled translations are derived from the Cu(111) sequence, and the
+restricted high-energy external reference is a subset of the memory-analysis
+scan with a separate initialization contract and denominator.
+
+Final artifact:
+
+- [artifact README](tables/table01_data_evidence_roles/README.md)
+- [publication-facing CSV](tables/table01_data_evidence_roles/output/table01_data_evidence_roles.csv)
+- [manuscript Markdown](tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md)
+- [manifest](tables/table01_data_evidence_roles/manifest.json)
 
 ### Table 2 - Tracking methods and common output contract
 
