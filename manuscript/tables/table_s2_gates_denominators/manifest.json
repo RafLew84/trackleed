@@ -1,0 +1,27 @@
+{
+  "artifact": "Supplementary Table S2",
+  "outputs": {
+    "table_s2_conditional_denominators.csv": "a3eb3ca2d3ebbed629abb47f7a3d36281502c5378acba8e526a685db678b554a",
+    "table_s2_fixed_denominators.csv": "c8d0966686a4443e082660fe2733e3d3ba750090f7d0a990e7a1b91031e56512",
+    "table_s2_gaussian_gates.csv": "4f4dc512af57cc31e1cf37e19c4459ebaf5797921421e84fed931796f2d6d156",
+    "table_s2_gaussian_gates_validation_denominators.md": "b07917aba22110f6e79c0bbf64d6a88f6148204111a90c81064552aa8ba645b9"
+  },
+  "schema_version": 1,
+  "sources": {
+    "build_table.py": "c9cb111e6591861eae76385cf2df15f29cc8aa647a5c12afb6c90fceffe17770",
+    "source_data/denominator_records.csv": "21d0510a9fce1bbd7e220ebb0aff260bd26ed50964ca60777ac062aaccbf4e3e",
+    "source_data/gate_records.csv": "17410b0bdaee0c36291651793aba1a092cac18c014dc4267106daec6a2be412d",
+    "source_data/source_provenance.json": "14b6bfe16af6a571948ef9180298f5e3a6a221550b130f034fc029fd9a486156",
+    "source_data/upstream_contracts/controlled_translation_method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
+    "source_data/upstream_contracts/executed_sources/cu_measurement_runner.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+    "source_data/upstream_contracts/executed_sources/energy_measurement_runner.py": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
+    "source_data/upstream_contracts/executed_sources/peak_analyzer.py": "63eefc16dc73967a844b71e4357f6d1d2d0eb23a063025b9f41ea14cafaf81b7",
+    "source_data/upstream_contracts/external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
+    "source_data/upstream_contracts/family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+    "source_data/upstream_contracts/family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+    "source_data/upstream_contracts/five_method_run_contract.json": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
+    "source_data/upstream_contracts/method_evidence_matrix.csv": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
+    "source_data/upstream_contracts/pair_2_4_missingness_diagnostic.csv": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9"
+  },
+  "title": "Gaussian measurement gates and validation denominators"
+}

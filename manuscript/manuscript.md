@@ -315,6 +315,8 @@ fit failed, or any acceptance gate failed, the position was recorded as
 missing. Rejected values were neither interpolated nor carried forward.
 Gaussian amplitude and integrated volume were properties of the image fit and
 remained distinct from any native tracker confidence or visibility score.
+The complete gate contract, including strict versus inclusive bounds and the
+separate status of the energy-branch consistency test, is listed in Table S2.
 
 ### 2.4 Pairwise position endpoints
 
@@ -578,7 +580,8 @@ valid branch-consistent measurement. Every predefined opportunity remains in
 its denominator when a tracker proposal is unavailable or a Gaussian fit is
 rejected. Conditional residuals are reported only with their corresponding
 coverage and are not used to replace failures with favorable surviving-image
-statistics.
+statistics. Table S2 records both the fixed opportunity denominators and the
+method-dependent sample sizes of every conditional statistic.
 
 All results are descriptive. Counts and rates retain their integer
 denominators, and continuous errors are summarized by medians, 95th

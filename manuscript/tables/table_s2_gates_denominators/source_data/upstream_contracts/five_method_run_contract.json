@@ -1,0 +1,40 @@
+{
+  "correction_and_reinitialization_forbidden": true,
+  "frame_count": 701,
+  "manifest_hash_chain_valid": true,
+  "manual_annotations": 0,
+  "methods": [
+    "locotrack_base_offline",
+    "ostrack_vitb_256_mae_ce",
+    "dam4sam_sam21pp_l",
+    "lucas_kanade_skip_anchor",
+    "easyleed_kalman"
+  ],
+  "native_proposals_per_method": {
+    "dam4sam_sam21pp_l": 2804,
+    "easyleed_kalman": 2804,
+    "locotrack_base_offline": 2804,
+    "lucas_kanade_skip_anchor": 2804,
+    "ostrack_vitb_256_mae_ce": 2804
+  },
+  "pairs": [
+    "1-6",
+    "3-5"
+  ],
+  "seed_frame_order": 0,
+  "single_forward_pass": true,
+  "spot_ids": [
+    1,
+    3,
+    5,
+    6
+  ],
+  "status": "completed",
+  "valid_gaussian_fits_per_method": {
+    "dam4sam_sam21pp_l": 2804,
+    "easyleed_kalman": 2804,
+    "locotrack_base_offline": 2804,
+    "lucas_kanade_skip_anchor": 2804,
+    "ostrack_vitb_256_mae_ce": 2804
+  }
+}

@@ -64,6 +64,9 @@ describes the corresponding physical state or experimental role.
 - [`tables/table_s1_software_environments/`](tables/table_s1_software_environments/) -
   deterministic supplementary software/model inventory with run-frozen
   hashes and path-free snapshots of eight retained execution environments.
+- [`tables/table_s2_gates_denominators/`](tables/table_s2_gates_denominators/) -
+  deterministic supplementary contract separating Gaussian gates, fixed
+  validation opportunities, and method-dependent conditional sample sizes.
 - [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
   per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
   analysis, deterministic builder, and manifest.

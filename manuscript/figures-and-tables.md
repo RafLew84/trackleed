@@ -323,7 +323,15 @@ Final artifact:
   [environment CSV](tables/table_s1_software_environments/output/table_s1_environments.csv),
   [supplement Markdown](tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md),
   and [manifest](tables/table_s1_software_environments/manifest.json).
-- **Table S2:** Gaussian fit gates and all validation denominators.
+- **Table S2 — generated and validated:** Gaussian measurement gates, the
+  separate energy-branch consistency gate, all fixed opportunity denominators,
+  and every method-dependent conditional sample size. Final artifact:
+  [README](tables/table_s2_gates_denominators/README.md),
+  [gate CSV](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates.csv),
+  [fixed-denominator CSV](tables/table_s2_gates_denominators/output/table_s2_fixed_denominators.csv),
+  [conditional-denominator CSV](tables/table_s2_gates_denominators/output/table_s2_conditional_denominators.csv),
+  [supplement Markdown](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates_validation_denominators.md),
+  and [manifest](tables/table_s2_gates_denominators/manifest.json).
 - **Table S3:** per-scan and per-pair energy-scan coverage, recovery, geometry
   inconsistency, and conditional residuals with their surviving
   denominators; leave-one-case-out ranges for count-based outcomes are a

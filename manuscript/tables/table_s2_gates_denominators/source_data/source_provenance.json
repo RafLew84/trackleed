@@ -1,0 +1,78 @@
+{
+  "sources": [
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/cu_measurement_runner.py",
+      "frozen_sha256": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_headless.py",
+      "origin_sha256": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+      "origin_required_at_build": false,
+      "role": "executed Cu(111) and controlled-translation ROI and Gaussian-acceptance gates"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/energy_measurement_runner.py",
+      "frozen_sha256": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
+      "origin_path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/run.py",
+      "origin_sha256": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
+      "origin_required_at_build": false,
+      "role": "executed energy-scan Gaussian and branch-consistency gates"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/peak_analyzer.py",
+      "frozen_sha256": "63eefc16dc73967a844b71e4357f6d1d2d0eb23a063025b9f41ea14cafaf81b7",
+      "origin_path": "trackleed/analysis/peak_analyzer.py",
+      "origin_sha256": "5d6af3da893300f4f8bb36196b73e7ad1584566d1f12f5db9a93bf2bb7013416",
+      "origin_lf_sha256": "63eefc16dc73967a844b71e4357f6d1d2d0eb23a063025b9f41ea14cafaf81b7",
+      "role": "common Gaussian estimator and energy-scan preferred-center implementation"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/method_evidence_matrix.csv",
+      "frozen_sha256": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
+      "origin_path": "manuscript/tables/table03_cross_regime_summary/source_data/method_evidence_matrix.csv",
+      "origin_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "origin_lf_sha256": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
+      "role": "five-method fixed opportunities and method-dependent surviving counts"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/controlled_translation_method_metrics.csv",
+      "frozen_sha256": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
+      "origin_path": "manuscript/figures/figure02_controlled_equivariance/source_data/method_metrics.csv",
+      "origin_sha256": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
+      "role": "controlled-translation method and oracle denominators"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/family_aggregate.csv",
+      "frozen_sha256": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_aggregate.csv",
+      "origin_sha256": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+      "role": "controlled SAM2-family fixed opportunities and method-dependent surviving counts"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/family_by_pair.csv",
+      "frozen_sha256": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_by_pair.csv",
+      "origin_sha256": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+      "role": "pair-stratified controlled SAM2-family conditional residual counts"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/external_reference_summary.json",
+      "frozen_sha256": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
+      "origin_path": "manuscript/figures/figure03_independent_scane_stress/source_data/external_reference_summary.json",
+      "origin_sha256": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
+      "role": "restricted external-reference opportunities and joint-agreement counts"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/five_method_run_contract.json",
+      "frozen_sha256": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
+      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/five_method_run_contract.json",
+      "origin_sha256": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
+      "role": "Cu(111) image, spot, pair, proposal, and accepted-fit counts"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/pair_2_4_missingness_diagnostic.csv",
+      "frozen_sha256": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9",
+      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/pair_2_4_missingness_diagnostic.csv",
+      "origin_sha256": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9",
+      "role": "separate 24-candidate amplitude-gate diagnostic"
+    }
+  ]
+}
