@@ -3,21 +3,61 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 
 FIGURE_ROOT = Path(__file__).resolve().parent
 CONTRACT_PATH = FIGURE_ROOT / "contract.json"
 SOURCE_DATA_DIRECTORY = FIGURE_ROOT / "source_data"
-METHOD_ORDER = (
-    "locotrack_base_offline",
-    "ostrack_vitb_256_mae_ce",
-    "dam4sam_sam21pp_l",
-    "lucas_kanade_skip_anchor",
-    "easyleed_kalman",
+OUTPUT_DIRECTORY = FIGURE_ROOT / "output"
+FIGURE_BASENAME = "figure05_cu111_physical_endpoint"
+MANIFEST_PATH = FIGURE_ROOT / "manifest.json"
+FIGURE_SIZE_INCHES = (7.2, 9.0)
+PNG_DPI = 400
+FONT_FAMILY = "DejaVu Sans"
+
+
+@dataclass(frozen=True)
+class MethodSpec:
+    method: str
+    display_name: str
+    color: str
+    marker: str
+    linestyle: object
+
+
+METHOD_SPECS = (
+    MethodSpec(
+        "locotrack_base_offline", "LocoTrack", "#0072B2", "o", "solid"
+    ),
+    MethodSpec(
+        "ostrack_vitb_256_mae_ce", "OSTrack", "#E69F00", "s", (0, (5, 2))
+    ),
+    MethodSpec(
+        "dam4sam_sam21pp_l", "DAM4SAM", "#009E73", "^", (0, (2, 1.5))
+    ),
+    MethodSpec(
+        "lucas_kanade_skip_anchor",
+        "Lucas-Kanade",
+        "#CC79A7",
+        "D",
+        (0, (7, 2, 1.5, 2)),
+    ),
+    MethodSpec(
+        "easyleed_kalman", "EasyLEED", "#D55E00", "P", (0, (1, 1.5))
+    ),
 )
+METHOD_ORDER = (
+    *(spec.method for spec in METHOD_SPECS),
+)
+DISPLAY_NAMES = {spec.method: spec.display_name for spec in METHOD_SPECS}
+METHOD_COLORS = {spec.method: spec.color for spec in METHOD_SPECS}
+METHOD_MARKERS = {spec.method: spec.marker for spec in METHOD_SPECS}
+METHOD_LINESTYLES = {spec.method: spec.linestyle for spec in METHOD_SPECS}
 PAIR_ORDER = ("1-6", "3-5")
 PANEL_ORDER = (
     "thermal_cycle_landmarks",
@@ -26,11 +66,33 @@ PANEL_ORDER = (
     "between_method_endpoint_spread",
     "separate_pair_2_4_fit_missingness",
 )
+NEUTRAL_COLOR = "#4D4D4D"
+ADVERSE_COLOR = "#A23B3B"
+ACCEPTED_COLOR = "#009E73"
+PAIR_COLORS = {"1-6": "#4C78A8", "3-5": "#E45756"}
+FONT_SIZES_PT = {
+    "base": 7.2,
+    "axis_title": 8.1,
+    "axis_label": 7.2,
+    "tick_label": 6.4,
+    "legend": 6.0,
+    "panel_label": 9.2,
+    "value_annotation": 6.0,
+    "minor_annotation": 5.7,
+}
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def as_bool(value: object) -> bool:
@@ -53,6 +115,140 @@ def load_contract() -> dict[str, object]:
     ):
         raise ValueError("Figure 5 completed-run source changed")
     return contract
+
+
+def load_temperature_profile() -> list[dict[str, object]]:
+    return [
+        {
+            **row,
+            "frame_order": int(row["frame_order"]),
+            "frame_id": int(row["frame_id"]),
+            "temperature_c": float(row["temperature_c"]),
+            "energy_ev": float(row["energy_ev"]),
+        }
+        for row in read_csv(SOURCE_DATA_DIRECTORY / "temperature_profile.csv")
+    ]
+
+
+def load_cycle_landmarks() -> list[dict[str, object]]:
+    return [
+        {
+            **row,
+            "frame_start": int(row["frame_start"]),
+            "frame_end": int(row["frame_end"]),
+            "temperature_min_c": float(row["temperature_min_c"]),
+            "temperature_max_c": float(row["temperature_max_c"]),
+            "outcome_selected": as_bool(row["outcome_selected"]),
+        }
+        for row in read_csv(SOURCE_DATA_DIRECTORY / "cycle_landmarks.csv")
+    ]
+
+
+def load_pair_endpoint_timeseries() -> list[dict[str, object]]:
+    return [
+        {
+            **row,
+            "frame_order": int(row["frame_order"]),
+            "frame_id": int(row["frame_id"]),
+            "pair_valid": as_bool(row["pair_valid"]),
+            "distance_px": float(row["distance_px"]),
+            "reference_distance_px": float(row["reference_distance_px"]),
+            "reference_valid_frame_count": int(
+                row["reference_valid_frame_count"]
+            ),
+            "delta_r_over_r": float(row["delta_r_over_r"]),
+            "delta_r_over_r_percent": float(
+                row["delta_r_over_r_percent"]
+            ),
+        }
+        for row in read_csv(
+            SOURCE_DATA_DIRECTORY / "pair_endpoint_timeseries.csv"
+        )
+    ]
+
+
+def load_endpoint_summaries() -> list[dict[str, object]]:
+    float_fields = (
+        "reference_distance_px",
+        "plateau_median_percent",
+        "minimum_percent",
+        "final_percent",
+    )
+    return [
+        {
+            **row,
+            "valid_frame_count": int(row["valid_frame_count"]),
+            "reference_valid_frame_count": int(
+                row["reference_valid_frame_count"]
+            ),
+            "minimum_frame_order": int(row["minimum_frame_order"]),
+            **{field: float(row[field]) for field in float_fields},
+        }
+        for row in read_csv(SOURCE_DATA_DIRECTORY / "endpoint_summaries.csv")
+    ]
+
+
+def load_between_method_spread() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for row in read_csv(
+        SOURCE_DATA_DIRECTORY / "between_method_spread.csv"
+    ):
+        rows.append(
+            {
+                **row,
+                "frame_order": (
+                    int(row["frame_order"]) if row["frame_order"] else None
+                ),
+                "minimum_value_percent": float(
+                    row["minimum_value_percent"]
+                ),
+                "maximum_value_percent": float(
+                    row["maximum_value_percent"]
+                ),
+                "spread_percentage_points": float(
+                    row["spread_percentage_points"]
+                ),
+                "display_in_panel_d": as_bool(row["display_in_panel_d"]),
+            }
+        )
+    return rows
+
+
+def load_pair_2_4_diagnostic() -> list[dict[str, object]]:
+    boolean_fields = (
+        "inside_five_method_run",
+        "tracking_roi_present",
+        "exported_fit_present",
+        "refit_returned_parameters",
+        "r_squared_gate",
+        "amplitude_gate",
+        "center_gate",
+        "sigma_gate",
+        "refit_accepted",
+    )
+    return [
+        {
+            **row,
+            "frame_id": int(row["frame_id"]),
+            "temperature_c": float(row["temperature_c"]),
+            "energy_ev": float(row["energy_ev"]),
+            **{field: as_bool(row[field]) for field in boolean_fields},
+            "r_squared": float(row["r_squared"]),
+            "amplitude": float(row["amplitude"]),
+            "amplitude_threshold": float(row["amplitude_threshold"]),
+        }
+        for row in read_csv(
+            SOURCE_DATA_DIRECTORY / "pair_2_4_missingness_diagnostic.csv"
+        )
+    ]
+
+
+def load_five_method_run_contract() -> dict[str, object]:
+    return json.loads(
+        (SOURCE_DATA_DIRECTORY / "five_method_run_contract.json").read_text(
+            encoding="utf-8"
+        )
+    )
 
 
 def _validate_primary_timeseries(

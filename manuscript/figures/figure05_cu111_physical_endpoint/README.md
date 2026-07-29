@@ -1,6 +1,13 @@
 # Figure 5 - propagation to the Cu(111) physical endpoint
 
-Status: source contract frozen; rendering pending.
+Status: generated and validated.
+
+## Final artifacts
+
+- [PNG](output/figure05_cu111_physical_endpoint.png)
+- [PDF](output/pdf/figure05_cu111_physical_endpoint.pdf)
+- [render manifest](manifest.json)
+- [frozen source contract](contract.json)
 
 ## Scientific question
 
@@ -39,7 +46,7 @@ post-plateau minimum at 797 °C, and the final cooled state at 92 °C. The
 post-plateau minimum is explicitly marked as outcome-selected; the other
 landmarks are predefined.
 
-## Frozen panels
+## Final panels
 
 - **a. Thermal cycle.** Temperature profile with the reference interval,
   800 °C plateau, post-plateau minimum, and final cooled state.
@@ -57,7 +64,7 @@ landmarks are predefined.
 Panel e uses an earlier saved YOLO proposal trajectory. It is outside the
 five-method run and must be visually labelled as a separate diagnostic.
 
-## Draft caption
+## Caption
 
 **Figure 5. Tracker proposal differences do not materially alter the Cu(111)
 pairwise relative spot-radius endpoint after common Gaussian refinement.**
@@ -97,6 +104,9 @@ Rebuild and validate:
 ```bash
 python freeze_source_data.py
 python freeze_source_data.py --validate-only
+python build_figure.py
+python build_figure.py --validate-only
+python test_build_figure.py
 python test_freeze_source_data.py
 python test_source_contract.py
 ```

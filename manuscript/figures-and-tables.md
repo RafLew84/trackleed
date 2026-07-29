@@ -168,9 +168,9 @@ Final artifact:
 **Question:** Do tracker-dependent proposal differences survive the common
 Gaussian refinement sufficiently to change pairwise `Delta R/R`?
 
-**Status:** source contract frozen; rendering pending.
+**Status:** generated and validated.
 
-Proposed panels:
+Final panels:
 
 - **a.** Temperature profile and frozen reference/plateau/post-plateau
   `Delta R/R` minimum/final windows.
@@ -203,6 +203,13 @@ Frozen source contract:
 - [between-method spread](figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv)
 - [separate pair 2-4 diagnostic](figures/figure05_cu111_physical_endpoint/source_data/pair_2_4_missingness_diagnostic.csv)
 - [source provenance](figures/figure05_cu111_physical_endpoint/source_data/source_provenance.json)
+
+Final artifact:
+
+- [artifact README and caption](figures/figure05_cu111_physical_endpoint/README.md)
+- [PNG](figures/figure05_cu111_physical_endpoint/output/figure05_cu111_physical_endpoint.png)
+- [PDF](figures/figure05_cu111_physical_endpoint/output/pdf/figure05_cu111_physical_endpoint.pdf)
+- [render manifest](figures/figure05_cu111_physical_endpoint/manifest.json)
 
 ## Main tables
 
