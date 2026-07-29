@@ -3,13 +3,70 @@
 
 from __future__ import annotations
 
+import json
+import statistics
 import unittest
 
 import figure_contract
 from figure_test_support import assert_case_rows_reproduce_aggregates
+from figure_render import summarize_representative_trajectory
 
 
 class Figure3RenderContractTest(unittest.TestCase):
+    def test_manifest_records_non_overplotted_panel_a_encoding(self) -> None:
+        manifest = json.loads(
+            figure_contract.MANIFEST_PATH.read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            manifest["rendering"]["representative_trajectory_encoding"],
+            {
+                "point": (
+                    "cross-method median of available valid Gaussian "
+                    "pair measurements"
+                ),
+                "whisker": "cross-method minimum-to-maximum",
+                "grouping": "image frame; repeated energies retained",
+                "method_specific_markers": False,
+                "maximum_cross_method_range_px": 0.06604708906252199,
+            },
+        )
+
+    def test_representative_trajectory_uses_framewise_median_and_min_max(
+        self,
+    ) -> None:
+        rows = figure_contract.load_representative_pair_source_data()
+
+        summary = summarize_representative_trajectory(rows)
+
+        self.assertEqual(len(summary.frames), 21)
+        self.assertEqual(summary.frames[0], 5)
+        self.assertEqual(summary.valid_method_counts[0], 2)
+        frame = 13
+        index = summary.frames.index(frame)
+        values = [
+            float(row["pair_distance_px"])
+            for row in rows
+            if row["frame"] == frame
+        ]
+        self.assertEqual(summary.valid_method_counts[index], 5)
+        self.assertAlmostEqual(
+            summary.median_distances_px[index],
+            statistics.median(values),
+        )
+        self.assertAlmostEqual(
+            summary.minimum_distances_px[index],
+            min(values),
+        )
+        self.assertAlmostEqual(
+            summary.maximum_distances_px[index],
+            max(values),
+        )
+        self.assertAlmostEqual(
+            summary.maximum_range_px,
+            0.06604708906252199,
+        )
+
     def test_headline_metrics_preserve_counts_before_conditional_error(self) -> None:
         rows = figure_contract.load_aggregate_source_data()
 

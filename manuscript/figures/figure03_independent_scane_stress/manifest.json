@@ -6,25 +6,25 @@
     "The EasyLEED-ViPErLEED inset uses a separate initialization contract and denominator and is not a sixth row in the main method matrix."
   ],
   "code_sha256": {
-    "build_figure.py": "de41a13169956e5237e26159d48cd431cd49bbabebb8290b47c0c8a504c88882",
+    "build_figure.py": "132866c58134ac83cc77ec20433c27e091ca75d8e2c137f5e54363e88eded90a",
     "figure_contract.py": "f7c77fc49fe82d0c4382e7fda6ab078764871afde122b48ee419f8d05fdf2ffb",
-    "figure_render.py": "2831de8c0bc75c085051c0f1906b0fa239abb2540268e2591141bf560ca8bb41",
+    "figure_render.py": "c83205a7ff1b029c0377e316c25991ae7bd57ce2d25e9dfc1cb53ad5a9168d65",
     "figure_test_support.py": "300a3d778c1a56e5182323f9d4ac7d84beeca99ee46390e68ce1993f1b31d8a9",
     "freeze_source_data.py": "d00726cffef4629bd3573544da4ef898ba97526058774e954d1de9739775fb04",
-    "test_build_figure.py": "f6ae64c9c12484f667c95bccad85ea20bef52df53f87940cab2f866c5c168afc",
+    "test_build_figure.py": "64294828b2617297a9a6b5c1df1f4d53d3af2f8b4dbafd098768af95e35d9fb6",
     "test_freeze_source_data.py": "1cbeba3d43b1b9f4516a457543cacd6a01e1a30ae175d86e8420050aa8bb5e4d"
   },
   "contract_sha256": "9e2623e38db751357cdb753c2ae24b42e1b92e3b3b6aa32ea83b691d37ad6b8b",
   "environment": {
-    "matplotlib": "3.10.1",
-    "numpy": "2.2.5",
-    "pillow": "11.2.1",
-    "python": "3.12.9"
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
   },
   "figure": "Figure 3",
   "outputs_sha256": {
-    "output/figure03_independent_scane_stress.png": "b2770705f9586a03a2be8a6983b1aa87ab77ea079651f668fb4903f4ad47fb58",
-    "output/pdf/figure03_independent_scane_stress.pdf": "66928322b86c912b34ea320d51ed7d1ab54ea8293f608b3c529948fc312e2cae"
+    "output/figure03_independent_scane_stress.png": "4a0f77c8f6dc673d0042b8f2c01cc2dd6d073d06e073081ef1a629e8d071aae3",
+    "output/pdf/figure03_independent_scane_stress.pdf": "8376ee335d19db14352d91a157542e0f17103855af80be5f6908a119cf96d01e"
   },
   "rendering": {
     "figure_size_inches": [
@@ -63,7 +63,14 @@
       2880,
       3600
     ],
-    "png_dpi": 400
+    "png_dpi": 400,
+    "representative_trajectory_encoding": {
+      "grouping": "image frame; repeated energies retained",
+      "maximum_cross_method_range_px": 0.06604708906252199,
+      "method_specific_markers": false,
+      "point": "cross-method median of available valid Gaussian pair measurements",
+      "whisker": "cross-method minimum-to-maximum"
+    }
   },
   "schema_version": "1.0",
   "source_artifacts": {

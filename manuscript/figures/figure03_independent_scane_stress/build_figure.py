@@ -20,10 +20,11 @@ from figure_contract import (
     OUTPUT_DIRECTORY,
     PNG_DPI,
     SOURCE_DATA_DIRECTORY,
+    load_representative_pair_source_data,
     sha256_file,
     validate_source_contract,
 )
-from figure_render import render_figure
+from figure_render import render_figure, summarize_representative_trajectory
 
 
 CODE_FILES = (
@@ -74,6 +75,9 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
         )
     )
     contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    trajectory = summarize_representative_trajectory(
+        load_representative_pair_source_data()
+    )
     return {
         "schema_version": "1.0",
         "status": "completed",
@@ -96,6 +100,18 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
             "font_sizes_pt": FONT_SIZES_PT,
             "method_palette": METHOD_COLORS,
             "panel_order": contract["panel_order"],
+            "representative_trajectory_encoding": {
+                "point": (
+                    "cross-method median of available valid Gaussian "
+                    "pair measurements"
+                ),
+                "whisker": "cross-method minimum-to-maximum",
+                "grouping": "image frame; repeated energies retained",
+                "method_specific_markers": False,
+                "maximum_cross_method_range_px": (
+                    trajectory.maximum_range_px
+                ),
+            },
         },
         "environment": {
             "python": platform.python_version(),

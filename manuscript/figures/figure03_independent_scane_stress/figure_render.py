@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+import statistics
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -16,7 +18,6 @@ from figure_contract import (
     FONT_FAMILY,
     FONT_SIZES_PT,
     METHOD_COLORS,
-    METHOD_MARKERS,
     METHOD_ORDER,
     NEUTRAL_COLOR,
     OUTPUT_DIRECTORY,
@@ -28,6 +29,87 @@ from figure_contract import (
     load_representative_pair_source_data,
     load_visibility_source_data,
 )
+
+
+@dataclass(frozen=True)
+class RepresentativeTrajectorySummary:
+    """Framewise cross-method summary of valid pair measurements."""
+
+    frames: tuple[int, ...]
+    energies_ev: tuple[float, ...]
+    valid_method_counts: tuple[int, ...]
+    median_distances_px: tuple[float, ...]
+    minimum_distances_px: tuple[float, ...]
+    maximum_distances_px: tuple[float, ...]
+
+    @property
+    def maximum_range_px(self) -> float:
+        return max(
+            maximum - minimum
+            for minimum, maximum in zip(
+                self.minimum_distances_px,
+                self.maximum_distances_px,
+            )
+        )
+
+
+def summarize_representative_trajectory(
+    rows: Sequence[dict[str, object]],
+) -> RepresentativeTrajectorySummary:
+    """Summarize available valid methods without collapsing acquisitions."""
+
+    by_frame: dict[int, dict[str, dict[str, object]]] = {}
+    for row in rows:
+        frame = int(row["frame"])
+        method = str(row["method"])
+        method_rows = by_frame.setdefault(frame, {})
+        if method in method_rows:
+            raise ValueError(
+                f"Duplicate representative measurement at frame {frame}, "
+                f"method {method}"
+            )
+        method_rows[method] = row
+    if not by_frame:
+        raise ValueError("Representative trajectory is empty")
+
+    frames = tuple(sorted(by_frame))
+    energies: list[float] = []
+    counts: list[int] = []
+    medians: list[float] = []
+    minima: list[float] = []
+    maxima: list[float] = []
+    for frame in frames:
+        method_rows = by_frame[frame]
+        unexpected = sorted(set(method_rows) - set(METHOD_ORDER))
+        if unexpected:
+            raise ValueError(
+                f"Unexpected representative methods at frame {frame}: "
+                f"{unexpected}"
+            )
+        frame_energies = {
+            float(row["energy_ev"]) for row in method_rows.values()
+        }
+        if len(frame_energies) != 1:
+            raise ValueError(
+                f"Inconsistent representative energy at frame {frame}"
+            )
+        distances = [
+            float(row["pair_distance_px"]) for row in method_rows.values()
+        ]
+        energies.append(frame_energies.pop())
+        counts.append(len(distances))
+        medians.append(float(statistics.median(distances)))
+        minima.append(min(distances))
+        maxima.append(max(distances))
+
+    return RepresentativeTrajectorySummary(
+        frames=frames,
+        energies_ev=tuple(energies),
+        valid_method_counts=tuple(counts),
+        median_distances_px=tuple(medians),
+        minimum_distances_px=tuple(minima),
+        maximum_distances_px=tuple(maxima),
+    )
 
 
 def _panel_label(axis: object, label: str, *, x: float = -0.12, y: float = 1.05) -> None:
@@ -128,7 +210,6 @@ def _render_panel_a(
     visibility_rows: Sequence[dict[str, object]],
     representative: dict[str, object],
 ) -> None:
-    from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
 
     grid = spec.subgridspec(
@@ -162,7 +243,7 @@ def _render_panel_a(
     _frames, energies, expected_distances = _expected_pair_distance(
         visibility_rows
     )
-    axis.plot(
+    expected_line = axis.plot(
         energies,
         expected_distances,
         color=EXPECTED_COLOR,
@@ -170,57 +251,70 @@ def _render_panel_a(
         linewidth=1.15,
         label=r"Expected $D(E) \propto 1/\sqrt{E}$",
         zorder=2,
-    )
-    for method in METHOD_ORDER:
-        rows = [row for row in trajectory_rows if row["method"] == method]
-        axis.scatter(
-            [float(row["energy_ev"]) for row in rows],
-            [float(row["pair_distance_px"]) for row in rows],
-            s=20,
-            marker=METHOD_MARKERS[method],
-            facecolor=METHOD_COLORS[method],
-            edgecolor="white",
-            linewidth=0.35,
-            alpha=0.92,
-            zorder=3,
+    )[0]
+    trajectory = summarize_representative_trajectory(trajectory_rows)
+    lower_errors = [
+        median - minimum
+        for median, minimum in zip(
+            trajectory.median_distances_px,
+            trajectory.minimum_distances_px,
         )
+    ]
+    upper_errors = [
+        maximum - median
+        for median, maximum in zip(
+            trajectory.median_distances_px,
+            trajectory.maximum_distances_px,
+        )
+    ]
+    median_handle = axis.errorbar(
+        trajectory.energies_ev,
+        trajectory.median_distances_px,
+        yerr=(lower_errors, upper_errors),
+        fmt="o",
+        markersize=4.0,
+        color=NEUTRAL_COLOR,
+        markerfacecolor=NEUTRAL_COLOR,
+        markeredgecolor="white",
+        markeredgewidth=0.4,
+        ecolor="#7896AB",
+        elinewidth=0.9,
+        capsize=2.0,
+        capthick=0.8,
+        label="Cross-method median; min-max",
+        zorder=3,
+    )
     axis.set_xlim(38.0, 223.0)
     axis.set_ylabel(r"Pair distance $D(E)$ [px]")
     axis.grid(alpha=0.16, linewidth=0.55)
     tick_energies = (40.0, 66.0, 93.5, 121.5, 149.5, 188.5, 220.5)
     axis.set_xticks(tick_energies)
     axis.tick_params(labelbottom=False)
-    method_legend = axis.legend(
-        handles=[
-            Line2D(
-                [0],
-                [0],
-                color=EXPECTED_COLOR,
-                linestyle=(0, (4, 2)),
-                linewidth=1.0,
-                label=r"Expected $D(E)$",
-            ),
-            *[
-                Line2D(
-                    [0],
-                    [0],
-                    marker=METHOD_MARKERS[method],
-                    color="none",
-                    markerfacecolor=METHOD_COLORS[method],
-                    markeredgecolor="white",
-                    markersize=4.4,
-                    label=DISPLAY_NAMES[method],
-                )
-                for method in METHOD_ORDER
-            ],
-        ],
+    trajectory_legend = axis.legend(
+        handles=[expected_line, median_handle],
         frameon=False,
-        ncol=3,
+        ncol=2,
         loc="upper right",
         columnspacing=0.9,
         handletextpad=0.4,
     )
-    axis.add_artist(method_legend)
+    axis.add_artist(trajectory_legend)
+    axis.text(
+        0.985,
+        0.865,
+        (
+            "available valid methods per image: "
+            f"n={min(trajectory.valid_method_counts)}-"
+            f"{max(trajectory.valid_method_counts)}\n"
+            f"maximum min-max range = {trajectory.maximum_range_px:.3f} px "
+            "(smaller than marker)"
+        ),
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="right",
+        va="top",
+    )
     axis.legend(
         handles=[
             Patch(

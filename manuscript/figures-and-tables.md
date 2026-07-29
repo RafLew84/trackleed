@@ -95,8 +95,9 @@ visibility gaps?
 
 Proposed panels:
 
-- **a.** Representative pair trajectories in energy, with visible regimes and
-  gaps marked.
+- **a.** Expected energy-law trajectory with framewise cross-method median
+  pair distances, min-max whiskers, and the visibility regimes of both
+  branches.
 - **b.** Branch-consistent Gaussian measurement coverage, common denominator
   `221`.
 - **c.** Post-gap recovery, common denominator `24`.

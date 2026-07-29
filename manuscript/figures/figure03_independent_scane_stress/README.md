@@ -17,11 +17,14 @@ from Scan A. The case was selected by the predeclared physics rule before
 method outcomes were inspected: it is the first ordered case that passed the
 coherent pairwise energy-law check and contains natural I(V) visibility gaps.
 The dashed curve is the expected \(D(E)\propto1/\sqrt{E}\) trajectory and the
-colored markers are pair distances obtained after the common Gaussian
-measurement for the five tracking strategies. The two ribbons show the
-tracker-independent visibility regimes of the individual branches. Image
-identity is retained, so repeated terminal-energy acquisitions are not
-collapsed. **b,** Branch-consistent Gaussian measurement coverage among 221
+neutral markers are framewise cross-method medians of the available valid
+Gaussian pair measurements. Vertical whiskers show the corresponding
+cross-method minimum-to-maximum range. Between two and five methods contribute
+per displayed image; the largest range is 0.066 px and is smaller than the
+marker at this scale. The two ribbons show the tracker-independent visibility
+regimes of the individual branches. Image identity is retained, so repeated
+terminal-energy acquisitions are not collapsed. **b,** Branch-consistent
+Gaussian measurement coverage among 221
 baseline-visible spot opportunities per method. **c,** Recovery of the same
 physics-constrained branch after 24 evaluable natural I(V) gaps, without
 manual reinitialization. **d,** Accepted Gaussian measurements lying outside
