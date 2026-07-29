@@ -20,10 +20,15 @@ OUTPUT_DIRECTORY = TABLE_ROOT / "output"
 MANIFEST_PATH = TABLE_ROOT / "manifest.json"
 SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 
-SUPPLEMENT_BEGIN_MARKER = "<!-- BEGIN TABLE S3 -->"
-SUPPLEMENT_END_MARKER = "<!-- END TABLE S3 -->"
-SUPPLEMENT_HEADING = (
+SUPPLEMENT_S3_BEGIN_MARKER = "<!-- BEGIN TABLE S3 -->"
+SUPPLEMENT_S3_END_MARKER = "<!-- END TABLE S3 -->"
+SUPPLEMENT_S3_HEADING = (
     "## Table S3 — stratified Ag(111) energy-scan outcomes"
+)
+SUPPLEMENT_S5_BEGIN_MARKER = "<!-- BEGIN TABLE S5 -->"
+SUPPLEMENT_S5_END_MARKER = "<!-- END TABLE S5 -->"
+SUPPLEMENT_S5_HEADING = (
+    "## Table S5 — controlled translations by source trial"
 )
 
 SCAN_LABELS = {
@@ -522,26 +527,45 @@ def render_translation_markdown(
     rows: list[dict[str, object]],
 ) -> str:
     lines = [
-        "# Table S5. Controlled translations by source trial",
-        "",
         (
-            "Errors are descriptive within each deterministic six-image "
-            "trial. The oracle ROI is a measurement control, not a tracker."
+            "**Table S5. Controlled-translation outcomes by independently "
+            "initialized source trial.** Each deterministic six-image trial "
+            "contains a seed and five non-seed steps on the same closed path "
+            "of known image translation, yielding 20 spot–step and 10 "
+            "pair–step evaluation opportunities per method. Proposal coverage "
+            "is available native proposals / 20; for the oracle control it is "
+            "constructed-ROI availability / 20. Measurement coverage is "
+            "accepted common Gaussian measurements / 20. Median, 95th-"
+            "percentile, and maximum displacement errors are conditional on "
+            "accepted Gaussian measurements. Pair coverage is jointly valid "
+            "pair measurements / 10, and maximum absolute ΔD/D is conditional "
+            "on jointly valid pair measurements and reported in percentage "
+            "points. The four separately initialized source trials from one "
+            "Cu(111) series are descriptive strata, not four independent "
+            "acquisitions. The oracle ROI is a measurement control, not a "
+            "tracker. No inferential interval, composite score, or overall "
+            "ranking is implied."
         ),
         "",
         (
-            "| Trial | T [°C] | Method | Proposal coverage | Measurement "
-            "coverage | Median / P95 / max error [px] | Pair coverage | "
-            "Maximum absolute Delta D/D [pp] |"
+            "| Trial | T [°C] | Method | Proposal / constructed-ROI coverage "
+            "| Gaussian measurement coverage | Conditional median / P95 / "
+            "maximum displacement error [px] | Pair coverage | Maximum "
+            "absolute ΔD/D [pp] |"
         ),
         "|---|---:|---|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
         lines.append(
-            "| {trial} | {temperature_c} | {method} | {proposal_coverage} | "
+            "| {trial} | {temperature_c} | {reader_method} | "
+            "{proposal_coverage} | "
             "{measurement_coverage} | {median:.4f} / {p95:.4f} / {maximum:.4f} "
             "| {pair_coverage} | {pair_max:.6f} |".format(
                 **row,
+                reader_method=str(row["method"]).replace(
+                    "Lucas-Kanade",
+                    "Lucas–Kanade",
+                ),
                 median=float(row["measurement_error_median_px"]),
                 p95=float(row["measurement_error_p95_px"]),
                 maximum=float(row["measurement_error_max_px"]),
@@ -608,6 +632,10 @@ def build_artifact(
     manifest: dict[str, object] = {
         "schema_version": "1.0",
         "status": "completed",
+        "table_status": {
+            "Table S3": "finalized",
+            "Table S5": "finalized",
+        },
         "builder_sha256": sha256_file(Path(__file__).resolve()),
         "uncertainty_policy": {
             "inference": "descriptive; no confidence intervals or p-values",
@@ -659,69 +687,142 @@ def build_artifact(
     return manifest
 
 
-def _supplement_marker_bounds(
+def _marker_bounds(
     supplement: str,
     *,
+    begin_marker: str,
+    end_marker: str,
+    table_label: str,
     allow_absent: bool,
 ) -> tuple[int, int] | None:
-    begin_count = supplement.count(SUPPLEMENT_BEGIN_MARKER)
-    end_count = supplement.count(SUPPLEMENT_END_MARKER)
+    begin_count = supplement.count(begin_marker)
+    end_count = supplement.count(end_marker)
     if begin_count == 0 and end_count == 0:
         if allow_absent:
             return None
-        raise ValueError("Table S3 markers are missing from the supplement.")
+        raise ValueError(f"{table_label} markers are missing from the supplement.")
     if begin_count != 1 or end_count != 1:
         raise ValueError(
-            "Supplement must contain exactly one ordered Table S3 marker pair."
+            f"Supplement must contain exactly one ordered {table_label} "
+            "marker pair."
         )
-    begin = supplement.index(SUPPLEMENT_BEGIN_MARKER)
-    end = supplement.index(SUPPLEMENT_END_MARKER)
+    begin = supplement.index(begin_marker)
+    end = supplement.index(end_marker)
     if end < begin:
-        raise ValueError("Table S3 end marker precedes its begin marker.")
+        raise ValueError(f"{table_label} end marker precedes its begin marker.")
     return begin, end
 
 
-def extract_supplement_block(supplement: str) -> str:
-    bounds = _supplement_marker_bounds(supplement, allow_absent=False)
+def _extract_supplement_table(
+    supplement: str,
+    *,
+    begin_marker: str,
+    end_marker: str,
+    table_label: str,
+) -> str:
+    bounds = _marker_bounds(
+        supplement,
+        begin_marker=begin_marker,
+        end_marker=end_marker,
+        table_label=table_label,
+        allow_absent=False,
+    )
     assert bounds is not None
     begin, end = bounds
-    content_start = begin + len(SUPPLEMENT_BEGIN_MARKER)
+    content_start = begin + len(begin_marker)
     return supplement[content_start:end].strip() + "\n"
 
 
-def sync_supplement(markdown: str) -> None:
+def extract_supplement_s3_block(supplement: str) -> str:
+    return _extract_supplement_table(
+        supplement,
+        begin_marker=SUPPLEMENT_S3_BEGIN_MARKER,
+        end_marker=SUPPLEMENT_S3_END_MARKER,
+        table_label="Table S3",
+    )
+
+
+def extract_supplement_s5_block(supplement: str) -> str:
+    return _extract_supplement_table(
+        supplement,
+        begin_marker=SUPPLEMENT_S5_BEGIN_MARKER,
+        end_marker=SUPPLEMENT_S5_END_MARKER,
+        table_label="Table S5",
+    )
+
+
+def _sync_supplement_table(
+    markdown: str,
+    *,
+    begin_marker: str,
+    end_marker: str,
+    heading: str,
+    table_label: str,
+) -> None:
     supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
-    bounds = _supplement_marker_bounds(supplement, allow_absent=True)
+    bounds = _marker_bounds(
+        supplement,
+        begin_marker=begin_marker,
+        end_marker=end_marker,
+        table_label=table_label,
+        allow_absent=True,
+    )
     block = (
-        f"{SUPPLEMENT_BEGIN_MARKER}\n"
+        f"{begin_marker}\n"
         f"{markdown.rstrip()}\n"
-        f"{SUPPLEMENT_END_MARKER}"
+        f"{end_marker}"
     )
     if bounds is not None:
         begin, end = bounds
         before = supplement[:begin].rstrip()
         after = supplement[
-            end + len(SUPPLEMENT_END_MARKER):
+            end + len(end_marker):
         ].lstrip()
         updated = f"{before}\n\n{block}\n"
         if after:
             updated += f"\n{after}"
     else:
-        if SUPPLEMENT_HEADING in supplement:
-            raise ValueError("Table S3 heading exists without generated markers.")
+        if heading in supplement:
+            raise ValueError(
+                f"{table_label} heading exists without generated markers."
+            )
         updated = (
             supplement.rstrip()
-            + f"\n\n{SUPPLEMENT_HEADING}\n\n"
+            + f"\n\n{heading}\n\n"
             + block
             + "\n"
         )
     SUPPLEMENT_PATH.write_text(updated, encoding="utf-8", newline="\n")
 
 
+def sync_supplement_s3(markdown: str) -> None:
+    _sync_supplement_table(
+        markdown,
+        begin_marker=SUPPLEMENT_S3_BEGIN_MARKER,
+        end_marker=SUPPLEMENT_S3_END_MARKER,
+        heading=SUPPLEMENT_S3_HEADING,
+        table_label="Table S3",
+    )
+
+
+def sync_supplement_s5(markdown: str) -> None:
+    _sync_supplement_table(
+        markdown,
+        begin_marker=SUPPLEMENT_S5_BEGIN_MARKER,
+        end_marker=SUPPLEMENT_S5_END_MARKER,
+        heading=SUPPLEMENT_S5_HEADING,
+        table_label="Table S5",
+    )
+
+
 def main() -> None:
     build_artifact()
     table_s3_path = OUTPUT_DIRECTORY / "table_s3_energy_scan_by_case.md"
-    sync_supplement(table_s3_path.read_text(encoding="utf-8"))
+    sync_supplement_s3(table_s3_path.read_text(encoding="utf-8"))
+    table_s5_path = (
+        OUTPUT_DIRECTORY / "table_s5_controlled_translation_by_trial.md"
+    )
+    sync_supplement_s5(table_s5_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

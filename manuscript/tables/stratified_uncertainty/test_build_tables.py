@@ -96,6 +96,48 @@ class StratifiedReportingTableTest(unittest.TestCase):
             0.00018074382868849865,
         )
 
+    def test_table_s5_render_defines_denominators_and_conditioning(self) -> None:
+        rendered = build_tables.render_translation_markdown(
+            build_tables.build_controlled_translation_trial_table(),
+        )
+
+        self.assertTrue(rendered.startswith("**Table S5."))
+        self.assertIn(
+            "four separately initialized source trials from one Cu(111) series",
+            rendered,
+        )
+        self.assertIn(
+            "20 spot–step and 10 pair–step evaluation opportunities",
+            rendered,
+        )
+        self.assertIn(
+            "conditional on accepted Gaussian measurements",
+            rendered,
+        )
+        self.assertIn(
+            "conditional on jointly valid pair measurements",
+            rendered,
+        )
+        self.assertIn(
+            "known image translation",
+            rendered,
+        )
+        self.assertIn(
+            "not a tracker",
+            rendered,
+        )
+        self.assertIn(
+            "not four independent acquisitions",
+            rendered,
+        )
+        self.assertIn("Lucas–Kanade", rendered)
+        self.assertNotIn("Lucas-Kanade", rendered)
+        self.assertNotIn("# Table S5", rendered)
+        self.assertNotIn("source frame", rendered.lower())
+        self.assertNotIn("26a21", rendered)
+        self.assertNotIn("ScanE", rendered)
+        self.assertNotIn("C:\\Users", rendered)
+
     def test_artifact_records_descriptive_policy_and_deterministic_outputs(
         self,
     ) -> None:
@@ -142,6 +184,13 @@ class StratifiedReportingTableTest(unittest.TestCase):
                     "binomial confidence intervals over correlated frames or gaps",
                     "reaggregation of case medians as pooled residuals",
                 ],
+            )
+            self.assertEqual(
+                manifest["table_status"],
+                {
+                    "Table S3": "finalized",
+                    "Table S5": "finalized",
+                },
             )
             self.assertEqual(len(manifest["outputs"]), 5)
             for markdown_name in (
@@ -198,33 +247,73 @@ class StratifiedReportingTableTest(unittest.TestCase):
         self.assertNotIn("ScanE", rendered)
         self.assertNotIn("C:\\Users", rendered)
 
-    def test_supplement_markers_must_be_one_ordered_pair(self) -> None:
-        valid = (
-            f"{build_tables.SUPPLEMENT_BEGIN_MARKER}\ncontent\n"
-            f"{build_tables.SUPPLEMENT_END_MARKER}"
+    def test_supplement_markers_must_be_one_ordered_pair_per_table(
+        self,
+    ) -> None:
+        table_contracts = (
+            (
+                "Table S3",
+                build_tables.SUPPLEMENT_S3_BEGIN_MARKER,
+                build_tables.SUPPLEMENT_S3_END_MARKER,
+                build_tables.extract_supplement_s3_block,
+            ),
+            (
+                "Table S5",
+                build_tables.SUPPLEMENT_S5_BEGIN_MARKER,
+                build_tables.SUPPLEMENT_S5_END_MARKER,
+                build_tables.extract_supplement_s5_block,
+            ),
         )
-        self.assertEqual(
-            build_tables.extract_supplement_block(valid),
-            "content\n",
-        )
+        for table_label, begin_marker, end_marker, extract in table_contracts:
+            valid = f"{begin_marker}\ncontent\n{end_marker}"
+            with self.subTest(table=table_label, record="valid"):
+                self.assertEqual(extract(valid), "content\n")
 
-        invalid_records = (
-            build_tables.SUPPLEMENT_BEGIN_MARKER,
-            build_tables.SUPPLEMENT_END_MARKER,
-            (
-                f"{valid}\n"
-                f"{build_tables.SUPPLEMENT_BEGIN_MARKER}\nduplicate\n"
-                f"{build_tables.SUPPLEMENT_END_MARKER}"
-            ),
-            (
-                f"{build_tables.SUPPLEMENT_END_MARKER}\n"
-                f"{build_tables.SUPPLEMENT_BEGIN_MARKER}"
-            ),
-        )
-        for invalid in invalid_records:
-            with self.subTest(record=invalid):
-                with self.assertRaises(ValueError):
-                    build_tables.extract_supplement_block(invalid)
+            invalid_records = (
+                begin_marker,
+                end_marker,
+                f"{valid}\n{begin_marker}\nduplicate\n{end_marker}",
+                f"{end_marker}\n{begin_marker}",
+            )
+            for invalid in invalid_records:
+                with self.subTest(table=table_label, record=invalid):
+                    with self.assertRaises(ValueError):
+                        extract(invalid)
+
+    def test_table_s5_sync_appends_then_replaces_one_generated_block(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            supplement_path = Path(temporary_directory) / "supplement.md"
+            supplement_path.write_text(
+                "# Supplement\n\nExisting content.\n",
+                encoding="utf-8",
+            )
+            with mock.patch.object(
+                build_tables,
+                "SUPPLEMENT_PATH",
+                supplement_path,
+            ):
+                build_tables.sync_supplement_s5("first table\n")
+                build_tables.sync_supplement_s5("updated table\n")
+
+            supplement = supplement_path.read_text(encoding="utf-8")
+            self.assertEqual(
+                build_tables.extract_supplement_s5_block(supplement),
+                "updated table\n",
+            )
+            self.assertEqual(
+                supplement.count(build_tables.SUPPLEMENT_S5_HEADING),
+                1,
+            )
+            self.assertEqual(
+                supplement.count(build_tables.SUPPLEMENT_S5_BEGIN_MARKER),
+                1,
+            )
+            self.assertEqual(
+                supplement.count(build_tables.SUPPLEMENT_S5_END_MARKER),
+                1,
+            )
 
     def test_provenance_rejects_malformed_hashes_and_escaping_paths(
         self,
@@ -315,7 +404,20 @@ class StratifiedReportingTableTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
         self.assertEqual(
-            build_tables.extract_supplement_block(supplement),
+            build_tables.extract_supplement_s3_block(supplement),
+            markdown,
+        )
+
+    def test_committed_table_s5_and_supplement_are_synchronized(self) -> None:
+        markdown = (
+            TABLE_ROOT
+            / "output"
+            / "table_s5_controlled_translation_by_trial.md"
+        ).read_text(encoding="utf-8")
+        supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
+
+        self.assertEqual(
+            build_tables.extract_supplement_s5_block(supplement),
             markdown,
         )
 

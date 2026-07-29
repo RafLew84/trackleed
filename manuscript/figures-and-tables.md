@@ -349,11 +349,16 @@ Final artifact:
   [full-precision CSV](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.csv),
   [supplement Markdown](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.md),
   and [manifest](tables/table_s4_cu111_endpoints/manifest.json).
-- **Table S5:** per-source-trial controlled-translation proposal and
-  measurement coverage, conditional median/P95/maximum displacement error,
-  pair coverage, and maximum absolute `Delta D/D`.
+- **Table S5 — generated and validated:** per-source-trial
+  controlled-translation proposal and measurement coverage, conditional
+  median/P95/maximum displacement error, pair coverage, and maximum absolute
+  `Delta D/D`. Final artifact:
+  [README](tables/stratified_uncertainty/README.md),
+  [full-precision CSV](tables/stratified_uncertainty/output/controlled_translation_by_trial.csv),
+  [supplement Markdown](tables/stratified_uncertainty/output/table_s5_controlled_translation_by_trial.md),
+  and [manifest](tables/stratified_uncertainty/manifest.json).
 
-The finalized Table S3 and the generated Table S5 draft are documented in the
+The finalized Tables S3 and S5 are documented in the
 [stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md).
 
 ## Asset policy

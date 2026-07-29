@@ -34,8 +34,8 @@ one propagated trajectory as independent replicates.
   `output/table_s5_controlled_translation_by_trial.md` report proposal and
   measurement coverage, conditional displacement-error summaries, pair
   coverage, and maximum absolute pair-endpoint change for each source trial.
-  Table S5 remains a generated draft and is not synchronized into the
-  supplement by this Table S3 finalization step.
+  They form the finalized Table S5. The generated Markdown is copied exactly
+  between the Table S5 markers in `manuscript/supplementary-material.md`.
 
 The leave-one-case-out analysis does not pool or average the conditional
 case-median residuals. Their raw per-case values and surviving pair-frame
@@ -53,6 +53,6 @@ From this directory:
 The builder validates the provenance schema, confined paths, and SHA-256
 hashes in `source_data/source_provenance.json`, writes all CSV and Markdown
 outputs, records the builder and output hashes in `manifest.json`, and
-synchronizes Table S3 into the supplement. The two original run-workspace
-paths are optional audit locations; their committed frozen tables make a
-clean checkout self-contained.
+synchronizes Tables S3 and S5 into the supplement. The two original
+run-workspace paths are optional audit locations; their committed frozen
+tables make a clean checkout self-contained.

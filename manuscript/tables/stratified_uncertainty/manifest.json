@@ -1,11 +1,11 @@
 {
-  "builder_sha256": "c4b8b9f661f77576ecbbf871452896637cc786a5f84441a8837546395b73125c",
+  "builder_sha256": "c737e0238087202d460e86b940e70714533bbfeeac7afbe7a3151345f2f2d6e7",
   "outputs": {
     "controlled_translation_by_trial.csv": "62f9f7f9957cdd32f63b0772f04eaf3677c04a2f63c0ffb59dfd23b96c731fef",
     "energy_scan_by_case.csv": "116780231ce46c852146a64b6f57947363a68c1f6c32ee0ba02c56c54100f2eb",
     "energy_scan_leave_one_case_out.csv": "050fd3f89fa9f6703b0d39e582620f4a224430a0ba453f402ad459998d10e712",
     "table_s3_energy_scan_by_case.md": "410842ab71bfb9a4281d901fea95705fc86029c1d14dbea2aa6c7dc4e45b57a6",
-    "table_s5_controlled_translation_by_trial.md": "38864a2856a5b2affbf6c75d3ca2b1cc7b89d874c77c6e7676d6ffc883038d56"
+    "table_s5_controlled_translation_by_trial.md": "44dd23e51f205b0b25cf768c4bf3c3c1af953e536fab0f85d63f51b5efe481be"
   },
   "schema_version": "1.0",
   "source_data": {
@@ -15,6 +15,10 @@
     "source_data/source_provenance.json": "37298eee0da85ead4e95a58ffe5561771fb78f7b9bdf89e21a340ee162cae86a"
   },
   "status": "completed",
+  "table_status": {
+    "Table S3": "finalized",
+    "Table S5": "finalized"
+  },
   "uncertainty_policy": {
     "gaussian_fit_uncertainty": "per-measurement diagnostic; not sampling uncertainty for tracker performance",
     "inference": "descriptive; no confidence intervals or p-values",
