@@ -52,6 +52,9 @@ describes the corresponding physical state or experimental role.
 - [`tables/table01_data_evidence_roles/`](tables/table01_data_evidence_roles/) -
   deterministic main table separating four data regimes from five evidence
   roles and recording their reporting units.
+- [`tables/table03_cross_regime_summary/`](tables/table03_cross_regime_summary/) -
+  deterministic three-block summary of the common five-method results across
+  controlled translations, Cu(111), and independent Ag(111) energy scans.
 - [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
   per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
   analysis, deterministic builder, and manifest.

@@ -260,6 +260,8 @@ Keep ViPErLEED in a visibly separate external-reference row.
 
 ### Table 3 - Quantitative summary across evidence regimes
 
+**Status:** generated and validated.
+
 Use selected columns from:
 
 - [cross-regime method evidence matrix](../.scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/method_evidence_matrix.csv)
@@ -270,7 +272,20 @@ Group headers:
 - Cu(111) positive control;
 - independent Ag(111) energy-scan stress test.
 
+The publication table uses three vertically stacked blocks rather than one
+over-wide matrix. Each block retains its own denominators and metric semantics,
+including the surviving pair-frame count for the conditional energy-scan
+residual. The DAM4SAM checkpoint-size change between regimes is disclosed in
+the caption.
+
 Do not add an overall score, rank column, or color scale suggesting one.
+
+Final artifact:
+
+- [artifact README](tables/table03_cross_regime_summary/README.md)
+- [publication-facing CSV](tables/table03_cross_regime_summary/output/table03_quantitative_summary.csv)
+- [manuscript Markdown](tables/table03_cross_regime_summary/output/table03_quantitative_summary.md)
+- [manifest](tables/table03_cross_regime_summary/manifest.json)
 
 ## Supplementary display items
 

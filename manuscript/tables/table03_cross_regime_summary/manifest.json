@@ -1,0 +1,29 @@
+{
+  "builder_sha256": "13a84646c839b98bfd754b03e5a7a44ef46b3bddf17c71c27b10ff23e21abe86",
+  "outputs": {
+    "table03_quantitative_summary.csv": "1b5c9034cd90e4c4a00bf9204acf5466401aa6620a14e017c75bd165969a7b25",
+    "table03_quantitative_summary.md": "9df50b30dab7a9752d2a4366341d703e5b783e1bc2d4f3c43959664c976362f1"
+  },
+  "schema_version": "1.0",
+  "source_data": {
+    "source_data/method_evidence_matrix.csv": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+    "source_data/source_provenance.json": "46cc499852435380fc3fae1d132dbaa9253dc6e53df98d53f458396043d8960a"
+  },
+  "status": "completed",
+  "table_contract": {
+    "block_count": 3,
+    "conditional_residual_keeps_pair_frame_n": true,
+    "dam4sam_cross_regime_variant_change_disclosed": true,
+    "method_count": 5,
+    "ranking_policy": "no composite score, rank, or rank-like color scale"
+  },
+  "upstream_sources": [
+    {
+      "frozen_path": "source_data/method_evidence_matrix.csv",
+      "frozen_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/method_evidence_matrix.csv",
+      "origin_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "role": "common five-method quantitative evidence across controlled translations, Cu(111), and independent Ag(111) energy scans"
+    }
+  ]
+}
