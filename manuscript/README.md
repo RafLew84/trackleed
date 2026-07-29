@@ -1,9 +1,9 @@
 # Manuscript workspace
 
 Status: partial draft. Sections 2 (data and measurement model), 3 (tracking
-strategies and comparison contract), 4 (validation protocol), and 5 (results)
-are written as manuscript prose; the remaining sections are still a structured
-outline.
+strategies and comparison contract), 4 (validation protocol), 5 (results), and
+6 (discussion) are written as manuscript prose; the remaining sections are
+still a structured outline.
 
 Working title:
 

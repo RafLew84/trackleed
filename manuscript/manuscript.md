@@ -1,6 +1,6 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 2–5 are drafted, while the
+Draft status: working manuscript; Sections 2–6 are drafted, while the
 remaining sections retain structured-outline placeholders.
 
 ## Authors
@@ -848,44 +848,179 @@ establish superiority of either the single-spot or whole-pattern contract.
 
 ### 6.1 Tracker performance is mediated by the estimator capture region
 
-Connect the controlled translation and Cu(111) results. Explain why heterogeneous
-native proposals can converge after a common Gaussian fit without claiming that
-the trackers are equally accurate in an absolute sense.
+The controlled translations and Cu(111) positive control show that the native
+tracker coordinate and the reported quantitative position are distinct stages
+of the measurement chain. Point, bounding-box, mask, optical-flow, and
+LEED-specific proposals could differ appreciably while still placing the
+intended diffraction spot inside the 48 × 48 pixel measurement ROI. Once that
+condition was met, the common Gaussian estimator fitted the same local
+diffraction feature and strongly reduced the effect of proposal placement. In
+the translation experiment, the method-wise median full-chain errors of
+0.0043--0.0265 px approached the 0.0053 px oracle-ROI level despite much larger
+native proposal errors. In the Cu(111) sequence, the largest native
+between-method separation was 16.759 px, whereas the largest separation
+between the corresponding Gaussian-refined centers was 0.0502 px.
+
+This convergence should not be interpreted as evidence that the trackers have
+equal absolute coordinate accuracy. The known-translation test subtracts each
+method's own initial coordinate and therefore evaluates equivariance rather
+than a fixed position offset. The Cu(111) sequence, in turn, provides
+between-method agreement without an external position reference. Both results
+instead identify a practical capture-region effect: proposal errors smaller
+than the estimator's effective capture range can have little influence on the
+refined center, whereas a proposal that excludes the intended spot cannot be
+repaired downstream. The appropriate unit of evaluation is consequently the
+combined proposal-to-ROI-to-fit chain, with proposal availability and fit
+acceptance retained alongside the conditional localization error.
 
 ### 6.2 Coverage and identity failures cannot be replaced by conditional error
 
-Use the independent energy-scan results to distinguish:
+The independent Ag(111) energy scans exposed differences that were hidden in
+the positive-control sequence. Their radial motion and natural I(V) visibility
+gaps created opportunities for four distinct outcomes: absence of a native
+proposal, rejection of the downstream Gaussian measurement, recovery on the
+expected radial branch after a gap, and continuation on a measurable feature
+outside that branch. Combining these outcomes into a single successful-frame
+error would remove the events that most directly determine whether a
+quantitative time or energy series remains usable.
 
-- failure to return a proposal;
-- rejected quantitative measurement;
-- correct recovery after a true I(V) gap;
-- accepted but physics-inconsistent continuation.
+This selection effect is visible in the relation between coverage and the
+conditional pair-distance residual. Lucas--Kanade retained 188/221
+branch-consistent measurements and recovered 17/24 gaps, compared with
+214--217/221 measurements and 21--23/24 recoveries for the other strategies.
+Nevertheless, its median pair-distance residual on the surviving,
+branch-consistent pairs was 1.764 px and therefore lay inside the narrow
+1.737--1.837 px range of all five methods. Reporting only this conditional
+residual would make the methods appear more similar by excluding the
+measurements that were unavailable or inconsistent.
+
+Conversely, high proposal or fit availability does not by itself establish
+correct identity preservation. Accepted Gaussian fits outside the frozen
+energy-dependent branch occurred for every method and were most frequent in
+absolute count for LocoTrack and DAM4SAM in the independent scans. These
+events are operational evidence of physically inconsistent continuation, not
+external proof of a particular identity switch. They nevertheless show why
+measurement coverage must be paired with a geometry constraint. In the
+present comparison, a defensible report therefore requires coverage against
+the 221 visible opportunities, recovery against the 24 evaluable gaps,
+geometry-inconsistent fits relative to each method's accepted-fit count, and
+the residual distribution only for pairs whose two branches passed all
+proposal, fit, and geometry gates.
 
 ### 6.3 Memory has a measurable continuity trade-off
 
-Discuss why motion-aware or distractor-aware memory can bridge gaps while also
-maintaining an incorrect association. Limit the conclusion to the frozen
-SAM2-family experiment.
+The controlled SAM2-family experiment gives a mechanistic example of this
+distinction. With byte-identical SAM2.1 Base+ weights and the same prompts,
+SAMURAI and DAM4SAM produced substantially greater measurement continuity than
+vanilla SAM2: both recovered all 13 evaluable gaps, whereas SAM2 recovered
+9/13. Coverage was 181/182 for SAMURAI and 179/182 for DAM4SAM, compared with
+126/182 for SAM2. The same variants also produced more accepted fits outside
+the expected branch: 36/236 for SAMURAI and 36/233 for DAM4SAM, compared with
+8/149 for SAM2. In this experiment, the strategies that most often preserved
+the desired association through weak visibility also more often persisted on
+a measurable feature outside the frozen physical branch.
+
+This observation is particularly relevant to diffraction data because the
+temporary unmeasurability of a spot is often driven by the physical I(V)
+response rather than ordinary visual occlusion. During such an interval,
+image evidence for the intended feature may be insufficient even though
+nearby diffraction features remain visible. Under the frozen contract, the
+memory-aware strategies therefore showed a different balance between
+discontinuity and possible false persistence rather than an unconditional
+improvement. A physics-aware branch check supplies information that the visual
+memory mechanisms do not encode directly and makes the two outcomes separable.
+
+The experiment does not isolate one internal memory component. SAM2, SAMURAI,
+and DAM4SAM also differ in motion prediction, mask selection, visibility
+handling, and update logic. Moreover, the comparison covers one energy scan
+and two pairs. The supported conclusion is therefore limited to a
+strategy-level continuity--consistency trade-off under the frozen contract,
+not a universal ordering of SAM2-derived methods or a causal attribution to
+one architectural operation.
 
 ### 6.4 Consequences for quantitative LEED observables
 
-Explain how the measurement-chain behavior propagates to pairwise `Delta R/R`.
-Keep Gaussian I(V) amplitude/volume separate from tracker visibility and avoid a
-full structural LEED I(V) interpretation.
+The practical consequence of proposal behavior is determined by the
+downstream physical observable. In the Cu(111) positive control, all five
+strategies maintained complete Gaussian-measurement coverage and produced
+nearly identical pairwise \(\Delta R/R=\Delta D/D\) curves, including the
+high-temperature plateau, post-plateau minimum, and final cooled state. This
+agreement demonstrates that the endpoint can be insensitive to the native
+proposal representation when both members of a pair remain inside the
+estimator's capture region. It does not turn the Cu(111) sequence into a
+tracker benchmark; rather, the heterogeneous proposal mechanisms yielded
+mutually consistent endpoints in this particular easy positive-control
+sequence.
+
+Pairwise distance is useful in both data regimes because it cancels a common
+translation of the observed pattern. In the energy scans, comparison with
+\(D(E)\propto1/\sqrt{E}\) then provides a physically constrained
+self-consistency test without requiring an image-by-image manual center. The
+separate pair-midpoint motion shows, however, that the ideal radial law is not
+an exact pixelwise ground truth for the apparatus. Pair distance cannot remove
+non-rigid distortion, sector-dependent projection effects, or an association
+with the wrong diffraction feature. Its role is therefore to test whether a
+measurement remains compatible with the frozen physical branch, not to supply
+absolute position labels.
+
+Missingness must also be propagated explicitly to the endpoint. The separate
+Cu(111) pair 2--4 diagnostic showed that a tracking proposal can remain
+available while the common fit fails because the spot amplitude falls below
+the acceptance threshold. Interpolation or forward filling would hide this
+distinction and could create an apparently continuous physical curve without
+a supported position measurement. For the same reason, native tracker
+confidence, occlusion probability, or mask area cannot be interpreted as a
+LEED I(V) observable. An intensity curve, if analysed in future work, must be
+derived from the amplitude or integrated volume of the common image fit and
+validated separately from tracking continuity.
+
+The pair 2--4 result has a narrower evidential role than the five-method
+positive control. It used an earlier saved YOLO proposal trajectory, lay
+outside the frozen five-method experiment, and did not provide ground truth
+for spot identity. It supports only the distinction between proposal
+availability and downstream quantitative-measurement availability.
 
 ### 6.5 Limitations
 
-- No external image-by-image ground truth for absolute spot identity or position.
-- Controlled translations test equivariance, not experimental dynamics.
-- Cu(111) is an easy positive-control regime and does not discriminate trackers.
-- The independent energy-scan validation contains four primary pairs across
-  two series.
-- The SAM2-family experiment contains one series and two pairs.
-- DAM4SAM uses `sam21pp-L` on Cu(111) and `sam21pp-B` in the independent energy-scan
-  comparison.
-- ViPErLEED uses a different whole-pattern initialization contract.
-- No full structural I(V) analysis, thermal-expansion coefficient, or material
-  transformation is inferred.
+The study has no external image-by-image reference for absolute spot position
+or identity. Controlled translations provide an exact commanded displacement,
+but they test measurement-chain equivariance on transformed images rather
+than the full dynamics of an experiment. The physical branch model and
+pairwise geometry provide independent constraints in the energy scans, but a
+geometry-inconsistent fit is an indicator of possible false continuity rather
+than manually verified proof of misassociation. Accordingly, the results do
+not establish an absolute-accuracy ranking.
+
+The number of independent experimental units is also limited. The principal
+stress test contains four pairs from two Ag(111) energy scans, while the
+controlled SAM2-family analysis contains two pairs from one additional scan.
+The Cu(111) sequence is an easy positive-control regime in which the endpoint
+did not discriminate the five strategies, not an additional difficult
+tracking comparison. Successive images are repeated observations within
+propagated trajectories and are not independent replicates. The reported
+rates and residuals should therefore be read as descriptive measurements of
+the frozen cases rather than population-level estimates for all LEED patterns,
+materials, instruments, or visibility regimes.
+
+The comparison does not hold every implementation detail constant across all
+experiments. DAM4SAM used the Large configuration in the Cu(111) and
+translation regimes but the Base+ configuration in the independent energy
+scans; comparisons across those regimes cannot be attributed solely to the
+data. Only the internal SAM2-family experiment used byte-identical checkpoint
+weights. EasyLEED and ViPErLEED also differ fundamentally in initialization:
+one tracks individually seeded spots, whereas the other registers a complete
+reciprocal-lattice pattern. Their restricted high-energy comparison
+demonstrates compatibility with the common estimator, not equivalence of the
+native tracking contracts.
+
+Finally, the selected Gaussian gates, 48 × 48 ROI, seeds, and branch tolerance
+were frozen for this study but define the estimator capture region and can
+affect the observed balance between coverage and inconsistency. The present
+work does not test other ROI sizes, detector geometries, or a full structural
+LEED I(V) workflow. The Cu(111) endpoint is consequently limited to relative
+changes of the measured diffraction-pattern scale; it is not used to infer a
+thermal-expansion coefficient, structural transformation, or crystallographic
+anisotropy.
 
 ## 7. Reproducibility and data availability
 
