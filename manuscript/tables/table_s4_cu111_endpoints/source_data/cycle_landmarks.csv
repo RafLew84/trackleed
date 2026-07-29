@@ -1,0 +1,5 @@
+landmark,reader_label,frame_start,frame_end,temperature_min_c,temperature_max_c,selection_basis,outcome_selected
+reference,Reference (10-16 °C),0,9,10,16,median valid pair distance; at least 8 of 10 required,false
+plateau,800 °C plateau,372,376,800,800,predefined five-image median,false
+post_plateau_minimum,Post-plateau minimum (797 °C),378,378,797,797,minimum after the 800 °C plateau; common to all methods and pairs,true
+final,Final cooled state (92 °C),700,700,92,92,predefined final image,false

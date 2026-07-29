@@ -42,9 +42,9 @@ describes the corresponding physical state or experimental role.
   1–8 and explicit placeholders for missing author, acquisition, and public
   release information.
 - [`supplementary-material.md`](supplementary-material.md) - working
-  supplementary document containing generated Tables S1–S3: software and
-  environments, measurement gates and denominators, and stratified
-  energy-scan outcomes.
+  supplementary document containing generated Tables S1–S4: software and
+  environments, measurement gates and denominators, stratified energy-scan
+  outcomes, and Cu(111) pairwise physical endpoints.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
   manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
@@ -72,6 +72,10 @@ describes the corresponding physical state or experimental role.
   finalized per-scan–pair Table S3 with leave-one-case-out sensitivity,
   together with the generated per-trial Table S5 draft, deterministic builder,
   and manifest.
+- [`tables/table_s4_cu111_endpoints/`](tables/table_s4_cu111_endpoints/) -
+  deterministic Cu(111) method-by-pair endpoint table with full-precision
+  source CSV, reader-facing supplement block, provenance hash chain, and
+  manifest.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
 

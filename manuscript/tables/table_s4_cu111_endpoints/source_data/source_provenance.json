@@ -1,0 +1,27 @@
+{
+  "freeze_policy": "Byte-identical committed snapshots of the validated Figure 5 summary contracts; the committed Figure 5 sources remain required and hash-checked at build time.",
+  "schema_version": "1.0",
+  "sources": [
+    {
+      "frozen_path": "source_data/endpoint_summaries.csv",
+      "frozen_sha256": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",
+      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/endpoint_summaries.csv",
+      "origin_sha256": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",
+      "role": "exact method-by-pair endpoint values and reference denominators"
+    },
+    {
+      "frozen_path": "source_data/cycle_landmarks.csv",
+      "frozen_sha256": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
+      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv",
+      "origin_sha256": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
+      "role": "predefined and outcome-selected thermal-cycle landmark contract"
+    },
+    {
+      "frozen_path": "source_data/between_method_spread.csv",
+      "frozen_sha256": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
+      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv",
+      "origin_sha256": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
+      "role": "independent extrema and between-method spread cross-check"
+    }
+  ]
+}

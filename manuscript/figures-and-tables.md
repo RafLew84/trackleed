@@ -342,8 +342,13 @@ Final artifact:
   [leave-one-case-out CSV](tables/stratified_uncertainty/output/energy_scan_leave_one_case_out.csv),
   [supplement Markdown](tables/stratified_uncertainty/output/table_s3_energy_scan_by_case.md),
   and [manifest](tables/stratified_uncertainty/manifest.json).
-- **Table S4:** Cu plateau, post-plateau `Delta R/R` minimum, and final endpoint
-  values by method and pair.
+- **Table S4 — generated and validated:** exact Cu(111) plateau,
+  post-plateau `Delta R/R` minimum, and final cooled-state values for all five
+  methods and both primary pairs. Final artifact:
+  [README](tables/table_s4_cu111_endpoints/README.md),
+  [full-precision CSV](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.csv),
+  [supplement Markdown](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.md),
+  and [manifest](tables/table_s4_cu111_endpoints/manifest.json).
 - **Table S5:** per-source-trial controlled-translation proposal and
   measurement coverage, conditional median/P95/maximum displacement error,
   pair coverage, and maximum absolute `Delta D/D`.

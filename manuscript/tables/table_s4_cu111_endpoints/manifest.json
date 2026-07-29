@@ -1,0 +1,41 @@
+{
+  "artifact": "Supplementary Table S4",
+  "landmarks": {
+    "final": {
+      "reader_label": "Final cooled state (92 \u00b0C)",
+      "selection": "predefined",
+      "temperature": "92 \u00b0C"
+    },
+    "plateau": {
+      "reader_label": "800 \u00b0C plateau",
+      "selection": "predefined",
+      "temperature": "800 \u00b0C"
+    },
+    "post_plateau_minimum": {
+      "reader_label": "Post-plateau minimum (797 \u00b0C)",
+      "selection": "outcome-selected",
+      "temperature": "797 \u00b0C"
+    },
+    "reference": {
+      "reader_label": "Reference (10-16 \u00b0C)",
+      "selection": "predefined",
+      "temperature": "10\u201316 \u00b0C"
+    }
+  },
+  "outputs": {
+    "table_s4_cu111_endpoints.csv": "93edae3056fb21df6e7a3ff68093bdf41fd1262a90ea95f96c16769052a738fa",
+    "table_s4_cu111_endpoints.md": "8525f5a7301cd89dfc9705351c1ffeeae58494a351d89a8fa98735e2aaa54741"
+  },
+  "reporting_unit": "method\u2013pair within one Cu(111) thermal-cycle series",
+  "row_count": 10,
+  "schema_version": "1.0",
+  "sources": {
+    "build_table.py": "c5368f1f750a794cd5851c0e0f2f489ddc72c7b5698b1c2f8e9b62f2624c2139",
+    "source_data/between_method_spread.csv": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
+    "source_data/cycle_landmarks.csv": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
+    "source_data/endpoint_summaries.csv": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",
+    "source_data/source_provenance.json": "67eb8343365972423784161b5a1f083e9fc0a195f496720dd347c347d2288c26"
+  },
+  "status": "completed",
+  "title": "Cu(111) pairwise physical endpoints"
+}

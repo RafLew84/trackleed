@@ -876,6 +876,7 @@ therefore largely reversed on cooling, but the two sectors retained different
 endpoint values. With only two primary pairs, this sector difference was not
 interpreted as crystallographic anisotropy or used to infer a thermal-expansion
 coefficient or structural transition.
+Exact method- and pair-specific landmark values are reported in Table S4.
 
 The separate saved-trajectory diagnostic for pair 2--4 produced 24 consecutive
 missing measurements during the hottest part of the cycle despite a proposal
