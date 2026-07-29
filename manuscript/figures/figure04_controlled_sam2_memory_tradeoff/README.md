@@ -1,6 +1,43 @@
 # Figure 4 - controlled SAM2-family memory trade-off
 
-Status: source contract frozen; rendering pending.
+Status: generated and validated.
+
+## Final artifacts
+
+- [PNG](output/figure04_controlled_sam2_memory_tradeoff.png)
+- [PDF](output/pdf/figure04_controlled_sam2_memory_tradeoff.pdf)
+- [render manifest](manifest.json)
+- [frozen source contract](contract.json)
+
+## Caption
+
+**Figure 4. Controlled SAM2-family memory trade-off under identical
+checkpoint weights.** **a,** Four states around a natural B1 I(V) visibility
+gap in the controlled scan. SAM2, SAMURAI, and DAM4SAM receive the same
+single-object bbox seed; open circles denote native proposals, yellow plus
+symbols accepted centers from the common two-dimensional Gaussian fit, and
+red crosses rejected Gaussian centers. All twelve views render the complete
+frozen 128 x 128 pixel crops with one shared linear intensity scale. The
+sequence is the first decreasing-energy gap with different recovery outcomes
+and is outcome-selected for mechanistic explanation only. **b,**
+Branch-consistent Gaussian measurement coverage for two disjoint frozen pairs,
+each with 91 baseline-visible spot opportunities per method. **c,** Total and
+zero-delay recovery of the same physics-constrained branch after natural I(V)
+gaps, with seven evaluable gaps in pair 1 and six in pair 2. **d,** Left:
+accepted Gaussian measurements outside the frozen geometry gate, reported
+over each method's accepted measurements in all visibility regimes. Right:
+median-to-P95 absolute pair-distance residual \(D(E)\), conditional on both
+branches passing proposal, Gaussian-fit, and geometry gates; the
+method-specific numbers of jointly consistent pair frames are shown as
+\(n\). **e,** Aggregate mechanistic readout. Motion-aware and
+distractor-aware memory increase coverage and post-gap recovery relative to
+vanilla propagation, while also increasing geometry-inconsistent accepted
+fits. All methods use byte-identical SAM2.1 base-plus checkpoint weights, the
+same 48 x 48 pixel prompt and measurement ROI, the same Gaussian estimator,
+and no correction or reinitialization. The comparison contains one series and
+two pairs and is mechanism evidence, not a general ranking of SAM2-family
+methods. Conditional residuals must be interpreted together with coverage,
+recovery, and possible false continuity.
 
 ## Scientific question
 
@@ -33,7 +70,7 @@ which the controlled methods have different recovery outcomes. This
 outcome-selected sequence is used only to explain the mechanism. Quantitative
 panels use both frozen pairs.
 
-## Planned panels
+## Final panels
 
 - **a.** Four image states around the representative B1 visibility gap:
   pre-gap visibility at 169.2 eV, the 166.5-163.9 eV gap, and the first
@@ -74,6 +111,9 @@ Rebuild and validate:
 ```bash
 python freeze_source_data.py
 python freeze_source_data.py --validate-only
+python build_figure.py
+python build_figure.py --validate-only
 python test_freeze_source_data.py
 python test_source_contract.py
+python test_build_figure.py
 ```

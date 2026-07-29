@@ -130,7 +130,7 @@ Final artifact:
 **Question:** What changes when the memory strategy changes under identical
 checkpoint weights?
 
-**Status:** source contract frozen; rendering pending.
+**Status:** generated and validated.
 
 Proposed panels:
 
@@ -155,6 +155,13 @@ Frozen source contract:
 - [source contract](figures/figure04_controlled_sam2_memory_tradeoff/contract.json)
 - [frozen pair seeds](figures/figure04_controlled_sam2_memory_tradeoff/source_data/pair_seeds.csv)
 - [source provenance](figures/figure04_controlled_sam2_memory_tradeoff/source_data/source_provenance.json)
+
+Final artifact:
+
+- [artifact README and caption](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
+- [PNG](figures/figure04_controlled_sam2_memory_tradeoff/output/figure04_controlled_sam2_memory_tradeoff.png)
+- [PDF](figures/figure04_controlled_sam2_memory_tradeoff/output/pdf/figure04_controlled_sam2_memory_tradeoff.pdf)
+- [render manifest](figures/figure04_controlled_sam2_memory_tradeoff/manifest.json)
 
 ### Figure 5 - Propagation to the Cu(111) physical endpoint
 
