@@ -1,9 +1,9 @@
 {
   "claim_limit": "This case is explanatory and was selected without tracker outputs; it is not a qualitative performance ranking.",
   "code_sha256": {
-    "build_figure.py": "5663fe16b4597932999f85f0d341f4cb01edd4618eddea424be0e7b99aa12780",
-    "figure_contract.py": "b9a442eec1de6960426396ce806e6de314139c0bfeec1d9b8e9ccd329ed52d20",
-    "figure_render.py": "336432297c512c285a0ca920cf53d9a7f952b736051bc26e9aa34120efe7e41a",
+    "build_figure.py": "108dc8bcd3ad023347572f6e3f16c565ae7fa8d925e35c860b7054360f9de468",
+    "figure_contract.py": "ccd09dce2f7dccb584ba1efcf57dfe7ec2d988be7930300e9ff1e3d96ccf6293",
+    "figure_render.py": "c2e4f9563b639ef5df0b74565511ce68c02b6ea36f98738b275ffc23c16c6f36",
     "test_build_figure.py": "79baee6829dcd39f8d7cabe0b6a0b67fef4f5d28747eb7b5089065ac87abfeab"
   },
   "environment": {

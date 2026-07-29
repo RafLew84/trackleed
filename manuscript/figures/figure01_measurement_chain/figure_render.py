@@ -6,16 +6,17 @@ from pathlib import Path
 from typing import Sequence
 
 from figure_contract import (
-    CACHE_SIZE_PX,
     DISPLAY_NAMES,
     EVIDENCE_ROLES,
     FIGURE_BASENAME,
+    FIGURE_SIZE_INCHES,
+    FONT_FAMILY,
     FONT_SIZES_PT,
     LIGHT_NEUTRAL,
     MEASUREMENT_COLOR,
     METHOD_COLORS,
     NEUTRAL_COLOR,
-    ORIGINAL_IMAGE_SIZE_PX,
+    PNG_DPI,
     REPRESENTATION_LABELS,
     gaussian_in_crop,
     load_contract,
@@ -140,7 +141,8 @@ def _render_panel_a(
 
     child_grid = spec.subgridspec(1, 5, wspace=0.10)
     mask_extent = mask_extent_in_crop(crop_metadata)
-    for index, (method, row) in enumerate(zip(METHOD_COLORS, method_rows)):
+    for index, row in enumerate(method_rows):
+        method = str(row["method"])
         axis = figure.add_subplot(child_grid[0, index])
         _show_crop(axis, crop_image)
         proposal_x, proposal_y = proposal_in_crop(row, crop_metadata)
@@ -618,7 +620,7 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
 
     matplotlib.rcParams.update(
         {
-            "font.family": "DejaVu Sans",
+            "font.family": FONT_FAMILY,
             "font.size": FONT_SIZES_PT["base"],
             "axes.titlesize": FONT_SIZES_PT["axis_title"],
             "axes.labelsize": FONT_SIZES_PT["axis_label"],
@@ -631,7 +633,7 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
         }
     )
 
-    figure = plt.figure(figsize=(7.2, 6.8), facecolor="white")
+    figure = plt.figure(figsize=FIGURE_SIZE_INCHES, facecolor="white")
     grid = figure.add_gridspec(
         3,
         2,
@@ -672,7 +674,7 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
     pdf_path = pdf_directory / f"{FIGURE_BASENAME}.pdf"
     figure.savefig(
         png_path,
-        dpi=400,
+        dpi=PNG_DPI,
         facecolor="white",
         metadata={"Software": "TrackLEED Figure 1 builder"},
     )

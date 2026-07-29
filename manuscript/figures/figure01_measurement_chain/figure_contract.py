@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
@@ -20,35 +21,52 @@ RENDER_MANIFEST = FIGURE_ROOT / "render_manifest.json"
 ROI_SIZE_PX = 48
 CACHE_SIZE_PX = 256
 ORIGINAL_IMAGE_SIZE_PX = 1000
+FIGURE_SIZE_INCHES = (7.2, 6.8)
+PNG_DPI = 400
+FONT_FAMILY = "DejaVu Sans"
 
-METHOD_ORDER = (
-    "locotrack_base_offline",
-    "ostrack_vitb_256_mae_ce",
-    "dam4sam_sam21pp_l",
-    "lucas_kanade_skip_anchor",
-    "easyleed_kalman",
+
+@dataclass(frozen=True)
+class MethodSpec:
+    method: str
+    display_name: str
+    representation_label: str
+    color: str
+
+
+METHOD_SPECS = (
+    MethodSpec("locotrack_base_offline", "LocoTrack", "point", "#0072B2"),
+    MethodSpec(
+        "ostrack_vitb_256_mae_ce",
+        "OSTrack",
+        "bounding box",
+        "#E69F00",
+    ),
+    MethodSpec(
+        "dam4sam_sam21pp_l",
+        "DAM4SAM",
+        "binary mask",
+        "#009E73",
+    ),
+    MethodSpec(
+        "lucas_kanade_skip_anchor",
+        "Lucas-Kanade",
+        "optical-flow point",
+        "#CC79A7",
+    ),
+    MethodSpec(
+        "easyleed_kalman",
+        "EasyLEED",
+        "Kalman position",
+        "#D55E00",
+    ),
 )
-DISPLAY_NAMES = {
-    "locotrack_base_offline": "LocoTrack",
-    "ostrack_vitb_256_mae_ce": "OSTrack",
-    "dam4sam_sam21pp_l": "DAM4SAM",
-    "lucas_kanade_skip_anchor": "Lucas-Kanade",
-    "easyleed_kalman": "EasyLEED",
-}
+METHOD_ORDER = tuple(spec.method for spec in METHOD_SPECS)
+DISPLAY_NAMES = {spec.method: spec.display_name for spec in METHOD_SPECS}
 REPRESENTATION_LABELS = {
-    "locotrack_base_offline": "point",
-    "ostrack_vitb_256_mae_ce": "bounding box",
-    "dam4sam_sam21pp_l": "binary mask",
-    "lucas_kanade_skip_anchor": "optical-flow point",
-    "easyleed_kalman": "Kalman position",
+    spec.method: spec.representation_label for spec in METHOD_SPECS
 }
-METHOD_COLORS = {
-    "locotrack_base_offline": "#0072B2",
-    "ostrack_vitb_256_mae_ce": "#E69F00",
-    "dam4sam_sam21pp_l": "#009E73",
-    "lucas_kanade_skip_anchor": "#CC79A7",
-    "easyleed_kalman": "#D55E00",
-}
+METHOD_COLORS = {spec.method: spec.color for spec in METHOD_SPECS}
 NEUTRAL_COLOR = "#4D4D4D"
 LIGHT_NEUTRAL = "#D9D9D9"
 MEASUREMENT_COLOR = "#56B4E9"

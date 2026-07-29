@@ -11,9 +11,12 @@ from pathlib import Path
 
 from figure_contract import (
     FIGURE_ROOT,
+    FIGURE_SIZE_INCHES,
+    FONT_FAMILY,
     FONT_SIZES_PT,
     METHOD_COLORS,
     OUTPUT_DIRECTORY,
+    PNG_DPI,
     RENDER_MANIFEST,
     SOURCE_CASE_MANIFEST,
     SOURCE_DATA_DIRECTORY,
@@ -84,11 +87,11 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
             for path in outputs.values()
         },
         "rendering": {
-            "figure_size_inches": [7.2, 6.8],
-            "png_dpi": 400,
+            "figure_size_inches": list(FIGURE_SIZE_INCHES),
+            "png_dpi": PNG_DPI,
             "png_dimensions_px": png_dimensions,
-            "font_family": "DejaVu Sans",
-            "font_file": Path(font_manager.findfont("DejaVu Sans")).name,
+            "font_family": FONT_FAMILY,
+            "font_file": Path(font_manager.findfont(FONT_FAMILY)).name,
             "font_sizes_pt": FONT_SIZES_PT,
             "method_palette": METHOD_COLORS,
             "native_geometry_policy": (
