@@ -5,14 +5,13 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import math
 import tempfile
 from pathlib import Path
 from typing import Sequence
 
-from figure_contract import as_bool, optional_float, read_csv
+from figure_contract import as_bool, optional_float, read_csv, sha256_file
 
 
 FIGURE_ROOT = Path(__file__).resolve().parent
@@ -77,14 +76,6 @@ CROP_FILENAMES = {
     163.9: "b1_163p9ev.tiff",
     160.9: "b1_160p9ev.tiff",
 }
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _csv_value(value: object) -> object:

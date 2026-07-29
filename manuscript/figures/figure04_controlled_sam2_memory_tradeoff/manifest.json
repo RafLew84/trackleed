@@ -10,7 +10,7 @@
     "build_figure.py": "e75bd9e2b5c4bd455ae47f5899a3cd827e9e56a6fd16d4e398611e105b674e52",
     "figure_contract.py": "e694922843fe0ed189ffb6f58d1ca2c9e99862961541547016e10efadad76bd8",
     "figure_render.py": "ba027a81538de166bca76b9e50316e60569b4c236554d4bce44b4f10563e9caa",
-    "freeze_source_data.py": "d1ce008f70073868560cf51edcf0571cad9204f6ca316280bc494768048f7947",
+    "freeze_source_data.py": "5c7106b924fc1afae60155fa2defeb450f00b69643a0ae42d20ea58ac95d381e",
     "test_build_figure.py": "e52ae524180798b4ed8e673f71dc35b1272f474ab5a23ba866000236d6446298",
     "test_freeze_source_data.py": "c026106f183e87b556631aa6dcf707958f43dc021c7aec5561085b6d949fcd80",
     "test_source_contract.py": "2ac8d65c7e45c918333def23b726696b21411bfc1b5d97a15b527574cb39470e"
