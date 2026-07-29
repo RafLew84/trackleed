@@ -1,0 +1,28 @@
+{
+  "component": "EasyLEED",
+  "study_role": "restricted high-energy external reference",
+  "record_status": "post_run_normalized_from_executed_source_and_output",
+  "derived_from": {
+    "runner": "source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py",
+    "runner_sha256": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+    "executed_outputs": [
+      {
+        "path": "source_data/upstream_contracts/executed_outputs/easyleed_high_energy.json",
+        "sha256": "c27d0a3347fc21bbf9939bb8e926f2f1e48051f48f99c8bad312d4ec91d575ba"
+      }
+    ]
+  },
+  "native_settings": {
+    "gaussian_r_squared_min": 0.8,
+    "input_precision_px": 2.0,
+    "tracking_radius_px": 12.0,
+    "validation_gamma": 8.0,
+    "window_scaling": true
+  },
+  "adapter_contract": {
+    "direction": "toward increasing energy from the reference frame",
+    "duplicate_energy_handling": "preserve manifest order and frame identity; feed both equal-energy terminal frames to the native Tracker",
+    "image_reader": "EasyLEED PILImageLoader",
+    "native_output": "Tracker proposal followed by the shared TrackLEED Gaussian measurement contract"
+  }
+}

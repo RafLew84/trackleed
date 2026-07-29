@@ -1,0 +1,36 @@
+{
+  "component": "Lucas–Kanade",
+  "study_role": "independent energy-scan confirmation",
+  "record_status": "post_run_normalized_from_executed_source",
+  "derived_from": {
+    "source": "source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+    "source_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee"
+  },
+  "explicit_runtime_settings": {
+    "err_threshold": 30.0,
+    "fb_threshold": 8.0,
+    "lk_criteria_count": 50,
+    "lk_criteria_epsilon": 0.01,
+    "lk_criteria_type": 3,
+    "max_pyramid_level": 4,
+    "max_skip_frames_per_point": 0,
+    "min_eigenvalue_threshold": 1e-05,
+    "out_of_bounds_behavior": "skip",
+    "use_centroid_refinement": false,
+    "use_forward_backward": true,
+    "use_ncc_check": false,
+    "window_size_px": [
+      41,
+      41
+    ]
+  },
+  "controlled_inputs": {
+    "common_estimator": "TrackLEED two-dimensional elliptical-Gaussian fit",
+    "measurement_roi_px": 48,
+    "prompt": "single point at the reference frame",
+    "sequence_directions": [
+      "toward increasing energy from the reference frame",
+      "toward decreasing energy from the reference frame using reversed image order"
+    ]
+  }
+}

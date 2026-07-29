@@ -1,0 +1,53 @@
+{
+  "status": "completed",
+  "scope": "Native EasyLEED proposals on the frozen 15-frame, two-pair high-energy contract; not an accuracy ranking.",
+  "easyleed_version": "2.5.2",
+  "numpy_version": "1.26.4",
+  "frame_count": 15,
+  "unique_energy_count": 14,
+  "energy_range_ev": [
+    187.9,
+    220.2
+  ],
+  "reference_energy_ev": 187.9,
+  "branch_count": 4,
+  "row_count": 60,
+  "duplicate_energy_contract": {
+    "energy_ev": 220.2,
+    "frames": [
+      67,
+      68
+    ],
+    "standard_loader_input_frames": 15,
+    "standard_loader_retained_unique_energies": 14,
+    "adapter": "Preserve manifest order and frame_id; read each image with EasyLEED PILImageLoader; feed native Tracker twice at 220.2 eV, with dt=0 for the second frame."
+  },
+  "settings": {
+    "tracking_radius_px": 12.0,
+    "input_precision_px": 2.0,
+    "window_scaling": true,
+    "gaussian_r_squared_min": 0.8,
+    "validation_gamma": 8.0
+  },
+  "physics_branch_error_px": {
+    "P1_B1": {
+      "median": 2.0005950153200454,
+      "maximum": 4.008616736991007
+    },
+    "P1_B2": {
+      "median": 1.8582589667555571,
+      "maximum": 3.1349940196208324
+    },
+    "P2_B1": {
+      "median": 1.7073253504204413,
+      "maximum": 3.274809024602441
+    },
+    "P2_B2": {
+      "median": 2.4571451727524107,
+      "maximum": 3.1660067558295384
+    }
+  },
+  "outputs": [
+    "easyleed_native.csv"
+  ]
+}

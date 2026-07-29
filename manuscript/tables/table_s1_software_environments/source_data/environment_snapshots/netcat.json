@@ -1,0 +1,751 @@
+{
+  "capture_date": "2026-07-29",
+  "conda_history_sha256": "4dc4bad7ca3514f0ba1c55521d82470df8dda704284026c3210d4e3225c73ad7",
+  "conda_packages": [
+    {
+      "build": "h2bbff1b_6",
+      "build_number": 6,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "bzip2",
+      "subdir": "win-64",
+      "version": "1.0.8"
+    },
+    {
+      "build": "haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "ca-certificates",
+      "subdir": "win-64",
+      "version": "2025.2.25"
+    },
+    {
+      "build": "h8ddb27b_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "expat",
+      "subdir": "win-64",
+      "version": "2.7.1"
+    },
+    {
+      "build": "hd77b12b_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "libffi",
+      "subdir": "win-64",
+      "version": "3.4.4"
+    },
+    {
+      "build": "h3f729d1_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "openssl",
+      "subdir": "win-64",
+      "version": "3.0.16"
+    },
+    {
+      "build": "py312haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "pip",
+      "subdir": "win-64",
+      "version": "25.0"
+    },
+    {
+      "build": "h14ffc60_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "python",
+      "subdir": "win-64",
+      "version": "3.12.9"
+    },
+    {
+      "build": "py312haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "setuptools",
+      "subdir": "win-64",
+      "version": "75.8.0"
+    },
+    {
+      "build": "h2bbff1b_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "sqlite",
+      "subdir": "win-64",
+      "version": "3.45.3"
+    },
+    {
+      "build": "h0416ee5_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "tk",
+      "subdir": "win-64",
+      "version": "8.6.14"
+    },
+    {
+      "build": "h04d1e81_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "tzdata",
+      "subdir": "noarch",
+      "version": "2025a"
+    },
+    {
+      "build": "haa95532_5",
+      "build_number": 5,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "vc",
+      "subdir": "win-64",
+      "version": "14.42"
+    },
+    {
+      "build": "hbfb602d_5",
+      "build_number": 5,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "vs2015_runtime",
+      "subdir": "win-64",
+      "version": "14.42.34433"
+    },
+    {
+      "build": "py312haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "wheel",
+      "subdir": "win-64",
+      "version": "0.45.1"
+    },
+    {
+      "build": "h4754444_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "xz",
+      "subdir": "win-64",
+      "version": "5.6.4"
+    },
+    {
+      "build": "h8cc25b3_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "zlib",
+      "subdir": "win-64",
+      "version": "1.2.13"
+    }
+  ],
+  "environment_label": "netcat",
+  "installed_distributions": [
+    {
+      "name": "absl-py",
+      "version": "2.4.0"
+    },
+    {
+      "name": "alabaster",
+      "version": "1.0.0"
+    },
+    {
+      "name": "ase",
+      "version": "3.25.0"
+    },
+    {
+      "name": "asttokens",
+      "version": "3.0.1"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "name": "babel",
+      "version": "2.17.0"
+    },
+    {
+      "name": "bm3d",
+      "version": "4.0.3"
+    },
+    {
+      "name": "bm4d",
+      "version": "4.2.5"
+    },
+    {
+      "name": "certifi",
+      "version": "2025.6.15"
+    },
+    {
+      "name": "chardet",
+      "version": "3.0.4"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.2"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6"
+    },
+    {
+      "name": "contourpy",
+      "version": "1.3.2"
+    },
+    {
+      "name": "coverage",
+      "version": "7.11.0"
+    },
+    {
+      "name": "cycler",
+      "version": "0.12.1"
+    },
+    {
+      "name": "decorator",
+      "version": "5.2.1"
+    },
+    {
+      "name": "dm-tree",
+      "version": "0.1.9"
+    },
+    {
+      "name": "docutils",
+      "version": "0.21.2"
+    },
+    {
+      "name": "einops",
+      "version": "0.8.2"
+    },
+    {
+      "name": "einshape",
+      "version": "1.0"
+    },
+    {
+      "name": "executing",
+      "version": "2.2.1"
+    },
+    {
+      "name": "filelock",
+      "version": "3.20.0"
+    },
+    {
+      "name": "flow-vis",
+      "version": "0.1"
+    },
+    {
+      "name": "fonttools",
+      "version": "4.57.0"
+    },
+    {
+      "name": "fsspec",
+      "version": "2025.10.0"
+    },
+    {
+      "name": "ftfy",
+      "version": "6.3.1"
+    },
+    {
+      "name": "googletrans",
+      "version": "4.0.0rc1"
+    },
+    {
+      "name": "grpcio",
+      "version": "1.80.0"
+    },
+    {
+      "name": "h11",
+      "version": "0.9.0"
+    },
+    {
+      "name": "h2",
+      "version": "3.2.0"
+    },
+    {
+      "name": "hmmlearn",
+      "version": "0.3.3"
+    },
+    {
+      "name": "hpack",
+      "version": "3.0.0"
+    },
+    {
+      "name": "hstspreload",
+      "version": "2025.1.1"
+    },
+    {
+      "name": "httpcore",
+      "version": "0.9.1"
+    },
+    {
+      "name": "httpx",
+      "version": "0.13.3"
+    },
+    {
+      "name": "hyperframe",
+      "version": "5.2.0"
+    },
+    {
+      "name": "idna",
+      "version": "2.10"
+    },
+    {
+      "name": "imageio",
+      "version": "2.37.0"
+    },
+    {
+      "name": "imageio-ffmpeg",
+      "version": "0.6.0"
+    },
+    {
+      "name": "imagesize",
+      "version": "1.4.1"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.1.0"
+    },
+    {
+      "name": "ipython",
+      "version": "9.12.0"
+    },
+    {
+      "name": "ipython-pygments-lexers",
+      "version": "1.1.1"
+    },
+    {
+      "name": "jedi",
+      "version": "0.19.2"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6"
+    },
+    {
+      "name": "joblib",
+      "version": "1.4.2"
+    },
+    {
+      "name": "kiwisolver",
+      "version": "1.4.8"
+    },
+    {
+      "name": "kornia",
+      "version": "0.8.2"
+    },
+    {
+      "name": "kornia-rs",
+      "version": "0.1.10"
+    },
+    {
+      "name": "lazy-loader",
+      "version": "0.4"
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.47.0"
+    },
+    {
+      "name": "lxml",
+      "version": "6.0.2"
+    },
+    {
+      "name": "markdown",
+      "version": "3.8"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.2"
+    },
+    {
+      "name": "matplotlib",
+      "version": "3.10.1"
+    },
+    {
+      "name": "matplotlib-inline",
+      "version": "0.2.1"
+    },
+    {
+      "name": "mediapy",
+      "version": "1.2.6"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0"
+    },
+    {
+      "name": "networkx",
+      "version": "3.4.2"
+    },
+    {
+      "name": "ninja",
+      "version": "1.13.0"
+    },
+    {
+      "name": "numba",
+      "version": "0.65.1"
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.5"
+    },
+    {
+      "name": "opencv-python",
+      "version": "4.11.0.86"
+    },
+    {
+      "name": "packaging",
+      "version": "25.0"
+    },
+    {
+      "name": "pandas",
+      "version": "2.3.0"
+    },
+    {
+      "name": "parso",
+      "version": "0.8.6"
+    },
+    {
+      "name": "patsy",
+      "version": "1.0.1"
+    },
+    {
+      "name": "pillow",
+      "version": "11.2.1"
+    },
+    {
+      "name": "pip",
+      "version": "25.0"
+    },
+    {
+      "name": "platformdirs",
+      "version": "4.3.8"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.5.0"
+    },
+    {
+      "name": "ply",
+      "version": "3.11"
+    },
+    {
+      "name": "polars",
+      "version": "1.35.2"
+    },
+    {
+      "name": "polars-runtime-32",
+      "version": "1.35.2"
+    },
+    {
+      "name": "pooch",
+      "version": "1.8.2"
+    },
+    {
+      "name": "prompt-toolkit",
+      "version": "3.0.52"
+    },
+    {
+      "name": "protobuf",
+      "version": "7.34.1"
+    },
+    {
+      "name": "psutil",
+      "version": "7.1.3"
+    },
+    {
+      "name": "pure-eval",
+      "version": "0.2.3"
+    },
+    {
+      "name": "pycparser",
+      "version": "2.23"
+    },
+    {
+      "name": "pygments",
+      "version": "2.19.1"
+    },
+    {
+      "name": "pyopengl",
+      "version": "3.1.9"
+    },
+    {
+      "name": "pyparsing",
+      "version": "3.2.3"
+    },
+    {
+      "name": "pypdf",
+      "version": "6.2.0"
+    },
+    {
+      "name": "pyqt6",
+      "version": "6.9.0"
+    },
+    {
+      "name": "pyqt6-qt6",
+      "version": "6.9.0"
+    },
+    {
+      "name": "pyqt6-sip",
+      "version": "13.10.0"
+    },
+    {
+      "name": "pyqt6-webengine",
+      "version": "6.9.0"
+    },
+    {
+      "name": "pyqt6-webengine-qt6",
+      "version": "6.9.0"
+    },
+    {
+      "name": "pyqtgraph",
+      "version": "0.13.7"
+    },
+    {
+      "name": "pyspice",
+      "version": "1.5"
+    },
+    {
+      "name": "pytest",
+      "version": "8.3.5"
+    },
+    {
+      "name": "pytest-cov",
+      "version": "7.0.0"
+    },
+    {
+      "name": "pytest-mock",
+      "version": "3.14.0"
+    },
+    {
+      "name": "pytest-qt",
+      "version": "4.4.0"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "python-pptx",
+      "version": "1.0.2"
+    },
+    {
+      "name": "pytz",
+      "version": "2025.2"
+    },
+    {
+      "name": "pyvista",
+      "version": "0.46.0"
+    },
+    {
+      "name": "pyvistaqt",
+      "version": "0.11.3"
+    },
+    {
+      "name": "pywavelets",
+      "version": "1.8.0"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3"
+    },
+    {
+      "name": "qtpy",
+      "version": "2.4.3"
+    },
+    {
+      "name": "requests",
+      "version": "2.32.4"
+    },
+    {
+      "name": "rfc3986",
+      "version": "1.5.0"
+    },
+    {
+      "name": "roman-numerals-py",
+      "version": "3.1.0"
+    },
+    {
+      "name": "ruff",
+      "version": "0.14.3"
+    },
+    {
+      "name": "schemdraw",
+      "version": "0.21"
+    },
+    {
+      "name": "scikit-image",
+      "version": "0.25.2"
+    },
+    {
+      "name": "scikit-learn",
+      "version": "1.6.1"
+    },
+    {
+      "name": "scipy",
+      "version": "1.15.2"
+    },
+    {
+      "name": "scooby",
+      "version": "0.10.1"
+    },
+    {
+      "name": "seaborn",
+      "version": "0.13.2"
+    },
+    {
+      "name": "setuptools",
+      "version": "75.8.0"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1"
+    },
+    {
+      "name": "snowballstemmer",
+      "version": "3.0.1"
+    },
+    {
+      "name": "sphinx",
+      "version": "8.2.3"
+    },
+    {
+      "name": "sphinx-autodoc-typehints",
+      "version": "3.2.0"
+    },
+    {
+      "name": "sphinx-rtd-theme",
+      "version": "3.0.2"
+    },
+    {
+      "name": "sphinxcontrib-applehelp",
+      "version": "2.0.0"
+    },
+    {
+      "name": "sphinxcontrib-devhelp",
+      "version": "2.0.0"
+    },
+    {
+      "name": "sphinxcontrib-htmlhelp",
+      "version": "2.1.0"
+    },
+    {
+      "name": "sphinxcontrib-jquery",
+      "version": "4.1"
+    },
+    {
+      "name": "sphinxcontrib-jsmath",
+      "version": "1.0.1"
+    },
+    {
+      "name": "sphinxcontrib-qthelp",
+      "version": "2.0.0"
+    },
+    {
+      "name": "sphinxcontrib-serializinghtml",
+      "version": "2.0.0"
+    },
+    {
+      "name": "stack-data",
+      "version": "0.6.3"
+    },
+    {
+      "name": "statsmodels",
+      "version": "0.14.5"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0"
+    },
+    {
+      "name": "tapnet",
+      "version": "0.1.0"
+    },
+    {
+      "name": "tensorboard",
+      "version": "2.20.0"
+    },
+    {
+      "name": "tensorboard-data-server",
+      "version": "0.7.2"
+    },
+    {
+      "name": "threadpoolctl",
+      "version": "3.6.0"
+    },
+    {
+      "name": "tifffile",
+      "version": "2025.3.30"
+    },
+    {
+      "name": "tkinterweb",
+      "version": "4.3.1"
+    },
+    {
+      "name": "tkinterweb-tkhtml",
+      "version": "1.0"
+    },
+    {
+      "name": "torch",
+      "version": "2.9.1+cu128"
+    },
+    {
+      "name": "torchvision",
+      "version": "0.24.1+cu128"
+    },
+    {
+      "name": "tqdm",
+      "version": "4.67.3"
+    },
+    {
+      "name": "traitlets",
+      "version": "5.14.3"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.14.1"
+    },
+    {
+      "name": "tzdata",
+      "version": "2025.2"
+    },
+    {
+      "name": "ultralytics",
+      "version": "8.3.227"
+    },
+    {
+      "name": "ultralytics-thop",
+      "version": "2.0.18"
+    },
+    {
+      "name": "urllib3",
+      "version": "2.5.0"
+    },
+    {
+      "name": "vtk",
+      "version": "9.5.0"
+    },
+    {
+      "name": "wcwidth",
+      "version": "0.2.14"
+    },
+    {
+      "name": "werkzeug",
+      "version": "3.1.8"
+    },
+    {
+      "name": "wheel",
+      "version": "0.45.1"
+    },
+    {
+      "name": "wrapt",
+      "version": "2.1.2"
+    },
+    {
+      "name": "xlsxwriter",
+      "version": "3.2.9"
+    }
+  ],
+  "platform_family": "Windows 64-bit",
+  "python_version": "3.12.9",
+  "runtime_kind": "python-conda",
+  "schema_version": "1.0",
+  "status": "retained_environment_snapshot",
+  "torch_cuda_build": "12.8"
+}

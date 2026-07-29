@@ -1,0 +1,32 @@
+{
+  "component": "LocoTrack",
+  "study_role": "independent energy-scan confirmation",
+  "record_status": "post_run_normalized_from_executed_source",
+  "derived_from": {
+    "source": "source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+    "source_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee"
+  },
+  "explicit_runtime_settings": {
+    "backend_mode": "subprocess",
+    "device": "cuda",
+    "inference_resolution": 256,
+    "model_size": "base",
+    "query_chunk_size": 1,
+    "subprocess_timeout_sec": 1800.0,
+    "use_uncertainty_gating": false,
+    "use_visibility_gating": false
+  },
+  "availability_rule": {
+    "combined_visible_probability": "(1 - sigmoid(occlusion)) * (1 - sigmoid(expected_dist))",
+    "threshold": 0.5
+  },
+  "controlled_inputs": {
+    "common_estimator": "TrackLEED two-dimensional elliptical-Gaussian fit",
+    "measurement_roi_px": 48,
+    "prompt": "single point at the reference frame",
+    "sequence_directions": [
+      "toward increasing energy from the reference frame",
+      "toward decreasing energy from the reference frame using reversed image order"
+    ]
+  }
+}

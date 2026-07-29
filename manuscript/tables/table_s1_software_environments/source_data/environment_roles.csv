@@ -1,0 +1,9 @@
+order,environment_label,used_for,execution_mode
+1,netcat,"TrackLEED common Gaussian measurement, Lucas–Kanade, and result assembly",CPU
+2,locotrack-pytorch,LocoTrack inference,CUDA
+3,ostrack,OSTrack inference,CUDA
+4,dam4sam,DAM4SAM Large and Base+ inference,CUDA
+5,sam2,Vanilla SAM2.1 controlled-family inference,CUDA
+6,samurai,SAMURAI controlled-family inference,CUDA
+7,easyleed,EasyLEED Kalman tracking,CPU
+8,viperleed-imagej,ViPErLEED whole-pattern tracking,JVM/CPU

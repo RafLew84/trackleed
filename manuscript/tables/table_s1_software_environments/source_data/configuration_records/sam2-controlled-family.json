@@ -1,0 +1,35 @@
+{
+  "component": "SAM2.1",
+  "record_status": "post_run_normalized_from_executed_source",
+  "derived_from": {
+    "source": "source_data/upstream_contracts/executed_sources/controlled_family_runner.py",
+    "source_sha256": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547"
+  },
+  "explicit_runtime_settings": {
+    "apply_postprocessing": true,
+    "async_loading_frames": false,
+    "backend_mode": "subprocess",
+    "device": "cuda",
+    "inference_resolution": null,
+    "initial_bbox_padding_px": 0.0,
+    "mask_threshold": 0.5,
+    "max_mask_area": 5000.0,
+    "min_mask_area": 4.0,
+    "offload_state_to_cpu": true,
+    "offload_video_to_cpu": true,
+    "prompt_mode": "bbox",
+    "representative_point_mode": "mask_centroid",
+    "subprocess_timeout_sec": 1800.0,
+    "use_vos_optimized": false
+  },
+  "controlled_inputs": {
+    "checkpoint_sha256": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
+    "common_estimator": "TrackLEED two-dimensional elliptical-Gaussian fit",
+    "measurement_roi_px": 48,
+    "prompt": "single-object 48 x 48 px bounding box",
+    "sequence_directions": [
+      "toward increasing energy from the reference frame",
+      "toward decreasing energy from the reference frame using reversed image order"
+    ]
+  }
+}

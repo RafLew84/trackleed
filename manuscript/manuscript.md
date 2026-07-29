@@ -395,9 +395,12 @@ record](../.scratch/trackleed-physics-method-paper/artifacts/domain-baselines-in
 These records establish the executed revisions, checkpoints and hashes, input
 conversion, prompt convention, thresholds, failure policy, propagation
 direction, and proposal-to-ROI adapters; the upstream citations below establish
-the published method designs. The local links are working-draft provenance and
-will be replaced by the archived dataset DOI and Table S1 in the submitted
-manuscript.
+the published method designs. The local links remain working-draft provenance;
+the committed software, model, configuration-hash, and retained-environment
+records are summarized in Table S1, which labels separately the
+configurations frozen during execution and the post-run normalized records
+derived from archived executed sources. The final submission will replace
+local artifact links with the archived dataset DOI.
 
 ### 3.1 Main five-strategy panel
 

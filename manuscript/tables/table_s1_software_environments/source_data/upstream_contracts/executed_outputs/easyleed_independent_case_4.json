@@ -1,0 +1,41 @@
+{
+  "status": "completed",
+  "scope": "Native EasyLEED proposals for one frozen independent ScanE pair; final acceptance uses the shared TrackLEED Gaussian contract.",
+  "easyleed_version": "2.5.2",
+  "numpy_version": "1.26.4",
+  "frame_count": 46,
+  "unique_energy_count": 45,
+  "reference_frame": 36,
+  "reference_energy_ev": 188.5,
+  "branch_count": 2,
+  "direction_count": 2,
+  "native_row_count": 94,
+  "native_tracker_exceptions": 0,
+  "unavailable_rows_after_exception": 0,
+  "duplicate_energy_contract": {
+    "groups": [
+      {
+        "energy_ev": 220.4,
+        "frames": [
+          44,
+          45
+        ]
+      }
+    ],
+    "standard_loader_input_frames": 46,
+    "original_filename_retained_energies": 1,
+    "parseable_proxy_retained_unique_energies": 45,
+    "adapter_retained_frames": 46,
+    "adapter": "Preserve manifest order and frame_id; read every image with EasyLEED PILImageLoader; feed a fresh native Tracker in each direction, including both equal-energy terminal frames."
+  },
+  "settings": {
+    "tracking_radius_px": 12.0,
+    "input_precision_px": 2.0,
+    "window_scaling": true,
+    "gaussian_r_squared_min": 0.8,
+    "validation_gamma": 8.0
+  },
+  "outputs": [
+    "easyleed_native.csv"
+  ]
+}

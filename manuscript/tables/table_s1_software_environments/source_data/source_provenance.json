@@ -1,0 +1,67 @@
+{
+  "sources": [
+    {
+      "frozen_path": "source_data/upstream_contracts/table02_methods.csv",
+      "frozen_sha256": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/methods.csv",
+      "origin_sha256": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
+      "role": "method roles, revisions, checkpoint identifiers and hashes, and available executed-configuration hashes"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/controlled_translation_contract.json",
+      "frozen_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/controlled_translation_contract.json",
+      "origin_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "role": "main-method configurations, upstream configuration hashes, adapter hashes, common estimator hashes, and environment labels"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
+      "frozen_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/sam2_family_contract.json",
+      "origin_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "role": "controlled-family common checkpoint and configuration contract"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/domain_baselines_installation.md",
+      "frozen_sha256": "ed0b51236aae5b02cd1e840da6c554e37b86ad292d5eb4a00072ed97edb7b5e3",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/domain_baselines_installation.md",
+      "origin_sha256": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee",
+      "role": "publication-safe extract of EasyLEED and ViPErLEED versions, revisions, runtime versions, and artifact hashes"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/controlled_family_runner.py",
+      "frozen_sha256": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/controlled_family_runner.py",
+      "origin_sha256": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
+      "role": "executed controlled-family runtime settings and orchestration"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+      "frozen_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+      "origin_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
+      "role": "executed LocoTrack, OSTrack, Lucas-Kanade, and representative energy-scan orchestration"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py",
+      "frozen_sha256": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py",
+      "origin_sha256": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+      "role": "executed EasyLEED independent energy-scan adapter and runtime settings"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py",
+      "frozen_sha256": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py",
+      "origin_sha256": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+      "role": "executed EasyLEED independent energy-scan reduction adapter"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py",
+      "frozen_sha256": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py",
+      "origin_sha256": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+      "role": "executed EasyLEED restricted high-energy adapter and runtime settings"
+    }
+  ]
+}

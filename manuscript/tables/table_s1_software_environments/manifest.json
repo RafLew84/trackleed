@@ -1,0 +1,135 @@
+{
+  "builder_sha256": "e3bfa70cd548e614db5a8e3210280c666270cc7142289b609cb2aebb8fae7cd5",
+  "capture_script_sha256": "e391f2e1551cc442f78ff6363cd1778023562cbdb64c073e72af19eb76b8615f",
+  "environment_snapshots": {
+    "dam4sam.json": "1b14a78e06eff162d756fbbae9753f84371814d53639abc4275165aeb012147e",
+    "easyleed.json": "e2f4a155c8696dd250f41b9cccb287c76be9fe88da9b3e77aee5dab3577f1539",
+    "locotrack-pytorch.json": "812c5c9af7cd60058cd6b3bcdde8aac4dd90c4bc46568444f64c9f722d4b5bd5",
+    "netcat.json": "14f756ccfe8c2f2781aa1ad8ea405d7c58151529ff476ae58b88efe0629e5668",
+    "ostrack.json": "a4b9193c9cf4829f0f697ba35a2112d58011c4056b924a5976022226c3882b11",
+    "sam2.json": "22d4b6254ba42b3391c3df2c468b1fe8142cb86b6ffab67a0ce0026f0afc5bef",
+    "samurai.json": "c2d2c6b2156ba94dd08b7a8cb68e99e6342d655b07431ebfd639010347a5d11a",
+    "viperleed-imagej.json": "e64540325636048157605336981c63f3680b31b1c5808a1e1d49803f893d6ac3"
+  },
+  "outputs": {
+    "table_s1_components.csv": "ea66c1065496deb7e4aaf64bed960067b62da27bf0ce1f71407e0f2526ed2a89",
+    "table_s1_environments.csv": "929dee78c0c27d41b16d73937af95d3d7f0d3ba9a4d65ed6d9b96cb953689d32",
+    "table_s1_versions_hashes_environments.md": "6437243a5002caeb330208dd72c967313995c6ff948a4172ac21f9220a3064c8"
+  },
+  "schema_version": "1.1",
+  "source_data": {
+    "source_data/component_records.csv": "fb36482619c7b7d95e243da95a640d692312f5dcecd9fa36bf98eaa7db1a8f04",
+    "source_data/configuration_records/dam4sam-base-plus-controlled-family.json": "62e9316adac13b4b5fa72ec8b656668590d48bc150e387734373715b04b2b301",
+    "source_data/configuration_records/easyleed-high-energy-reference.json": "1ffc0c5e429095e78ac8d7d086e733661cc303fa6bdcec290c10b322e694c8ca",
+    "source_data/configuration_records/easyleed-independent-energy-scans.json": "cbb16fba737a2c4fadea7643dc3cbfa5908603382adfee116002149b875a5494",
+    "source_data/configuration_records/locotrack-independent-energy-scans.json": "111f6c16214e51ac3f0838e587c8a6f564c389594c874966c5bfa554717d7b97",
+    "source_data/configuration_records/lucas-kanade-independent-energy-scans.json": "bb4bbb2a166371124e37be32f43fd67dc3785dc5035ecd830ec8df50450a83d3",
+    "source_data/configuration_records/ostrack-independent-energy-scans.json": "d834f2be2cfb6f96bafee9fe2fef8b819e85bf69f8b6389d2b188e6d67d8fa4f",
+    "source_data/configuration_records/sam2-controlled-family.json": "123c6defcfc619877b0969ce23595998cfd6b95cac2e70e9dd5369560be78c46",
+    "source_data/configuration_records/samurai-controlled-family.json": "79d70dbb54fbc200bdace10d9b7117ded66e88219572e7791d28bf9486274cac",
+    "source_data/environment_roles.csv": "6efb9a7cc218d8c158fe022a35f98d799c536b3096f429588266647433ed31fb",
+    "source_data/environment_snapshots/dam4sam.json": "1b14a78e06eff162d756fbbae9753f84371814d53639abc4275165aeb012147e",
+    "source_data/environment_snapshots/easyleed.json": "e2f4a155c8696dd250f41b9cccb287c76be9fe88da9b3e77aee5dab3577f1539",
+    "source_data/environment_snapshots/locotrack-pytorch.json": "812c5c9af7cd60058cd6b3bcdde8aac4dd90c4bc46568444f64c9f722d4b5bd5",
+    "source_data/environment_snapshots/netcat.json": "14f756ccfe8c2f2781aa1ad8ea405d7c58151529ff476ae58b88efe0629e5668",
+    "source_data/environment_snapshots/ostrack.json": "a4b9193c9cf4829f0f697ba35a2112d58011c4056b924a5976022226c3882b11",
+    "source_data/environment_snapshots/sam2.json": "22d4b6254ba42b3391c3df2c468b1fe8142cb86b6ffab67a0ce0026f0afc5bef",
+    "source_data/environment_snapshots/samurai.json": "c2d2c6b2156ba94dd08b7a8cb68e99e6342d655b07431ebfd639010347a5d11a",
+    "source_data/environment_snapshots/viperleed-imagej.json": "e64540325636048157605336981c63f3680b31b1c5808a1e1d49803f893d6ac3",
+    "source_data/source_provenance.json": "73a0aa00d331cdb226ef58c55b7b37a636dd87e9b9050ee2655a00b771315aac",
+    "source_data/system_record.json": "6b3d6c461f2c5d43f154355bfad2ddfe3215c2b1fc732d76b5e4f286a4171988",
+    "source_data/upstream_contracts/controlled_translation_contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+    "source_data/upstream_contracts/domain_baselines_installation.md": "ed0b51236aae5b02cd1e840da6c554e37b86ad292d5eb4a00072ed97edb7b5e3",
+    "source_data/upstream_contracts/executed_outputs/easyleed_high_energy.json": "c27d0a3347fc21bbf9939bb8e926f2f1e48051f48f99c8bad312d4ec91d575ba",
+    "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_1.json": "943431981bc28d3fc0870b931e33f49d58adabd77c4d46c0b13ed93120e89b57",
+    "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_2.json": "0fa0728d5ccfd43d5f2a0c8a1bcca4516ed46268cc8c56a600993532f8a6bf5d",
+    "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_3.json": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a",
+    "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_4.json": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a",
+    "source_data/upstream_contracts/executed_sources/controlled_family_runner.py": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
+    "source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+    "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+    "source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+    "source_data/upstream_contracts/executed_sources/independent_energy_runner.py": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
+    "source_data/upstream_contracts/sam2_family_contract.json": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+    "source_data/upstream_contracts/table02_methods.csv": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051"
+  },
+  "status": "completed",
+  "table_contract": {
+    "component_count": 10,
+    "configuration_record_provenance_explicit": true,
+    "controlled_family_checkpoint_sha256": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
+    "controlled_family_weights_identical": true,
+    "environment_count": 8,
+    "environment_record_timing": "retained environments captured after completed runs",
+    "gpu_inference_reproducibility_claim": "package inventory only; no bitwise-reproducibility claim",
+    "imagej_environment_count": 1,
+    "post_run_normalized_configuration_record_count": 8,
+    "python_environment_count": 7,
+    "viperleed_imagej_runtime_artifact_reported_in_environment_snapshot": true
+  },
+  "upstream_sources": [
+    {
+      "frozen_path": "source_data/upstream_contracts/table02_methods.csv",
+      "frozen_sha256": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/methods.csv",
+      "origin_sha256": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
+      "role": "method roles, revisions, checkpoint identifiers and hashes, and available executed-configuration hashes"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/controlled_translation_contract.json",
+      "frozen_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/controlled_translation_contract.json",
+      "origin_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "role": "main-method configurations, upstream configuration hashes, adapter hashes, common estimator hashes, and environment labels"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
+      "frozen_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/sam2_family_contract.json",
+      "origin_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "role": "controlled-family common checkpoint and configuration contract"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/domain_baselines_installation.md",
+      "frozen_sha256": "ed0b51236aae5b02cd1e840da6c554e37b86ad292d5eb4a00072ed97edb7b5e3",
+      "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/domain_baselines_installation.md",
+      "origin_sha256": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee",
+      "role": "publication-safe extract of EasyLEED and ViPErLEED versions, revisions, runtime versions, and artifact hashes"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/controlled_family_runner.py",
+      "frozen_sha256": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/controlled_family_runner.py",
+      "origin_sha256": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
+      "role": "executed controlled-family runtime settings and orchestration"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+      "frozen_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+      "origin_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
+      "role": "executed LocoTrack, OSTrack, Lucas-Kanade, and representative energy-scan orchestration"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py",
+      "frozen_sha256": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py",
+      "origin_sha256": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+      "role": "executed EasyLEED independent energy-scan adapter and runtime settings"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py",
+      "frozen_sha256": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py",
+      "origin_sha256": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+      "role": "executed EasyLEED independent energy-scan reduction adapter"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py",
+      "frozen_sha256": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+      "origin_path": "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py",
+      "origin_sha256": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
+      "role": "executed EasyLEED restricted high-energy adapter and runtime settings"
+    }
+  ]
+}

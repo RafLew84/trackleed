@@ -1,0 +1,30 @@
+{
+  "component": "OSTrack",
+  "study_role": "independent energy-scan confirmation",
+  "record_status": "post_run_normalized_from_executed_source",
+  "derived_from": {
+    "source": "source_data/upstream_contracts/executed_sources/independent_energy_runner.py",
+    "source_sha256": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee"
+  },
+  "explicit_runtime_settings": {
+    "backend_mode": "subprocess",
+    "device": "cuda",
+    "inference_resolution": [
+      256,
+      256
+    ],
+    "initial_bbox_padding_px": 0.0,
+    "model_variant": "vitb_256_mae_ce_32x4_ep300",
+    "representative_point_mode": "bbox_center",
+    "subprocess_timeout_sec": 1800.0
+  },
+  "controlled_inputs": {
+    "common_estimator": "TrackLEED two-dimensional elliptical-Gaussian fit",
+    "measurement_roi_px": 48,
+    "prompt": "single-object 48 x 48 px bounding box",
+    "sequence_directions": [
+      "toward increasing energy from the reference frame",
+      "toward decreasing energy from the reference frame using reversed image order"
+    ]
+  }
+}

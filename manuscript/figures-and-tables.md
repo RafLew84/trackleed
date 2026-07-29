@@ -312,7 +312,17 @@ Final artifact:
   controlled translation.
 - **Figure S4:** EasyLEED/ViPErLEED high-energy external-reference overlays.
 - **Figure S5:** accepted but geometry-inconsistent continuation examples.
-- **Table S1:** full versions, hashes, checkpoints, and environments.
+- **Table S1 — generated and validated:** full versions, revisions,
+  checkpoint and runtime-artifact hashes, configuration and implementation
+  hashes, and retained execution environments. The table distinguishes
+  run-frozen configurations, post-run normalized configuration records
+  derived from archived executed sources, and package inventories captured
+  after the completed runs. Final artifact:
+  [README](tables/table_s1_software_environments/README.md),
+  [component CSV](tables/table_s1_software_environments/output/table_s1_components.csv),
+  [environment CSV](tables/table_s1_software_environments/output/table_s1_environments.csv),
+  [supplement Markdown](tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md),
+  and [manifest](tables/table_s1_software_environments/manifest.json).
 - **Table S2:** Gaussian fit gates and all validation denominators.
 - **Table S3:** per-scan and per-pair energy-scan coverage, recovery, geometry
   inconsistency, and conditional residuals with their surviving

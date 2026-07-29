@@ -1,0 +1,25 @@
+{
+  "capture_date": "2026-07-29",
+  "environment_label": "viperleed-imagej",
+  "platform_family": "Windows 64-bit",
+  "runtime_components": [
+    {
+      "artifact_sha256": "6acc016e4630d5c5ecd470b205f8d1abc08ce57568c6ab617a308d2451d9c90d",
+      "name": "ImageJ",
+      "version": "1.54u"
+    },
+    {
+      "artifact_sha256": "not recorded separately",
+      "name": "OpenJDK",
+      "version": "1.8.0_345"
+    },
+    {
+      "artifact_sha256": "dd058af9ea79eaf6bea837efc6188b8f9b67dadf980b540d84826a33062c8a2d",
+      "name": "ViPErLEED ImageJ plugin",
+      "version": "1.03"
+    }
+  ],
+  "runtime_kind": "imagej-java",
+  "schema_version": "1.0",
+  "status": "retained_environment_snapshot"
+}

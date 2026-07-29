@@ -1,0 +1,45 @@
+{
+  "component": "EasyLEED",
+  "study_role": "independent energy-scan confirmation",
+  "record_status": "post_run_normalized_from_executed_source_and_output",
+  "derived_from": {
+    "runner": "source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py",
+    "runner_sha256": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
+    "analysis": "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py",
+    "analysis_sha256": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
+    "executed_outputs": [
+      {
+        "path": "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_1.json",
+        "sha256": "943431981bc28d3fc0870b931e33f49d58adabd77c4d46c0b13ed93120e89b57"
+      },
+      {
+        "path": "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_2.json",
+        "sha256": "0fa0728d5ccfd43d5f2a0c8a1bcca4516ed46268cc8c56a600993532f8a6bf5d"
+      },
+      {
+        "path": "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_3.json",
+        "sha256": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a"
+      },
+      {
+        "path": "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_4.json",
+        "sha256": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a"
+      }
+    ]
+  },
+  "native_settings": {
+    "gaussian_r_squared_min": 0.8,
+    "input_precision_px": 2.0,
+    "tracking_radius_px": 12.0,
+    "validation_gamma": 8.0,
+    "window_scaling": true
+  },
+  "adapter_contract": {
+    "directions": [
+      "toward increasing energy from the reference frame",
+      "toward decreasing energy from the reference frame using reversed image order"
+    ],
+    "duplicate_energy_handling": "preserve frame order and identity; feed each frame to a fresh native Tracker for each direction",
+    "image_reader": "EasyLEED PILImageLoader",
+    "native_output": "Tracker proposal followed by the shared TrackLEED Gaussian measurement contract"
+  }
+}

@@ -41,6 +41,9 @@ describes the corresponding physical state or experimental role.
 - [`manuscript.md`](manuscript.md) - working manuscript with drafted Sections
   1–8 and explicit placeholders for missing author, acquisition, and public
   release information.
+- [`supplementary-material.md`](supplementary-material.md) - working
+  supplementary document containing the generated Table S1 software, model,
+  configuration-hash, and retained-environment record.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
   manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
@@ -58,6 +61,9 @@ describes the corresponding physical state or experimental role.
 - [`tables/table03_cross_regime_summary/`](tables/table03_cross_regime_summary/) -
   deterministic three-block summary of the common five-method results across
   controlled translations, Cu(111), and independent Ag(111) energy scans.
+- [`tables/table_s1_software_environments/`](tables/table_s1_software_environments/) -
+  deterministic supplementary software/model inventory with run-frozen
+  hashes and path-free snapshots of eight retained execution environments.
 - [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
   per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
   analysis, deterministic builder, and manifest.

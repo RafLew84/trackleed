@@ -1,0 +1,423 @@
+{
+  "capture_date": "2026-07-29",
+  "conda_history_sha256": "ab35fbffedbdfb9b1c260c450c9ada45e495513c34fadf7fd995c9b3bd9fa7a0",
+  "conda_packages": [
+    {
+      "build": "h2bbff1b_6",
+      "build_number": 6,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "bzip2",
+      "subdir": "win-64",
+      "version": "1.0.8"
+    },
+    {
+      "build": "haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "ca-certificates",
+      "subdir": "win-64",
+      "version": "2026.3.19"
+    },
+    {
+      "build": "hd7fb8db_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "libexpat",
+      "subdir": "win-64",
+      "version": "2.7.5"
+    },
+    {
+      "build": "hd77b12b_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "libffi",
+      "subdir": "win-64",
+      "version": "3.4.4"
+    },
+    {
+      "build": "h1c6eee0_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "libzlib",
+      "subdir": "win-64",
+      "version": "1.3.1"
+    },
+    {
+      "build": "hbb43b14_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "openssl",
+      "subdir": "win-64",
+      "version": "3.5.6"
+    },
+    {
+      "build": "py310haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "packaging",
+      "subdir": "win-64",
+      "version": "26.0"
+    },
+    {
+      "build": "pyhc872135_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "pip",
+      "subdir": "noarch",
+      "version": "26.0.1"
+    },
+    {
+      "build": "h1044e36_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "python",
+      "subdir": "win-64",
+      "version": "3.10.20"
+    },
+    {
+      "build": "py310haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "setuptools",
+      "subdir": "win-64",
+      "version": "82.0.1"
+    },
+    {
+      "build": "hee5a0db_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "sqlite",
+      "subdir": "win-64",
+      "version": "3.51.2"
+    },
+    {
+      "build": "hf199647_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "tk",
+      "subdir": "win-64",
+      "version": "8.6.15"
+    },
+    {
+      "build": "he532380_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "tzdata",
+      "subdir": "noarch",
+      "version": "2026a"
+    },
+    {
+      "build": "haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "ucrt",
+      "subdir": "win-64",
+      "version": "10.0.22621.0"
+    },
+    {
+      "build": "h2df5915_10",
+      "build_number": 10,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "vc",
+      "subdir": "win-64",
+      "version": "14.3"
+    },
+    {
+      "build": "h4927774_10",
+      "build_number": 10,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "vc14_runtime",
+      "subdir": "win-64",
+      "version": "14.44.35208"
+    },
+    {
+      "build": "ha6b5a95_10",
+      "build_number": 10,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "vs2015_runtime",
+      "subdir": "win-64",
+      "version": "14.44.35208"
+    },
+    {
+      "build": "py310haa95532_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "wheel",
+      "subdir": "win-64",
+      "version": "0.46.3"
+    },
+    {
+      "build": "h53af0af_0",
+      "build_number": 0,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "xz",
+      "subdir": "win-64",
+      "version": "5.8.2"
+    },
+    {
+      "build": "h1c6eee0_1",
+      "build_number": 1,
+      "channel": "https://repo.anaconda.com/pkgs/main/win-64",
+      "name": "zlib",
+      "subdir": "win-64",
+      "version": "1.3.1"
+    }
+  ],
+  "environment_label": "dam4sam",
+  "installed_distributions": [
+    {
+      "name": "antlr4-python3-runtime",
+      "version": "4.9.3"
+    },
+    {
+      "name": "attributee",
+      "version": "0.1.9"
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0"
+    },
+    {
+      "name": "bidict",
+      "version": "0.23.1"
+    },
+    {
+      "name": "cachetools",
+      "version": "7.0.6"
+    },
+    {
+      "name": "certifi",
+      "version": "2022.12.7"
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "2.1.1"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6"
+    },
+    {
+      "name": "contourpy",
+      "version": "1.3.2"
+    },
+    {
+      "name": "cycler",
+      "version": "0.12.1"
+    },
+    {
+      "name": "dominate",
+      "version": "2.9.1"
+    },
+    {
+      "name": "filelock",
+      "version": "3.25.2"
+    },
+    {
+      "name": "fonttools",
+      "version": "4.62.1"
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.2.0"
+    },
+    {
+      "name": "hydra-core",
+      "version": "1.3.2"
+    },
+    {
+      "name": "idna",
+      "version": "3.4"
+    },
+    {
+      "name": "iopath",
+      "version": "0.1.10"
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1"
+    },
+    {
+      "name": "kiwisolver",
+      "version": "1.5.0"
+    },
+    {
+      "name": "lazy-object-proxy",
+      "version": "1.12.0"
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.47.0"
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3"
+    },
+    {
+      "name": "matplotlib",
+      "version": "3.10.9"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0"
+    },
+    {
+      "name": "networkx",
+      "version": "3.4.2"
+    },
+    {
+      "name": "numba",
+      "version": "0.65.1"
+    },
+    {
+      "name": "numpy",
+      "version": "1.26.4"
+    },
+    {
+      "name": "omegaconf",
+      "version": "2.3.0"
+    },
+    {
+      "name": "opencv-python",
+      "version": "4.11.0.86"
+    },
+    {
+      "name": "ordered-set",
+      "version": "4.1.0"
+    },
+    {
+      "name": "packaging",
+      "version": "26.0"
+    },
+    {
+      "name": "pandas",
+      "version": "2.3.3"
+    },
+    {
+      "name": "phx-class-registry",
+      "version": "5.1.0"
+    },
+    {
+      "name": "pillow",
+      "version": "12.1.1"
+    },
+    {
+      "name": "pip",
+      "version": "26.1"
+    },
+    {
+      "name": "portalocker",
+      "version": "3.2.0"
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2"
+    },
+    {
+      "name": "pylatex",
+      "version": "1.4.2"
+    },
+    {
+      "name": "pyparsing",
+      "version": "3.3.2"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "pytz",
+      "version": "2026.1.post1"
+    },
+    {
+      "name": "pywin32",
+      "version": "311"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0"
+    },
+    {
+      "name": "requests",
+      "version": "2.28.1"
+    },
+    {
+      "name": "rpds-py",
+      "version": "0.30.0"
+    },
+    {
+      "name": "sam-2",
+      "version": "1.0"
+    },
+    {
+      "name": "scipy",
+      "version": "1.15.3"
+    },
+    {
+      "name": "setuptools",
+      "version": "82.0.1"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0"
+    },
+    {
+      "name": "torch",
+      "version": "2.1.0+cu121"
+    },
+    {
+      "name": "torchvision",
+      "version": "0.16.0+cu121"
+    },
+    {
+      "name": "tqdm",
+      "version": "4.67.3"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.15.0"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.2"
+    },
+    {
+      "name": "urllib3",
+      "version": "1.26.13"
+    },
+    {
+      "name": "vot-toolkit",
+      "version": "0.7.1"
+    },
+    {
+      "name": "vot-trax",
+      "version": "4.0.2"
+    },
+    {
+      "name": "wheel",
+      "version": "0.47.0"
+    }
+  ],
+  "platform_family": "Windows 64-bit",
+  "python_version": "3.10.20",
+  "runtime_kind": "python-conda",
+  "schema_version": "1.0",
+  "status": "retained_environment_snapshot",
+  "torch_cuda_build": "12.1"
+}

@@ -36,7 +36,7 @@
 - [x] State propagation direction, initialization count, and zero-reset policy for
       every experiment.
 - [x] State all common denominators before reporting conditional metrics.
-- [ ] Record software versions, hashes, checkpoints, and execution environments.
+- [x] Record software versions, hashes, checkpoints, and execution environments.
 
 ## Statistical and presentation decisions
 
@@ -68,7 +68,7 @@
 - [ ] Freeze final source-data tables for every figure.
 - [ ] Add deterministic figure builders and manifests.
 - [ ] Verify the headless reconstruction path from saved native predictions.
-- [ ] Archive environment records and checkpoint hashes.
+- [x] Archive environment records and checkpoint hashes.
 - [ ] Validate the release package on a clean machine or environment.
 - [ ] Add a data/code availability statement with persistent identifiers.
 

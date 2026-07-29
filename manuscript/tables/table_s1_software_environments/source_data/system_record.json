@@ -1,0 +1,12 @@
+{
+  "capture_date": "2026-07-29",
+  "gpu": {
+    "driver_version": "610.62",
+    "memory_mib": 8188,
+    "model": "NVIDIA GeForce RTX 4070 Laptop GPU"
+  },
+  "operating_system": "Microsoft Windows NT 10.0.26200.0, 64-bit",
+  "relationship_to_execution": "Retained host used for the local method runs; this system record was captured after the completed runs.",
+  "schema_version": "1.0",
+  "status": "retained_system_snapshot"
+}
