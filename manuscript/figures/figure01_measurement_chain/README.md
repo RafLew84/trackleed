@@ -1,10 +1,46 @@
-# Figure 1 - representative measurement-chain case
+# Figure 1 - measurement chain and evidence ladder
 
-Status: representative case frozen; final figure not yet rendered.
+Status: generated and validated.
 
 This directory freezes the real LEED image, one canonical spot, the five
 archived proposal coordinates, and the five common Gaussian measurements that
 will anchor the reader-facing measurement-chain schematic.
+
+## Final artifacts
+
+- [PNG](output/figure01_measurement_chain.png)
+- [PDF](output/pdf/figure01_measurement_chain.pdf)
+- [render manifest](render_manifest.json)
+
+The source-case integrity record remains in `manifest.json`; the final
+PNG/PDF, renderer, environment, and deterministic-rebuild hashes are recorded
+separately in `render_manifest.json`.
+
+## Caption
+
+**Figure 1. Tracking proposal, common position measurement, and evidence
+ladder.** **a,** Empirical native outputs of the five tracking strategies for
+the same diffraction spot in the final image of the fixed-energy Cu(111)
+thermal sequence (56 eV, 92 °C): the LocoTrack point, OSTrack bounding box,
+DAM4SAM binary mask, Lucas-Kanade optical-flow point, and EasyLEED Kalman
+position. The case was selected from the acquisition metadata without
+inspecting tracker behavior; all methods used the same image sequence, spot,
+and seed and received no correction or reinitialization. The OSTrack box and
+the unsmoothed DAM4SAM mask are the frozen empirical native geometries.
+**b,** Each native output is reduced to a proposal coordinate that centers an
+identically sized `48 x 48` pixel measurement ROI. A common elliptical
+two-dimensional Gaussian fit to the raw pixels supplies the quantitative spot
+position. In this explanatory case, the maximum separation among the five
+proposal coordinates is 5.60 pixels and that among the five Gaussian centers
+is 0.0023 pixels; these values were not used for case selection and do not rank
+the methods. **c,** Two Gaussian-refined positions define the pair distance
+\(D_t\) and its normalized change \(\Delta D/D\). Common image translation
+cancels in the pair distance, whereas non-rigid distortion does not.
+**d,** The Cu(111) thermal sequence, known translations, Ag(111) energy scans,
+and controlled SAM2 family serve as a positive control, equivariance test,
+motion-plus-I(V)-gap stress test, and memory-mechanism analysis, respectively.
+These regimes answer separate questions with separate denominators rather than
+forming a composite tracker ranking.
 
 ## Selection
 
@@ -90,6 +126,11 @@ schematic geometry.
   provenance.
 - `source_data/source_provenance.json` - hashes of all upstream artifacts.
 - `manifest.json` - code, contract, and committed source-data hashes.
+- `figure_contract.py` - reader-facing rendering contract and cross-checks.
+- `figure_render.py` - deterministic four-panel renderer.
+- `build_figure.py` - PNG/PDF build and deterministic validation.
+- `test_build_figure.py` - final-figure contract tests.
+- `render_manifest.json` - final code, source, output, and environment hashes.
 
 ## Rebuild
 
@@ -119,6 +160,7 @@ Run the contract tests:
 ```bash
 python test_export_native_geometry.py
 python test_freeze_case.py
+python test_build_figure.py
 ```
 
 The native geometry does not need to be regenerated during an ordinary figure
@@ -126,4 +168,11 @@ build. To reproduce the expensive GPU replay explicitly:
 
 ```bash
 python export_native_geometry.py
+```
+
+Build and validate the final figure:
+
+```bash
+python build_figure.py
+python build_figure.py --validate-only
 ```

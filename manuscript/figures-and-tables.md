@@ -10,7 +10,7 @@ tracker ranking.
 
 **Question:** What is evaluated, and where is the physical position measured?
 
-**Status:** representative Cu(111) case frozen; final rendering pending.
+**Status:** generated and validated.
 
 Proposed panels:
 
@@ -45,6 +45,13 @@ DAM4SAM mask for this frozen case and reproduces their archived reduced
 trajectories over all 701 images. Panel a must render these empirical outputs
 from the frozen coordinates and pixels, without smoothing, redrawing, or
 substituting schematic geometry.
+
+Final artifact:
+
+- [artifact README and caption](figures/figure01_measurement_chain/README.md)
+- [PNG](figures/figure01_measurement_chain/output/figure01_measurement_chain.png)
+- [PDF](figures/figure01_measurement_chain/output/pdf/figure01_measurement_chain.pdf)
+- [render manifest](figures/figure01_measurement_chain/render_manifest.json)
 
 ### Figure 2 - Controlled equivariance and energy-scan geometry
 
