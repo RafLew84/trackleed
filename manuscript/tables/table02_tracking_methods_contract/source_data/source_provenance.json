@@ -1,0 +1,39 @@
+{
+  "sources": [
+    {
+      "frozen_path": "source_data/upstream_contracts/controlled_translation_contract.json",
+      "frozen_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/contract.json",
+      "origin_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "role": "main five-method configurations, revisions, resource hashes, and common proposal reductions"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/five_method_run_manifest.json",
+      "frozen_sha256": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/run_manifest.json",
+      "origin_sha256": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316",
+      "role": "executed five-method configuration hashes and zero-reset audit"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
+      "frozen_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/contract.json",
+      "origin_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "role": "controlled SAM2-family prompt, common checkpoint hash, proposal reduction, and reset policy"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/domain_baselines_installation.md",
+      "frozen_sha256": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baselines-installation.md",
+      "origin_sha256": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee",
+      "role": "EasyLEED and ViPErLEED revisions, versions, environments, and ViPErLEED plugin hash"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/external_reference_contract.json",
+      "frozen_sha256": "9e2623e38db751357cdb753c2ae24b42e1b92e3b3b6aa32ea83b691d37ad6b8b",
+      "origin_path": "manuscript/figures/figure03_independent_scane_stress/contract.json",
+      "origin_sha256": "9e2623e38db751357cdb753c2ae24b42e1b92e3b3b6aa32ea83b691d37ad6b8b",
+      "role": "separate whole-pattern external-reference contract"
+    }
+  ]
+}

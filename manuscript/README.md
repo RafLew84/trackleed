@@ -52,6 +52,9 @@ describes the corresponding physical state or experimental role.
 - [`tables/table01_data_evidence_roles/`](tables/table01_data_evidence_roles/) -
   deterministic main table separating four data regimes from five evidence
   roles and recording their reporting units.
+- [`tables/table02_tracking_methods_contract/`](tables/table02_tracking_methods_contract/) -
+  deterministic tracking-method contract with five main strategies, a
+  matched-weight SAM2-family control, and a separate whole-pattern reference.
 - [`tables/table03_cross_regime_summary/`](tables/table03_cross_regime_summary/) -
   deterministic three-block summary of the common five-method results across
   controlled translations, Cu(111), and independent Ag(111) energy scans.

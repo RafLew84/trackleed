@@ -243,20 +243,36 @@ Final artifact:
 
 ### Table 2 - Tracking methods and common output contract
 
-Drafted in Section 3 of
+**Status:** generated and validated.
+
+Inserted in Section 3 of
 [the working manuscript](manuscript.md#33-domain-specific-references).
 Columns:
 
+- panel;
 - method;
 - family/representation;
 - checkpoint or algorithm configuration;
 - initialization;
-- native output;
+- native availability/output;
 - reduction to proposal coordinate;
 - reset policy;
 - role in the study.
 
-Keep ViPErLEED in a visibly separate external-reference row.
+The table contains five main comparison rows, three controlled SAM2-family
+rows, and one visibly separate ViPErLEED external-reference row. The three
+controlled-family rows retain the same byte-identical SAM2.1 Hiera Base+
+checkpoint hash; exact revisions, configurations, and artifact hashes remain
+in the audit fields and manifest. A method-level executed-configuration hash
+is reported only where one was recorded; whole-contract hashes are retained
+solely as source-provenance hashes.
+
+Final artifact:
+
+- [artifact README](tables/table02_tracking_methods_contract/README.md)
+- [publication-facing CSV](tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.csv)
+- [manuscript Markdown](tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md)
+- [manifest](tables/table02_tracking_methods_contract/manifest.json)
 
 ### Table 3 - Quantitative summary across evidence regimes
 
