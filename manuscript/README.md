@@ -1,9 +1,9 @@
 # Manuscript workspace
 
-Status: partial draft. Sections 1 (introduction), 2 (data and measurement
-model), 3 (tracking strategies and comparison contract), 4 (validation
-protocol), 5 (results), 6 (discussion), and 8 (conclusions) are written as
-manuscript prose; the remaining sections are still a structured outline.
+Status: complete narrative draft with explicit scientific and release
+placeholders. Sections 1–8 and the abstract are written as manuscript prose.
+Author information, selected acquisition metadata, and final repository,
+license, and DOI details remain unresolved.
 
 Working title:
 
@@ -38,8 +38,9 @@ describes the corresponding physical state or experimental role.
 
 ## Files
 
-- [`manuscript.md`](manuscript.md) - working manuscript with drafted Methods
-  sections and section-by-section placeholders for the remaining text.
+- [`manuscript.md`](manuscript.md) - working manuscript with drafted Sections
+  1–8 and explicit placeholders for missing author, acquisition, and public
+  release information.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
   manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical

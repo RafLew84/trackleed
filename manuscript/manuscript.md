@@ -1,7 +1,8 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 1–6 and 8 are drafted, while the
-remaining sections retain structured-outline placeholders.
+Draft status: working manuscript; Sections 1–8 are drafted. Author information,
+selected acquisition metadata, and final repository, license, and DOI details
+remain as explicit placeholders.
 
 ## Authors
 
@@ -1141,19 +1142,64 @@ changes of the measured diffraction-pattern scale; it is not used to infer a
 thermal-expansion coefficient, structural transformation, or crystallographic
 anisotropy.
 
-## 7. Reproducibility and data availability
+## 7. Reproducibility
 
-Describe:
+The reproducibility record is organized around the frozen measurement chain,
+not the graphical application state. For the Cu(111) sequence and the three
+Ag(111) energy scans, the planned data record will contain the ordered raw-image
+inventory with relative paths, acquisition metadata, file sizes, and SHA-256
+hashes. The controlled-translation experiment introduces no additional raw
+acquisition: its inputs are four frozen source states from the Cu(111)
+sequence, and its transform contract and source hashes are retained separately.
+The data record will also contain the frozen spot and pair definitions,
+initialization prompts, preprocessing inputs where applicable, complete method
+configurations, upstream code revisions, and checkpoint identifiers. Native
+tracker payloads will be retained before their reduction to a proposal
+coordinate, so that point coordinates, bounding boxes, masks, optical-flow
+diagnostics, and Kalman states can be audited independently of the common
+measurement step.
 
-- immutable raw-data inventory and hashes;
-- native tracker payloads and frozen configurations;
-- per-image proposals, Gaussian measurements, fit diagnostics, and pair endpoints;
-- deterministic artifact builders and validators;
-- headless reconstruction from saved predictions without requiring the original
-  inference GPU;
-- planned dataset DOI and code release.
+The processed record will preserve one explicit row for every expected
+method--spot--image combination. These records distinguish an unavailable
+proposal from an out-of-image ROI, failed fit, rejected fit, and accepted
+measurement rather than dropping or interpolating missing values. For accepted
+fits, the stored fields include the proposal and Gaussian-refined coordinates,
+fit parameters and diagnostics, acceptance outcome, and the information needed
+to reconstruct pair distances, \(\Delta D/D=\Delta R/R\), post-gap identity
+recovery, and geometry-consistency outcomes. The completed Cu(111) run
+additionally links each reduced proposal to its saved native payload and records
+configuration, input-inventory, output-table, and summary hashes in its run
+manifest.
 
-TODO[DECISION]: repository/archive location, license, DOI, and public release scope.
+In the working manuscript, each main figure is stored with a self-contained
+source-data directory, an upstream-provenance record, a deterministic builder,
+validation tests, and manifests containing hashes of the source, code, and
+rendered outputs. The stratified supplementary tables likewise contain frozen
+source tables, a deterministic builder, tests, and a manifest recording source
+and output hashes. These committed display-level artifacts permit the results
+to be rebuilt and checked without rerunning tracker inference. Their provenance
+links remain necessary: the compact display tables are publication views of
+the frozen experiment outputs, not replacements for the complete per-image
+records.
+
+The public release is planned as two linked, versioned records: a data record
+containing the raw images, native tracker payloads, processed measurements, and
+figure source data, and a code record containing a small headless runner,
+artifact builders, validators, tests, and machine-readable environment
+records.
+The required reproduction path will start from the saved native tracker
+payloads and reconstruct proposal reduction, ROI placement, Gaussian
+measurements, physical endpoints, tables, and figures without the TrackLEED
+GUI, an inference GPU, or third-party checkpoint files. Full tracker inference
+will be documented as a separate optional path. Each required external
+checkpoint will be identified by its official source, variant, version or
+upstream revision, and SHA-256 hash; checkpoint files will be redistributed
+only where their licenses permit.
+
+TODO[DECISION]: select the public data and code repositories, licenses,
+versioned release identifiers, DOI values, and final release scope. Until those
+records are deposited, local artifact paths and hashes document computational
+provenance but do not constitute a public data-availability statement.
 
 ## 8. Conclusions
 
