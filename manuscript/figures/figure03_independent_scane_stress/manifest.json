@@ -6,14 +6,15 @@
     "The EasyLEED-ViPErLEED inset uses a separate initialization contract and denominator and is not a sixth row in the main method matrix."
   ],
   "code_sha256": {
-    "build_figure.py": "324b97759ea67ab909bf739697ea18394cf0d534672615de8e45082328250945",
-    "figure_contract.py": "8115db4dc965605cbe4693e8ab926daee6377ccf44a75af0e91c3e3a27fa9009",
-    "figure_render.py": "63343b397672b3419528d4c86d1533c4d28c1d71ea7312da26dcd44f2c509da8",
-    "freeze_source_data.py": "6583cdda00521cba72038b862ed06125a9d08b879f4a668c8413f89866f7fcef",
-    "test_build_figure.py": "4ea2ad4670d360d558744207368012ea90132a1e9c670c6799f4fa88eeddeba3",
-    "test_freeze_source_data.py": "7450c271b498979e8a48470d8fffbfd1a8413b13f6e7975efed341d888b4e9a4"
+    "build_figure.py": "de41a13169956e5237e26159d48cd431cd49bbabebb8290b47c0c8a504c88882",
+    "figure_contract.py": "f7c77fc49fe82d0c4382e7fda6ab078764871afde122b48ee419f8d05fdf2ffb",
+    "figure_render.py": "2831de8c0bc75c085051c0f1906b0fa239abb2540268e2591141bf560ca8bb41",
+    "figure_test_support.py": "300a3d778c1a56e5182323f9d4ac7d84beeca99ee46390e68ce1993f1b31d8a9",
+    "freeze_source_data.py": "d00726cffef4629bd3573544da4ef898ba97526058774e954d1de9739775fb04",
+    "test_build_figure.py": "f6ae64c9c12484f667c95bccad85ea20bef52df53f87940cab2f866c5c168afc",
+    "test_freeze_source_data.py": "1cbeba3d43b1b9f4516a457543cacd6a01e1a30ae175d86e8420050aa8bb5e4d"
   },
-  "contract_sha256": "d45867df3a8fea4b20273ab387107c5c5e9f4f80e7e0a9c11578409950bea872",
+  "contract_sha256": "9e2623e38db751357cdb753c2ae24b42e1b92e3b3b6aa32ea83b691d37ad6b8b",
   "environment": {
     "matplotlib": "3.10.1",
     "numpy": "2.2.5",
@@ -22,8 +23,8 @@
   },
   "figure": "Figure 3",
   "outputs_sha256": {
-    "output/figure03_independent_scane_stress.png": "e133abda888cb72399969b1df5082d56a3abc5c00cb1339e51cf8fbe10512183",
-    "output/pdf/figure03_independent_scane_stress.pdf": "f26043133d3e86bead6f6c83440c07693d6a801c8658bb05d929f23e09561de8"
+    "output/figure03_independent_scane_stress.png": "b2770705f9586a03a2be8a6983b1aa87ab77ea079651f668fb4903f4ad47fb58",
+    "output/pdf/figure03_independent_scane_stress.pdf": "66928322b86c912b34ea320d51ed7d1ab54ea8293f608b3c529948fc312e2cae"
   },
   "rendering": {
     "figure_size_inches": [
@@ -118,7 +119,7 @@
   "source_data_sha256": {
     "source_data/aggregate_method_results.csv": "30e50bfbd328d1595afec5fa7e2aa186fc3d0fb19417acd633f76b2f56b256ea",
     "source_data/case_results.csv": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48",
-    "source_data/external_reference_summary.json": "dc6001d84a3a8db7d4f8cbf45cf25a248874871ebd9ca9b3cdfd4041d0828192",
+    "source_data/external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
     "source_data/representative_case.json": "099da76f76ca6f8249a96521064db556bd1aaed420a4921265242504c6239b53",
     "source_data/representative_pair_measurements.csv": "1b3620acabfcc2c8e5cdd3451439bb631f0e7de0a0b61f01822a61395d9c4dd9",
     "source_data/representative_visibility_regimes.csv": "4063255d663c2884c4125465de3a6db721f278be15b6f2fea8e200ea2f864cda",

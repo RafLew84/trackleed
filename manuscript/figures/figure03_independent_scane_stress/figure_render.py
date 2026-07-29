@@ -457,11 +457,13 @@ def _render_panel_f(
         0.37,
         0.31,
         (
-            "Median |D residual| [px]\n"
-            f"Easy / VIP: P1 {easy['pair_1_median_abs_residual_px']:.3f} / "
-            f"{viper['pair_1_median_abs_residual_px']:.3f}\n"
-            f"P2 {easy['pair_2_median_abs_residual_px']:.3f} / "
-            f"{viper['pair_2_median_abs_residual_px']:.3f}"
+            "Conditional median |D residual| [px]\n"
+            f"Easy/VIP P1 {easy['pair_1_median_abs_residual_px']:.3f}/"
+            f"{viper['pair_1_median_abs_residual_px']:.3f} "
+            f"(n={easy['pair_1_valid_frames']} each)\n"
+            f"Easy/VIP P2 {easy['pair_2_median_abs_residual_px']:.3f}/"
+            f"{viper['pair_2_median_abs_residual_px']:.3f} "
+            f"(n={easy['pair_2_valid_frames']} each)"
         ),
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],

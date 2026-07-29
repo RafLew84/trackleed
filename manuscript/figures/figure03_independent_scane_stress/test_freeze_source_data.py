@@ -7,6 +7,7 @@ import json
 import unittest
 
 import freeze_source_data
+from figure_test_support import assert_case_rows_reproduce_aggregates
 
 
 class Figure3SourceFreezeTest(unittest.TestCase):
@@ -32,26 +33,7 @@ class Figure3SourceFreezeTest(unittest.TestCase):
         aggregate = freeze_source_data.load_aggregate_results()
         cases = freeze_source_data.load_case_results()
 
-        for aggregate_row in aggregate:
-            method_rows = [
-                row
-                for row in cases
-                if row["method"] == aggregate_row["method"]
-            ]
-            self.assertEqual(len(method_rows), 4)
-            for field in (
-                "visible_opportunities",
-                "branch_consistent_measurements",
-                "evaluated_gaps",
-                "recovered_gaps",
-                "accepted_measurements_all_frames",
-                "geometry_inconsistent_accepted_fits",
-                "jointly_consistent_pair_frames",
-            ):
-                self.assertEqual(
-                    sum(row[field] for row in method_rows),
-                    aggregate_row[field],
-                )
+        assert_case_rows_reproduce_aggregates(self, aggregate, cases)
 
     def test_representative_case_uses_predeclared_physics_rule(self) -> None:
         summary = json.loads(
@@ -103,6 +85,16 @@ class Figure3SourceFreezeTest(unittest.TestCase):
         self.assertEqual(external["branch_opportunities_per_method"], 60)
         self.assertEqual(external["valid_common_fits_per_method"], 38)
         self.assertEqual(external["branch_gap_checks"], "4/4")
+        self.assertEqual(
+            {
+                (
+                    result["pair_1_valid_frames"],
+                    result["pair_2_valid_frames"],
+                )
+                for result in external["per_method"].values()
+            },
+            {(5, 3)},
+        )
         self.assertEqual(
             external["initialization_contracts"],
             {

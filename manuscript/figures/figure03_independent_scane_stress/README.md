@@ -37,6 +37,8 @@ over a restricted high-energy interval. EasyLEED uses one Kalman tracker per
 frozen spot, whereas ViPErLEED uses a registered 18-beam whole-pattern
 trajectory. Both supply proposals to the same Gaussian estimator. The inset
 has a separate 60-opportunity denominator and initialization contract;
+its pair-residual medians are conditional on 5 jointly valid P1 images and
+3 jointly valid P2 images per method.
 ViPErLEED is neither a sixth method in the main matrix nor position ground
 truth.
 

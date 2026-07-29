@@ -42,6 +42,15 @@ METHOD_ORDER = tuple(spec.method for spec in METHOD_SPECS)
 DISPLAY_NAMES = {spec.method: spec.display_name for spec in METHOD_SPECS}
 METHOD_COLORS = {spec.method: spec.color for spec in METHOD_SPECS}
 METHOD_MARKERS = {spec.method: spec.marker for spec in METHOD_SPECS}
+CASE_COUNT_FIELDS = (
+    "visible_opportunities",
+    "branch_consistent_measurements",
+    "evaluated_gaps",
+    "recovered_gaps",
+    "accepted_measurements_all_frames",
+    "geometry_inconsistent_accepted_fits",
+    "jointly_consistent_pair_frames",
+)
 PANEL_ORDER = (
     "representative_trajectory",
     "measurement_coverage",
@@ -110,15 +119,6 @@ def load_contract() -> dict[str, object]:
 
 
 def parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
-    integer_fields = (
-        "visible_opportunities",
-        "branch_consistent_measurements",
-        "evaluated_gaps",
-        "recovered_gaps",
-        "accepted_measurements_all_frames",
-        "geometry_inconsistent_accepted_fits",
-        "jointly_consistent_pair_frames",
-    )
     float_fields = (
         "weighted_fit_coverage",
         "weighted_gap_recovery_rate",
@@ -130,21 +130,12 @@ def parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
     return {
         **row,
         "display_method": DISPLAY_NAMES[row["method"]],
-        **{field: as_int(row[field]) for field in integer_fields},
+        **{field: as_int(row[field]) for field in CASE_COUNT_FIELDS},
         **{field: as_float(row[field]) for field in float_fields},
     }
 
 
 def parse_case_row(row: dict[str, str]) -> dict[str, object]:
-    integer_fields = (
-        "visible_opportunities",
-        "branch_consistent_measurements",
-        "evaluated_gaps",
-        "recovered_gaps",
-        "accepted_measurements_all_frames",
-        "geometry_inconsistent_accepted_fits",
-        "jointly_consistent_pair_frames",
-    )
     float_fields = (
         "fit_coverage",
         "gap_recovery_rate",
@@ -154,7 +145,7 @@ def parse_case_row(row: dict[str, str]) -> dict[str, object]:
     return {
         **row,
         "display_method": DISPLAY_NAMES[row["method"]],
-        **{field: as_int(row[field]) for field in integer_fields},
+        **{field: as_int(row[field]) for field in CASE_COUNT_FIELDS},
         **{field: as_float(row[field]) for field in float_fields},
     }
 
@@ -255,15 +246,7 @@ def validate_source_contract() -> None:
         ]
         if len(method_rows) != 4:
             raise ValueError("Figure 3 frozen-case count changed")
-        for field in (
-            "visible_opportunities",
-            "branch_consistent_measurements",
-            "evaluated_gaps",
-            "recovered_gaps",
-            "accepted_measurements_all_frames",
-            "geometry_inconsistent_accepted_fits",
-            "jointly_consistent_pair_frames",
-        ):
+        for field in CASE_COUNT_FIELDS:
             if sum(row[field] for row in method_rows) != aggregate_row[field]:
                 raise ValueError(
                     f"Figure 3 case-to-aggregate mismatch: {field}"
@@ -310,6 +293,16 @@ def validate_source_contract() -> None:
         or external["branch_gap_checks"] != "4/4"
     ):
         raise ValueError("External-reference denominator changed")
+    pair_denominators = contract["external_reference"][
+        "conditional_pair_frames_per_method"
+    ]
+    for method in external["methods"]:
+        method_result = external["per_method"][method]
+        if (
+            method_result["pair_1_valid_frames"] != pair_denominators["P1"]
+            or method_result["pair_2_valid_frames"] != pair_denominators["P2"]
+        ):
+            raise ValueError("External conditional-residual denominator changed")
     for row in rows:
         expected_fraction = (
             row["geometry_inconsistent_accepted_fits"]

@@ -31,6 +31,7 @@ CODE_FILES = (
     "figure_contract.py",
     "figure_render.py",
     "freeze_source_data.py",
+    "figure_test_support.py",
     "test_build_figure.py",
     "test_freeze_source_data.py",
 )

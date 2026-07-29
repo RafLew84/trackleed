@@ -226,6 +226,12 @@ def build_external_reference_summary() -> dict[str, object]:
         name: {
             "valid_common_fits": as_int(payload["valid_common_fits"]),
             "branch_opportunities": as_int(payload["proposal_rows"]),
+            "pair_1_valid_frames": as_int(
+                payload["per_pair"]["P1"]["valid_pair_frames"]
+            ),
+            "pair_2_valid_frames": as_int(
+                payload["per_pair"]["P2"]["valid_pair_frames"]
+            ),
             "pair_1_median_abs_residual_px": as_float(
                 payload["per_pair"]["P1"]["pair_abs_residual_px"]["median"]
             ),

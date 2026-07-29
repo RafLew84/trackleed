@@ -7,6 +7,10 @@
   ],
   "external_reference": {
     "branch_opportunities_per_method": 60,
+    "conditional_pair_frames_per_method": {
+      "P1": 5,
+      "P2": 3
+    },
     "frame_count": 15,
     "methods": [
       "EasyLEED",
