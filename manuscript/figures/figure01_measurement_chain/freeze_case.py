@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import math
+import shutil
 import statistics
 import tempfile
 from itertools import combinations
@@ -45,15 +46,15 @@ METHOD_METADATA = {
         "display_method": "OSTrack",
         "comparison_category": "bounding-box tracking family",
         "native_representation": "bounding box",
-        "full_native_geometry_archived": False,
-        "archive_status": "bbox reduced to center; width and height not retained",
+        "full_native_geometry_archived": True,
+        "archive_status": "native bbox retained by targeted replay",
     },
     "dam4sam_sam21pp_l": {
         "display_method": "DAM4SAM",
         "comparison_category": "mask tracking family",
         "native_representation": "mask",
-        "full_native_geometry_archived": False,
-        "archive_status": "mask reduced to centroid; mask pixels not retained",
+        "full_native_geometry_archived": True,
+        "archive_status": "native binary mask retained by targeted replay",
     },
     "lucas_kanade_skip_anchor": {
         "display_method": "Lucas-Kanade",
@@ -77,13 +78,24 @@ SELECTION_RULE = (
     "Do not inspect tracker outputs when choosing the case."
 )
 CORE_SPOT_IDS = (1, 3, 5, 6)
-CODE_FILES = ("freeze_case.py", "test_freeze_case.py")
+CODE_FILES = (
+    "export_native_geometry.py",
+    "freeze_case.py",
+    "test_export_native_geometry.py",
+    "test_freeze_case.py",
+)
 SOURCE_DATA_FILES = (
+    "representative_dam4sam_mask_cache.png",
     "representative_initialization.json",
     "representative_method_outputs.csv",
+    "representative_native_geometry.json",
     "representative_spot_crop.json",
     "representative_spot_crop.png",
     "source_provenance.json",
+)
+NATIVE_GEOMETRY_FILES = (
+    "representative_dam4sam_mask_cache.png",
+    "representative_native_geometry.json",
 )
 
 
@@ -215,6 +227,10 @@ def _method_output(
         raise ValueError(f"Proposal status mismatch for {method}")
     payload = _resolve_native_payload(method, native["native_payload_path"], spot_id)
     metadata = METHOD_METADATA[method]
+    targeted_geometry = method in {
+        "ostrack_vitb_256_mae_ce",
+        "dam4sam_sam21pp_l",
+    }
     return {
         "method": method,
         "display_method": metadata["display_method"],
@@ -226,6 +242,12 @@ def _method_output(
         ],
         "native_payload_path": _portable_path(payload),
         "native_payload_sha256": sha256_file(payload),
+        "native_geometry_artifact_path": (
+            "source_data/representative_native_geometry.json"
+            if targeted_geometry
+            else _portable_path(payload)
+        ),
+        "native_geometry_selector": method if targeted_geometry else "",
         "proposal_reduction_rule": native["proposal_reduction_rule"],
         "proposal_available": _as_bool(native["proposal_available"]),
         "proposal_x_original_px": _as_float(
@@ -331,6 +353,29 @@ def _load_comparison_contract(spot_id: int) -> dict[str, object]:
     }
 
 
+def _load_native_geometry() -> dict[str, object]:
+    path = SOURCE_DATA_DIRECTORY / "representative_native_geometry.json"
+    if not path.is_file():
+        raise FileNotFoundError(
+            "Targeted Figure 1 native-geometry re-export is missing"
+        )
+    geometry = json.loads(path.read_text(encoding="utf-8"))
+    if geometry.get("status") != "native_geometry_reexported":
+        raise ValueError("Targeted Figure 1 native-geometry export is incomplete")
+    selection = geometry.get("selection", {})
+    if (
+        _as_int(selection.get("target_frame_order")) != 700
+        or _as_int(selection.get("spot_id")) != 1
+    ):
+        raise ValueError("Targeted Figure 1 native-geometry selection changed")
+    if set(geometry.get("methods", {})) != {
+        "ostrack_vitb_256_mae_ce",
+        "dam4sam_sam21pp_l",
+    }:
+        raise ValueError("Targeted Figure 1 native-geometry method set changed")
+    return geometry
+
+
 def select_representative_case() -> dict[str, object]:
     frame_rows = read_csv(ARTIFACT_ROOT / "diagnostic_probe_frames.csv")
     selected_frames = [
@@ -345,6 +390,7 @@ def select_representative_case() -> dict[str, object]:
     frame_order = _as_int(selected["frame_order"])
     spot_id = min(CORE_SPOT_IDS)
     comparison_contract = _load_comparison_contract(spot_id)
+    native_geometry = _load_native_geometry()
 
     native_rows = read_csv(RUN_ROOT / "native_proposals.csv")
     measurement_rows = read_csv(RUN_ROOT / "gaussian_measurements.csv")
@@ -390,6 +436,7 @@ def select_representative_case() -> dict[str, object]:
         },
         "spot_id": spot_id,
         "comparison_contract": comparison_contract,
+        "native_geometry": native_geometry,
         "method_outputs": outputs,
     }
 
@@ -500,10 +547,23 @@ def _source_data_hashes(figure_root: Path) -> dict[str, str]:
     }
 
 
+def _copy_native_geometry(output_root: Path) -> None:
+    if output_root.resolve() == FIGURE_ROOT.resolve():
+        return
+    output_source_data = output_root / "source_data"
+    output_source_data.mkdir(parents=True, exist_ok=True)
+    for filename in NATIVE_GEOMETRY_FILES:
+        source = SOURCE_DATA_DIRECTORY / filename
+        if not source.is_file():
+            raise FileNotFoundError(f"Missing frozen native geometry: {source}")
+        shutil.copyfile(source, output_source_data / filename)
+
+
 def build(output_root: Path = FIGURE_ROOT) -> None:
     case = select_representative_case()
     source_data_directory = output_root / "source_data"
     source_data_directory.mkdir(parents=True, exist_ok=True)
+    _copy_native_geometry(output_root)
     write_json(
         source_data_directory / "representative_initialization.json",
         case["comparison_contract"],
@@ -525,6 +585,7 @@ def build(output_root: Path = FIGURE_ROOT) -> None:
         "status": "representative_case_frozen",
         "figure": "Figure 1",
         "comparison_contract": case["comparison_contract"],
+        "native_geometry": case["native_geometry"],
         "selection": {
             "rule": SELECTION_RULE,
             "uses_tracker_outputs": False,
@@ -555,24 +616,23 @@ def build(output_root: Path = FIGURE_ROOT) -> None:
             ),
         },
         "crop": crop_metadata,
-        "native_geometry_archive_gap": {
-            "status": "explicit",
-            "affected_methods": [
+        "native_geometry_export": {
+            "status": "resolved_by_targeted_full_sequence_replay",
+            "methods": [
                 "ostrack_vitb_256_mae_ce",
                 "dam4sam_sam21pp_l",
             ],
             "available": (
-                "Reduced bbox center for OSTrack and reduced mask centroid for "
-                "DAM4SAM."
+                "Empirical OSTrack bbox coordinates and empirical DAM4SAM "
+                "binary mask pixels for the selected frame and spot."
             ),
-            "not_available": (
-                "The tracked bbox width/height and the native mask pixels for "
-                "this frame were not retained by the publication runner."
+            "replay_scope": (
+                "All 701 chronological frames, seed frame 0, spot 1 only, "
+                "without correction or reinitialization."
             ),
             "rendering_constraint": (
-                "Do not draw an empirical OSTrack bbox or DAM4SAM mask from "
-                "these archived files. Either perform a targeted native-geometry "
-                "export or label those glyphs as schematic."
+                "Render only the frozen bbox coordinates and mask pixels; "
+                "do not redraw or smooth the native geometry."
             ),
         },
         "intended_use": (
@@ -643,10 +703,7 @@ def _validate_offline_integrity() -> tuple[dict[str, object], dict[str, object]]
         row["method"]: _as_bool(row["full_native_geometry_archived"])
         for row in rows
     }
-    if geometry_archived != {
-        method: bool(METHOD_METADATA[method]["full_native_geometry_archived"])
-        for method in METHOD_ORDER
-    }:
+    if not all(geometry_archived.values()):
         raise ValueError("Figure 1 native-geometry availability changed")
 
     initialization = json.loads(
@@ -662,6 +719,17 @@ def _validate_offline_integrity() -> tuple[dict[str, object], dict[str, object]]
         or initialization.get("shared_bbox_height_original_px") != 48.0
     ):
         raise ValueError("Figure 1 common initialization changed")
+    geometry = json.loads(
+        (
+            SOURCE_DATA_DIRECTORY / "representative_native_geometry.json"
+        ).read_text(encoding="utf-8")
+    )
+    if geometry != contract.get("native_geometry"):
+        raise ValueError("Figure 1 native-geometry contract mismatch")
+    if contract.get("native_geometry_export", {}).get("status") != (
+        "resolved_by_targeted_full_sequence_replay"
+    ):
+        raise ValueError("Figure 1 native-geometry export is not resolved")
     return manifest, contract
 
 
@@ -701,15 +769,18 @@ def _validate_deterministic_rebuild() -> None:
 def validate(*, check_upstream: bool = True) -> None:
     manifest, _ = _validate_offline_integrity()
     if check_upstream:
+        from export_native_geometry import validate as validate_native_geometry
+
         _validate_upstream_sources(manifest)
+        validate_native_geometry()
         _validate_deterministic_rebuild()
         validation_scope = "upstream hashes and deterministic rebuild verified"
     else:
         validation_scope = "offline committed-file integrity only"
     print(
         "Figure 1 representative case validation passed: frame 700, spot 1, "
-        "5/5 proposals and fits; OSTrack bbox and DAM4SAM mask geometry are "
-        f"explicitly marked as not archived; {validation_scope}."
+        "5/5 proposals and fits; empirical OSTrack bbox and DAM4SAM mask "
+        f"geometry archived; {validation_scope}."
     )
 
 

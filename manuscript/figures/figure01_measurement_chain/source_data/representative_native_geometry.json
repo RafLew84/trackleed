@@ -1,0 +1,185 @@
+{
+  "figure": "Figure 1",
+  "method_contracts": {
+    "dam4sam_sam21pp_l": {
+      "adapter_source": "trackleed/analysis/dam4sam_backend.py",
+      "adapter_source_sha256": "ee20f7898d6e74a6f9fc953c806b8e52cab1ba651772049b88849ea8c18c8586",
+      "checkpoint_path": "tracking_models/dam4sam/sam2.1_hiera_large.pt",
+      "checkpoint_sha256": "2647878d5dfa5098f2f8649825738a9345572bae2d4350a2468587ece47dd318",
+      "method_configuration_sha256": "d2ffbdc023b7c5be3238a2dca229ebd0bcb980d994b11ca85a2b124d1c85daa1",
+      "upstream_revision": "9c954504b39ebca4c412f207be0787c26bfac85a"
+    },
+    "ostrack_vitb_256_mae_ce": {
+      "adapter_source": "trackleed/analysis/ostrack_backend.py",
+      "adapter_source_sha256": "33755330d3328801a42a807c35442302cb1438fad0167a39ab609dbafc52919c",
+      "checkpoint_path": "tracking_models/ostrack/vitb_256_mae_ce_32x4_ep300/OSTrack_ep0300.pth.tar",
+      "checkpoint_sha256": "30c2147dd5799c7d78f5c114bf9ebaf00fa69638568865e6ade3d8cb04ea380f",
+      "method_configuration_sha256": "dc9bd17199ffc0aaea78fc00d0f68ba0b2b3047ef15fac30ec1c4997ed973736",
+      "upstream_revision": "33b5e12586216b7fd0e95d255bd01ba44cbec759"
+    }
+  },
+  "methods": {
+    "dam4sam_sam21pp_l": {
+      "archived_reduced_center_original_px": [
+        138.07398080825806,
+        714.3654227256775
+      ],
+      "center_consistency_error_original_px": 1.1015163571551412e-05,
+      "coordinate_convention": "mask[y,x] on the 256x256 tracking cache; bbox is half-open xyxy",
+      "display_method": "DAM4SAM",
+      "geometry_type": "binary_mask",
+      "mask_area_cache_px": 98,
+      "mask_bbox_xywh_cache_px": [
+        31.0,
+        177.0,
+        10.0,
+        13.0
+      ],
+      "mask_bbox_xywh_original_px": [
+        121.09375,
+        691.40625,
+        39.0625,
+        50.78125
+      ],
+      "mask_bbox_xyxy_cache_px": [
+        31.0,
+        177.0,
+        41.0,
+        190.0
+      ],
+      "mask_bbox_xyxy_original_px": [
+        121.09375,
+        691.40625,
+        160.15625,
+        742.1875
+      ],
+      "mask_path": "source_data/representative_dam4sam_mask_cache.png",
+      "mask_sha256": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
+      "mask_shape_cache_px": [
+        256,
+        256
+      ],
+      "method": "dam4sam_sam21pp_l",
+      "native_mask_score": null,
+      "reduced_centroid_cache_px": [
+        35.3469387755102,
+        182.87755102040816
+      ],
+      "reduced_centroid_original_px": [
+        138.07397959183672,
+        714.3654336734694
+      ],
+      "reduction_rule": "arithmetic mean of x indices and y indices of all true mask pixels",
+      "trajectory_replay": {
+        "archived_payload_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/gpu-native-v1/dam4sam_sam21pp_l/dam4sam_sam21pp_l_spot_01.npz",
+        "archived_payload_sha256": "caa7802ac7d2e86c7751558b006d1cf44a760706c9bfbc2da5eacf1d488282ea",
+        "availability_matches_all_frames": true,
+        "available_frame_count": 701,
+        "maximum_reduced_center_error_cache_px": 0.0,
+        "reduced_center_matches_all_available_frames": true,
+        "tolerance_cache_px": 0.0005
+      }
+    },
+    "ostrack_vitb_256_mae_ce": {
+      "archived_reduced_center_original_px": [
+        141.92006923258305,
+        711.4977687597275
+      ],
+      "bbox_xywh_cache_px": [
+        31.16613006591797,
+        176.8203582763672,
+        10.330815315246582,
+        10.646141052246094
+      ],
+      "bbox_xywh_original_px": [
+        121.74269556999207,
+        690.7045245170593,
+        40.35474732518196,
+        41.586488485336304
+      ],
+      "bbox_xyxy_cache_px": [
+        31.16613006591797,
+        176.8203582763672,
+        41.49694538116455,
+        187.46649932861328
+      ],
+      "bbox_xyxy_original_px": [
+        121.74269556999207,
+        690.7045245170593,
+        162.09744289517403,
+        732.2910130023956
+      ],
+      "center_consistency_error_original_px": 0.0,
+      "coordinate_convention": "xywh and half-open xyxy",
+      "display_method": "OSTrack",
+      "geometry_type": "bounding_box",
+      "method": "ostrack_vitb_256_mae_ce",
+      "native_bbox_score": 1.0,
+      "reduced_center_cache_px": [
+        36.33153772354126,
+        182.14342880249023
+      ],
+      "reduced_center_original_px": [
+        141.92006923258305,
+        711.4977687597275
+      ],
+      "reduction_rule": "x+w/2, y+h/2 from native bbox xywh",
+      "trajectory_replay": {
+        "archived_payload_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/gpu-native-v1/ostrack_vitb_256_mae_ce/ostrack_vitb_256_mae_ce_spot_01.npz",
+        "archived_payload_sha256": "e57d0cb0a84ccadd7499d958ed6109ee875700c63aeba49cb0e43bc06d4dc4a8",
+        "availability_matches_all_frames": true,
+        "available_frame_count": 701,
+        "maximum_reduced_center_error_cache_px": 7.864199877963372e-06,
+        "reduced_center_matches_all_available_frames": true,
+        "tolerance_cache_px": 0.0005
+      }
+    }
+  },
+  "replay_contract": {
+    "coordinate_scale_original_to_cache": 0.256,
+    "correction_or_reinitialization": "forbidden",
+    "full_chronological_sequence_replayed": true,
+    "inclusive_frame_order_range": [
+      0,
+      700
+    ],
+    "input_cache_shape": [
+      256,
+      256
+    ],
+    "query_independence": "Both frozen adapters process each query independently; later queries cannot affect spot 1.",
+    "query_scope": "selected spot 1 only"
+  },
+  "schema_version": "1.0-frozen",
+  "selection": {
+    "frame_count": 701,
+    "seed_frame_order": 0,
+    "series_id": "cu111_56ev",
+    "spot_id": 1,
+    "target_frame_id": 700,
+    "target_frame_order": 700
+  },
+  "sources": {
+    "contract_manifest": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/manifest.json",
+      "sha256": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6"
+    },
+    "exporter": {
+      "path": "manuscript/figures/figure01_measurement_chain/export_native_geometry.py",
+      "sha256": "0b89878f0db794cb0016b848333d15834176b692fdc89005a98acdf915cb8ba0"
+    },
+    "frozen_gpu_runner": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_gpu_cu.py",
+      "sha256": "823577a39997d5982b4f94b6a98eebc9fa0db0ccf4e77d33564566b5d8436652"
+    },
+    "inference_frames": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/inference_frames.csv",
+      "sha256": "247015e43fa30ee300a66d58d195c65b04e1abf686d40822ae2a723c6db55f66"
+    },
+    "seed_prompts": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/seed_prompts.csv",
+      "sha256": "e0c0f74ca6b51570e19c4c54656092907cefde5abea636dd5215798f1e158834"
+    }
+  },
+  "status": "native_geometry_reexported"
+}

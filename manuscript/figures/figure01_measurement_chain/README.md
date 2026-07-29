@@ -38,30 +38,45 @@ After selection, the completeness check found:
 These separations describe the selected case; they were not used to select it
 and do not constitute a qualitative method ranking.
 
-## Native-geometry limitation
+## Native-geometry re-export
 
-The publication run retained the native point for LocoTrack, the accepted
-Lucas-Kanade point, and the EasyLEED Kalman position. For OSTrack it retained
-the bbox center after the frozen `x+w/2, y+h/2` reduction, but not the bbox
-width and height. For DAM4SAM it retained the mask centroid, but not the mask
-pixels.
+The initial publication run retained the native point for LocoTrack, the
+accepted Lucas-Kanade point, and the EasyLEED Kalman position, but reduced the
+OSTrack bbox to its center and the DAM4SAM mask to its centroid. This gap has
+now been resolved by a targeted replay of the frozen configurations.
 
-Consequently, the current files support an empirical comparison of proposal
-coordinates, ROIs, and Gaussian centers. They do **not** support drawing the
-actual OSTrack bbox or DAM4SAM mask for this frame. The final renderer must
-either:
+The replay processed all 701 images chronologically from the same image-0
+prompt, for spot 1 only and without correction or reinitialization. Restricting
+the replay to one query does not change its result because both frozen adapters
+process queries independently. The re-exported reduced trajectories reproduce
+the archived run over all 701 images:
 
-- consume a targeted native-geometry export for those two methods; or
-- mark the bbox and mask glyphs explicitly as schematic.
+- OSTrack maximum center difference: `0.000007864 cache px`;
+- DAM4SAM maximum centroid difference: `0 cache px`;
+- proposal availability: identical on all 701 images for both methods.
 
-It must not reconstruct and present invented geometry as a native model output.
+The selected OSTrack bbox is `40.3547 x 41.5865 px` on the original image. The
+selected DAM4SAM mask contains 98 true pixels on the native `256 x 256`
+tracking grid. Its mask pixels are stored losslessly, not reconstructed from
+the centroid.
+
+The final renderer may therefore show both empirical geometries. It must use
+the frozen bbox coordinates and binary mask without smoothing or redrawing
+them.
 
 ## Files
 
 - `contract.json` - frozen selection, completeness, descriptive geometry, claim
-  limit, and archive gap.
+  limit, and native-geometry replay contract.
+- `export_native_geometry.py` - targeted full-sequence GPU replay and native
+  geometry validator.
 - `freeze_case.py` - deterministic source-case extractor and validator.
-- `test_freeze_case.py` - selection, completeness, and archive-gap tests.
+- `test_export_native_geometry.py` - bbox/mask reduction contract tests.
+- `test_freeze_case.py` - selection, completeness, and package tests.
+- `source_data/representative_native_geometry.json` - empirical OSTrack bbox,
+  DAM4SAM mask geometry, replay consistency, and source hashes.
+- `source_data/representative_dam4sam_mask_cache.png` - lossless binary mask on
+  the native 256 x 256 tracking grid.
 - `source_data/representative_initialization.json` - shared sequence, spot,
   seed center, prompt box, and no-reinitialization contract.
 - `source_data/representative_method_outputs.csv` - one row per method with
@@ -99,5 +114,13 @@ python freeze_case.py --offline-integrity-only
 Run the contract tests:
 
 ```bash
+python test_export_native_geometry.py
 python test_freeze_case.py
+```
+
+The native geometry does not need to be regenerated during an ordinary figure
+build. To reproduce the expensive GPU replay explicitly:
+
+```bash
+python export_native_geometry.py
 ```

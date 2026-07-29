@@ -32,15 +32,17 @@ Frozen representative source case:
 - [contract](figures/figure01_measurement_chain/contract.json)
 - [shared initialization](figures/figure01_measurement_chain/source_data/representative_initialization.json)
 - [five-method source table](figures/figure01_measurement_chain/source_data/representative_method_outputs.csv)
+- [empirical native geometry](figures/figure01_measurement_chain/source_data/representative_native_geometry.json)
+- [DAM4SAM native mask](figures/figure01_measurement_chain/source_data/representative_dam4sam_mask_cache.png)
 
 The case freezes the same 701-image sequence, spot identity, Gaussian seed
 center, and shared 48 x 48 prompt box for all five methods; no correction or
 reinitialization is allowed.
 
-The archived five-method run retains only the reduced center of the OSTrack bbox
-and the centroid of the DAM4SAM mask. Do not depict their empirical native
-geometry unless it is supplied by a targeted native-geometry export; otherwise
-label the bbox and mask glyphs as schematic.
+A targeted full-sequence replay supplies the empirical OSTrack bbox and
+DAM4SAM mask for this frozen case and reproduces their archived reduced
+trajectories over all 701 images. These geometries may be rendered as native
+outputs; use the frozen coordinates and pixels without smoothing or redrawing.
 
 ### Figure 2 - Controlled equivariance and energy-scan geometry
 

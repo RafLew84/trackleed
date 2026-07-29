@@ -76,7 +76,7 @@ class Figure1RepresentativeCaseTest(unittest.TestCase):
             "forbidden",
         )
 
-    def test_archived_geometry_gap_is_explicit(self) -> None:
+    def test_targeted_reexport_resolves_native_geometry_gap(self) -> None:
         case = freeze_case.select_representative_case()
         by_method = {
             row["method"]: row for row in case["method_outputs"]
@@ -85,10 +85,10 @@ class Figure1RepresentativeCaseTest(unittest.TestCase):
         self.assertTrue(
             by_method["locotrack_base_offline"]["full_native_geometry_archived"]
         )
-        self.assertFalse(
+        self.assertTrue(
             by_method["ostrack_vitb_256_mae_ce"]["full_native_geometry_archived"]
         )
-        self.assertFalse(
+        self.assertTrue(
             by_method["dam4sam_sam21pp_l"]["full_native_geometry_archived"]
         )
         self.assertTrue(
@@ -98,6 +98,38 @@ class Figure1RepresentativeCaseTest(unittest.TestCase):
         )
         self.assertTrue(
             by_method["easyleed_kalman"]["full_native_geometry_archived"]
+        )
+
+        geometry = case["native_geometry"]
+        self.assertEqual(geometry["status"], "native_geometry_reexported")
+        self.assertEqual(geometry["selection"]["target_frame_order"], 700)
+        self.assertEqual(geometry["selection"]["spot_id"], 1)
+        self.assertEqual(
+            set(geometry["methods"]),
+            {
+                "ostrack_vitb_256_mae_ce",
+                "dam4sam_sam21pp_l",
+            },
+        )
+        self.assertEqual(
+            geometry["methods"]["ostrack_vitb_256_mae_ce"][
+                "geometry_type"
+            ],
+            "bounding_box",
+        )
+        self.assertEqual(
+            geometry["methods"]["dam4sam_sam21pp_l"]["geometry_type"],
+            "binary_mask",
+        )
+        self.assertEqual(
+            by_method["ostrack_vitb_256_mae_ce"][
+                "native_geometry_artifact_path"
+            ],
+            "source_data/representative_native_geometry.json",
+        )
+        self.assertEqual(
+            by_method["dam4sam_sam21pp_l"]["native_geometry_selector"],
+            "dam4sam_sam21pp_l",
         )
 
     def test_committed_source_data_matches_upstream_contract(self) -> None:
