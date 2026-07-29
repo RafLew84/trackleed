@@ -109,7 +109,7 @@ def load_contract() -> dict[str, object]:
     return contract
 
 
-def _parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
+def parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
     integer_fields = (
         "visible_opportunities",
         "branch_consistent_measurements",
@@ -129,6 +129,31 @@ def _parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
     )
     return {
         **row,
+        "display_method": DISPLAY_NAMES[row["method"]],
+        **{field: as_int(row[field]) for field in integer_fields},
+        **{field: as_float(row[field]) for field in float_fields},
+    }
+
+
+def parse_case_row(row: dict[str, str]) -> dict[str, object]:
+    integer_fields = (
+        "visible_opportunities",
+        "branch_consistent_measurements",
+        "evaluated_gaps",
+        "recovered_gaps",
+        "accepted_measurements_all_frames",
+        "geometry_inconsistent_accepted_fits",
+        "jointly_consistent_pair_frames",
+    )
+    float_fields = (
+        "fit_coverage",
+        "gap_recovery_rate",
+        "geometry_inconsistent_fraction",
+        "case_median_abs_distance_residual_px",
+    )
+    return {
+        **row,
+        "display_method": DISPLAY_NAMES[row["method"]],
         **{field: as_int(row[field]) for field in integer_fields},
         **{field: as_float(row[field]) for field in float_fields},
     }
@@ -136,13 +161,20 @@ def _parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
 
 def load_aggregate_source_data() -> list[dict[str, object]]:
     rows = [
-        _parse_aggregate_row(row)
+        parse_aggregate_row(row)
         for row in read_csv(SOURCE_DATA_DIRECTORY / "aggregate_method_results.csv")
     ]
     by_method = {str(row["method"]): row for row in rows}
     if set(by_method) != set(METHOD_ORDER):
         raise ValueError("Figure 3 aggregate method set changed")
     return [by_method[method] for method in METHOD_ORDER]
+
+
+def load_case_source_data() -> list[dict[str, object]]:
+    return [
+        parse_case_row(row)
+        for row in read_csv(SOURCE_DATA_DIRECTORY / "case_results.csv")
+    ]
 
 
 def load_representative_pair_source_data() -> list[dict[str, object]]:
@@ -216,6 +248,26 @@ def validate_source_contract() -> None:
         raise ValueError("Figure 3 coverage numerators changed")
     if [row["recovered_gaps"] for row in rows] != [23, 21, 23, 17, 22]:
         raise ValueError("Figure 3 recovery numerators changed")
+    cases = load_case_source_data()
+    for aggregate_row in rows:
+        method_rows = [
+            row for row in cases if row["method"] == aggregate_row["method"]
+        ]
+        if len(method_rows) != 4:
+            raise ValueError("Figure 3 frozen-case count changed")
+        for field in (
+            "visible_opportunities",
+            "branch_consistent_measurements",
+            "evaluated_gaps",
+            "recovered_gaps",
+            "accepted_measurements_all_frames",
+            "geometry_inconsistent_accepted_fits",
+            "jointly_consistent_pair_frames",
+        ):
+            if sum(row[field] for row in method_rows) != aggregate_row[field]:
+                raise ValueError(
+                    f"Figure 3 case-to-aggregate mismatch: {field}"
+                )
 
     representative = load_representative_case_source_data()
     frozen = contract["representative_case"]

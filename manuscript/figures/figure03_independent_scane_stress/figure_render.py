@@ -85,20 +85,33 @@ def _render_visibility_ribbon(
         (row for row in rows if row["branch"] == branch),
         key=lambda row: int(row["frame"]),
     )
+    rows_by_energy: dict[float, list[dict[str, object]]] = {}
     for row in branch_rows:
-        frame = int(row["frame"])
-        status = str(row["status"])
-        axis.add_patch(
-            Rectangle(
-                (frame - 0.5, 0.0),
-                1.0,
-                1.0,
-                facecolor=REGIME_COLORS[status],
-                edgecolor="white",
-                linewidth=0.25,
+        rows_by_energy.setdefault(float(row["energy_ev"]), []).append(row)
+    energies = sorted(rows_by_energy)
+    boundaries = [
+        energies[0] - 0.5 * (energies[1] - energies[0]),
+        *[
+            0.5 * (lower + upper)
+            for lower, upper in zip(energies[:-1], energies[1:])
+        ],
+        energies[-1] + 0.5 * (energies[-1] - energies[-2]),
+    ]
+    for energy_index, energy in enumerate(energies):
+        acquisitions = rows_by_energy[energy]
+        height = 1.0 / len(acquisitions)
+        for acquisition_index, row in enumerate(acquisitions):
+            axis.add_patch(
+                Rectangle(
+                    (boundaries[energy_index], acquisition_index * height),
+                    boundaries[energy_index + 1] - boundaries[energy_index],
+                    height,
+                    facecolor=REGIME_COLORS[str(row["status"])],
+                    edgecolor="white",
+                    linewidth=0.25,
+                )
             )
-        )
-    axis.set_xlim(-0.5, 34.5)
+    axis.set_xlim(boundaries[0], boundaries[-1])
     axis.set_ylim(0.0, 1.0)
     axis.set_yticks([0.5])
     axis.set_yticklabels([branch], fontweight="bold")
@@ -146,11 +159,11 @@ def _render_panel_a(
         va="bottom",
     )
 
-    frames, energies, expected_distances = _expected_pair_distance(
+    _frames, energies, expected_distances = _expected_pair_distance(
         visibility_rows
     )
     axis.plot(
-        frames,
+        energies,
         expected_distances,
         color=EXPECTED_COLOR,
         linestyle=(0, (4, 2)),
@@ -158,17 +171,10 @@ def _render_panel_a(
         label=r"Expected $D(E) \propto 1/\sqrt{E}$",
         zorder=2,
     )
-    horizontal_offsets = {
-        method: 0.09 * (index - 2)
-        for index, method in enumerate(METHOD_ORDER)
-    }
     for method in METHOD_ORDER:
         rows = [row for row in trajectory_rows if row["method"] == method]
         axis.scatter(
-            [
-                float(row["frame"]) + horizontal_offsets[method]
-                for row in rows
-            ],
+            [float(row["energy_ev"]) for row in rows],
             [float(row["pair_distance_px"]) for row in rows],
             s=20,
             marker=METHOD_MARKERS[method],
@@ -178,13 +184,11 @@ def _render_panel_a(
             alpha=0.92,
             zorder=3,
         )
-    axis.set_xlim(-0.5, 34.5)
+    axis.set_xlim(38.0, 223.0)
     axis.set_ylabel(r"Pair distance $D(E)$ [px]")
     axis.grid(alpha=0.16, linewidth=0.55)
-    tick_frames = (0, 5, 10, 15, 20, 27, 34)
-    energy_by_frame = dict(zip(frames, energies))
-    axis.set_xticks(tick_frames)
-    axis.set_xticklabels([f"{energy_by_frame[frame]:g}" for frame in tick_frames])
+    tick_energies = (40.0, 66.0, 93.5, 121.5, 149.5, 188.5, 220.5)
+    axis.set_xticks(tick_energies)
     axis.tick_params(labelbottom=False)
     method_legend = axis.legend(
         handles=[
@@ -250,10 +254,9 @@ def _render_panel_a(
 
     _render_visibility_ribbon(ribbon_b1, visibility_rows, "B1")
     _render_visibility_ribbon(ribbon_b2, visibility_rows, "B2")
-    ribbon_b2.set_xticks(tick_frames)
-    ribbon_b2.set_xticklabels(
-        [f"{energy_by_frame[frame]:g}" for frame in tick_frames]
-    )
+    ribbon_b2.set_xticks(tick_energies)
+    ribbon_b2.set_xticklabels([f"{energy:g}" for energy in tick_energies])
+    ribbon_b1.tick_params(axis="x", bottom=False, labelbottom=False)
     ribbon_b2.set_xlabel("Electron energy [eV]", labelpad=1.5)
 
 
@@ -267,9 +270,12 @@ def _render_lollipop_panel(
     denominator_field: str,
     x_limits: tuple[float, float],
     x_label: str,
-    value_scale: float = 1.0,
+    numerator_field: str | None = None,
+    value_multiplier: float = 1.0,
+    stem_color: str = "#D7D7D7",
     format_value: str = ".0f",
     conditional: bool = False,
+    footer: tuple[str, str] | None = None,
 ) -> None:
     import numpy as np
 
@@ -277,12 +283,12 @@ def _render_lollipop_panel(
     lower = x_limits[0]
     for y, row in zip(y_positions, rows):
         method = str(row["method"])
-        value = float(row[value_field]) * value_scale
+        value = float(row[value_field]) * value_multiplier
         denominator = int(row[denominator_field])
         axis.plot(
             [lower, value],
             [y, y],
-            color="#D7D7D7",
+            color=stem_color,
             linewidth=1.15,
             zorder=1,
         )
@@ -298,7 +304,7 @@ def _render_lollipop_panel(
         if conditional:
             label = f"{value:{format_value}}  (n={denominator})"
         else:
-            numerator = int(row[value_field])
+            numerator = int(row[numerator_field or value_field])
             label = f"{numerator}/{denominator}"
         axis.text(
             value + 0.018 * (x_limits[1] - x_limits[0]),
@@ -316,60 +322,18 @@ def _render_lollipop_panel(
     axis.set_title(title, loc="left")
     _panel_label(axis, panel_label)
     _style_numeric_axis(axis)
-
-
-def _render_panel_d(
-    axis: object,
-    rows: Sequence[dict[str, object]],
-) -> None:
-    import numpy as np
-
-    y_positions = np.arange(len(rows))[::-1]
-    for y, row in zip(y_positions, rows):
-        method = str(row["method"])
-        fraction = 100.0 * float(row["geometry_inconsistent_fraction"])
-        numerator = int(row["geometry_inconsistent_accepted_fits"])
-        denominator = int(row["accepted_measurements_all_frames"])
-        axis.plot(
-            [0.0, fraction],
-            [y, y],
-            color="#E2D4D4",
-            linewidth=1.15,
-        )
-        axis.scatter(
-            [fraction],
-            [y],
-            s=39,
-            color=METHOD_COLORS[method],
-            edgecolor="white",
-            linewidth=0.45,
-            zorder=3,
-        )
+    if footer is not None:
+        text, color = footer
         axis.text(
-            fraction + 0.27,
-            y,
-            f"{numerator}/{denominator}",
-            fontsize=FONT_SIZES_PT["value_annotation"],
-            va="center",
+            0.99,
+            0.02,
+            text,
+            transform=axis.transAxes,
+            fontsize=FONT_SIZES_PT["minor_annotation"],
+            color=color,
+            ha="right",
+            va="bottom",
         )
-    axis.set_xlim(0.0, 16.2)
-    axis.set_ylim(-0.55, len(rows) - 0.45)
-    axis.set_yticks(y_positions)
-    axis.set_yticklabels([DISPLAY_NAMES[str(row["method"])] for row in rows])
-    axis.set_xlabel("Outside branch gate [% of accepted fits]")
-    axis.set_title("Geometry-inconsistent accepted fits", loc="left")
-    _panel_label(axis, "d")
-    _style_numeric_axis(axis)
-    axis.text(
-        0.99,
-        0.02,
-        "possible false continuity",
-        transform=axis.transAxes,
-        fontsize=FONT_SIZES_PT["minor_annotation"],
-        color=ADVERSE_COLOR,
-        ha="right",
-        va="bottom",
-    )
 
 
 def _render_panel_f(
@@ -391,9 +355,9 @@ def _render_panel_f(
     )
     axis.add_patch(
         FancyBboxPatch(
-            (0.01, 0.08),
+            (0.01, 0.02),
             0.98,
-            0.84,
+            0.90,
             boxstyle="round,pad=0.008,rounding_size=0.012",
             transform=axis.transAxes,
             facecolor="#F4F8FC",
@@ -405,7 +369,7 @@ def _render_panel_f(
     for x in (0.34, 0.65):
         axis.plot(
             [x, x],
-            [0.17, 0.84],
+            [0.14, 0.84],
             transform=axis.transAxes,
             color="#C8D8E8",
             linewidth=0.7,
@@ -419,12 +383,12 @@ def _render_panel_f(
         fontsize=FONT_SIZES_PT["card_header"],
         fontweight="bold",
     )
-    for y, method in ((0.62, "EasyLEED"), (0.40, "ViPErLEED")):
+    for y, method in ((0.63, "EasyLEED"), (0.35, "ViPErLEED")):
         description = str(external["initialization_contracts"][method])
         if method == "ViPErLEED":
             description = description.replace(
-                " whole-pattern",
-                "\nwhole-pattern",
+                "whole-pattern trajectory",
+                "whole pattern",
             )
         axis.text(
             0.05,
@@ -437,7 +401,7 @@ def _render_panel_f(
         )
         axis.text(
             0.05,
-            y - 0.10,
+            y - 0.12,
             description,
             transform=axis.transAxes,
             fontsize=FONT_SIZES_PT["minor_annotation"],
@@ -455,7 +419,7 @@ def _render_panel_f(
     )
     axis.text(
         0.37,
-        0.64,
+        0.63,
         "Valid Gaussian fits",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
@@ -463,7 +427,7 @@ def _render_panel_f(
     )
     axis.text(
         0.61,
-        0.64,
+        0.63,
         "38/60  both",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["card_header"],
@@ -472,7 +436,7 @@ def _render_panel_f(
     )
     axis.text(
         0.37,
-        0.49,
+        0.47,
         "Gap checks",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
@@ -480,7 +444,7 @@ def _render_panel_f(
     )
     axis.text(
         0.61,
-        0.49,
+        0.47,
         f"{external['branch_gap_checks']}  both",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["card_header"],
@@ -491,18 +455,19 @@ def _render_panel_f(
     viper = external["per_method"]["ViPErLEED"]
     axis.text(
         0.37,
-        0.32,
+        0.31,
         (
-            "Conditional median |D residual| [px]\n"
-            f"P1: {easy['pair_1_median_abs_residual_px']:.3f} / "
-            f"{viper['pair_1_median_abs_residual_px']:.3f}; "
-            f"P2: {easy['pair_2_median_abs_residual_px']:.3f} / "
+            "Median |D residual| [px]\n"
+            f"Easy / VIP: P1 {easy['pair_1_median_abs_residual_px']:.3f} / "
+            f"{viper['pair_1_median_abs_residual_px']:.3f}\n"
+            f"P2 {easy['pair_2_median_abs_residual_px']:.3f} / "
             f"{viper['pair_2_median_abs_residual_px']:.3f}"
         ),
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
         color=NEUTRAL_COLOR,
-        linespacing=1.35,
+        linespacing=1.3,
+        va="top",
     )
 
     agreement = external["cross_method_contract_agreement_px"]
@@ -516,7 +481,7 @@ def _render_panel_f(
     )
     axis.text(
         0.72,
-        0.61,
+        0.62,
         f"{agreement['native_proposal_distance_median']:.3f} px",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["card_header"],
@@ -526,7 +491,7 @@ def _render_panel_f(
     )
     axis.text(
         0.72,
-        0.50,
+        0.48,
         "native proposals",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
@@ -535,8 +500,8 @@ def _render_panel_f(
     )
     axis.add_patch(
         FancyArrowPatch(
-            (0.79, 0.58),
-            (0.88, 0.58),
+            (0.79, 0.57),
+            (0.88, 0.57),
             transform=axis.transAxes,
             arrowstyle="-|>",
             mutation_scale=9,
@@ -555,7 +520,7 @@ def _render_panel_f(
     )
     axis.text(
         0.93,
-        0.61,
+        0.62,
         f"{agreement['common_center_distance_median']:.6f} px",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["card_header"],
@@ -565,7 +530,7 @@ def _render_panel_f(
     )
     axis.text(
         0.93,
-        0.50,
+        0.48,
         "Gaussian centers",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
@@ -574,7 +539,7 @@ def _render_panel_f(
     )
     axis.text(
         0.805,
-        0.31,
+        0.30,
         (
             f"maximum: {agreement['native_proposal_distance_maximum']:.3f} "
             f"-> {agreement['common_center_distance_maximum']:.4f} px"
@@ -586,7 +551,7 @@ def _render_panel_f(
     )
     axis.text(
         0.5,
-        0.115,
+        0.055,
         (
             "Restricted 15-image interval; ViPErLEED is not a sixth method "
             "and is not position ground truth."
@@ -596,7 +561,7 @@ def _render_panel_f(
         fontweight="bold",
         color=NEUTRAL_COLOR,
         ha="center",
-        va="bottom",
+        va="center",
     )
 
 
@@ -632,7 +597,7 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
     grid = figure.add_gridspec(
         4,
         2,
-        height_ratios=(1.55, 1.0, 1.0, 0.92),
+        height_ratios=(1.55, 1.0, 1.0, 1.20),
         left=0.13,
         right=0.985,
         bottom=0.045,
@@ -673,7 +638,20 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
         x_limits=(15.0, 25.2),
         x_label="Recovered natural I(V) gaps [count; denominator 24]",
     )
-    _render_panel_d(axis_d, aggregate_rows)
+    _render_lollipop_panel(
+        axis_d,
+        aggregate_rows,
+        panel_label="d",
+        title="Geometry-inconsistent accepted fits",
+        value_field="geometry_inconsistent_fraction",
+        numerator_field="geometry_inconsistent_accepted_fits",
+        denominator_field="accepted_measurements_all_frames",
+        value_multiplier=100.0,
+        stem_color="#E2D4D4",
+        x_limits=(0.0, 16.2),
+        x_label="Outside branch gate [% of accepted fits]",
+        footer=("possible false continuity", ADVERSE_COLOR),
+    )
     _render_lollipop_panel(
         axis_e,
         aggregate_rows,

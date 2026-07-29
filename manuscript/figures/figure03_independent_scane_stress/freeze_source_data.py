@@ -13,6 +13,7 @@ from typing import Sequence
 
 from figure_contract import (
     CONTRACT_PATH,
+    DISPLAY_NAMES,
     FIGURE_ROOT,
     METHOD_ORDER,
     REPOSITORY_ROOT,
@@ -20,6 +21,8 @@ from figure_contract import (
     as_bool,
     as_float,
     as_int,
+    parse_aggregate_row,
+    parse_case_row,
     read_csv,
     sha256_file,
     validate_source_contract,
@@ -45,13 +48,6 @@ VIPERLEED_PATTERN_X = (
     EXTERNAL_ROOT / "viperleed/viperleed_high_energy_x.csv"
 )
 
-DISPLAY_NAMES = {
-    "locotrack": "LocoTrack",
-    "ostrack": "OSTrack",
-    "dam4sam": "DAM4SAM",
-    "lk": "Lucas-Kanade",
-    "easyleed": "EasyLEED",
-}
 SOURCE_DATA_FILES = (
     "aggregate_method_results.csv",
     "case_results.csv",
@@ -69,80 +65,20 @@ SELECTION_RULE = (
 )
 
 
-def _parse_aggregate_row(row: dict[str, str]) -> dict[str, object]:
-    return {
-        **row,
-        "visible_opportunities": as_int(row["visible_opportunities"]),
-        "branch_consistent_measurements": as_int(
-            row["branch_consistent_measurements"]
-        ),
-        "weighted_fit_coverage": as_float(row["weighted_fit_coverage"]),
-        "evaluated_gaps": as_int(row["evaluated_gaps"]),
-        "recovered_gaps": as_int(row["recovered_gaps"]),
-        "weighted_gap_recovery_rate": as_float(
-            row["weighted_gap_recovery_rate"]
-        ),
-        "accepted_measurements_all_frames": as_int(
-            row["accepted_measurements_all_frames"]
-        ),
-        "geometry_inconsistent_accepted_fits": as_int(
-            row["geometry_inconsistent_accepted_fits"]
-        ),
-        "geometry_inconsistent_fraction": as_float(
-            row["geometry_inconsistent_fraction"]
-        ),
-        "jointly_consistent_pair_frames": as_int(
-            row["jointly_consistent_pair_frames"]
-        ),
-        "median_abs_distance_residual_px": as_float(
-            row["median_abs_distance_residual_px"]
-        ),
-        "p95_abs_distance_residual_px": as_float(
-            row["p95_abs_distance_residual_px"]
-        ),
-        "maximum_abs_distance_residual_px": as_float(
-            row["maximum_abs_distance_residual_px"]
-        ),
-    }
-
-
 def load_aggregate_results(
     path: Path = INDEPENDENT_AGGREGATE,
 ) -> list[dict[str, object]]:
-    rows = [_parse_aggregate_row(row) for row in read_csv(path)]
+    rows = [parse_aggregate_row(row) for row in read_csv(path)]
     by_method = {str(row["method"]): row for row in rows}
     if set(by_method) != set(METHOD_ORDER):
         raise ValueError("Independent ScanE aggregate method set changed")
     return [by_method[method] for method in METHOD_ORDER]
 
 
-def _parse_case_row(row: dict[str, str]) -> dict[str, object]:
-    integer_fields = (
-        "visible_opportunities",
-        "branch_consistent_measurements",
-        "evaluated_gaps",
-        "recovered_gaps",
-        "accepted_measurements_all_frames",
-        "geometry_inconsistent_accepted_fits",
-        "jointly_consistent_pair_frames",
-    )
-    float_fields = (
-        "fit_coverage",
-        "gap_recovery_rate",
-        "geometry_inconsistent_fraction",
-        "case_median_abs_distance_residual_px",
-    )
-    return {
-        **row,
-        **{field: as_int(row[field]) for field in integer_fields},
-        **{field: as_float(row[field]) for field in float_fields},
-    }
-
-
 def load_case_results(
     path: Path = INDEPENDENT_CASE_RESULTS,
 ) -> list[dict[str, object]]:
-    return [_parse_case_row(row) for row in read_csv(path)]
+    return [parse_case_row(row) for row in read_csv(path)]
 
 
 def select_representative_case(
@@ -392,13 +328,6 @@ def _source_hashes(selected: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _source_data_hashes(root: Path) -> dict[str, str]:
-    return {
-        f"source_data/{filename}": sha256_file(root / "source_data" / filename)
-        for filename in SOURCE_DATA_FILES
-    }
-
-
 def build(output_root: Path = FIGURE_ROOT) -> None:
     summary = json.loads(INDEPENDENT_SUMMARY.read_text(encoding="utf-8"))
     selected = select_representative_case(summary)
@@ -407,11 +336,11 @@ def build(output_root: Path = FIGURE_ROOT) -> None:
 
     write_csv(
         output_source / "aggregate_method_results.csv",
-        read_csv(INDEPENDENT_AGGREGATE),
+        load_aggregate_results(),
     )
     write_csv(
         output_source / "case_results.csv",
-        read_csv(INDEPENDENT_CASE_RESULTS),
+        load_case_results(),
     )
     write_csv(
         output_source / "representative_pair_measurements.csv",

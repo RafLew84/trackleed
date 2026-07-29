@@ -48,6 +48,31 @@ class Figure3RenderContractTest(unittest.TestCase):
             [(36, 272), (34, 269), (36, 272), (14, 206), (4, 222)],
         )
 
+    def test_frozen_case_rows_reproduce_headline_counts(self) -> None:
+        aggregate = figure_contract.load_aggregate_source_data()
+        cases = figure_contract.load_case_source_data()
+
+        for aggregate_row in aggregate:
+            method_rows = [
+                row
+                for row in cases
+                if row["method"] == aggregate_row["method"]
+            ]
+            self.assertEqual(len(method_rows), 4)
+            for field in (
+                "visible_opportunities",
+                "branch_consistent_measurements",
+                "evaluated_gaps",
+                "recovered_gaps",
+                "accepted_measurements_all_frames",
+                "geometry_inconsistent_accepted_fits",
+                "jointly_consistent_pair_frames",
+            ):
+                self.assertEqual(
+                    sum(row[field] for row in method_rows),
+                    aggregate_row[field],
+                )
+
     def test_representative_visibility_data_contains_natural_gaps(self) -> None:
         rows = figure_contract.load_visibility_source_data()
 
