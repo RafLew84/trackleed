@@ -1,0 +1,57 @@
+{
+  "claim_limits": [
+    "The independent energy scans are a physics-constrained stress test, not dense-manual-ground-truth accuracy.",
+    "Coverage and post-gap recovery must be presented before the conditional pair-distance residual.",
+    "Geometry-inconsistent accepted fits indicate possible false continuity, not externally proven identity switches.",
+    "The EasyLEED-ViPErLEED inset uses a separate initialization contract and denominator and is not a sixth row in the main method matrix."
+  ],
+  "external_reference": {
+    "branch_opportunities_per_method": 60,
+    "frame_count": 15,
+    "methods": [
+      "EasyLEED",
+      "ViPErLEED"
+    ],
+    "part_of_main_five_method_matrix": false,
+    "scientific_label": "Restricted high-energy external reference"
+  },
+  "figure": "Figure 3",
+  "main_comparison": {
+    "case_count": 4,
+    "evaluated_natural_gaps_per_method": 24,
+    "manual_correction_or_reinitialization": "forbidden",
+    "methods": [
+      "locotrack",
+      "ostrack",
+      "dam4sam",
+      "lk",
+      "easyleed"
+    ],
+    "pair_count_per_series": 2,
+    "reference_energy_ev": 188.5,
+    "scientific_series_labels": [
+      "Scan A",
+      "Scan B"
+    ],
+    "series_count": 2,
+    "visible_spot_opportunities_per_method": 221
+  },
+  "panel_order": [
+    "representative_trajectory",
+    "measurement_coverage",
+    "gap_recovery",
+    "geometry_inconsistency",
+    "conditional_pair_residual",
+    "external_domain_reference"
+  ],
+  "question": "How do tracking strategies differ under radial motion and true I(V) visibility gaps?",
+  "representative_case": {
+    "archive_pair_id": "pair2",
+    "archive_series_id": "26a21",
+    "scientific_pair_label": "pair 2",
+    "scientific_series_label": "Scan A",
+    "selection_rule": "Order frozen cases by scientific series and pair identity; select the first case that passed the predeclared coherent-pairwise-energy-law check and contains at least one natural I(V) visibility gap. Do not inspect method outcomes."
+  },
+  "schema_version": "1.0-frozen",
+  "status": "source_contract_frozen"
+}

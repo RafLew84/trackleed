@@ -91,6 +91,8 @@ experimental dynamics or absolute spot identity.
 **Question:** How do strategies differ under radial motion and true I(V)
 visibility gaps?
 
+**Status:** generated and validated.
+
 Proposed panels:
 
 - **a.** Representative pair trajectories in energy, with visible regimes and
@@ -115,6 +117,13 @@ Caption requirement: coverage and recovery must appear before the conditional
 residual; the residual cannot be presented as an overall accuracy ranking. The
 external-reference inset uses a separate contract and denominator and is not part
 of the five-method ranking.
+
+Final artifact:
+
+- [artifact README and caption](figures/figure03_independent_scane_stress/README.md)
+- [PNG](figures/figure03_independent_scane_stress/output/figure03_independent_scane_stress.png)
+- [PDF](figures/figure03_independent_scane_stress/output/pdf/figure03_independent_scane_stress.pdf)
+- [manifest](figures/figure03_independent_scane_stress/manifest.json)
 
 ### Figure 4 - Controlled SAM2-family memory trade-off
 

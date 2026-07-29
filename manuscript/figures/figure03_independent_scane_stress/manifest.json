@@ -1,0 +1,129 @@
+{
+  "claim_limits": [
+    "The independent energy scans are a physics-constrained stress test, not dense-manual-ground-truth accuracy.",
+    "Coverage and post-gap recovery must be presented before the conditional pair-distance residual.",
+    "Geometry-inconsistent accepted fits indicate possible false continuity, not externally proven identity switches.",
+    "The EasyLEED-ViPErLEED inset uses a separate initialization contract and denominator and is not a sixth row in the main method matrix."
+  ],
+  "code_sha256": {
+    "build_figure.py": "324b97759ea67ab909bf739697ea18394cf0d534672615de8e45082328250945",
+    "figure_contract.py": "0c5fed91ad259d964394305b5437a8d083d543906a5d02a1e2701d819de2a4bf",
+    "figure_render.py": "c50adc3cb25d0ef22752f198e0189dcc995193e354f85ae5d9deafa1a0c614f1",
+    "freeze_source_data.py": "59cb6946ba0a55a7c1a9971434f9939f74c5d348a60a73e26228c17608b079c5",
+    "test_build_figure.py": "11b7983c5012ec3e0e3a5fa826a3c72a3ecbea3cf8861a2a509c437edf3477e5",
+    "test_freeze_source_data.py": "7450c271b498979e8a48470d8fffbfd1a8413b13f6e7975efed341d888b4e9a4"
+  },
+  "contract_sha256": "d45867df3a8fea4b20273ab387107c5c5e9f4f80e7e0a9c11578409950bea872",
+  "environment": {
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
+  },
+  "figure": "Figure 3",
+  "outputs_sha256": {
+    "output/figure03_independent_scane_stress.png": "35af35be4c30a2c35b4e0105e81cabb5f5696db8920a506d55f2a21e04e406b6",
+    "output/pdf/figure03_independent_scane_stress.pdf": "ac61500d906915dda644f789705f7246d3e2cf65f4314378f43f19cb12f7b4ae"
+  },
+  "rendering": {
+    "figure_size_inches": [
+      7.2,
+      9.0
+    ],
+    "font_family": "DejaVu Sans",
+    "font_file": "DejaVuSans.ttf",
+    "font_sizes_pt": {
+      "axis_label": 7.2,
+      "axis_title": 8.0,
+      "base": 7.2,
+      "card_header": 7.0,
+      "legend": 6.1,
+      "minor_annotation": 5.8,
+      "panel_label": 9.0,
+      "tick_label": 6.5,
+      "value_annotation": 6.2
+    },
+    "method_palette": {
+      "dam4sam": "#009E73",
+      "easyleed": "#D55E00",
+      "lk": "#CC79A7",
+      "locotrack": "#0072B2",
+      "ostrack": "#E69F00"
+    },
+    "panel_order": [
+      "representative_trajectory",
+      "measurement_coverage",
+      "gap_recovery",
+      "geometry_inconsistency",
+      "conditional_pair_residual",
+      "external_domain_reference"
+    ],
+    "png_dimensions_px": [
+      2880,
+      3600
+    ],
+    "png_dpi": 400
+  },
+  "schema_version": "1.0",
+  "source_artifacts": {
+    "external_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/gap_recovery.csv",
+      "sha256": "1a7798175f2e3658e7f6b60d46566edf3213984e31c8769ada35cb581455cf43"
+    },
+    "external_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/summary.json",
+      "sha256": "390c49a88c10b9e76f6e47fd7d9c208348b507c4948b0630b606e5510ad69e3b"
+    },
+    "independent_aggregate": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv",
+      "sha256": "5426c6dd5de7e1b5dbd0e84aac39833bb226c489f7a4ad9473c6aee034726392"
+    },
+    "independent_case_results": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/case_results.csv",
+      "sha256": "70d335cf5d811a39579d6b13bd835944b2c098081de1f90fe6bd9dd06a646f71"
+    },
+    "independent_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/summary.json",
+      "sha256": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61"
+    },
+    "representative_pair_dam4sam": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/trackers/dam4sam_pair_measurements.csv",
+      "sha256": "0b272dd3a31d54a11dec7c202bc9be577471a628c16915fde21818792744bb24"
+    },
+    "representative_pair_easyleed": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/easyleed/easyleed_pair_measurements.csv",
+      "sha256": "2ef4499dcad36a800a7be3c9d95262bbba402fc39da9d39a3b9e8d36cce00ff9"
+    },
+    "representative_pair_lk": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/lk_pair_measurements.csv",
+      "sha256": "7fd72ecd81093872569c4cea80cf02d0350e8b9dd30e1c86f8abf9c7a8df4276"
+    },
+    "representative_pair_locotrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/locotrack_pair_measurements.csv",
+      "sha256": "78244dc8dba5175b10f52ac46ff035a61de388029f03ca4e1a07beb6b8dc8193"
+    },
+    "representative_pair_ostrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/ostrack_pair_measurements.csv",
+      "sha256": "573d8f995ac771bb7be661590832919316ee60eef60ba61ac5e9537b4e81ae07"
+    },
+    "representative_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/scan_measurements.csv",
+      "sha256": "7acbbe4a9022a3b4f6848b4e5bab69722626d9680765201e6fd54c34661749d3"
+    },
+    "viperleed_registered_pattern_x": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_x.csv",
+      "sha256": "94e8cfd0a13dc574b3d23615b62022402bbf55da401e220c6f093905618d67d6"
+    }
+  },
+  "source_data_sha256": {
+    "source_data/aggregate_method_results.csv": "5fd6f061b88fc66fa5312deacfe200829565b862fc66d18caefa90e50715ad84",
+    "source_data/case_results.csv": "629dbe97c3491cb350f6aba19f5f8f0e9168f9b015684679e74183a041b9a9f5",
+    "source_data/external_reference_summary.json": "dc6001d84a3a8db7d4f8cbf45cf25a248874871ebd9ca9b3cdfd4041d0828192",
+    "source_data/representative_case.json": "099da76f76ca6f8249a96521064db556bd1aaed420a4921265242504c6239b53",
+    "source_data/representative_pair_measurements.csv": "1b3620acabfcc2c8e5cdd3451439bb631f0e7de0a0b61f01822a61395d9c4dd9",
+    "source_data/representative_visibility_regimes.csv": "4063255d663c2884c4125465de3a6db721f278be15b6f2fea8e200ea2f864cda",
+    "source_data/source_provenance.json": "9bbe2d9de340fbf682d363ade8f1e51bd301128385d8a077787125ad8f89ffd2"
+  },
+  "status": "completed",
+  "title": "Independent Ag(111) energy-scan stress test"
+}

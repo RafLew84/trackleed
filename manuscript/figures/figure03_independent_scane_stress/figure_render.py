@@ -1,0 +1,715 @@
+"""Six-panel renderer for publication Figure 3."""
+
+from __future__ import annotations
+
+import math
+from pathlib import Path
+from typing import Sequence
+
+from figure_contract import (
+    ADVERSE_COLOR,
+    DISPLAY_NAMES,
+    EXPECTED_COLOR,
+    EXTERNAL_COLOR,
+    FIGURE_BASENAME,
+    FIGURE_SIZE_INCHES,
+    FONT_FAMILY,
+    FONT_SIZES_PT,
+    METHOD_COLORS,
+    METHOD_MARKERS,
+    METHOD_ORDER,
+    NEUTRAL_COLOR,
+    OUTPUT_DIRECTORY,
+    PNG_DPI,
+    REGIME_COLORS,
+    load_aggregate_source_data,
+    load_external_reference_source_data,
+    load_representative_case_source_data,
+    load_representative_pair_source_data,
+    load_visibility_source_data,
+)
+
+
+def _panel_label(axis: object, label: str, *, x: float = -0.12, y: float = 1.05) -> None:
+    axis.text(
+        x,
+        y,
+        label,
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["panel_label"],
+        fontweight="bold",
+        va="bottom",
+        ha="left",
+    )
+
+
+def _style_numeric_axis(axis: object) -> None:
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.grid(axis="x", color="#D9D9D9", linewidth=0.55, alpha=0.7)
+
+
+def _expected_pair_distance(
+    visibility_rows: Sequence[dict[str, object]],
+) -> tuple[list[int], list[float], list[float]]:
+    by_frame: dict[int, dict[str, dict[str, object]]] = {}
+    for row in visibility_rows:
+        by_frame.setdefault(int(row["frame"]), {})[str(row["branch"])] = row
+    frames = sorted(by_frame)
+    energies: list[float] = []
+    distances: list[float] = []
+    for frame in frames:
+        branches = by_frame[frame]
+        if set(branches) != {"B1", "B2"}:
+            raise ValueError(f"Incomplete representative pair at frame {frame}")
+        first = branches["B1"]
+        second = branches["B2"]
+        energies.append(float(first["energy_ev"]))
+        distances.append(
+            math.hypot(
+                float(first["predicted_x"]) - float(second["predicted_x"]),
+                float(first["predicted_y"]) - float(second["predicted_y"]),
+            )
+        )
+    return frames, energies, distances
+
+
+def _render_visibility_ribbon(
+    axis: object,
+    rows: Sequence[dict[str, object]],
+    branch: str,
+) -> None:
+    from matplotlib.patches import Rectangle
+
+    branch_rows = sorted(
+        (row for row in rows if row["branch"] == branch),
+        key=lambda row: int(row["frame"]),
+    )
+    for row in branch_rows:
+        frame = int(row["frame"])
+        status = str(row["status"])
+        axis.add_patch(
+            Rectangle(
+                (frame - 0.5, 0.0),
+                1.0,
+                1.0,
+                facecolor=REGIME_COLORS[status],
+                edgecolor="white",
+                linewidth=0.25,
+            )
+        )
+    axis.set_xlim(-0.5, 34.5)
+    axis.set_ylim(0.0, 1.0)
+    axis.set_yticks([0.5])
+    axis.set_yticklabels([branch], fontweight="bold")
+    axis.tick_params(axis="y", length=0, pad=4)
+    axis.set_xticks([])
+    for spine in axis.spines.values():
+        spine.set_visible(False)
+
+
+def _render_panel_a(
+    figure: object,
+    spec: object,
+    trajectory_rows: Sequence[dict[str, object]],
+    visibility_rows: Sequence[dict[str, object]],
+    representative: dict[str, object],
+) -> None:
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    grid = spec.subgridspec(
+        3,
+        1,
+        height_ratios=(5.0, 0.28, 0.28),
+        hspace=0.08,
+    )
+    axis = figure.add_subplot(grid[0, 0])
+    ribbon_b1 = figure.add_subplot(grid[1, 0], sharex=axis)
+    ribbon_b2 = figure.add_subplot(grid[2, 0], sharex=axis)
+    _panel_label(axis, "a", x=-0.065, y=1.07)
+    axis.set_title(
+        "Representative pair trajectory and frozen visibility regimes",
+        loc="left",
+    )
+    axis.text(
+        1.0,
+        1.04,
+        (
+            f"{representative['scientific_series_label']}, "
+            f"{representative['scientific_pair_label']}"
+        ),
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="right",
+        va="bottom",
+    )
+
+    frames, energies, expected_distances = _expected_pair_distance(
+        visibility_rows
+    )
+    axis.plot(
+        frames,
+        expected_distances,
+        color=EXPECTED_COLOR,
+        linestyle=(0, (4, 2)),
+        linewidth=1.15,
+        label=r"Expected $D(E) \propto 1/\sqrt{E}$",
+        zorder=2,
+    )
+    horizontal_offsets = {
+        method: 0.09 * (index - 2)
+        for index, method in enumerate(METHOD_ORDER)
+    }
+    for method in METHOD_ORDER:
+        rows = [row for row in trajectory_rows if row["method"] == method]
+        axis.scatter(
+            [
+                float(row["frame"]) + horizontal_offsets[method]
+                for row in rows
+            ],
+            [float(row["pair_distance_px"]) for row in rows],
+            s=20,
+            marker=METHOD_MARKERS[method],
+            facecolor=METHOD_COLORS[method],
+            edgecolor="white",
+            linewidth=0.35,
+            alpha=0.92,
+            zorder=3,
+        )
+    axis.set_xlim(-0.5, 34.5)
+    axis.set_ylabel(r"Pair distance $D(E)$ [px]")
+    axis.grid(alpha=0.16, linewidth=0.55)
+    tick_frames = (0, 5, 10, 15, 20, 27, 34)
+    energy_by_frame = dict(zip(frames, energies))
+    axis.set_xticks(tick_frames)
+    axis.set_xticklabels([f"{energy_by_frame[frame]:g}" for frame in tick_frames])
+    axis.tick_params(labelbottom=False)
+    method_legend = axis.legend(
+        handles=[
+            Line2D(
+                [0],
+                [0],
+                color=EXPECTED_COLOR,
+                linestyle=(0, (4, 2)),
+                linewidth=1.0,
+                label=r"Expected $D(E)$",
+            ),
+            *[
+                Line2D(
+                    [0],
+                    [0],
+                    marker=METHOD_MARKERS[method],
+                    color="none",
+                    markerfacecolor=METHOD_COLORS[method],
+                    markeredgecolor="white",
+                    markersize=4.4,
+                    label=DISPLAY_NAMES[method],
+                )
+                for method in METHOD_ORDER
+            ],
+        ],
+        frameon=False,
+        ncol=3,
+        loc="upper right",
+        columnspacing=0.9,
+        handletextpad=0.4,
+    )
+    axis.add_artist(method_legend)
+    axis.legend(
+        handles=[
+            Patch(
+                facecolor=REGIME_COLORS["visible_fit"],
+                edgecolor="none",
+                label="baseline-visible",
+            ),
+            Patch(
+                facecolor=REGIME_COLORS["iv_visibility_gap"],
+                edgecolor="none",
+                label="I(V) gap",
+            ),
+            Patch(
+                facecolor=REGIME_COLORS["beam_onset_or_termination"],
+                edgecolor="none",
+                label="beam onset/termination",
+            ),
+            Patch(
+                facecolor=REGIME_COLORS["apparatus_absence"],
+                edgecolor="none",
+                label="apparatus absence",
+            ),
+        ],
+        frameon=False,
+        ncol=2,
+        loc="lower left",
+        columnspacing=0.9,
+        handlelength=1.2,
+        handletextpad=0.4,
+    )
+
+    _render_visibility_ribbon(ribbon_b1, visibility_rows, "B1")
+    _render_visibility_ribbon(ribbon_b2, visibility_rows, "B2")
+    ribbon_b2.set_xticks(tick_frames)
+    ribbon_b2.set_xticklabels(
+        [f"{energy_by_frame[frame]:g}" for frame in tick_frames]
+    )
+    ribbon_b2.set_xlabel("Electron energy [eV]", labelpad=1.5)
+
+
+def _render_lollipop_panel(
+    axis: object,
+    rows: Sequence[dict[str, object]],
+    *,
+    panel_label: str,
+    title: str,
+    value_field: str,
+    denominator_field: str,
+    x_limits: tuple[float, float],
+    x_label: str,
+    value_scale: float = 1.0,
+    format_value: str = ".0f",
+    conditional: bool = False,
+) -> None:
+    import numpy as np
+
+    y_positions = np.arange(len(rows))[::-1]
+    lower = x_limits[0]
+    for y, row in zip(y_positions, rows):
+        method = str(row["method"])
+        value = float(row[value_field]) * value_scale
+        denominator = int(row[denominator_field])
+        axis.plot(
+            [lower, value],
+            [y, y],
+            color="#D7D7D7",
+            linewidth=1.15,
+            zorder=1,
+        )
+        axis.scatter(
+            [value],
+            [y],
+            s=39,
+            color=METHOD_COLORS[method],
+            edgecolor="white",
+            linewidth=0.45,
+            zorder=3,
+        )
+        if conditional:
+            label = f"{value:{format_value}}  (n={denominator})"
+        else:
+            numerator = int(row[value_field])
+            label = f"{numerator}/{denominator}"
+        axis.text(
+            value + 0.018 * (x_limits[1] - x_limits[0]),
+            y,
+            label,
+            fontsize=FONT_SIZES_PT["value_annotation"],
+            va="center",
+            ha="left",
+        )
+    axis.set_xlim(*x_limits)
+    axis.set_ylim(-0.55, len(rows) - 0.45)
+    axis.set_yticks(y_positions)
+    axis.set_yticklabels([DISPLAY_NAMES[str(row["method"])] for row in rows])
+    axis.set_xlabel(x_label)
+    axis.set_title(title, loc="left")
+    _panel_label(axis, panel_label)
+    _style_numeric_axis(axis)
+
+
+def _render_panel_d(
+    axis: object,
+    rows: Sequence[dict[str, object]],
+) -> None:
+    import numpy as np
+
+    y_positions = np.arange(len(rows))[::-1]
+    for y, row in zip(y_positions, rows):
+        method = str(row["method"])
+        fraction = 100.0 * float(row["geometry_inconsistent_fraction"])
+        numerator = int(row["geometry_inconsistent_accepted_fits"])
+        denominator = int(row["accepted_measurements_all_frames"])
+        axis.plot(
+            [0.0, fraction],
+            [y, y],
+            color="#E2D4D4",
+            linewidth=1.15,
+        )
+        axis.scatter(
+            [fraction],
+            [y],
+            s=39,
+            color=METHOD_COLORS[method],
+            edgecolor="white",
+            linewidth=0.45,
+            zorder=3,
+        )
+        axis.text(
+            fraction + 0.27,
+            y,
+            f"{numerator}/{denominator}",
+            fontsize=FONT_SIZES_PT["value_annotation"],
+            va="center",
+        )
+    axis.set_xlim(0.0, 16.2)
+    axis.set_ylim(-0.55, len(rows) - 0.45)
+    axis.set_yticks(y_positions)
+    axis.set_yticklabels([DISPLAY_NAMES[str(row["method"])] for row in rows])
+    axis.set_xlabel("Outside branch gate [% of accepted fits]")
+    axis.set_title("Geometry-inconsistent accepted fits", loc="left")
+    _panel_label(axis, "d")
+    _style_numeric_axis(axis)
+    axis.text(
+        0.99,
+        0.02,
+        "possible false continuity",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=ADVERSE_COLOR,
+        ha="right",
+        va="bottom",
+    )
+
+
+def _render_panel_f(
+    axis: object,
+    external: dict[str, object],
+) -> None:
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    axis.set_axis_off()
+    _panel_label(axis, "f", x=-0.005, y=1.04)
+    axis.text(
+        0.035,
+        1.04,
+        "External domain reference - separate initialization and denominator",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["axis_title"],
+        va="bottom",
+        ha="left",
+    )
+    axis.add_patch(
+        FancyBboxPatch(
+            (0.01, 0.08),
+            0.98,
+            0.84,
+            boxstyle="round,pad=0.008,rounding_size=0.012",
+            transform=axis.transAxes,
+            facecolor="#F4F8FC",
+            edgecolor=EXTERNAL_COLOR,
+            linestyle=(0, (4, 2)),
+            linewidth=0.9,
+        )
+    )
+    for x in (0.34, 0.65):
+        axis.plot(
+            [x, x],
+            [0.17, 0.84],
+            transform=axis.transAxes,
+            color="#C8D8E8",
+            linewidth=0.7,
+        )
+
+    axis.text(
+        0.035,
+        0.80,
+        "Different native initialization",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+    )
+    for y, method in ((0.62, "EasyLEED"), (0.40, "ViPErLEED")):
+        description = str(external["initialization_contracts"][method])
+        if method == "ViPErLEED":
+            description = description.replace(
+                " whole-pattern",
+                "\nwhole-pattern",
+            )
+        axis.text(
+            0.05,
+            y,
+            method,
+            transform=axis.transAxes,
+            fontsize=FONT_SIZES_PT["card_header"],
+            fontweight="bold",
+            color=EXTERNAL_COLOR,
+        )
+        axis.text(
+            0.05,
+            y - 0.10,
+            description,
+            transform=axis.transAxes,
+            fontsize=FONT_SIZES_PT["minor_annotation"],
+            color=NEUTRAL_COLOR,
+            linespacing=1.2,
+        )
+
+    axis.text(
+        0.37,
+        0.80,
+        "Same downstream measurement",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+    )
+    axis.text(
+        0.37,
+        0.64,
+        "Valid Gaussian fits",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+    )
+    axis.text(
+        0.61,
+        0.64,
+        "38/60  both",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+        ha="right",
+    )
+    axis.text(
+        0.37,
+        0.49,
+        "Gap checks",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+    )
+    axis.text(
+        0.61,
+        0.49,
+        f"{external['branch_gap_checks']}  both",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+        ha="right",
+    )
+    easy = external["per_method"]["EasyLEED"]
+    viper = external["per_method"]["ViPErLEED"]
+    axis.text(
+        0.37,
+        0.32,
+        (
+            "Conditional median |D residual| [px]\n"
+            f"P1: {easy['pair_1_median_abs_residual_px']:.3f} / "
+            f"{viper['pair_1_median_abs_residual_px']:.3f}; "
+            f"P2: {easy['pair_2_median_abs_residual_px']:.3f} / "
+            f"{viper['pair_2_median_abs_residual_px']:.3f}"
+        ),
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        linespacing=1.35,
+    )
+
+    agreement = external["cross_method_contract_agreement_px"]
+    axis.text(
+        0.68,
+        0.80,
+        "Cross-method separation",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+    )
+    axis.text(
+        0.72,
+        0.61,
+        f"{agreement['native_proposal_distance_median']:.3f} px",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+        color=EXTERNAL_COLOR,
+        ha="center",
+    )
+    axis.text(
+        0.72,
+        0.50,
+        "native proposals",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="center",
+    )
+    axis.add_patch(
+        FancyArrowPatch(
+            (0.79, 0.58),
+            (0.88, 0.58),
+            transform=axis.transAxes,
+            arrowstyle="-|>",
+            mutation_scale=9,
+            linewidth=0.9,
+            color=NEUTRAL_COLOR,
+        )
+    )
+    axis.text(
+        0.835,
+        0.64,
+        "common fit",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="center",
+    )
+    axis.text(
+        0.93,
+        0.61,
+        f"{agreement['common_center_distance_median']:.6f} px",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["card_header"],
+        fontweight="bold",
+        color=EXTERNAL_COLOR,
+        ha="center",
+    )
+    axis.text(
+        0.93,
+        0.50,
+        "Gaussian centers",
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="center",
+    )
+    axis.text(
+        0.805,
+        0.31,
+        (
+            f"maximum: {agreement['native_proposal_distance_maximum']:.3f} "
+            f"-> {agreement['common_center_distance_maximum']:.4f} px"
+        ),
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="center",
+    )
+    axis.text(
+        0.5,
+        0.115,
+        (
+            "Restricted 15-image interval; ViPErLEED is not a sixth method "
+            "and is not position ground truth."
+        ),
+        transform=axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        fontweight="bold",
+        color=NEUTRAL_COLOR,
+        ha="center",
+        va="bottom",
+    )
+
+
+def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    aggregate_rows = load_aggregate_source_data()
+    trajectory_rows = load_representative_pair_source_data()
+    visibility_rows = load_visibility_source_data()
+    representative = load_representative_case_source_data()
+    external = load_external_reference_source_data()
+
+    matplotlib.rcParams.update(
+        {
+            "font.family": FONT_FAMILY,
+            "font.size": FONT_SIZES_PT["base"],
+            "axes.titlesize": FONT_SIZES_PT["axis_title"],
+            "axes.labelsize": FONT_SIZES_PT["axis_label"],
+            "xtick.labelsize": FONT_SIZES_PT["tick_label"],
+            "ytick.labelsize": FONT_SIZES_PT["tick_label"],
+            "legend.fontsize": FONT_SIZES_PT["legend"],
+            "axes.linewidth": 0.7,
+            "xtick.major.width": 0.7,
+            "ytick.major.width": 0.7,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+        }
+    )
+    figure = plt.figure(figsize=FIGURE_SIZE_INCHES, facecolor="white")
+    grid = figure.add_gridspec(
+        4,
+        2,
+        height_ratios=(1.55, 1.0, 1.0, 0.92),
+        left=0.13,
+        right=0.985,
+        bottom=0.045,
+        top=0.965,
+        hspace=0.48,
+        wspace=0.42,
+    )
+    _render_panel_a(
+        figure,
+        grid[0, :],
+        trajectory_rows,
+        visibility_rows,
+        representative,
+    )
+    axis_b = figure.add_subplot(grid[1, 0])
+    axis_c = figure.add_subplot(grid[1, 1])
+    axis_d = figure.add_subplot(grid[2, 0])
+    axis_e = figure.add_subplot(grid[2, 1])
+    axis_f = figure.add_subplot(grid[3, :])
+
+    _render_lollipop_panel(
+        axis_b,
+        aggregate_rows,
+        panel_label="b",
+        title="Branch-consistent measurement coverage",
+        value_field="branch_consistent_measurements",
+        denominator_field="visible_opportunities",
+        x_limits=(180.0, 223.5),
+        x_label="Valid measurements [count; common denominator 221]",
+    )
+    _render_lollipop_panel(
+        axis_c,
+        aggregate_rows,
+        panel_label="c",
+        title="Post-gap recovery without reinitialization",
+        value_field="recovered_gaps",
+        denominator_field="evaluated_gaps",
+        x_limits=(15.0, 25.2),
+        x_label="Recovered natural I(V) gaps [count; denominator 24]",
+    )
+    _render_panel_d(axis_d, aggregate_rows)
+    _render_lollipop_panel(
+        axis_e,
+        aggregate_rows,
+        panel_label="e",
+        title="Conditional median pair-distance residual\n(both branches pass all gates)",
+        value_field="median_abs_distance_residual_px",
+        denominator_field="jointly_consistent_pair_frames",
+        x_limits=(1.70, 1.89),
+        x_label=r"Median $|D_{\mathrm{measured}}-D_{\mathrm{expected}}|$ [px]",
+        format_value=".3f",
+        conditional=True,
+    )
+    _render_panel_f(axis_f, external)
+
+    output_directory.mkdir(parents=True, exist_ok=True)
+    pdf_directory = output_directory / "pdf"
+    pdf_directory.mkdir(parents=True, exist_ok=True)
+    png_path = output_directory / f"{FIGURE_BASENAME}.png"
+    pdf_path = pdf_directory / f"{FIGURE_BASENAME}.pdf"
+    figure.savefig(
+        png_path,
+        dpi=PNG_DPI,
+        facecolor="white",
+        metadata={"Software": "TrackLEED Figure 3 builder"},
+    )
+    figure.savefig(
+        pdf_path,
+        facecolor="white",
+        metadata={
+            "Title": "Independent Ag(111) energy-scan stress test",
+            "Author": "TrackLEED collaboration",
+            "Subject": "Publication Figure 3",
+            "Creator": "TrackLEED Figure 3 builder",
+            "CreationDate": None,
+            "ModDate": None,
+        },
+    )
+    plt.close(figure)
+    return {"png": png_path, "pdf": pdf_path}
