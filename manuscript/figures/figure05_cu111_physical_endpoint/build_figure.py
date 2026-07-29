@@ -124,6 +124,13 @@ def build_manifest(
             "method_palette": METHOD_COLORS,
             "panel_order": list(PANEL_ORDER),
             "reader_facing_x_coordinate": "thermal-cycle progress percent",
+            "endpoint_panel_encoding": {
+                "main_trajectory": "cross-method median",
+                "envelope": "cross-method minimum-to-maximum",
+                "residual": "method minus cross-method median",
+                "residual_scale": "10^-3 percentage points",
+                "shared_residual_y_scale": True,
+            },
             "reader_facing_landmarks": [
                 point["reader_label"] for point in contract["summary_points"]
             ],

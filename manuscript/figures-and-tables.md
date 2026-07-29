@@ -174,8 +174,9 @@ Final panels:
 
 - **a.** Temperature profile and frozen reference/plateau/post-plateau
   `Delta R/R` minimum/final windows.
-- **b.** `Delta R/R` for pair `1-6`, five methods.
-- **c.** `Delta R/R` for pair `3-5`, five methods.
+- **b.** Pair `1-6`: cross-method median `Delta R/R`, min-max envelope,
+  and magnified method-minus-median residuals.
+- **c.** Pair `3-5`: the same representation on the shared residual scale.
 - **d.** Between-method spread at the plateau, post-plateau `Delta R/R`
   minimum, and final image.
 - **e.** Separate saved-YOLO-trajectory diagnostic for pair `2-4`: 24

@@ -7,11 +7,11 @@
     "The endpoint is descriptive for one constant-energy Cu(111) sequence and does not establish a thermal-expansion coefficient, phase transition, or structural mechanism."
   ],
   "code_sha256": {
-    "build_figure.py": "60f372a8797974ef31f1a2d80e5788c549a25fac9a8317651b8d3c763b27df6a",
+    "build_figure.py": "aa39199d8c864817d80f0246e5e88743e22ef6abca1b3019e96529bb60080989",
     "figure_contract.py": "42b1fe83afd323b225f14d031925ea5b7d6cb1dbee76e23d0f148ceb3b37c4d1",
-    "figure_render.py": "6381b5039a0b52b8435a7d96573190ffa008589567c3275e2113f7edd1dc639d",
+    "figure_render.py": "8ead02ae5615b3960be8efdb531ec821961fc6179ecbdc9ab45b4ddae4185b02",
     "freeze_source_data.py": "8e559fa18f090462c1ead9582ea3de8a84c38f04b14098327fc267e677e0f625",
-    "test_build_figure.py": "56097bd4d724ac193cf6d65a01f2c39c9146b0a51fdd06752794a6f5638df7fe",
+    "test_build_figure.py": "84c4359b7f8201f1a2e5dc100a32426b69c4272d0ff1909b2c919439938741ea",
     "test_freeze_source_data.py": "bf77c018227cf7e8b3b680b862c7053dba2554a5fa9da5d2f3166b2d47af1f43",
     "test_source_contract.py": "f76ea00b3430292c4f2a77a087ebef57620836b05cd9c0c30e4feb4824a2fae8"
   },
@@ -28,8 +28,8 @@
     "png": "output/figure05_cu111_physical_endpoint.png"
   },
   "outputs_sha256": {
-    "pdf": "b64ddccd17d03edea0d767dd578f1da6de20c944ffef555be30d5975b089b668",
-    "png": "9e10044c68b9344ebd8d9c5902d20a18fb4826dd39865a58aa68f0f64c5372b1"
+    "pdf": "e45ab46c1881335b66a3c356d43b8d4ff4129fd453cd8c6c18160376f5d5fd23",
+    "png": "5bbca91b432149b7302d67e6b1749ea5e461a7e2ecd19fa1db921ce3ca9b0fef"
   },
   "rendering": {
     "between_method_spread": {
@@ -42,6 +42,13 @@
         "post_plateau_minimum",
         "final"
       ]
+    },
+    "endpoint_panel_encoding": {
+      "envelope": "cross-method minimum-to-maximum",
+      "main_trajectory": "cross-method median",
+      "residual": "method minus cross-method median",
+      "residual_scale": "10^-3 percentage points",
+      "shared_residual_y_scale": true
     },
     "figure_size_inches": [
       7.2,

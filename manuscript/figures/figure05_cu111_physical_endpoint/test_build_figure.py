@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import statistics
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,11 +12,73 @@ from pathlib import Path
 from PIL import Image
 
 import build_figure
-from figure_contract import load_cycle_landmarks
-from figure_render import _reader_label
+from figure_contract import (
+    METHOD_ORDER,
+    load_cycle_landmarks,
+    load_pair_endpoint_timeseries,
+)
+from figure_render import _reader_label, prepare_endpoint_panel_data
 
 
 class Figure5RenderContractTest(unittest.TestCase):
+    def test_endpoint_panel_data_exposes_median_envelope_and_method_residuals(
+        self,
+    ) -> None:
+        rows = load_pair_endpoint_timeseries()
+
+        panel = prepare_endpoint_panel_data(rows, "1-6")
+
+        self.assertEqual(len(panel.frame_orders), 701)
+        self.assertEqual(
+            tuple(panel.method_residuals_milli_pp),
+            METHOD_ORDER,
+        )
+        rows_by_identity = {
+            (int(row["frame_order"]), str(row["method"])): float(
+                row["delta_r_over_r_percent"]
+            )
+            for row in rows
+            if row["pair"] == "1-6"
+        }
+        for frame_order in (0, 378, 700):
+            index = panel.frame_orders.index(frame_order)
+            values = [
+                rows_by_identity[(frame_order, method)]
+                for method in METHOD_ORDER
+            ]
+            expected_median = statistics.median(values)
+            self.assertAlmostEqual(
+                panel.median_percentage_points[index],
+                expected_median,
+            )
+            self.assertAlmostEqual(
+                panel.minimum_percentage_points[index],
+                min(values),
+            )
+            self.assertAlmostEqual(
+                panel.maximum_percentage_points[index],
+                max(values),
+            )
+            for method in METHOD_ORDER:
+                reconstructed = (
+                    panel.median_percentage_points[index]
+                    + panel.method_residuals_milli_pp[method][index] / 1000.0
+                )
+                self.assertAlmostEqual(
+                    reconstructed,
+                    rows_by_identity[(frame_order, method)],
+                )
+        self.assertAlmostEqual(
+            max(
+                maximum - minimum
+                for minimum, maximum in zip(
+                    panel.minimum_percentage_points,
+                    panel.maximum_percentage_points,
+                )
+            ),
+            0.0017096162773233559,
+        )
+
     def test_renderer_uses_frozen_phase_and_temperature_landmark_labels(
         self,
     ) -> None:
@@ -85,6 +148,18 @@ class Figure5RenderContractTest(unittest.TestCase):
             self.assertEqual(
                 rendering["reader_facing_x_coordinate"],
                 "thermal-cycle progress percent",
+            )
+            self.assertEqual(
+                rendering["endpoint_panel_encoding"],
+                {
+                    "main_trajectory": "cross-method median",
+                    "envelope": "cross-method minimum-to-maximum",
+                    "residual": "method minus cross-method median",
+                    "residual_scale": (
+                        "10^-3 percentage points"
+                    ),
+                    "shared_residual_y_scale": True,
+                },
             )
             self.assertTrue(
                 all(

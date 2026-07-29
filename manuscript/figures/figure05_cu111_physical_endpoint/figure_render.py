@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import statistics
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from figure_contract import (
     ACCEPTED_COLOR,
@@ -15,7 +17,6 @@ from figure_contract import (
     FONT_SIZES_PT,
     METHOD_COLORS,
     METHOD_LINESTYLES,
-    METHOD_MARKERS,
     METHOD_ORDER,
     NEUTRAL_COLOR,
     OUTPUT_DIRECTORY,
@@ -27,6 +28,76 @@ from figure_contract import (
     load_pair_endpoint_timeseries,
     load_temperature_profile,
 )
+
+
+@dataclass(frozen=True)
+class EndpointPanelData:
+    """Cross-method physical trajectory and deviations for one spot pair."""
+
+    frame_orders: tuple[int, ...]
+    median_percentage_points: tuple[float, ...]
+    minimum_percentage_points: tuple[float, ...]
+    maximum_percentage_points: tuple[float, ...]
+    method_residuals_milli_pp: Mapping[str, tuple[float, ...]]
+
+
+def prepare_endpoint_panel_data(
+    rows: Sequence[dict[str, object]],
+    pair: str,
+) -> EndpointPanelData:
+    """Build a median trajectory, min-max envelope, and method residuals."""
+
+    by_frame: dict[int, dict[str, float]] = {}
+    for row in rows:
+        if row["pair"] != pair:
+            continue
+        frame_order = int(row["frame_order"])
+        method = str(row["method"])
+        values = by_frame.setdefault(frame_order, {})
+        if method in values:
+            raise ValueError(
+                f"Duplicate endpoint value for pair {pair}, "
+                f"frame {frame_order}, method {method}"
+            )
+        values[method] = float(row["delta_r_over_r_percent"])
+    if not by_frame:
+        raise ValueError(f"No endpoint rows found for pair {pair}")
+
+    frame_orders = tuple(sorted(by_frame))
+    medians: list[float] = []
+    minima: list[float] = []
+    maxima: list[float] = []
+    residuals: dict[str, list[float]] = {
+        method: [] for method in METHOD_ORDER
+    }
+    expected_methods = set(METHOD_ORDER)
+    for frame_order in frame_orders:
+        values = by_frame[frame_order]
+        if set(values) != expected_methods:
+            missing = sorted(expected_methods - set(values))
+            unexpected = sorted(set(values) - expected_methods)
+            raise ValueError(
+                f"Incomplete endpoint panel data for pair {pair}, "
+                f"frame {frame_order}: missing={missing}, "
+                f"unexpected={unexpected}"
+            )
+        ordered_values = [values[method] for method in METHOD_ORDER]
+        median = float(statistics.median(ordered_values))
+        medians.append(median)
+        minima.append(min(ordered_values))
+        maxima.append(max(ordered_values))
+        for method in METHOD_ORDER:
+            residuals[method].append(1000.0 * (values[method] - median))
+
+    return EndpointPanelData(
+        frame_orders=frame_orders,
+        median_percentage_points=tuple(medians),
+        minimum_percentage_points=tuple(minima),
+        maximum_percentage_points=tuple(maxima),
+        method_residuals_milli_pp={
+            method: tuple(residuals[method]) for method in METHOD_ORDER
+        },
+    )
 
 
 def _progress(
@@ -223,51 +294,103 @@ def _render_panel_a(
 
 
 def _render_endpoint_panel(
-    axis: object,
-    rows: Sequence[dict[str, object]],
+    main_axis: object,
+    residual_axis: object,
+    panel: EndpointPanelData,
     landmarks: Sequence[dict[str, object]],
     *,
     pair: str,
     panel_label: str,
+    residual_limit: float,
 ) -> None:
-    pair_rows = [row for row in rows if row["pair"] == pair]
-    last_frame_order = max(int(row["frame_order"]) for row in pair_rows)
-    values: list[float] = []
-    for method in METHOD_ORDER:
-        method_rows = sorted(
-            (row for row in pair_rows if row["method"] == method),
-            key=lambda row: int(row["frame_order"]),
-        )
-        x = [
-            _progress(int(row["frame_order"]), last_frame_order)
-            for row in method_rows
-        ]
-        y = [float(row["delta_r_over_r_percent"]) for row in method_rows]
-        values.extend(y)
-        axis.plot(
-            x,
-            y,
-            color=METHOD_COLORS[method],
-            linestyle=METHOD_LINESTYLES[method],
-            linewidth=0.9,
-            alpha=0.88,
-            label=DISPLAY_NAMES[method],
-        )
+    last_frame_order = max(panel.frame_orders)
+    x = [
+        _progress(frame_order, last_frame_order)
+        for frame_order in panel.frame_orders
+    ]
+    main_axis.fill_between(
+        x,
+        panel.minimum_percentage_points,
+        panel.maximum_percentage_points,
+        color="#80B1D3",
+        alpha=0.65,
+        linewidth=0,
+        label="min-max envelope",
+        zorder=2,
+    )
+    main_axis.plot(
+        x,
+        panel.median_percentage_points,
+        color="#263F4B",
+        linewidth=1.15,
+        label="five-method median",
+        zorder=3,
+    )
     _decorate_cycle_axis(
-        axis,
+        main_axis,
         landmarks,
         last_frame_order=last_frame_order,
     )
+    values = (
+        panel.minimum_percentage_points + panel.maximum_percentage_points
+    )
     margin = 0.06 * (max(values) - min(values))
-    axis.set_ylim(min(values) - margin, max(values) + margin)
-    axis.set_xlim(0.0, 100.0)
-    axis.axhline(0.0, color="#808080", linewidth=0.6, alpha=0.7)
-    axis.set_xticks((0, 25, 50, 75, 100))
-    axis.set_xlabel("Thermal-cycle progress [%]")
-    axis.set_ylabel(r"$\Delta R/R$ [%]")
-    axis.set_title(f"Pair {pair}", loc="left")
-    _panel_label(axis, panel_label, x=-0.15)
-    _style_numeric_axis(axis)
+    main_axis.set_ylim(min(values) - margin, max(values) + margin)
+    main_axis.set_xlim(0.0, 100.0)
+    main_axis.axhline(0.0, color="#808080", linewidth=0.6, alpha=0.7)
+    main_axis.set_xticks((0, 25, 50, 75, 100))
+    main_axis.tick_params(axis="x", labelbottom=False)
+    main_axis.set_ylabel(r"$\Delta R/R$ [%]")
+    main_axis.set_title(f"Pair {pair}: physical trajectory", loc="left")
+    _panel_label(main_axis, panel_label, x=-0.15)
+    _style_numeric_axis(main_axis)
+    main_axis.legend(
+        frameon=False,
+        loc="lower left",
+        ncol=1,
+        handlelength=1.5,
+        handletextpad=0.45,
+    )
+
+    for method in METHOD_ORDER:
+        residual_axis.plot(
+            x,
+            panel.method_residuals_milli_pp[method],
+            color=METHOD_COLORS[method],
+            linestyle=METHOD_LINESTYLES[method],
+            linewidth=0.8,
+            alpha=0.92,
+            label=DISPLAY_NAMES[method],
+            zorder=2,
+        )
+    _decorate_cycle_axis(
+        residual_axis,
+        landmarks,
+        last_frame_order=last_frame_order,
+    )
+    residual_axis.set_ylim(-residual_limit, residual_limit)
+    residual_axis.set_xlim(0.0, 100.0)
+    residual_axis.axhline(
+        0.0,
+        color="#555555",
+        linewidth=0.65,
+        alpha=0.85,
+        zorder=1,
+    )
+    residual_axis.set_xticks((0, 25, 50, 75, 100))
+    residual_axis.set_xlabel("Thermal-cycle progress [%]")
+    residual_axis.set_ylabel("Residual")
+    residual_axis.text(
+        0.015,
+        0.94,
+        r"method - median; $\times 10^{-3}$ pp",
+        transform=residual_axis.transAxes,
+        fontsize=FONT_SIZES_PT["minor_annotation"],
+        color=NEUTRAL_COLOR,
+        ha="left",
+        va="top",
+    )
+    _style_numeric_axis(residual_axis)
 
 
 def _render_panel_d(
@@ -496,6 +619,16 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
     endpoints = load_pair_endpoint_timeseries()
     spread = load_between_method_spread()
     diagnostic = load_pair_2_4_diagnostic()
+    endpoint_panels = {
+        pair: prepare_endpoint_panel_data(endpoints, pair)
+        for pair in ("1-6", "3-5")
+    }
+    residual_limit = 1.08 * max(
+        abs(value)
+        for panel in endpoint_panels.values()
+        for residuals in panel.method_residuals_milli_pp.values()
+        for value in residuals
+    )
 
     matplotlib.rcParams.update(
         {
@@ -526,17 +659,37 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
         wspace=0.40,
     )
     axis_a = figure.add_subplot(grid[0, :])
-    axis_b = figure.add_subplot(grid[1, 0])
-    axis_c = figure.add_subplot(grid[1, 1])
+    grid_b = grid[1, 0].subgridspec(
+        2, 1, height_ratios=(2.7, 1.0), hspace=0.06
+    )
+    grid_c = grid[1, 1].subgridspec(
+        2, 1, height_ratios=(2.7, 1.0), hspace=0.06
+    )
+    axis_b = figure.add_subplot(grid_b[0])
+    axis_b_residual = figure.add_subplot(grid_b[1], sharex=axis_b)
+    axis_c = figure.add_subplot(grid_c[0])
+    axis_c_residual = figure.add_subplot(grid_c[1], sharex=axis_c)
     axis_d = figure.add_subplot(grid[2, 0])
     axis_e = figure.add_subplot(grid[2, 1])
 
     _render_panel_a(axis_a, profile, landmarks)
     _render_endpoint_panel(
-        axis_b, endpoints, landmarks, pair="1-6", panel_label="b"
+        axis_b,
+        axis_b_residual,
+        endpoint_panels["1-6"],
+        landmarks,
+        pair="1-6",
+        panel_label="b",
+        residual_limit=residual_limit,
     )
     _render_endpoint_panel(
-        axis_c, endpoints, landmarks, pair="3-5", panel_label="c"
+        axis_c,
+        axis_c_residual,
+        endpoint_panels["3-5"],
+        landmarks,
+        pair="3-5",
+        panel_label="c",
+        residual_limit=residual_limit,
     )
     _render_panel_d(axis_d, spread, landmarks)
     _render_panel_e(axis_e, diagnostic)
@@ -547,11 +700,6 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
                 [0],
                 color=METHOD_COLORS[method],
                 linestyle=METHOD_LINESTYLES[method],
-                marker=METHOD_MARKERS[method],
-                markerfacecolor=METHOD_COLORS[method],
-                markeredgecolor="white",
-                markeredgewidth=0.3,
-                markersize=4.2,
                 linewidth=1.0,
                 label=DISPLAY_NAMES[method],
             )
@@ -564,6 +712,8 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
         columnspacing=0.8,
         handlelength=1.8,
         handletextpad=0.35,
+        title="Method residuals",
+        title_fontsize=FONT_SIZES_PT["legend"],
     )
 
     output_directory.mkdir(parents=True, exist_ok=True)

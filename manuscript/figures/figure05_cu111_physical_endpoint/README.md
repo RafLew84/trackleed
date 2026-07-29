@@ -50,8 +50,11 @@ landmarks are predefined.
 
 - **a. Thermal cycle.** Temperature profile with the reference interval,
   800 °C plateau, post-plateau minimum, and final cooled state.
-- **b. Pair 1-6.** Full `Delta R/R` trajectories for the five methods.
-- **c. Pair 3-5.** Full `Delta R/R` trajectories for the five methods.
+- **b. Pair 1-6.** Cross-method median `Delta R/R` trajectory with the
+  min-max envelope and a magnified strip of each method minus the
+  cross-method median.
+- **c. Pair 3-5.** The same physical-trajectory and method-residual
+  representation on a residual scale shared with panel b.
 - **d. Endpoint spread.** Between-method ranges at the plateau,
   post-plateau minimum, and final cooled state. The complete-sequence maxima
   remain in the source package as supporting statistics but are not an
@@ -74,7 +77,10 @@ cooled-state landmarks; frame identifiers are retained only in the source
 metadata. **b,c,** Pairwise `Delta R/R = Delta D/D` for pairs 1-6 and 3-5,
 respectively, after proposals from LocoTrack, OSTrack, DAM4SAM,
 Lucas-Kanade, and EasyLEED were passed through the same Gaussian estimator.
-Every method produced 701/701 valid endpoints for each pair. **d,**
+The upper axes show the cross-method median and min-max envelope; the lower
+axes magnify each method's deviation from the median in `10^-3` percentage
+points using a shared scale. Every method produced 701/701 valid endpoints
+for each pair. **d,**
 Between-method endpoint range at the predefined plateau, the common
 post-plateau minimum, and the final cooled state. Maximum separation over the
 complete sequence was 0.001710 percentage points for pair 1-6 and 0.002237
