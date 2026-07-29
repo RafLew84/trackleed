@@ -6,13 +6,15 @@
       "frozen_path": "source_data/controlled_translation_spot_results.csv",
       "frozen_sha256": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e",
       "original_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/equivariance_results.csv",
-      "original_sha256": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e"
+      "original_sha256": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e",
+      "original_required_at_build": false
     },
     {
       "frozen_path": "source_data/controlled_translation_pair_results.csv",
       "frozen_sha256": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c",
       "original_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/pair_invariance.csv",
-      "original_sha256": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c"
+      "original_sha256": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c",
+      "original_required_at_build": false
     },
     {
       "frozen_path": "source_data/energy_scan_case_results.csv",

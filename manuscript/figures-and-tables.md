@@ -332,18 +332,23 @@ Final artifact:
   [conditional-denominator CSV](tables/table_s2_gates_denominators/output/table_s2_conditional_denominators.csv),
   [supplement Markdown](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates_validation_denominators.md),
   and [manifest](tables/table_s2_gates_denominators/manifest.json).
-- **Table S3:** per-scan and per-pair energy-scan coverage, recovery, geometry
-  inconsistency, and conditional residuals with their surviving
-  denominators; leave-one-case-out ranges for count-based outcomes are a
-  sensitivity analysis, not confidence intervals.
+- **Table S3 — generated and validated:** per-scan and per-pair energy-scan
+  coverage, post-gap identity recovery, geometry inconsistency, and
+  conditional residuals with their surviving denominators; leave-one-case-out
+  ranges for count-based outcomes are a sensitivity analysis, not confidence
+  intervals. Final artifact:
+  [README](tables/stratified_uncertainty/README.md),
+  [case CSV](tables/stratified_uncertainty/output/energy_scan_by_case.csv),
+  [leave-one-case-out CSV](tables/stratified_uncertainty/output/energy_scan_leave_one_case_out.csv),
+  [supplement Markdown](tables/stratified_uncertainty/output/table_s3_energy_scan_by_case.md),
+  and [manifest](tables/stratified_uncertainty/manifest.json).
 - **Table S4:** Cu plateau, post-plateau `Delta R/R` minimum, and final endpoint
   values by method and pair.
 - **Table S5:** per-source-trial controlled-translation proposal and
   measurement coverage, conditional median/P95/maximum displacement error,
   pair coverage, and maximum absolute `Delta D/D`.
 
-The frozen source tables, deterministic builder, and rendered drafts for
-Tables S3 and S5 are documented in the
+The finalized Table S3 and the generated Table S5 draft are documented in the
 [stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md).
 
 ## Asset policy

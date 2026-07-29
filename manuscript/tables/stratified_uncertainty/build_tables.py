@@ -13,9 +13,18 @@ from pathlib import Path
 
 
 TABLE_ROOT = Path(__file__).resolve().parent
+REPOSITORY_ROOT = TABLE_ROOT.parents[2]
 SOURCE_DATA_DIRECTORY = TABLE_ROOT / "source_data"
+PROVENANCE_PATH = SOURCE_DATA_DIRECTORY / "source_provenance.json"
 OUTPUT_DIRECTORY = TABLE_ROOT / "output"
 MANIFEST_PATH = TABLE_ROOT / "manifest.json"
+SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
+
+SUPPLEMENT_BEGIN_MARKER = "<!-- BEGIN TABLE S3 -->"
+SUPPLEMENT_END_MARKER = "<!-- END TABLE S3 -->"
+SUPPLEMENT_HEADING = (
+    "## Table S3 — stratified Ag(111) energy-scan outcomes"
+)
 
 SCAN_LABELS = {
     "26a21": "Scan A",
@@ -80,15 +89,91 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validate_source_data() -> None:
-    provenance_path = SOURCE_DATA_DIRECTORY / "source_provenance.json"
-    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-    for source in provenance["sources"]:
-        frozen_path = TABLE_ROOT / str(source["frozen_path"])
+def _validate_sha256(value: object, *, field: str) -> None:
+    digest = str(value)
+    if len(digest) != 64 or any(
+        character not in "0123456789abcdef" for character in digest
+    ):
+        raise ValueError(f"Malformed SHA-256 in {field}: {digest}")
+
+
+def validate_source_data() -> dict[str, object]:
+    provenance = json.loads(PROVENANCE_PATH.read_text(encoding="utf-8"))
+    if (
+        not isinstance(provenance, dict)
+        or set(provenance)
+        != {"schema_version", "freeze_policy", "sources"}
+    ):
+        raise ValueError("Malformed source provenance.")
+    sources = provenance["sources"]
+    if not isinstance(sources, list) or len(sources) != 3:
+        raise ValueError("Source provenance must list three frozen tables.")
+    required_keys = {
+        "frozen_path",
+        "frozen_sha256",
+        "original_path",
+        "original_sha256",
+    }
+    optional_keys = {"original_required_at_build"}
+    optional_original_count = 0
+    for source in sources:
+        if (
+            not isinstance(source, dict)
+            or not required_keys.issubset(source)
+            or not set(source).issubset(required_keys | optional_keys)
+        ):
+            raise ValueError("Malformed source-provenance entry.")
+        if (
+            "original_required_at_build" in source
+            and not isinstance(source["original_required_at_build"], bool)
+        ):
+            raise ValueError("original_required_at_build must be Boolean.")
+        for text_key in ("frozen_path", "original_path"):
+            if (
+                not isinstance(source[text_key], str)
+                or not source[text_key].strip()
+            ):
+                raise ValueError(f"Malformed provenance field: {text_key}")
+        _validate_sha256(source["frozen_sha256"], field="frozen_sha256")
+        _validate_sha256(source["original_sha256"], field="original_sha256")
+        if not source.get("original_required_at_build", True):
+            original_parts = Path(str(source["original_path"])).parts
+            if not original_parts or original_parts[0] != ".scratch":
+                raise ValueError(
+                    "Only .scratch run-workspace originals may be optional."
+                )
+            optional_original_count += 1
+
+        frozen_path = (
+            TABLE_ROOT / str(source["frozen_path"])
+        ).resolve()
+        if TABLE_ROOT not in frozen_path.parents:
+            raise ValueError("Frozen provenance path escapes the artifact.")
+        if not frozen_path.is_file():
+            raise ValueError(f"Missing frozen source: {frozen_path.name}")
         if sha256_file(frozen_path) != source["frozen_sha256"]:
             raise ValueError(
                 f"Frozen source hash changed: {frozen_path.name}"
             )
+        original_path = (
+            REPOSITORY_ROOT / str(source["original_path"])
+        ).resolve()
+        if (
+            original_path != REPOSITORY_ROOT
+            and REPOSITORY_ROOT not in original_path.parents
+        ):
+            raise ValueError("Original provenance path escapes the repository.")
+        if not original_path.is_file():
+            if source.get("original_required_at_build", True):
+                raise ValueError(f"Missing original source: {original_path.name}")
+            continue
+        if sha256_file(original_path) != source["original_sha256"]:
+            raise ValueError(
+                f"Original source hash changed: {original_path.name}"
+            )
+    if optional_original_count != 2:
+        raise ValueError("Exactly two run-workspace originals must be optional.")
+    return provenance
 
 
 def linear_percentile(values: list[float], percentile: float) -> float:
@@ -322,7 +407,11 @@ def write_csv_rows(path: Path, rows: list[dict[str, object]]) -> None:
     if not rows:
         raise ValueError(f"Cannot write an empty table: {path.name}")
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=list(rows[0]),
+            lineterminator="\n",
+        )
         writer.writeheader()
         writer.writerows(rows)
 
@@ -338,16 +427,28 @@ def render_energy_scan_markdown(
     leave_one_out_rows: list[dict[str, object]],
 ) -> str:
     lines = [
-        "# Table S3. Stratified Ag(111) energy-scan outcomes",
-        "",
         (
-            "Each row is one frozen scan-pair-method case. Conditional "
-            "residuals are shown only with their surviving pair-frame count."
+            "**Table S3. Stratified outcomes for the independent Ag(111) "
+            "energy-scan stress test.** Coverage is branch-consistent "
+            "measurements / baseline-visible opportunities; post-gap identity "
+            "recovery is recovered / evaluable natural I(V) gaps; geometry "
+            "inconsistency is accepted Gaussian fits more than 18 px from the "
+            "expected branch / all accepted Gaussian fits across all "
+            "visibility regimes. The conditional residual is the median "
+            "absolute pair-distance residual and is evaluated only when both "
+            "branches are valid and branch-consistent, with its surviving "
+            "pair-frame n shown separately. The four scan–pair cases are "
+            "descriptive strata from two independently acquired scans, not "
+            "four independent acquisitions."
         ),
         "",
+        "**A. Outcomes by frozen scan–pair case**",
+        "",
         (
-            "| Scan | Pair | Method | Coverage | Gap recovery | Geometry "
-            "inconsistency | Conditional median residual [px] | Conditional n |"
+            "| Scan | Pair | Method | Branch-consistent coverage | Post-gap "
+            "identity recovery | Geometry-inconsistent accepted fits | "
+            "Conditional median absolute pair-distance residual [px] | "
+            "Conditional n |"
         ),
         "|---|---|---|---:|---:|---:|---:|---:|",
     ]
@@ -366,18 +467,21 @@ def render_energy_scan_markdown(
     lines.extend(
         [
             "",
-            "## Leave-one-case-out sensitivity",
+            "**B. Leave-one-case-out sensitivity**",
             "",
             (
-                "One frozen scan-pair case is omitted at a time. The analysis "
-                "recomputes count-based outcomes only; it is a sensitivity "
-                "check, not a confidence interval. Case medians are not "
-                "reaggregated as pooled residuals."
+                "Each of the four frozen scan–pair cases is omitted once. The "
+                "remaining three cases are pooled and only the count-based "
+                "coverage, post-gap identity recovery, and geometry-"
+                "inconsistency rates are recomputed. The displayed extrema "
+                "across the four omissions are a sensitivity check, not a "
+                "confidence interval. Conditional case-median residuals are "
+                "not reaggregated."
             ),
             "",
             (
-                "| Method | Coverage range | Gap-recovery range | Geometry-"
-                "inconsistency range |"
+                "| Method | Coverage range | Post-gap identity recovery range "
+                "| Geometry-inconsistency range |"
             ),
             "|---|---:|---:|---:|",
         ]
@@ -488,10 +592,12 @@ def build_artifact(
     output_paths["table_s3_energy_scan_by_case.md"].write_text(
         render_energy_scan_markdown(case_rows, leave_one_out_rows),
         encoding="utf-8",
+        newline="\n",
     )
     output_paths["table_s5_controlled_translation_by_trial.md"].write_text(
         render_translation_markdown(trial_rows),
         encoding="utf-8",
+        newline="\n",
     )
 
     source_paths = sorted(
@@ -502,6 +608,7 @@ def build_artifact(
     manifest: dict[str, object] = {
         "schema_version": "1.0",
         "status": "completed",
+        "builder_sha256": sha256_file(Path(__file__).resolve()),
         "uncertainty_policy": {
             "inference": "descriptive; no confidence intervals or p-values",
             "replication_units": {
@@ -547,9 +654,75 @@ def build_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 
 
-if __name__ == "__main__":
+def _supplement_marker_bounds(
+    supplement: str,
+    *,
+    allow_absent: bool,
+) -> tuple[int, int] | None:
+    begin_count = supplement.count(SUPPLEMENT_BEGIN_MARKER)
+    end_count = supplement.count(SUPPLEMENT_END_MARKER)
+    if begin_count == 0 and end_count == 0:
+        if allow_absent:
+            return None
+        raise ValueError("Table S3 markers are missing from the supplement.")
+    if begin_count != 1 or end_count != 1:
+        raise ValueError(
+            "Supplement must contain exactly one ordered Table S3 marker pair."
+        )
+    begin = supplement.index(SUPPLEMENT_BEGIN_MARKER)
+    end = supplement.index(SUPPLEMENT_END_MARKER)
+    if end < begin:
+        raise ValueError("Table S3 end marker precedes its begin marker.")
+    return begin, end
+
+
+def extract_supplement_block(supplement: str) -> str:
+    bounds = _supplement_marker_bounds(supplement, allow_absent=False)
+    assert bounds is not None
+    begin, end = bounds
+    content_start = begin + len(SUPPLEMENT_BEGIN_MARKER)
+    return supplement[content_start:end].strip() + "\n"
+
+
+def sync_supplement(markdown: str) -> None:
+    supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
+    bounds = _supplement_marker_bounds(supplement, allow_absent=True)
+    block = (
+        f"{SUPPLEMENT_BEGIN_MARKER}\n"
+        f"{markdown.rstrip()}\n"
+        f"{SUPPLEMENT_END_MARKER}"
+    )
+    if bounds is not None:
+        begin, end = bounds
+        before = supplement[:begin].rstrip()
+        after = supplement[
+            end + len(SUPPLEMENT_END_MARKER):
+        ].lstrip()
+        updated = f"{before}\n\n{block}\n"
+        if after:
+            updated += f"\n{after}"
+    else:
+        if SUPPLEMENT_HEADING in supplement:
+            raise ValueError("Table S3 heading exists without generated markers.")
+        updated = (
+            supplement.rstrip()
+            + f"\n\n{SUPPLEMENT_HEADING}\n\n"
+            + block
+            + "\n"
+        )
+    SUPPLEMENT_PATH.write_text(updated, encoding="utf-8", newline="\n")
+
+
+def main() -> None:
     build_artifact()
+    table_s3_path = OUTPUT_DIRECTORY / "table_s3_energy_scan_by_case.md"
+    sync_supplement(table_s3_path.read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    main()

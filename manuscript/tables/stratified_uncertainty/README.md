@@ -22,9 +22,11 @@ one propagated trajectory as independent replicates.
 ## Outputs
 
 - `output/energy_scan_by_case.csv` and
-  `output/table_s3_energy_scan_by_case.md` preserve coverage, gap recovery,
-  geometry inconsistency, and conditional residuals for all 20
-  scan-pair-method cases.
+  `output/table_s3_energy_scan_by_case.md` form the finalized Table S3,
+  preserving coverage, post-gap identity recovery, geometry inconsistency,
+  and conditional residuals for all 20 scan–pair–method cases. The generated
+  Markdown is copied exactly between the Table S3 markers in
+  `manuscript/supplementary-material.md`.
 - `output/energy_scan_leave_one_case_out.csv` omits one of the four frozen
   scan-pair cases at a time and recomputes only count-based outcomes. It is a
   sensitivity analysis, not a confidence interval.
@@ -32,6 +34,8 @@ one propagated trajectory as independent replicates.
   `output/table_s5_controlled_translation_by_trial.md` report proposal and
   measurement coverage, conditional displacement-error summaries, pair
   coverage, and maximum absolute pair-endpoint change for each source trial.
+  Table S5 remains a generated draft and is not synchronized into the
+  supplement by this Table S3 finalization step.
 
 The leave-one-case-out analysis does not pool or average the conditional
 case-median residuals. Their raw per-case values and surviving pair-frame
@@ -46,6 +50,9 @@ From this directory:
 ../../../.venv/bin/python build_tables.py
 ```
 
-The builder validates the hashes in `source_data/source_provenance.json`,
-writes all CSV and Markdown outputs, and records their SHA-256 hashes in
-`manifest.json`.
+The builder validates the provenance schema, confined paths, and SHA-256
+hashes in `source_data/source_provenance.json`, writes all CSV and Markdown
+outputs, records the builder and output hashes in `manifest.json`, and
+synchronizes Table S3 into the supplement. The two original run-workspace
+paths are optional audit locations; their committed frozen tables make a
+clean checkout self-contained.

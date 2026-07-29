@@ -1,1 +1,5 @@
-*.csv binary
+*.csv text eol=lf
+source_data/*.csv binary
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf

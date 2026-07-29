@@ -1,8 +1,8 @@
-# Table S3. Stratified Ag(111) energy-scan outcomes
+**Table S3. Stratified outcomes for the independent Ag(111) energy-scan stress test.** Coverage is branch-consistent measurements / baseline-visible opportunities; post-gap identity recovery is recovered / evaluable natural I(V) gaps; geometry inconsistency is accepted Gaussian fits more than 18 px from the expected branch / all accepted Gaussian fits across all visibility regimes. The conditional residual is the median absolute pair-distance residual and is evaluated only when both branches are valid and branch-consistent, with its surviving pair-frame n shown separately. The four scan–pair cases are descriptive strata from two independently acquired scans, not four independent acquisitions.
 
-Each row is one frozen scan-pair-method case. Conditional residuals are shown only with their surviving pair-frame count.
+**A. Outcomes by frozen scan–pair case**
 
-| Scan | Pair | Method | Coverage | Gap recovery | Geometry inconsistency | Conditional median residual [px] | Conditional n |
+| Scan | Pair | Method | Branch-consistent coverage | Post-gap identity recovery | Geometry-inconsistent accepted fits | Conditional median absolute pair-distance residual [px] | Conditional n |
 |---|---|---|---:|---:|---:|---:|---:|
 | Scan A | pair 1 | LocoTrack | 44/44 | 5/5 | 9/57 | 1.983 | 18 |
 | Scan A | pair 1 | OSTrack | 44/44 | 5/5 | 9/58 | 1.822 | 19 |
@@ -25,11 +25,11 @@ Each row is one frozen scan-pair-method case. Conditional residuals are shown on
 | Scan B | pair 2 | Lucas-Kanade | 58/67 | 4/6 | 0/58 | 2.034 | 23 |
 | Scan B | pair 2 | EasyLEED | 67/67 | 6/6 | 4/74 | 2.065 | 28 |
 
-## Leave-one-case-out sensitivity
+**B. Leave-one-case-out sensitivity**
 
-One frozen scan-pair case is omitted at a time. The analysis recomputes count-based outcomes only; it is a sensitivity check, not a confidence interval. Case medians are not reaggregated as pooled residuals.
+Each of the four frozen scan–pair cases is omitted once. The remaining three cases are pooled and only the count-based coverage, post-gap identity recovery, and geometry-inconsistency rates are recomputed. The displayed extrema across the four omissions are a sensitivity check, not a confidence interval. Conditional case-median residuals are not reaggregated.
 
-| Method | Coverage range | Gap-recovery range | Geometry-inconsistency range |
+| Method | Coverage range | Post-gap identity recovery range | Geometry-inconsistency range |
 |---|---:|---:|---:|
 | LocoTrack | 97.4–98.8% | 94.1–100.0% | 12.6–13.5% |
 | OSTrack | 97.2–98.8% | 84.2–88.9% | 11.8–13.5% |

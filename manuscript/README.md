@@ -42,8 +42,9 @@ describes the corresponding physical state or experimental role.
   1–8 and explicit placeholders for missing author, acquisition, and public
   release information.
 - [`supplementary-material.md`](supplementary-material.md) - working
-  supplementary document containing the generated Table S1 software, model,
-  configuration-hash, and retained-environment record.
+  supplementary document containing generated Tables S1–S3: software and
+  environments, measurement gates and denominators, and stratified
+  energy-scan outcomes.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
   manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
@@ -67,9 +68,10 @@ describes the corresponding physical state or experimental role.
 - [`tables/table_s2_gates_denominators/`](tables/table_s2_gates_denominators/) -
   deterministic supplementary contract separating Gaussian gates, fixed
   validation opportunities, and method-dependent conditional sample sizes.
-- [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
-  per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
-  analysis, deterministic builder, and manifest.
+- [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) -
+  finalized per-scan–pair Table S3 with leave-one-case-out sensitivity,
+  together with the generated per-trial Table S5 draft, deterministic builder,
+  and manifest.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
 

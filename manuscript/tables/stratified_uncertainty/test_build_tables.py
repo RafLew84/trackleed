@@ -7,8 +7,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import build_tables
+
+
+TABLE_ROOT = Path(__file__).resolve().parent
+SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 
 
 class StratifiedReportingTableTest(unittest.TestCase):
@@ -116,6 +121,10 @@ class StratifiedReportingTableTest(unittest.TestCase):
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(
+                manifest["builder_sha256"],
+                build_tables.sha256_file(Path(build_tables.__file__)),
+            )
+            self.assertEqual(
                 manifest["uncertainty_policy"]["inference"],
                 "descriptive; no confidence intervals or p-values",
             )
@@ -156,6 +165,173 @@ class StratifiedReportingTableTest(unittest.TestCase):
                         {line.count("|") for line in group},
                         {group[0].count("|")},
                     )
+
+    def test_table_s3_render_is_reader_facing_and_defines_each_fraction(
+        self,
+    ) -> None:
+        rendered = build_tables.render_energy_scan_markdown(
+            build_tables.build_energy_scan_case_table(),
+            build_tables.build_leave_one_case_out_table(),
+        )
+
+        self.assertTrue(rendered.startswith("**Table S3."))
+        self.assertIn("**A. Outcomes by frozen scan–pair case**", rendered)
+        self.assertIn("**B. Leave-one-case-out sensitivity**", rendered)
+        self.assertIn(
+            "branch-consistent measurements / baseline-visible opportunities",
+            rendered,
+        )
+        self.assertIn(
+            "recovered / evaluable natural I(V) gaps",
+            rendered,
+        )
+        self.assertIn("post-gap identity recovery", rendered)
+        self.assertIn(
+            (
+                "accepted Gaussian fits more than 18 px from the expected "
+                "branch / all accepted Gaussian fits"
+            ),
+            rendered,
+        )
+        self.assertIn("not a confidence interval", rendered)
+        self.assertNotIn("26a21", rendered)
+        self.assertNotIn("ScanE", rendered)
+        self.assertNotIn("C:\\Users", rendered)
+
+    def test_supplement_markers_must_be_one_ordered_pair(self) -> None:
+        valid = (
+            f"{build_tables.SUPPLEMENT_BEGIN_MARKER}\ncontent\n"
+            f"{build_tables.SUPPLEMENT_END_MARKER}"
+        )
+        self.assertEqual(
+            build_tables.extract_supplement_block(valid),
+            "content\n",
+        )
+
+        invalid_records = (
+            build_tables.SUPPLEMENT_BEGIN_MARKER,
+            build_tables.SUPPLEMENT_END_MARKER,
+            (
+                f"{valid}\n"
+                f"{build_tables.SUPPLEMENT_BEGIN_MARKER}\nduplicate\n"
+                f"{build_tables.SUPPLEMENT_END_MARKER}"
+            ),
+            (
+                f"{build_tables.SUPPLEMENT_END_MARKER}\n"
+                f"{build_tables.SUPPLEMENT_BEGIN_MARKER}"
+            ),
+        )
+        for invalid in invalid_records:
+            with self.subTest(record=invalid):
+                with self.assertRaises(ValueError):
+                    build_tables.extract_supplement_block(invalid)
+
+    def test_provenance_rejects_malformed_hashes_and_escaping_paths(
+        self,
+    ) -> None:
+        provenance = json.loads(
+            build_tables.PROVENANCE_PATH.read_text(encoding="utf-8")
+        )
+        for field, value in (
+            ("frozen_sha256", "not-a-hash"),
+            ("frozen_path", "../../../../etc/passwd"),
+            ("original_path", "../../../../etc/passwd"),
+        ):
+            with self.subTest(field=field):
+                changed = json.loads(json.dumps(provenance))
+                changed["sources"][0][field] = value
+                with tempfile.TemporaryDirectory() as temporary_directory:
+                    path = Path(temporary_directory) / "provenance.json"
+                    path.write_text(json.dumps(changed), encoding="utf-8")
+                    with mock.patch.object(
+                        build_tables,
+                        "PROVENANCE_PATH",
+                        path,
+                    ):
+                        with self.assertRaises(ValueError):
+                            build_tables.validate_source_data()
+
+    def test_only_two_scratch_originals_may_be_optional(self) -> None:
+        provenance = json.loads(
+            build_tables.PROVENANCE_PATH.read_text(encoding="utf-8")
+        )
+        optional = [
+            source
+            for source in provenance["sources"]
+            if not source.get("original_required_at_build", True)
+        ]
+        self.assertEqual(len(optional), 2)
+        self.assertTrue(
+            all(
+                source["original_path"].startswith(".scratch/")
+                for source in optional
+            )
+        )
+
+        mutations = []
+        only_one = json.loads(json.dumps(provenance))
+        only_one["sources"][0]["original_required_at_build"] = True
+        mutations.append(only_one)
+        committed_optional = json.loads(json.dumps(provenance))
+        committed_optional["sources"][2]["original_required_at_build"] = False
+        mutations.append(committed_optional)
+        for changed in mutations:
+            with tempfile.TemporaryDirectory() as temporary_directory:
+                path = Path(temporary_directory) / "provenance.json"
+                path.write_text(json.dumps(changed), encoding="utf-8")
+                with mock.patch.object(build_tables, "PROVENANCE_PATH", path):
+                    with self.assertRaises(ValueError):
+                        build_tables.validate_source_data()
+
+    def test_committed_table_s3_and_supplement_are_synchronized(self) -> None:
+        output_directory = TABLE_ROOT / "output"
+        expected = {
+            path.name: path.read_bytes()
+            for path in output_directory.iterdir()
+            if path.is_file()
+        }
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            generated_output = root / "output"
+            generated_manifest = root / "manifest.json"
+            build_tables.build_artifact(
+                output_directory=generated_output,
+                manifest_path=generated_manifest,
+            )
+            actual = {
+                path.name: path.read_bytes()
+                for path in generated_output.iterdir()
+            }
+            generated_manifest_bytes = generated_manifest.read_bytes()
+
+        self.assertEqual(expected, actual)
+        self.assertEqual(
+            (TABLE_ROOT / "manifest.json").read_bytes(),
+            generated_manifest_bytes,
+        )
+        markdown = (
+            output_directory / "table_s3_energy_scan_by_case.md"
+        ).read_text(encoding="utf-8")
+        supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
+        self.assertEqual(
+            build_tables.extract_supplement_block(supplement),
+            markdown,
+        )
+
+    def test_hash_addressed_text_records_have_stable_line_endings(
+        self,
+    ) -> None:
+        attributes = (TABLE_ROOT / ".gitattributes").read_text(
+            encoding="utf-8"
+        )
+
+        for extension in ("csv", "json", "md", "py"):
+            self.assertIn(f"*.{extension} text eol=lf", attributes)
+        self.assertIn("source_data/*.csv binary", attributes)
+
+        for path in (TABLE_ROOT / "output").glob("*.csv"):
+            self.assertNotIn(b"\r\n", path.read_bytes())
 
 
 if __name__ == "__main__":
