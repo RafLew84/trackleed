@@ -51,7 +51,7 @@ the replay to one query does not change its result because both frozen adapters
 process queries independently. The re-exported reduced trajectories reproduce
 the archived run over all 701 images:
 
-- OSTrack maximum center difference: `0.000007864 cache px`;
+- OSTrack maximum center difference: `0 cache px`;
 - DAM4SAM maximum centroid difference: `0 cache px`;
 - proposal availability: identical on all 701 images for both methods.
 

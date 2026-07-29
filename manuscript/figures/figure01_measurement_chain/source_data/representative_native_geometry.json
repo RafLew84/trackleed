@@ -78,7 +78,7 @@
         "maximum_reduced_center_error_cache_px": 0.0,
         "reduced_center_matches_all_available_frames": true,
         "reexported_trajectory_path": "source_data/representative_native_geometry_replay.csv",
-        "reexported_trajectory_sha256": "ac082e9229f37d080ff7bcaf619d063497f2039be0c2925a1ed8d68613d998be",
+        "reexported_trajectory_sha256": "6e94acf10f0ea7ef8a2580e19df401f64dd24d787b27a2304c8973321e51c5be",
         "tolerance_cache_px": 0.0005
       }
     },
@@ -131,10 +131,10 @@
         "archived_payload_sha256": "e57d0cb0a84ccadd7499d958ed6109ee875700c63aeba49cb0e43bc06d4dc4a8",
         "availability_matches_all_frames": true,
         "available_frame_count": 701,
-        "maximum_reduced_center_error_cache_px": 7.864199877963372e-06,
+        "maximum_reduced_center_error_cache_px": 0.0,
         "reduced_center_matches_all_available_frames": true,
         "reexported_trajectory_path": "source_data/representative_native_geometry_replay.csv",
-        "reexported_trajectory_sha256": "ac082e9229f37d080ff7bcaf619d063497f2039be0c2925a1ed8d68613d998be",
+        "reexported_trajectory_sha256": "6e94acf10f0ea7ef8a2580e19df401f64dd24d787b27a2304c8973321e51c5be",
         "tolerance_cache_px": 0.0005
       }
     }
@@ -184,7 +184,7 @@
     },
     "exporter": {
       "path": "manuscript/figures/figure01_measurement_chain/export_native_geometry.py",
-      "sha256": "ab7f11388961d6b390a5499d82448468dcabd790b25e4efaacb54471a0c7bc4b"
+      "sha256": "da3912b9e7c9b567401ad69b4216e9106d2d5b87d8978887fb1175a2702e86d8"
     },
     "frozen_gpu_runner": {
       "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_gpu_cu.py",
@@ -196,7 +196,7 @@
     },
     "native_geometry_analysis": {
       "path": "trackleed/analysis/publication_native_geometry.py",
-      "sha256": "08a7edafe62ac74644ffe5fcce8da8c2f5f68a9fe60f81ab169a01d4010f68f3"
+      "sha256": "c434b89046fe586aa126c3d62b50d159423ee50819ecca681e44babb654237b2"
     },
     "seed_prompts": {
       "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/seed_prompts.csv",

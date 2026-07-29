@@ -196,14 +196,17 @@ def _run_ostrack(
         ),
         query_boxes_xyxy=query_boxes,
     )
-    available = (
-        np.isfinite(result.tracked_bboxes_xywh[0]).all(axis=-1)
-        & (result.tracked_bboxes_xywh[0, :, 2] > 0.0)
-        & (result.tracked_bboxes_xywh[0, :, 3] > 0.0)
+    normalized = runner.normalize_gpu_proposals(
+        method,
+        tracks_xy=result.tracks_xy,
+        visibility_signal=result.bbox_scores,
+        boxes_xywh=result.tracked_bboxes_xywh,
     )
+    replay_tracks = np.asarray(normalized["tracks_xy"][0])
+    available = np.asarray(normalized["proposal_available"][0], dtype=bool)
     trajectory = _compare_with_archived_trajectory(
         method,
-        tracks_xy_cache=result.tracks_xy[0],
+        tracks_xy_cache=replay_tracks,
         proposal_available=available,
     )
     archived = _archived_payload(method)
@@ -228,7 +231,7 @@ def _run_ostrack(
             "trajectory_replay": trajectory,
         }
     )
-    return summary, np.asarray(result.tracks_xy[0]), available
+    return summary, replay_tracks, available
 
 
 def _run_dam4sam(
@@ -271,14 +274,17 @@ def _run_dam4sam(
         ),
         query_boxes_xyxy=query_boxes,
     )
-    available = (
-        np.isfinite(result.tracks_xy[0]).all(axis=-1)
-        & np.isfinite(result.mask_areas[0])
-        & (result.mask_areas[0] > 0.0)
+    normalized = runner.normalize_gpu_proposals(
+        method,
+        tracks_xy=result.tracks_xy,
+        visibility_signal=result.mask_scores,
+        mask_areas=result.mask_areas,
     )
+    replay_tracks = np.asarray(normalized["tracks_xy"][0])
+    available = np.asarray(normalized["proposal_available"][0], dtype=bool)
     trajectory = _compare_with_archived_trajectory(
         method,
-        tracks_xy_cache=result.tracks_xy[0],
+        tracks_xy_cache=replay_tracks,
         proposal_available=available,
     )
     archived = _archived_payload(method)
@@ -324,7 +330,7 @@ def _run_dam4sam(
             "trajectory_replay": trajectory,
         }
     )
-    return summary, np.asarray(result.tracks_xy[0]), available
+    return summary, replay_tracks, available
 
 
 def _write_replay_trajectory(

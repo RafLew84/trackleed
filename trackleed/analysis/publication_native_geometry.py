@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from trackleed.analysis.dam4sam_backend import (
+    _bbox_xyxy_to_xywh,
     _mask_to_bbox_xyxy,
     _mask_to_representative_point,
 )
@@ -109,12 +110,7 @@ def summarize_dam4sam_mask(
         raise ValueError("DAM4SAM native mask is empty")
     bbox_xyxy = np.asarray(bbox, dtype=np.float64)
     bbox_xywh = np.asarray(
-        [
-            bbox_xyxy[0],
-            bbox_xyxy[1],
-            bbox_xyxy[2] - bbox_xyxy[0],
-            bbox_xyxy[3] - bbox_xyxy[1],
-        ],
+        _bbox_xyxy_to_xywh(tuple(float(value) for value in bbox_xyxy)),
         dtype=np.float64,
     )
     centroid = _mask_to_representative_point(
