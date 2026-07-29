@@ -1,0 +1,36 @@
+{
+  "figure": "Figure 5",
+  "schema_version": "1.0",
+  "sources": {
+    "completed_run_manifest": {
+      "evidence_role": "completed-run hash chain",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/run_manifest.json",
+      "sha256": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316"
+    },
+    "completed_run_summary": {
+      "evidence_role": "proposal and common-fit denominators",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/summary.json",
+      "sha256": "a854e303830a3f675403cd0eb9695627207ffc3c560cddbf837d78d445a87131"
+    },
+    "frozen_subset_manifest": {
+      "evidence_role": "frozen five-method experimental design",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/manifest.json",
+      "sha256": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6"
+    },
+    "pair_2_4_fit_diagnostics": {
+      "evidence_role": "separate saved-YOLO missingness diagnostic",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-pairwise-delta-r/pair_2_4_fit_diagnostics.csv",
+      "sha256": "d00536d4aefea46e8403635a33522106a76a0032355b2a9d2a6f3d619f332dfc"
+    },
+    "primary_pair_endpoints": {
+      "evidence_role": "five-method positive control",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/pair_endpoints.csv",
+      "sha256": "c4b123b3ef2b26109c9ae2e9fa999b95493d87d68c7f3400487f05441bdbed6f"
+    },
+    "temperature_profile": {
+      "evidence_role": "thermal-cycle coordinates for the five-method run",
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/inference_frames.csv",
+      "sha256": "247015e43fa30ee300a66d58d195c65b04e1abf686d40822ae2a723c6db55f66"
+    }
+  }
+}

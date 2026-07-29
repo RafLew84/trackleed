@@ -165,7 +165,10 @@ Final artifact:
 
 ### Figure 5 - Propagation to the Cu(111) physical endpoint
 
-**Question:** Do tracker differences materially change pairwise `Delta R/R`?
+**Question:** Do tracker-dependent proposal differences survive the common
+Gaussian refinement sufficiently to change pairwise `Delta R/R`?
+
+**Status:** source contract frozen; rendering pending.
 
 Proposed panels:
 
@@ -188,6 +191,18 @@ Caption limitations: the two primary pairs do not establish anisotropy; missing
 pair `2-4` measurements are not automatically tracker failures. Pair `2-4` uses
 the earlier saved YOLO proposals and must not imply that the five evaluated
 strategies were run on spots 2 and 4.
+
+Frozen source contract:
+
+- [artifact README and draft caption](figures/figure05_cu111_physical_endpoint/README.md)
+- [source contract](figures/figure05_cu111_physical_endpoint/contract.json)
+- [five-method run contract](figures/figure05_cu111_physical_endpoint/source_data/five_method_run_contract.json)
+- [thermal-cycle landmarks](figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv)
+- [five-method endpoint trajectories](figures/figure05_cu111_physical_endpoint/source_data/pair_endpoint_timeseries.csv)
+- [endpoint summaries](figures/figure05_cu111_physical_endpoint/source_data/endpoint_summaries.csv)
+- [between-method spread](figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv)
+- [separate pair 2-4 diagnostic](figures/figure05_cu111_physical_endpoint/source_data/pair_2_4_missingness_diagnostic.csv)
+- [source provenance](figures/figure05_cu111_physical_endpoint/source_data/source_provenance.json)
 
 ## Main tables
 
