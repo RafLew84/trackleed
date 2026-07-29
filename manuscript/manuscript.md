@@ -1,6 +1,6 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 2–6 are drafted, while the
+Draft status: working manuscript; Sections 2–6 and 8 are drafted, while the
 remaining sections retain structured-outline placeholders.
 
 ## Authors
@@ -1038,14 +1038,33 @@ TODO[DECISION]: repository/archive location, license, DOI, and public release sc
 
 ## 8. Conclusions
 
-Draft as three concise statements:
+Across controlled translations and the Cu(111) positive control, the common
+Gaussian estimator strongly reduced the influence of differences between
+native point, bounding-box, mask, optical-flow, and LEED-specific proposals
+when the intended spot remained inside its capture region. The resulting
+pairwise \(\Delta R/R\) endpoints were mutually consistent across the five
+strategies in the positive-control sequence. This result establishes
+measurement-chain equivariance and agreement under the tested conditions, not
+absolute tracking accuracy or spot-identity ground truth.
 
-1. A common Gaussian estimator strongly suppresses the endpoint's sensitivity to
-   substantial proposal differences, conditional on a valid captured spot.
-2. Measurement coverage, post-gap identity recovery, and false continuity are
-   necessary alongside conditional localization residuals.
-3. The appropriate evaluation target is the complete measurement chain and its
-   physical endpoint, not a composite ranking of native tracker coordinates.
+Across four frozen pairs from two independently acquired Ag(111) energy scans,
+similar conditional pair-distance residuals, calculated only when both
+branches were valid and consistent with the expected geometry, coexisted with
+substantial differences in measurement coverage, post-gap recovery, and
+geometry-inconsistent continuation. The controlled SAM2-family experiment
+further showed, within one scan and two pairs, that increased continuity can
+accompany more frequent persistence outside the expected physical branch.
+Conditional localization quality must therefore be reported together with
+its coverage and physical-consistency outcomes.
+
+The appropriate evaluation target for quantitative LEED is consequently the
+complete chain from tracking proposal through the common measurement ROI and
+Gaussian-refined position to the physical endpoint. A single composite
+ranking of native tracker coordinates would obscure both downstream recovery
+by the estimator and failures of measurement availability or physical
+consistency. Tracking strategies should instead be assessed by whether they
+support a complete, physically consistent quantitative measurement under the
+motion and visibility changes relevant to the experiment.
 
 ## CRediT authorship contribution statement
 
