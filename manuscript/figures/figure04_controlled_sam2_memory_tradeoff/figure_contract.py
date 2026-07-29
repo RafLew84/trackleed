@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from pathlib import Path
 
 import tifffile
@@ -73,6 +74,14 @@ def validate_source_contract(
     by_pair = read_csv(source_directory / "family_by_pair.csv")
     if len(by_pair) != 6:
         raise ValueError("Figure 4 pair-by-method cardinality changed")
+    required_panel_metrics = {
+        metric
+        for metrics in contract["panel_metrics"].values()
+        for metric in metrics
+    }
+    if not required_panel_metrics.issubset(by_pair[0]):
+        missing = sorted(required_panel_metrics - set(by_pair[0]))
+        raise ValueError(f"Figure 4 panel metrics missing: {missing}")
     for aggregate_row in aggregate:
         method_rows = [
             row for row in by_pair if row["method"] == aggregate_row["method"]
@@ -86,6 +95,44 @@ def validate_source_contract(
                 raise ValueError(
                     f"Figure 4 pair-to-aggregate mismatch: {field}"
                 )
+    if any(
+        int(row["zero_delay_recoveries"]) > int(row["recovered_gaps"])
+        for row in by_pair
+    ):
+        raise ValueError("Figure 4 zero-delay recovery counts are invalid")
+
+    pair_definition = contract["pair_definition"]
+    pair_seeds = read_csv(source_directory / "pair_seeds.csv")
+    if {
+        (row["pair"], row["branch"]) for row in pair_seeds
+    } != {
+        ("pair 1", "B1"),
+        ("pair 1", "B2"),
+        ("pair 2", "B1"),
+        ("pair 2", "B2"),
+    }:
+        raise ValueError("Figure 4 frozen pair identities changed")
+    if any(
+        float(row["reference_energy_ev"])
+        != float(pair_definition["reference_energy_ev"])
+        for row in pair_seeds
+    ):
+        raise ValueError("Figure 4 pair reference energy changed")
+    pair_1 = [row for row in pair_seeds if row["pair"] == "pair 1"]
+    pair_2 = [row for row in pair_seeds if row["pair"] == "pair 2"]
+    minimum_separation = float(
+        pair_definition["minimum_cross_pair_seed_separation_px"]
+    )
+    if any(
+        math.hypot(
+            float(first["center_x"]) - float(second["center_x"]),
+            float(first["center_y"]) - float(second["center_y"]),
+        )
+        < minimum_separation
+        for first in pair_1
+        for second in pair_2
+    ):
+        raise ValueError("Figure 4 frozen pairs are not spatially disjoint")
 
     representative = json.loads(
         (source_directory / "representative_gap.json").read_text(

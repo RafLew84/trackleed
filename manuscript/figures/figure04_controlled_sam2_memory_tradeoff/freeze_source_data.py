@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 from typing import Sequence
 
+from figure_contract import read_csv
+
 
 FIGURE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = FIGURE_ROOT.parents[2]
@@ -30,10 +32,18 @@ PAIR_SUMMARIES = (
     ("pair 1", PROTOTYPE_ROOT / "trackers/comparison_summary.json"),
     ("pair 2", PROTOTYPE_ROOT / "pair2/trackers/comparison_summary.json"),
 )
+PAIR_BASELINES = (
+    ("pair 1", PROTOTYPE_ROOT / "summary.json"),
+    ("pair 2", PROTOTYPE_ROOT / "pair2/summary.json"),
+)
 METHOD_ORDER = ("sam2", "samurai", "dam4sam")
 PAIR1_TRACKER_ROOT = PROTOTYPE_ROOT / "trackers"
 PAIR1_MEASUREMENTS = {
     method: PAIR1_TRACKER_ROOT / f"{method}_measurements.csv"
+    for method in METHOD_ORDER
+}
+PAIR1_GAP_RECOVERY = {
+    method: PAIR1_TRACKER_ROOT / f"{method}_gap_recovery.csv"
     for method in METHOD_ORDER
 }
 DISPLAY_NAMES = {
@@ -45,13 +55,6 @@ MEMORY_STRATEGIES = {
     "sam2": "vanilla SAM2 propagation",
     "samurai": "motion-aware memory",
     "dam4sam": "distractor-aware memory",
-}
-REPRESENTATIVE_GAP_ENERGIES = (169.2, 166.5, 163.9, 160.9)
-REPRESENTATIVE_GAP_ROLES = {
-    169.2: "pre-gap visible",
-    166.5: "I(V) gap",
-    163.9: "I(V) gap",
-    160.9: "first expected recovery",
 }
 REPRESENTATIVE_GAP_SELECTION_RULE = (
     "Starting at the common 187.9 eV seed and following the decreasing-energy "
@@ -74,11 +77,6 @@ CROP_FILENAMES = {
     163.9: "b1_163p9ev.tiff",
     160.9: "b1_160p9ev.tiff",
 }
-
-
-def read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
 
 
 def as_bool(value: object) -> bool:
@@ -225,7 +223,90 @@ def load_pair_results() -> list[dict[str, object]]:
     return rows
 
 
+def load_pair_seeds() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for pair, path in PAIR_BASELINES:
+        summary = json.loads(path.read_text(encoding="utf-8"))
+        reference_energy = float(summary["reference_energy_ev"])
+        seeds = summary["frozen_seeds"]
+        if {seed["branch"] for seed in seeds} != {"B1", "B2"}:
+            raise ValueError(f"Figure 4 frozen branches changed for {pair}")
+        for seed in sorted(seeds, key=lambda item: item["branch"]):
+            rows.append(
+                {
+                    "pair": pair,
+                    "spot_id": f"{pair.replace(' ', '_')}_{seed['branch']}",
+                    "branch": seed["branch"],
+                    "reference_energy_ev": reference_energy,
+                    "detection_x": float(seed["detection_x"]),
+                    "detection_y": float(seed["detection_y"]),
+                    "center_x": float(seed["center_x"]),
+                    "center_y": float(seed["center_y"]),
+                    "reference_r2": float(seed["reference_r2"]),
+                    "reference_amplitude": float(
+                        seed["reference_amplitude"]
+                    ),
+                }
+            )
+    return rows
+
+
 def select_representative_gap() -> dict[str, object]:
+    events_by_method: dict[
+        str,
+        dict[tuple[str, str, float, float, float], dict[str, str]],
+    ] = {}
+    for method, path in PAIR1_GAP_RECOVERY.items():
+        events_by_method[method] = {}
+        for row in read_csv(path):
+            start = float(row["gap_start_energy_ev"])
+            end = float(row["gap_end_energy_ev"])
+            key = (
+                row["branch"],
+                row["direction"],
+                min(start, end),
+                max(start, end),
+                float(row["first_expected_recovery_energy_ev"]),
+            )
+            events_by_method[method][key] = row
+    common_events = set.intersection(
+        *(set(events) for events in events_by_method.values())
+    )
+    candidates = []
+    for event in common_events:
+        branch, direction, _gap_low, gap_high, _recovery = event
+        outcomes = {
+            as_bool(events_by_method[method][event]["recovered"])
+            for method in METHOD_ORDER
+        }
+        if branch == "B1" and direction == "low" and len(outcomes) > 1:
+            candidates.append((gap_high, event))
+    if not candidates:
+        raise ValueError("No differentiating Figure 4 visibility gap remains")
+    _nearest_gap_energy, selected_event = max(candidates)
+    branch, _direction, gap_low, gap_high, recovery_energy = selected_event
+
+    baseline_rows = [
+        row
+        for row in read_csv(PAIR1_MEASUREMENTS["sam2"])
+        if row["branch"] == branch
+    ]
+    gap_energies = sorted(
+        (
+            float(row["energy_ev"])
+            for row in baseline_rows
+            if row["physics_baseline_status"] == "iv_visibility_gap"
+            and gap_low <= float(row["energy_ev"]) <= gap_high
+        ),
+        reverse=True,
+    )
+    pre_gap_energy = min(
+        float(row["energy_ev"])
+        for row in baseline_rows
+        if row["physics_baseline_status"] == "visible_fit"
+        and float(row["energy_ev"]) > gap_high
+    )
+    display_energies = [pre_gap_energy, *gap_energies, recovery_energy]
     return {
         "archive_series_id": "26a24",
         "scientific_series_label": "Controlled scan",
@@ -233,9 +314,9 @@ def select_representative_gap() -> dict[str, object]:
         "branch": "B1",
         "direction": "decreasing energy",
         "reference_energy_ev": 187.9,
-        "gap_energies_ev": [166.5, 163.9],
-        "first_expected_recovery_energy_ev": 160.9,
-        "display_energies_ev": list(REPRESENTATIVE_GAP_ENERGIES),
+        "gap_energies_ev": gap_energies,
+        "first_expected_recovery_energy_ev": recovery_energy,
+        "display_energies_ev": display_energies,
         "selection_rule": REPRESENTATIVE_GAP_SELECTION_RULE,
         "selection_uses_method_outcomes": True,
         "role": "explanatory mechanism panel, not independent quantitative evidence",
@@ -249,6 +330,13 @@ def build_representative_gap_rows(
     selected: dict[str, object],
 ) -> list[dict[str, object]]:
     target_energies = set(selected["display_energies_ev"])
+    role_by_energy = {
+        selected["display_energies_ev"][0]: "pre-gap visible",
+        **{energy: "I(V) gap" for energy in selected["gap_energies_ev"]},
+        selected["first_expected_recovery_energy_ev"]: (
+            "first expected recovery"
+        ),
+    }
     rows: list[dict[str, object]] = []
     for method in METHOD_ORDER:
         selected_rows = [
@@ -262,7 +350,7 @@ def build_representative_gap_rows(
             raise ValueError(
                 f"Figure 4 representative-gap frames changed for {method}"
             )
-        for energy in REPRESENTATIVE_GAP_ENERGIES:
+        for energy in selected["display_energies_ev"]:
             source = by_energy[energy]
             rows.append(
                 {
@@ -272,7 +360,7 @@ def build_representative_gap_rows(
                     "scientific_pair_label": selected["scientific_pair_label"],
                     "branch": selected["branch"],
                     "direction": selected["direction"],
-                    "sequence_role": REPRESENTATIVE_GAP_ROLES[energy],
+                    "sequence_role": role_by_energy[energy],
                     "energy_ev": energy,
                     "method": method,
                     "display_method": DISPLAY_NAMES[method],
@@ -303,8 +391,16 @@ def _source_provenance() -> dict[str, object]:
             for pair, path in PAIR_SUMMARIES
         },
         **{
+            f"{pair.replace(' ', '_')}_baseline": path
+            for pair, path in PAIR_BASELINES
+        },
+        **{
             f"pair_1_{method}_measurements": path
             for method, path in PAIR1_MEASUREMENTS.items()
+        },
+        **{
+            f"pair_1_{method}_gap_recovery": path
+            for method, path in PAIR1_GAP_RECOVERY.items()
         },
         **{
             f"representative_frame_{str(energy).replace('.', 'p')}_ev": path
@@ -332,13 +428,15 @@ def build(output_root: Path = FIGURE_ROOT) -> None:
     crops.mkdir(parents=True, exist_ok=True)
     write_csv(source / "family_aggregate.csv", load_family_aggregate())
     write_csv(source / "family_by_pair.csv", load_pair_results())
+    write_csv(source / "pair_seeds.csv", load_pair_seeds())
 
+    selected = select_representative_gap()
     selected = {
-        **select_representative_gap(),
+        **selected,
         "crop_box_xyxy": list(CROP_BOX_XYXY),
         "crop_files": {
             str(energy): f"crops/{CROP_FILENAMES[energy]}"
-            for energy in REPRESENTATIVE_GAP_ENERGIES
+            for energy in selected["display_energies_ev"]
         },
     }
     write_csv(

@@ -70,6 +70,31 @@ class Figure4SourceFreezeTest(unittest.TestCase):
                     aggregate_row[field],
                 )
 
+    def test_pair_seeds_are_frozen_and_spatially_disjoint(self) -> None:
+        rows = freeze_source_data.load_pair_seeds()
+
+        self.assertEqual(
+            {(row["pair"], row["branch"]) for row in rows},
+            {
+                ("pair 1", "B1"),
+                ("pair 1", "B2"),
+                ("pair 2", "B1"),
+                ("pair 2", "B2"),
+            },
+        )
+        self.assertTrue(
+            all(row["reference_energy_ev"] == 187.9 for row in rows)
+        )
+        pair_1 = [row for row in rows if row["pair"] == "pair 1"]
+        pair_2 = [row for row in rows if row["pair"] == "pair 2"]
+        for first in pair_1:
+            for second in pair_2:
+                separation = (
+                    (first["center_x"] - second["center_x"]) ** 2
+                    + (first["center_y"] - second["center_y"]) ** 2
+                ) ** 0.5
+                self.assertGreaterEqual(separation, 48.0)
+
     def test_representative_gap_exposes_distinct_memory_behaviors(self) -> None:
         selected = freeze_source_data.select_representative_gap()
         rows = freeze_source_data.build_representative_gap_rows(selected)
@@ -132,6 +157,7 @@ class Figure4SourceFreezeTest(unittest.TestCase):
                 {
                     "family_aggregate.csv",
                     "family_by_pair.csv",
+                    "pair_seeds.csv",
                     "representative_gap_measurements.csv",
                     "representative_gap.json",
                     "source_provenance.json",

@@ -41,9 +41,36 @@ class Figure4SourceContractTest(unittest.TestCase):
                 "representative_visibility_gap",
                 "coverage_by_pair",
                 "gap_recovery_by_pair",
-                "geometry_inconsistency_by_pair",
+                "failure_cost_and_conditional_residual_by_pair",
                 "mechanistic_tradeoff_summary",
             ],
+        )
+        panel_metrics = contract["panel_metrics"]
+        self.assertIn(
+            "zero_delay_recoveries",
+            panel_metrics["gap_recovery_by_pair"],
+        )
+        self.assertIn(
+            "geometry_inconsistent_accepted_fits",
+            panel_metrics[
+                "failure_cost_and_conditional_residual_by_pair"
+            ],
+        )
+        self.assertIn(
+            "conditional_p95_abs_distance_residual_px",
+            panel_metrics[
+                "failure_cost_and_conditional_residual_by_pair"
+            ],
+        )
+        self.assertEqual(
+            contract["pair_definition"]["source_file"],
+            "source_data/pair_seeds.csv",
+        )
+        self.assertEqual(
+            contract["pair_definition"][
+                "minimum_cross_pair_seed_separation_px"
+            ],
+            48,
         )
         self.assertTrue(
             contract["representative_gap"]["selection_uses_method_outcomes"]

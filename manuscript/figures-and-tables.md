@@ -137,8 +137,9 @@ Proposed panels:
 - **a.** One representative visibility gap with SAM2, SAMURAI, and DAM4SAM
   proposals and common Gaussian centers.
 - **b.** Coverage for the two frozen pairs.
-- **c.** Gap recovery.
-- **d.** Geometry-inconsistent accepted fits.
+- **c.** Total and zero-delay gap recovery.
+- **d.** Geometry-inconsistent accepted fits and conditional pair-distance
+  residual `D(E)` (median and P95 with their conditional denominator).
 - **e.** Conceptual summary: continuity benefit versus false-persistence risk.
 
 Primary source:
@@ -152,6 +153,7 @@ Frozen source contract:
 
 - [artifact README](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
 - [source contract](figures/figure04_controlled_sam2_memory_tradeoff/contract.json)
+- [frozen pair seeds](figures/figure04_controlled_sam2_memory_tradeoff/source_data/pair_seeds.csv)
 - [source provenance](figures/figure04_controlled_sam2_memory_tradeoff/source_data/source_provenance.json)
 
 ### Figure 5 - Propagation to the Cu(111) physical endpoint

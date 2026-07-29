@@ -6,13 +6,29 @@
       "path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/sam2_family_tradeoff.csv",
       "sha256": "ab53a6a9fdf75d9f4737231b7dc585bdddb7fbdf750373ba5eed0b12acfdb461"
     },
+    "pair_1_baseline": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/summary.json",
+      "sha256": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db"
+    },
+    "pair_1_dam4sam_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/dam4sam_gap_recovery.csv",
+      "sha256": "d79ffcc7a43956639fc4550d9abef1cd911230216479d4de5186424d9ef4fcac"
+    },
     "pair_1_dam4sam_measurements": {
       "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/dam4sam_measurements.csv",
       "sha256": "b6749c663e562f4f42e7b2888a80f16b36130dfee36cc80b53bec0b5c80ac080"
     },
+    "pair_1_sam2_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/sam2_gap_recovery.csv",
+      "sha256": "34a1cdd942ceb57432e04082a32822bbd30198fc65763deddd81134813f78c7e"
+    },
     "pair_1_sam2_measurements": {
       "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/sam2_measurements.csv",
       "sha256": "8fea8fcd3ebee5231d1a2d98d6bbe001b213791d99f265b6c023ea3c3bd29287"
+    },
+    "pair_1_samurai_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/samurai_gap_recovery.csv",
+      "sha256": "c2263b77012f8b26fcf4862a1e251cbb8a833ebeea7e8a2a5e0fee5e005ec4a4"
     },
     "pair_1_samurai_measurements": {
       "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/samurai_measurements.csv",
@@ -21,6 +37,10 @@
     "pair_1_summary": {
       "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/comparison_summary.json",
       "sha256": "9251f3feaec3f773ebe46b68a3fe75169a2a28179b9f1705aff436ac5ab1cb16"
+    },
+    "pair_2_baseline": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair2/summary.json",
+      "sha256": "3816a5657a3704135031d6093acbb966e27eccbbe546548bc94a9f428f07c6b4"
     },
     "pair_2_summary": {
       "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair2/trackers/comparison_summary.json",

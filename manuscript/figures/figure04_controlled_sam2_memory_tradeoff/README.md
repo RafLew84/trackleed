@@ -24,7 +24,9 @@ energy directions without correction or reinitialization.
 The quantitative comparison contains one controlled energy-scan series, two
 disjoint frozen spot pairs, 182 baseline-visible spot opportunities and 13
 natural I(V) gaps per method. It is mechanism evidence, not a general ranking
-of SAM2-family trackers.
+of SAM2-family trackers. The four Gaussian-refined seed centers at 187.9 eV
+are frozen in `source_data/pair_seeds.csv`; the pair-2 selection excluded both
+spots used by pair 1.
 
 The explanatory image sequence uses the first decreasing-energy I(V) gap for
 which the controlled methods have different recovery outcomes. This
@@ -39,15 +41,18 @@ panels use both frozen pairs.
   rejected Gaussian centers for SAM2, SAMURAI, and DAM4SAM.
 - **b.** Branch-consistent Gaussian measurement coverage for both pairs,
   preserving the common denominator of 91 opportunities per pair.
-- **c.** Post-gap recovery for both pairs, with denominators 7 and 6.
-- **d.** Geometry-inconsistent accepted fits over each method's accepted
-  measurements in all visibility regimes.
+- **c.** Total and zero-delay post-gap recovery for both pairs, with
+  denominators 7 and 6.
+- **d.** Split view of geometry-inconsistent accepted fits over each method's
+  accepted measurements and conditional pair-distance residual `D(E)`
+  (median and P95, with the number of jointly consistent pair frames).
 - **e.** Mechanistic summary of the continuity benefit and
   false-persistence risk.
 
-Coverage, recovery, and geometry-inconsistent continuation must be presented
-together. Conditional pair-distance residuals are supporting diagnostics and
-cannot be interpreted as an overall accuracy ranking.
+Coverage, total and zero-delay recovery, geometry-inconsistent continuation,
+and conditional pair-distance residuals must be presented together.
+Conditional residuals are supporting diagnostics and cannot be interpreted as
+an overall accuracy ranking.
 
 The four raw crops must use one shared linear intensity scale when rendered;
 per-crop contrast normalization would visually exaggerate the weak spot inside
@@ -58,6 +63,7 @@ the visibility gap.
 - [source contract](contract.json)
 - [family aggregate](source_data/family_aggregate.csv)
 - [results by pair](source_data/family_by_pair.csv)
+- [frozen pair seeds](source_data/pair_seeds.csv)
 - [representative-gap measurements](source_data/representative_gap_measurements.csv)
 - [representative-gap selection](source_data/representative_gap.json)
 - [source provenance](source_data/source_provenance.json)
