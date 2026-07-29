@@ -12,7 +12,7 @@
 
 ## Literature work
 
-- [ ] Cite the physical basis and established practice of quantitative LEED spot
+- [x] Cite the physical basis and established practice of quantitative LEED spot
       analysis.
 - [x] Cite EasyLEED and ViPErLEED without claiming that automated LEED tracking is
       new.

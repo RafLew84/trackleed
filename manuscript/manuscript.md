@@ -1,6 +1,6 @@
 # Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
 
-Draft status: working manuscript; Sections 2–6 and 8 are drafted, while the
+Draft status: working manuscript; Sections 1–6 and 8 are drafted, while the
 remaining sections retain structured-outline placeholders.
 
 ## Authors
@@ -43,40 +43,112 @@ Gaussian localization; visibility gaps; measurement robustness.
 
 ### 1.1 Quantitative LEED requires persistent spot identity
 
-- Explain why tracking is upstream of quantitative position, distance, width, and
-  intensity observables.
-- Distinguish a smooth trajectory from preservation of physical spot identity.
-- Introduce motion caused by experimental evolution and energy-dependent radial
-  contraction.
-- Introduce I(V) visibility gaps as intensity-driven loss and reappearance, not
-  generic video occlusion.
+Low-energy electron diffraction (LEED) probes the periodic structure of a
+surface through the energy-dependent diffraction of low-energy electrons
+[@pendry1974leed]. A recorded LEED pattern contains discrete diffraction spots
+whose positions, profiles, and integrated intensities can be extracted from
+image sequences [@mayer2012easyleed; @schmid2025viperleed]. Quantitative
+structural LEED most commonly uses intensity as a function of incident
+electron energy, \(I(V)\) [@pendry1974leed; @schmid2025viperleed]. In time- or
+temperature-dependent image series, localized spot centers and profiles can
+additionally support measurements of displacement, pair distance, and profile
+width. Each of these image-derived quantities requires the measurement region
+to remain associated with the same physical diffraction spot throughout the
+analysed sequence.
 
-TODO[CITATION]: quantitative LEED analysis and conventional spot localization.
+Tracking is therefore upstream of the physical measurement but is not itself
+the measurement. A tracker supplies a location at which image information can
+be evaluated; the quantitative position, width, or intensity is then obtained
+from the corresponding pixels. This distinction matters because a smooth
+trajectory can follow a background feature or a neighbouring diffraction
+spot, while an irregular proposal can still yield a valid position if the
+intended spot remains inside the downstream estimator's capture region.
+Preservation of LEED spot identity consequently cannot be inferred from
+trajectory smoothness alone.
+
+The tracking problem becomes more difficult when the diffraction pattern
+moves. Changes in the experimental state can translate or deform the observed
+pattern, and varying the electron energy produces an approximately radial
+motion proportional to \(1/\sqrt{E}\). LEED-specific tracking systems already
+use this energy dependence to predict spot positions
+[@mayer2012easyleed; @schmid2025viperleed]. A position estimator must then
+accommodate both the expected physical motion and common-mode image motion
+caused by projection or apparatus drift.
+
+Spot visibility introduces a separate challenge. Because diffraction
+intensity varies strongly with energy, a spot can fall below the measurement
+threshold and later become measurable again. We refer to an internal,
+intensity-driven interval bracketed by valid measurements of the same branch
+as an \(I(V)\) visibility gap. Such a gap is not generic video occlusion:
+image evidence for the intended diffraction feature is temporarily
+insufficient even though other nearby spots or background structures may
+remain visible. A useful tracking strategy must therefore support recovery of
+the same physical branch without silently continuing on a distractor.
 
 ### 1.2 Existing LEED tracking and the remaining evaluation problem
 
-- Position EasyLEED as the physics-informed Kalman tracking baseline.
-- Position ViPErLEED as an external whole-pattern LEED reference.
-- State explicitly that automated LEED tracking, energy-dependent motion models,
-  Gaussian localization, and propagation through invisible ranges have precedent.
-- Identify the gap addressed here: a common downstream position estimator and an
-  evidence ladder that separates conditional localization quality from coverage,
-  recovery, and false continuity.
+Automated LEED spot tracking and localization have clear precedents. EasyLEED
+tracks individually initialized spots with a Kalman filter informed by an
+energy-dependent motion model and elliptical two-dimensional Gaussian image
+measurements. If an image measurement is rejected, its prediction can continue
+until a later update becomes available
+[@mayer2012easyleed]. ViPErLEED-ImageJ instead identifies and tracks a complete
+diffraction pattern using reciprocal-lattice geometry, the expected energy
+scaling, and local corrections from neighbouring spots. It supports weak or
+temporarily missing beams and is designed for extraction and processing of
+LEED \(I(V)\) curves [@schmid2025viperleed]. Thus, automated tracking,
+energy-dependent prediction, Gaussian localization, and propagation through
+low-visibility intervals are not introduced here.
 
-TODO[CITATION]: EasyLEED, ViPErLEED, and the upstream publications for all general
-tracking methods.
+General-purpose computer-vision methods provide different representations of
+the same association problem. These include propagated points based on local
+correspondence [@cho2024locotrack], transformer-based bounding-box tracking
+[@ye2022ostrack], classical optical flow [@lucas1981iterative], and
+prompt-conditioned mask propagation with visual memory
+[@ravi2025sam2; @yang2024samurai; @videnovic2025dam4sam]. Their native outputs
+are heterogeneous: a point trajectory, updated bounding box, optical-flow
+displacement, Kalman state, or binary mask. The box center and mask centroid
+used in this study are local adapters that reduce those outputs to a TrackLEED
+tracking proposal; they are not native position estimates. Even after this
+reduction, the proposal coordinates do not have the same operational meaning
+or uncertainty. Directly ranking them would therefore conflate the proposal
+mechanism with the downstream position estimator.
+
+This heterogeneity motivates a narrower evaluation question than whether LEED
+spots can be tracked automatically. The relevant question for quantitative
+analysis is when different proposal strategies lead to the same accepted
+physical measurement and when motion or loss of visibility causes missing or
+physically inconsistent results. A common downstream estimator makes that
+question testable by converting every native proposal into the same
+measurement ROI and deriving the reported position from the same image model.
+The comparison then concerns the complete measurement chain rather than the
+coordinate convention of a particular tracker.
+
+Conditional localization error alone is insufficient for this purpose. A
+method can have a small residual on the subset of images for which it returns
+a proposal and the fit passes all gates, yet lose many measurable spots or
+resume on an incompatible diffraction branch after a visibility gap. These
+events disappear if only successful measurements enter the denominator. The
+evaluation must therefore keep measurement coverage, post-gap recovery,
+geometry-inconsistent continuation, and conditional position or pair-distance
+residuals as separate outcomes. Without an external image-by-image reference,
+such outcomes establish equivariance, reproducibility, and physical
+self-consistency rather than absolute tracking accuracy.
 
 ### 1.3 Study objective and contributions
 
-Working thesis:
+This study evaluates how heterogeneous spot-tracking strategies affect a
+common quantitative LEED position measurement. We test the hypothesis that a
+shared Gaussian estimator suppresses method-specific proposal differences
+when the intended spot remains inside its capture region, whereas motion and
+visibility loss expose differences in measurement coverage, post-gap recovery,
+and physically inconsistent continuation. We additionally test whether those
+differences remain visible in the pairwise physical endpoint
+\(\Delta R/R=\Delta D/D\). TrackLEED serves as the reference implementation
+and reproducibility vehicle for these experiments; the graphical application
+and its software feature set are not the subject of the study.
 
-> When a tracking proposal keeps the correct LEED spot inside the Gaussian
-> estimator's capture region, the common fit suppresses method-specific proposal
-> differences. During motion and visibility loss, methods differ chiefly in
-> measurement coverage, post-gap recovery, and physically inconsistent
-> continuation, which conditional position residuals alone do not reveal.
-
-Contributions:
+The contributions are:
 
 1. A common proposal-to-ROI-to-Gaussian measurement contract for heterogeneous
    point, bounding-box, mask, optical-flow, and LEED-domain trackers.
@@ -84,10 +156,20 @@ Contributions:
    subpixel image translations.
 3. A five-strategy comparison on independent Ag(111) energy scans using common
    denominators for visible measurement opportunities and natural I(V) gaps.
-4. A controlled SAM2/SAMURAI/DAM4SAM analysis that isolates the effect of memory
-   strategy under byte-identical checkpoint weights.
+4. A controlled SAM2/SAMURAI/DAM4SAM comparison of memory-aware propagation
+   strategies under byte-identical checkpoint weights.
 5. Propagation of tracker proposals to the pairwise physical endpoint
    `Delta R/R = Delta D/D` in a 701-image constant-energy Cu(111) sequence.
+
+The four experimental regimes are assigned distinct evidential roles rather
+than pooled into one composite ranking. Controlled translations test
+measurement-chain equivariance, Cu(111) provides a positive control for
+endpoint agreement, independent Ag(111) energy scans test motion and natural
+visibility gaps, and the matched SAM2-family panel examines a
+continuity--consistency trade-off. This design does not provide absolute
+spot-identity ground truth; it evaluates whether each strategy supports an
+available and physically self-consistent quantitative measurement under the
+frozen conditions.
 
 ## 2. Data and physical measurement model
 
