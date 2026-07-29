@@ -1,0 +1,64 @@
+{
+  "caption_limits": [
+    "The comparison contains one energy-scan series and two disjoint frozen pairs.",
+    "It is controlled mechanism evidence, not a general ranking of SAM2-family methods.",
+    "Coverage, recovery, and geometry-inconsistent accepted fits must be shown together.",
+    "The representative gap is outcome-selected for explanation; quantitative claims use both pairs.",
+    "Conditional pair-distance residuals cannot replace coverage or recovery."
+  ],
+  "controlled_family": {
+    "checkpoint_sha256": "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5",
+    "checkpoint_variant": "sam2.1_hiera_base_plus",
+    "common_estimator": "TrackLEED 2D elliptical Gaussian fit",
+    "evaluated_gaps_per_method": 13,
+    "identical_checkpoint_weights": true,
+    "manual_correction_or_reinitialization": "forbidden",
+    "measurement_roi_px": 48,
+    "method_implementations": {
+      "dam4sam": "sam21pp-B with distractor-aware memory",
+      "sam2": "sam2.1_hiera_base_plus vanilla propagation",
+      "samurai": "sam2.1_hiera_base_plus with motion-aware memory"
+    },
+    "methods": [
+      "sam2",
+      "samurai",
+      "dam4sam"
+    ],
+    "pair_count": 2,
+    "prompt": "single-object bbox 48x48 px",
+    "representative_point": "mask centroid",
+    "scientific_series_label": "Controlled scan",
+    "series_count": 1,
+    "visible_opportunities_per_method": 182
+  },
+  "figure": "Figure 4",
+  "memory_strategies": {
+    "dam4sam": "distractor-aware memory",
+    "sam2": "vanilla SAM2 propagation",
+    "samurai": "motion-aware memory"
+  },
+  "panel_order": [
+    "representative_visibility_gap",
+    "coverage_by_pair",
+    "gap_recovery_by_pair",
+    "geometry_inconsistency_by_pair",
+    "mechanistic_tradeoff_summary"
+  ],
+  "question": "What changes when the memory strategy changes under identical checkpoint weights?",
+  "representative_gap": {
+    "branch": "B1",
+    "direction": "decreasing energy",
+    "display_energies_ev": [
+      169.2,
+      166.5,
+      163.9,
+      160.9
+    ],
+    "display_normalization": "one shared linear intensity scale across all four raw crops",
+    "scientific_pair_label": "pair 1",
+    "scientific_series_label": "Controlled scan",
+    "selection_uses_method_outcomes": true
+  },
+  "schema_version": "1.0-frozen",
+  "status": "source_contract_frozen"
+}

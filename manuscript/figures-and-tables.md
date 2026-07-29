@@ -130,6 +130,8 @@ Final artifact:
 **Question:** What changes when the memory strategy changes under identical
 checkpoint weights?
 
+**Status:** source contract frozen; rendering pending.
+
 Proposed panels:
 
 - **a.** One representative visibility gap with SAM2, SAMURAI, and DAM4SAM
@@ -145,6 +147,12 @@ Primary source:
 
 Caption limitation: one series and two pairs; mechanism evidence, not a general
 ranking.
+
+Frozen source contract:
+
+- [artifact README](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
+- [source contract](figures/figure04_controlled_sam2_memory_tradeoff/contract.json)
+- [source provenance](figures/figure04_controlled_sam2_memory_tradeoff/source_data/source_provenance.json)
 
 ### Figure 5 - Propagation to the Cu(111) physical endpoint
 

@@ -1,0 +1,46 @@
+{
+  "figure": "Figure 4",
+  "schema_version": "1.0",
+  "sources": {
+    "family_aggregate": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/sam2_family_tradeoff.csv",
+      "sha256": "ab53a6a9fdf75d9f4737231b7dc585bdddb7fbdf750373ba5eed0b12acfdb461"
+    },
+    "pair_1_dam4sam_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/dam4sam_measurements.csv",
+      "sha256": "b6749c663e562f4f42e7b2888a80f16b36130dfee36cc80b53bec0b5c80ac080"
+    },
+    "pair_1_sam2_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/sam2_measurements.csv",
+      "sha256": "8fea8fcd3ebee5231d1a2d98d6bbe001b213791d99f265b6c023ea3c3bd29287"
+    },
+    "pair_1_samurai_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/samurai_measurements.csv",
+      "sha256": "fbaa944d6b6569d5582d84547fe5c32b7eac6bf36cd8ff58022efa6235083404"
+    },
+    "pair_1_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/comparison_summary.json",
+      "sha256": "9251f3feaec3f773ebe46b68a3fe75169a2a28179b9f1705aff436ac5ab1cb16"
+    },
+    "pair_2_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair2/trackers/comparison_summary.json",
+      "sha256": "8ab8576827aefa524469aa97a34450a0f122f6f2320dfd0891fba7422ab1f41d"
+    },
+    "representative_frame_160p9_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0044_T0000_E1609_C0000.tiff",
+      "sha256": "8b295ec121706cfffb352fe9c96ad1495b777e124910d4b04395e13c0327b73c"
+    },
+    "representative_frame_163p9_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0045_T0000_E1639_C0000.tiff",
+      "sha256": "5f2bd2608e0e333e36d082b74e53f6a425c885635e8a6da1ab0657cf2f094875"
+    },
+    "representative_frame_166p5_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0046_T0000_E1665_C0000.tiff",
+      "sha256": "989f5a9b40890617a811dba64710999960214e66fbdf14dd3c2e7b554d95d086"
+    },
+    "representative_frame_169p2_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0047_T0000_E1692_C0000.tiff",
+      "sha256": "bd6010b5b32554250298c2a7ed131eefd2b9613d53562d8e52e3f6182d54e8a3"
+    }
+  }
+}

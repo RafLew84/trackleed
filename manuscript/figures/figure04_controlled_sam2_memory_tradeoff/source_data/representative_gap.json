@@ -1,0 +1,35 @@
+{
+  "archive_series_id": "26a24",
+  "branch": "B1",
+  "crop_box_xyxy": [
+    200,
+    456,
+    328,
+    584
+  ],
+  "crop_files": {
+    "160.9": "crops/b1_160p9ev.tiff",
+    "163.9": "crops/b1_163p9ev.tiff",
+    "166.5": "crops/b1_166p5ev.tiff",
+    "169.2": "crops/b1_169p2ev.tiff"
+  },
+  "direction": "decreasing energy",
+  "display_energies_ev": [
+    169.2,
+    166.5,
+    163.9,
+    160.9
+  ],
+  "display_normalization": "one shared linear intensity scale across all four raw crops",
+  "first_expected_recovery_energy_ev": 160.9,
+  "gap_energies_ev": [
+    166.5,
+    163.9
+  ],
+  "reference_energy_ev": 187.9,
+  "role": "explanatory mechanism panel, not independent quantitative evidence",
+  "scientific_pair_label": "pair 1",
+  "scientific_series_label": "Controlled scan",
+  "selection_rule": "Starting at the common 187.9 eV seed and following the decreasing-energy branch, select the first natural I(V) gap for which the three controlled methods have different recovery outcomes. Use this outcome-selected case only as an explanatory mechanism panel; quantitative claims use both frozen pairs.",
+  "selection_uses_method_outcomes": true
+}
