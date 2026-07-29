@@ -40,10 +40,10 @@
 
 ## Statistical and presentation decisions
 
-- [ ] Decide on clustered uncertainty intervals using series/pair/trial as the
+- [x] Decide on clustered uncertainty intervals using series/pair/trial as the
       replication level.
 - [x] Do not treat successive images as independent replicates.
-- [ ] Decide which exact values stay in the main text and which move to tables or
+- [x] Decide which exact values stay in the main text and which move to tables or
       supplementary material.
 - [x] Keep coverage, recovery, geometry inconsistency, and conditional residual
       separate.

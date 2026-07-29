@@ -48,6 +48,9 @@ describes the corresponding physical state or experimental role.
   display items.
 - [`figures/`](figures/) - deterministic builders, source-data tables, manifests,
   and final publication assets.
+- [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) - frozen
+  per-trial and per-scan--pair reporting tables, leave-one-case-out sensitivity
+  analysis, deterministic builder, and manifest.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
 

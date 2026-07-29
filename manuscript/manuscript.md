@@ -31,8 +31,8 @@ Structure the abstract as one continuous paragraph:
    discriminating outcomes are measurement coverage, post-gap identity recovery,
    and physically inconsistent continuation.
 
-TODO[TEXT]: write the final abstract only after the main figures and uncertainty
-reporting are frozen.
+TODO[TEXT]: write the final abstract; the main figures and descriptive
+uncertainty-reporting policy are now frozen.
 
 ## Keywords
 
@@ -574,8 +574,29 @@ review was limited to a frozen set of 24 combined overlays selected
 independently of tracker output (12 temporal quantiles and 12
 temperature-cycle anchors), rather than all 14,020 proposals. Visual review
 was not used to correct a trajectory or change an outcome.
-TODO[DECISION]: before submission, decide whether to add uncertainty intervals
-at the trial, pair, or series level; image-level bootstrap intervals are excluded.
+
+We did not calculate inferential confidence intervals or \(p\)-values. The
+available between-unit structure comprised four separately initialized
+controlled-translation trials drawn from one Cu(111) sequence and two
+independently acquired series for the principal energy-scan experiment. The
+two frozen pairs within each energy scan were retained as stratified cases,
+not treated as additional independent series. The SAM2-family experiment and
+the Cu(111) positive control each contained one series and two pairs. These
+counts and their nested structure do not support stable population-level
+interval estimation. Binomial intervals over images, measurement
+opportunities, or gaps were also excluded because those observations are
+correlated within propagated trajectories.
+
+Pooled counts are instead accompanied by descriptive stratification. Table S5
+reports controlled-translation coverage and conditional error summaries for
+each independently initialized source trial. Table S3 reports the principal
+energy-scan outcomes for every frozen scan--pair case. A leave-one-case-out
+sensitivity analysis omits each of those four cases in turn and recomputes
+only count-based coverage, recovery, and geometry-inconsistency rates; it is
+not a confidence interval and does not reaggregate conditional case-median
+residuals. Gaussian center uncertainties are fit diagnostics for individual
+accepted image measurements, not estimates of sampling uncertainty in tracker
+performance.
 
 ### 4.2 Controlled translations
 
@@ -806,6 +827,8 @@ accurate, but this conditional result did not eliminate differences in
 measurement availability. The experiment establishes equivariance of the
 complete measurement chain under a known image transform, not absolute
 spot-identity accuracy.
+The four independently initialized trial-level summaries are retained
+separately in Table S5.
 
 ### 5.2 Cu(111) is a positive control, not a tracker ranking
 
@@ -878,6 +901,17 @@ losing substantially more visible measurements and gap recoveries. Conditional
 distance quality therefore did not summarize measurement-chain robustness;
 coverage, recovery, and geometry-inconsistent continuation remained separate
 outcomes.
+
+The case-stratified results and leave-one-case-out analysis are reported in
+Table S3. Across omission of each frozen scan--pair case, coverage ranged from
+97.4--98.8% for LocoTrack, 97.2--98.8% for OSTrack and DAM4SAM, 81.9--87.6%
+for Lucas--Kanade, and 95.5--97.5% for EasyLEED. The corresponding
+gap-recovery ranges were 94.1--100.0%, 84.2--88.9%, 94.1--100.0%,
+63.2--76.5%, and 88.9--100.0%, respectively. Geometry-inconsistency ranges
+were 12.6--13.5%, 11.8--13.5%, 12.6--13.6%, 3.4--9.5%, and 0.0--2.4%.
+These ranges show how the pooled count summaries depend on any one predefined
+case; they are descriptive sensitivity results, not confidence intervals or
+population-level method rankings.
 
 ### 5.4 Memory-aware strategies show a continuity--consistency trade-off
 

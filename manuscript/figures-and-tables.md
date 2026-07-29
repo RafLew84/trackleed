@@ -269,10 +269,19 @@ Do not add an overall score, rank column, or color scale suggesting one.
 - **Figure S5:** accepted but geometry-inconsistent continuation examples.
 - **Table S1:** full versions, hashes, checkpoints, and environments.
 - **Table S2:** Gaussian fit gates and all validation denominators.
-- **Table S3:** per-pair energy-scan coverage, recovery, and conditional
-  residuals.
+- **Table S3:** per-scan and per-pair energy-scan coverage, recovery, geometry
+  inconsistency, and conditional residuals with their surviving
+  denominators; leave-one-case-out ranges for count-based outcomes are a
+  sensitivity analysis, not confidence intervals.
 - **Table S4:** Cu plateau, post-plateau `Delta R/R` minimum, and final endpoint
   values by method and pair.
+- **Table S5:** per-source-trial controlled-translation proposal and
+  measurement coverage, conditional median/P95/maximum displacement error,
+  pair coverage, and maximum absolute `Delta D/D`.
+
+The frozen source tables, deterministic builder, and rendered drafts for
+Tables S3 and S5 are documented in the
+[stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md).
 
 ## Asset policy
 
