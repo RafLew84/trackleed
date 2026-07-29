@@ -9,30 +9,33 @@ TODO[AUTHOR]: author list, affiliations, corresponding author, ORCID identifiers
 
 ## Abstract
 
-Structure the abstract as one continuous paragraph:
-
-1. **Context:** quantitative LEED analysis requires the same diffraction spot to
-   remain associated with the measurement ROI while the pattern moves and spot
-   visibility changes.
-2. **Problem:** native point, bounding-box, mask, optical-flow, and domain-specific
-   trackers produce heterogeneous outputs, so their proposal coordinates are not
-   directly comparable as final physical measurements.
-3. **Approach:** compare five tracking strategies using one downstream `48 x 48`
-   ROI and one two-dimensional Gaussian estimator; evaluate a positive control,
-   known translations, independent energy scans with natural I(V) visibility gaps,
-   and a controlled SAM2-family memory experiment.
-4. **Main results:** known-translation median full-chain errors span
-   `0.0043-0.0265 px` with `92.5-100%` Gaussian-measurement coverage; on the
-   independent Ag(111) energy scans, coverage spans `188/221-217/221` and gap recovery
-   `17/24-23/24`; memory-aware SAM2 variants improve continuity but also increase
-   geometry-inconsistent accepted fits.
-5. **Conclusion:** once the intended spot remains inside the Gaussian estimator's
-   capture region, proposal differences are strongly suppressed; the practically
-   discriminating outcomes are measurement coverage, post-gap identity recovery,
-   and physically inconsistent continuation.
-
-TODO[TEXT]: write the final abstract; the main figures and descriptive
-uncertainty-reporting policy are now frozen.
+Quantitative low-energy electron diffraction (LEED) analysis requires a
+measurement region to remain associated with its diffraction spot as the
+pattern moves and spot visibility changes. We evaluated how five heterogeneous
+tracking strategies affect a common position measurement rather than treating
+their native outputs as directly comparable positions. Each supplied a
+proposal to place a 48 × 48-pixel ROI; the reported spot center was obtained
+with the same two-dimensional Gaussian estimator.
+Validation combined known translations, a 701-image Cu(111) positive
+control, two independent Ag(111) energy scans with natural \(I(V)\) visibility
+gaps, and a controlled SAM2-family memory experiment.
+Under known translations, median full-chain displacement errors ranged from
+0.0043 to 0.0265 px with 92.5–100% Gaussian-measurement coverage. In the
+Cu(111) positive control, every method produced 2,804/2,804 accepted spot
+measurements and 701/701 valid endpoints for each primary pair. Across four
+frozen pairs in the two Ag(111) scans, branch-consistent coverage ranged from
+188/221 to 217/221 and post-gap recovery from 17/24 to 23/24, while
+conditional median pair-distance residuals among jointly branch-consistent
+pair images spanned a narrow range of 1.737–1.837 px. In a supporting
+single-series, two-pair memory experiment, SAMURAI and DAM4SAM increased
+coverage from 126/182 for SAM2 to 181/182 and 179/182, respectively, while
+also increasing geometry-inconsistent continuation; this mechanism result
+does not establish a general ranking. These experiments assess
+measurement-chain robustness rather than absolute tracking accuracy. The
+common Gaussian estimator strongly suppressed proposal differences when the
+intended spot remained inside its capture region; measurement coverage,
+post-gap identity recovery, and geometry-inconsistent continuation were more
+discriminating than conditional residuals alone.
 
 ## Keywords
 

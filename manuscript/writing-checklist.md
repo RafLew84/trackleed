@@ -53,7 +53,7 @@
 
 ## Claim-safety review
 
-- [ ] Check every abstract and conclusion statement against
+- [x] Check every abstract and conclusion statement against
       `claim-evidence-map.md`.
 - [ ] Do not claim the first automated LEED tracker.
 - [ ] Do not call controlled equivariance absolute tracking accuracy.
@@ -78,7 +78,7 @@
 - [ ] Match abstract length, highlights, graphical abstract, and reference style to
       the current journal instructions.
 - [ ] Run spelling, equation, unit, and cross-reference checks.
-- [ ] Verify that every number in the abstract appears in a validated source table.
+- [x] Verify that every number in the abstract appears in a validated source table.
 - [ ] Ensure all figures remain legible at final publication dimensions.
 - [ ] Complete CRediT, competing-interest, funding, and data-availability
       statements.
