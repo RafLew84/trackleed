@@ -141,6 +141,8 @@
           "available_frame_count": 701,
           "maximum_reduced_center_error_cache_px": 0.0,
           "reduced_center_matches_all_available_frames": true,
+          "reexported_trajectory_path": "source_data/representative_native_geometry_replay.csv",
+          "reexported_trajectory_sha256": "ac082e9229f37d080ff7bcaf619d063497f2039be0c2925a1ed8d68613d998be",
           "tolerance_cache_px": 0.0005
         }
       },
@@ -164,14 +166,14 @@
         "bbox_xyxy_cache_px": [
           31.16613006591797,
           176.8203582763672,
-          41.49694538116455,
-          187.46649932861328
+          41.496944427490234,
+          187.46649169921875
         ],
         "bbox_xyxy_original_px": [
           121.74269556999207,
           690.7045245170593,
-          162.09744289517403,
-          732.2910130023956
+          162.09743916988373,
+          732.2909832000732
         ],
         "center_consistency_error_original_px": 0.0,
         "coordinate_convention": "xywh and half-open xyxy",
@@ -195,6 +197,8 @@
           "available_frame_count": 701,
           "maximum_reduced_center_error_cache_px": 7.864199877963372e-06,
           "reduced_center_matches_all_available_frames": true,
+          "reexported_trajectory_path": "source_data/representative_native_geometry_replay.csv",
+          "reexported_trajectory_sha256": "ac082e9229f37d080ff7bcaf619d063497f2039be0c2925a1ed8d68613d998be",
           "tolerance_cache_px": 0.0005
         }
       }
@@ -212,9 +216,23 @@
         256
       ],
       "query_independence": "Both frozen adapters process each query independently; later queries cannot affect spot 1.",
-      "query_scope": "selected spot 1 only"
+      "query_scope": "selected spot 1 only",
+      "shared_initialization": {
+        "seed_bbox_xyxy_original_px": [
+          116.795,
+          688.6157,
+          164.795,
+          736.6157
+        ],
+        "seed_center_original_px": [
+          140.795,
+          712.6157
+        ],
+        "seed_is_ground_truth": false,
+        "seed_source": "common_2d_gaussian_fit_from_frozen_yolo_roi"
+      }
     },
-    "schema_version": "1.0-frozen",
+    "schema_version": "1.1-frozen",
     "selection": {
       "frame_count": 701,
       "seed_frame_order": 0,
@@ -230,7 +248,7 @@
       },
       "exporter": {
         "path": "manuscript/figures/figure01_measurement_chain/export_native_geometry.py",
-        "sha256": "0b89878f0db794cb0016b848333d15834176b692fdc89005a98acdf915cb8ba0"
+        "sha256": "ab7f11388961d6b390a5499d82448468dcabd790b25e4efaacb54471a0c7bc4b"
       },
       "frozen_gpu_runner": {
         "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_gpu_cu.py",
@@ -239,6 +257,10 @@
       "inference_frames": {
         "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/inference_frames.csv",
         "sha256": "247015e43fa30ee300a66d58d195c65b04e1abf686d40822ae2a723c6db55f66"
+      },
+      "native_geometry_analysis": {
+        "path": "trackleed/analysis/publication_native_geometry.py",
+        "sha256": "08a7edafe62ac74644ffe5fcce8da8c2f5f68a9fe60f81ab169a01d4010f68f3"
       },
       "seed_prompts": {
         "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/seed_prompts.csv",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import importlib.util
 import json
@@ -20,6 +21,16 @@ from PIL import Image
 
 FIGURE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = FIGURE_ROOT.parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from trackleed.analysis.publication_native_geometry import (  # noqa: E402
+    ORIGINAL_TO_CACHE,
+    compare_reduced_trajectories,
+    summarize_dam4sam_mask,
+    summarize_ostrack_bbox,
+)
+
 SOURCE_DATA_DIRECTORY = FIGURE_ROOT / "source_data"
 ARTIFACT_ROOT = (
     REPOSITORY_ROOT
@@ -30,6 +41,7 @@ GPU_NATIVE_ROOT = ARTIFACT_ROOT / "runs/gpu-native-v1"
 UPSTREAM_RUNNER_PATH = ARTIFACT_ROOT / "run_gpu_cu.py"
 OUTPUT_JSON_NAME = "representative_native_geometry.json"
 MASK_PNG_NAME = "representative_dam4sam_mask_cache.png"
+REPLAY_CSV_NAME = "representative_native_geometry_replay.csv"
 
 OSTRACK_METHOD = "ostrack_vitb_256_mae_ce"
 DAM4SAM_METHOD = "dam4sam_sam21pp_l"
@@ -39,8 +51,10 @@ SPOT_INDEX = 0
 SEED_FRAME_ORDER = 0
 TARGET_FRAME_ORDER = 700
 FRAME_COUNT = 701
-ORIGINAL_TO_CACHE = 0.256
-CENTER_TOLERANCE_CACHE_PX = 5e-4
+RESOURCE_KEYS = {
+    OSTRACK_METHOD: "ostrack",
+    DAM4SAM_METHOD: "dam4sam",
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -57,152 +71,26 @@ def write_json(path: Path, payload: object) -> None:
         handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def _float_list(values: Sequence[float] | np.ndarray) -> list[float]:
-    return [float(value) for value in np.asarray(values).reshape(-1)]
+def read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        return list(csv.DictReader(handle))
 
 
-def _center_error(
-    actual_original_px: np.ndarray,
-    expected_original_px: np.ndarray,
-) -> float:
-    return float(
-        np.linalg.norm(
-            np.asarray(actual_original_px, dtype=np.float64)
-            - np.asarray(expected_original_px, dtype=np.float64)
-        )
+def write_csv(path: Path, rows: Sequence[dict[str, object]]) -> None:
+    fields = (
+        "method",
+        "frame_order",
+        "frame_id",
+        "proposal_available",
+        "x_cache_px",
+        "y_cache_px",
     )
-
-
-def _require_matching_center(
-    actual_original_px: np.ndarray,
-    expected_original_px: np.ndarray,
-    *,
-    geometry_name: str,
-) -> float:
-    error_original_px = _center_error(
-        actual_original_px,
-        expected_original_px,
-    )
-    tolerance_original_px = CENTER_TOLERANCE_CACHE_PX / ORIGINAL_TO_CACHE
-    if error_original_px > tolerance_original_px:
-        raise ValueError(
-            f"{geometry_name} does not reproduce the archived reduced center: "
-            f"error {error_original_px:.9f} original px exceeds "
-            f"{tolerance_original_px:.9f}."
-        )
-    return error_original_px
-
-
-def summarize_ostrack_bbox(
-    bbox_xywh_cache_px: np.ndarray,
-    *,
-    expected_center_original_px: np.ndarray,
-) -> dict[str, object]:
-    bbox = np.asarray(bbox_xywh_cache_px, dtype=np.float64).reshape(-1)
-    if (
-        bbox.shape != (4,)
-        or not np.isfinite(bbox).all()
-        or bbox[2] <= 0.0
-        or bbox[3] <= 0.0
-    ):
-        raise ValueError("OSTrack native bbox must be finite with positive size")
-    bbox_xyxy = np.asarray(
-        [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]],
-        dtype=np.float64,
-    )
-    center_cache = np.asarray(
-        [bbox[0] + bbox[2] * 0.5, bbox[1] + bbox[3] * 0.5],
-        dtype=np.float64,
-    )
-    center_original = center_cache / ORIGINAL_TO_CACHE
-    center_error = _require_matching_center(
-        center_original,
-        expected_center_original_px,
-        geometry_name="OSTrack bbox",
-    )
-    return {
-        "geometry_type": "bounding_box",
-        "coordinate_convention": "xywh and half-open xyxy",
-        "bbox_xywh_cache_px": _float_list(bbox),
-        "bbox_xyxy_cache_px": _float_list(bbox_xyxy),
-        "bbox_xywh_original_px": _float_list(bbox / ORIGINAL_TO_CACHE),
-        "bbox_xyxy_original_px": _float_list(
-            bbox_xyxy / ORIGINAL_TO_CACHE
-        ),
-        "reduction_rule": "x+w/2, y+h/2 from native bbox xywh",
-        "reduced_center_cache_px": _float_list(center_cache),
-        "reduced_center_original_px": _float_list(center_original),
-        "archived_reduced_center_original_px": _float_list(
-            expected_center_original_px
-        ),
-        "center_consistency_error_original_px": center_error,
-    }
-
-
-def summarize_dam4sam_mask(
-    mask_cache: np.ndarray,
-    *,
-    expected_center_original_px: np.ndarray,
-) -> dict[str, object]:
-    mask = np.asarray(mask_cache, dtype=bool)
-    if mask.ndim != 2:
-        raise ValueError(f"DAM4SAM mask must be two-dimensional: {mask.shape}")
-    ys, xs = np.nonzero(mask)
-    if xs.size == 0:
-        raise ValueError("DAM4SAM native mask is empty")
-    bbox_xyxy = np.asarray(
-        [
-            float(np.min(xs)),
-            float(np.min(ys)),
-            float(np.max(xs) + 1),
-            float(np.max(ys) + 1),
-        ],
-        dtype=np.float64,
-    )
-    bbox_xywh = np.asarray(
-        [
-            bbox_xyxy[0],
-            bbox_xyxy[1],
-            bbox_xyxy[2] - bbox_xyxy[0],
-            bbox_xyxy[3] - bbox_xyxy[1],
-        ],
-        dtype=np.float64,
-    )
-    centroid_cache = np.asarray(
-        [float(np.mean(xs)), float(np.mean(ys))],
-        dtype=np.float64,
-    )
-    centroid_original = centroid_cache / ORIGINAL_TO_CACHE
-    center_error = _require_matching_center(
-        centroid_original,
-        expected_center_original_px,
-        geometry_name="DAM4SAM mask centroid",
-    )
-    return {
-        "geometry_type": "binary_mask",
-        "coordinate_convention": (
-            "mask[y,x] on the 256x256 tracking cache; bbox is half-open xyxy"
-        ),
-        "mask_shape_cache_px": [int(mask.shape[0]), int(mask.shape[1])],
-        "mask_area_cache_px": int(xs.size),
-        "mask_bbox_xyxy_cache_px": _float_list(bbox_xyxy),
-        "mask_bbox_xywh_cache_px": _float_list(bbox_xywh),
-        "mask_bbox_xyxy_original_px": _float_list(
-            bbox_xyxy / ORIGINAL_TO_CACHE
-        ),
-        "mask_bbox_xywh_original_px": _float_list(
-            bbox_xywh / ORIGINAL_TO_CACHE
-        ),
-        "reduction_rule": (
-            "arithmetic mean of x indices and y indices of all true mask pixels"
-        ),
-        "reduced_centroid_cache_px": _float_list(centroid_cache),
-        "reduced_centroid_original_px": _float_list(centroid_original),
-        "archived_reduced_center_original_px": _float_list(
-            expected_center_original_px
-        ),
-        "center_consistency_error_original_px": center_error,
-    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
 
 
 def _load_upstream_runner() -> ModuleType:
@@ -228,15 +116,13 @@ def _archived_payload(method: str) -> dict[str, np.ndarray]:
         return {name: np.asarray(data[name]) for name in data.files}
 
 
-def _validate_replayed_trajectory(
+def _compare_with_archived_trajectory(
     method: str,
     *,
     tracks_xy_cache: np.ndarray,
     proposal_available: np.ndarray,
 ) -> dict[str, object]:
     archived = _archived_payload(method)
-    actual_tracks = np.asarray(tracks_xy_cache, dtype=np.float64)
-    actual_available = np.asarray(proposal_available, dtype=bool)
     expected_tracks = np.stack(
         (
             np.asarray(archived["x_cache_px"], dtype=np.float64),
@@ -248,40 +134,27 @@ def _validate_replayed_trajectory(
         archived["proposal_available"],
         dtype=bool,
     )
-    if actual_tracks.shape != (FRAME_COUNT, 2):
-        raise ValueError(
-            f"{method} replay has unexpected trajectory shape {actual_tracks.shape}"
-        )
-    if not np.array_equal(actual_available, expected_available):
-        mismatch_count = int(
-            np.count_nonzero(actual_available != expected_available)
-        )
-        raise ValueError(
-            f"{method} replay availability differs in {mismatch_count} frames"
-        )
-    distances = np.linalg.norm(
-        actual_tracks[expected_available] - expected_tracks[expected_available],
-        axis=-1,
+    comparison = compare_reduced_trajectories(
+        tracks_xy_cache,
+        proposal_available,
+        expected_tracks,
+        expected_available,
+        method=method,
     )
-    maximum_error = float(np.max(distances)) if distances.size else 0.0
-    if maximum_error > CENTER_TOLERANCE_CACHE_PX:
-        raise ValueError(
-            f"{method} replay trajectory differs from the archived reduction: "
-            f"{maximum_error:.9f} cache px"
-        )
-    return {
-        "archived_payload_path": (
-            path := GPU_NATIVE_ROOT
-            / method
-            / f"{method}_spot_{SPOT_ID:02d}.npz"
-        ).resolve().relative_to(REPOSITORY_ROOT.resolve()).as_posix(),
-        "archived_payload_sha256": sha256_file(path),
-        "availability_matches_all_frames": True,
-        "reduced_center_matches_all_available_frames": True,
-        "available_frame_count": int(np.count_nonzero(expected_available)),
-        "maximum_reduced_center_error_cache_px": maximum_error,
-        "tolerance_cache_px": CENTER_TOLERANCE_CACHE_PX,
-    }
+    comparison.update(
+        {
+            "archived_payload_path": (
+                path := GPU_NATIVE_ROOT
+                / method
+                / f"{method}_spot_{SPOT_ID:02d}.npz"
+            )
+            .resolve()
+            .relative_to(REPOSITORY_ROOT.resolve())
+            .as_posix(),
+            "archived_payload_sha256": sha256_file(path),
+        }
+    )
+    return comparison
 
 
 def _run_ostrack(
@@ -291,7 +164,7 @@ def _run_ostrack(
     query_points: np.ndarray,
     query_boxes: np.ndarray,
     manifest: dict[str, Any],
-) -> dict[str, object]:
+) -> tuple[dict[str, object], np.ndarray, np.ndarray]:
     from trackleed.analysis.ostrack_backend import (
         OstrackRuntimeSettings,
         run_ostrack_offline,
@@ -328,7 +201,7 @@ def _run_ostrack(
         & (result.tracked_bboxes_xywh[0, :, 2] > 0.0)
         & (result.tracked_bboxes_xywh[0, :, 3] > 0.0)
     )
-    trajectory = _validate_replayed_trajectory(
+    trajectory = _compare_with_archived_trajectory(
         method,
         tracks_xy_cache=result.tracks_xy[0],
         proposal_available=available,
@@ -355,7 +228,7 @@ def _run_ostrack(
             "trajectory_replay": trajectory,
         }
     )
-    return summary
+    return summary, np.asarray(result.tracks_xy[0]), available
 
 
 def _run_dam4sam(
@@ -366,7 +239,7 @@ def _run_dam4sam(
     query_boxes: np.ndarray,
     manifest: dict[str, Any],
     output_directory: Path,
-) -> dict[str, object]:
+) -> tuple[dict[str, object], np.ndarray, np.ndarray]:
     from trackleed.analysis.dam4sam_backend import (
         Dam4SamRuntimeSettings,
         run_dam4sam_offline,
@@ -403,7 +276,7 @@ def _run_dam4sam(
         & np.isfinite(result.mask_areas[0])
         & (result.mask_areas[0] > 0.0)
     )
-    trajectory = _validate_replayed_trajectory(
+    trajectory = _compare_with_archived_trajectory(
         method,
         tracks_xy_cache=result.tracks_xy[0],
         proposal_available=available,
@@ -451,10 +324,70 @@ def _run_dam4sam(
             "trajectory_replay": trajectory,
         }
     )
-    return summary
+    return summary, np.asarray(result.tracks_xy[0]), available
 
 
-def _base_payload(manifest: dict[str, Any]) -> dict[str, object]:
+def _write_replay_trajectory(
+    output_directory: Path,
+    *,
+    method: str,
+    frame_rows: Sequence[dict[str, str]],
+    tracks_xy_cache: np.ndarray,
+    proposal_available: np.ndarray,
+) -> Path:
+    replay_path = output_directory / REPLAY_CSV_NAME
+    retained_rows = (
+        [
+            row
+            for row in read_csv(replay_path)
+            if row["method"] != method
+        ]
+        if replay_path.is_file()
+        else []
+    )
+    tracks = np.asarray(tracks_xy_cache, dtype=np.float64)
+    available = np.asarray(proposal_available, dtype=bool)
+    if tracks.shape != (FRAME_COUNT, 2) or available.shape != (FRAME_COUNT,):
+        raise ValueError(f"{method} replay arrays have unexpected shapes")
+    new_rows: list[dict[str, object]] = []
+    for frame_order, frame in enumerate(frame_rows):
+        is_available = bool(available[frame_order])
+        new_rows.append(
+            {
+                "method": method,
+                "frame_order": frame_order,
+                "frame_id": int(frame["frame_id"]),
+                "proposal_available": (
+                    "true" if is_available else "false"
+                ),
+                "x_cache_px": (
+                    format(float(tracks[frame_order, 0]), ".17g")
+                    if is_available
+                    else ""
+                ),
+                "y_cache_px": (
+                    format(float(tracks[frame_order, 1]), ".17g")
+                    if is_available
+                    else ""
+                ),
+            }
+        )
+    method_order = {name: index for index, name in enumerate(EXPORT_METHODS)}
+    combined = retained_rows + new_rows
+    combined.sort(
+        key=lambda row: (
+            method_order[str(row["method"])],
+            int(row["frame_order"]),
+        )
+    )
+    write_csv(replay_path, combined)
+    return replay_path
+
+
+def _base_payload(
+    manifest: dict[str, Any],
+    seeds: Sequence[dict[str, str]],
+) -> dict[str, object]:
     sources: dict[str, dict[str, str]] = {}
     for name, path in {
         "contract_manifest": ARTIFACT_ROOT / "manifest.json",
@@ -462,6 +395,10 @@ def _base_payload(manifest: dict[str, Any]) -> dict[str, object]:
         "seed_prompts": ARTIFACT_ROOT / "seed_prompts.csv",
         "frozen_gpu_runner": UPSTREAM_RUNNER_PATH,
         "exporter": Path(__file__).resolve(),
+        "native_geometry_analysis": (
+            REPOSITORY_ROOT
+            / "trackleed/analysis/publication_native_geometry.py"
+        ),
     }.items():
         sources[name] = {
             "path": path.resolve()
@@ -472,7 +409,7 @@ def _base_payload(manifest: dict[str, Any]) -> dict[str, object]:
     method_contracts = {}
     for method in EXPORT_METHODS:
         configuration = manifest["method_configurations"][method]
-        resource_key = runner_resource_key(method)
+        resource_key = RESOURCE_KEYS[method]
         resource = manifest["method_resources"][resource_key]
         method_contracts[method] = {
             "method_configuration_sha256": manifest[
@@ -487,7 +424,7 @@ def _base_payload(manifest: dict[str, Any]) -> dict[str, object]:
             "upstream_revision": configuration["upstream_revision"],
         }
     return {
-        "schema_version": "1.0-frozen",
+        "schema_version": "1.1-frozen",
         "status": "partial",
         "figure": "Figure 1",
         "selection": {
@@ -509,19 +446,25 @@ def _base_payload(manifest: dict[str, Any]) -> dict[str, object]:
             "correction_or_reinitialization": "forbidden",
             "input_cache_shape": [256, 256],
             "coordinate_scale_original_to_cache": ORIGINAL_TO_CACHE,
+            "shared_initialization": {
+                "seed_center_original_px": [
+                    float(seeds[SPOT_INDEX]["center_x_original_px"]),
+                    float(seeds[SPOT_INDEX]["center_y_original_px"]),
+                ],
+                "seed_bbox_xyxy_original_px": [
+                    float(seeds[SPOT_INDEX]["bbox_x0_original_px"]),
+                    float(seeds[SPOT_INDEX]["bbox_y0_original_px"]),
+                    float(seeds[SPOT_INDEX]["bbox_x1_original_px"]),
+                    float(seeds[SPOT_INDEX]["bbox_y1_original_px"]),
+                ],
+                "seed_source": seeds[SPOT_INDEX]["seed_source"],
+                "seed_is_ground_truth": False,
+            },
         },
         "method_contracts": method_contracts,
         "sources": sources,
         "methods": {},
-    }
-
-
-def runner_resource_key(method: str) -> str:
-    if method == OSTRACK_METHOD:
-        return "ostrack"
-    if method == DAM4SAM_METHOD:
-        return "dam4sam"
-    raise ValueError(method)
+}
 
 
 def export(methods: Sequence[str], output_directory: Path) -> None:
@@ -542,34 +485,57 @@ def export(methods: Sequence[str], output_directory: Path) -> None:
 
     output_directory.mkdir(parents=True, exist_ok=True)
     output_json_path = output_directory / OUTPUT_JSON_NAME
-    payload = _base_payload(manifest)
+    payload = _base_payload(manifest, seeds)
     if output_json_path.is_file():
         existing = json.loads(output_json_path.read_text(encoding="utf-8"))
-        if existing.get("schema_version") == payload["schema_version"]:
+        compatible_keys = (
+            "schema_version",
+            "selection",
+            "replay_contract",
+            "method_contracts",
+            "sources",
+        )
+        if all(
+            existing.get(key) == payload.get(key) for key in compatible_keys
+        ):
             payload["methods"] = existing.get("methods", {})
 
+    method_runners = {
+        OSTRACK_METHOD: _run_ostrack,
+        DAM4SAM_METHOD: _run_dam4sam,
+    }
     for method in methods:
         started = perf_counter()
-        if method == OSTRACK_METHOD:
-            result = _run_ostrack(
-                runner,
-                frames=frames,
-                query_points=query_points,
-                query_boxes=query_boxes,
-                manifest=manifest,
-            )
-        elif method == DAM4SAM_METHOD:
-            result = _run_dam4sam(
-                runner,
-                frames=frames,
-                query_points=query_points,
-                query_boxes=query_boxes,
-                manifest=manifest,
-                output_directory=output_directory,
-            )
-        else:
-            raise ValueError(f"Unsupported export method: {method}")
+        keyword_arguments = {
+            "runner": runner,
+            "frames": frames,
+            "query_points": query_points,
+            "query_boxes": query_boxes,
+            "manifest": manifest,
+        }
+        if method == DAM4SAM_METHOD:
+            keyword_arguments["output_directory"] = output_directory
+        result, replay_tracks, replay_available = method_runners[method](
+            **keyword_arguments
+        )
+        replay_path = _write_replay_trajectory(
+            output_directory,
+            method=method,
+            frame_rows=frame_rows,
+            tracks_xy_cache=replay_tracks,
+            proposal_available=replay_available,
+        )
         payload["methods"][method] = result
+        replay_hash = sha256_file(replay_path)
+        for method_payload in payload["methods"].values():
+            method_payload["trajectory_replay"].update(
+                {
+                    "reexported_trajectory_path": (
+                        f"source_data/{REPLAY_CSV_NAME}"
+                    ),
+                    "reexported_trajectory_sha256": replay_hash,
+                }
+            )
         payload["status"] = (
             "native_geometry_reexported"
             if set(payload["methods"]) == set(EXPORT_METHODS)
@@ -590,6 +556,56 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
         raise ValueError("Figure 1 native-geometry re-export is incomplete")
     if set(payload.get("methods", {})) != set(EXPORT_METHODS):
         raise ValueError("Figure 1 native-geometry method set changed")
+    expected_selection = {
+        "series_id": "cu111_56ev",
+        "frame_count": FRAME_COUNT,
+        "seed_frame_order": SEED_FRAME_ORDER,
+        "target_frame_order": TARGET_FRAME_ORDER,
+        "target_frame_id": TARGET_FRAME_ORDER,
+        "spot_id": SPOT_ID,
+    }
+    if payload.get("selection") != expected_selection:
+        raise ValueError("Figure 1 native-geometry selection contract changed")
+    replay_contract = payload.get("replay_contract", {})
+    expected_replay_fields = {
+        "full_chronological_sequence_replayed": True,
+        "inclusive_frame_order_range": [0, TARGET_FRAME_ORDER],
+        "query_scope": "selected spot 1 only",
+        "correction_or_reinitialization": "forbidden",
+        "input_cache_shape": [256, 256],
+        "coordinate_scale_original_to_cache": ORIGINAL_TO_CACHE,
+    }
+    for field, expected in expected_replay_fields.items():
+        if replay_contract.get(field) != expected:
+            raise ValueError(
+                f"Figure 1 native-geometry replay field changed: {field}"
+            )
+    seed_rows = [
+        row
+        for row in read_csv(ARTIFACT_ROOT / "seed_prompts.csv")
+        if int(row["spot_id"]) == SPOT_ID
+    ]
+    if len(seed_rows) != 1:
+        raise ValueError("Figure 1 native-geometry seed row changed")
+    seed = seed_rows[0]
+    expected_initialization = {
+        "seed_center_original_px": [
+            float(seed["center_x_original_px"]),
+            float(seed["center_y_original_px"]),
+        ],
+        "seed_bbox_xyxy_original_px": [
+            float(seed["bbox_x0_original_px"]),
+            float(seed["bbox_y0_original_px"]),
+            float(seed["bbox_x1_original_px"]),
+            float(seed["bbox_y1_original_px"]),
+        ],
+        "seed_source": seed["seed_source"],
+        "seed_is_ground_truth": False,
+    }
+    if replay_contract.get("shared_initialization") != expected_initialization:
+        raise ValueError(
+            "Figure 1 native-geometry shared initialization changed"
+        )
     for name, source in payload["sources"].items():
         source_path = REPOSITORY_ROOT / source["path"]
         if not source_path.is_file() or sha256_file(source_path) != source["sha256"]:
@@ -607,6 +623,70 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
                 raise ValueError(
                     f"Native-geometry {method} {path_key} hash mismatch"
                 )
+
+    replay_path = output_directory / REPLAY_CSV_NAME
+    replay_hash = sha256_file(replay_path)
+    replay_rows = read_csv(replay_path)
+    inference_rows = read_csv(ARTIFACT_ROOT / "inference_frames.csv")
+    if len(replay_rows) != FRAME_COUNT * len(EXPORT_METHODS):
+        raise ValueError("Figure 1 native-geometry replay row count changed")
+    for method in EXPORT_METHODS:
+        method_rows = [
+            row for row in replay_rows if row["method"] == method
+        ]
+        if [int(row["frame_order"]) for row in method_rows] != list(
+            range(FRAME_COUNT)
+        ):
+            raise ValueError(
+                f"Figure 1 {method} replay frame order changed"
+            )
+        if [int(row["frame_id"]) for row in method_rows] != [
+            int(row["frame_id"]) for row in inference_rows
+        ]:
+            raise ValueError(f"Figure 1 {method} replay frame IDs changed")
+        actual_available = np.asarray(
+            [row["proposal_available"] == "true" for row in method_rows],
+            dtype=bool,
+        )
+        actual_tracks = np.asarray(
+            [
+                [
+                    float(row["x_cache_px"]) if row["x_cache_px"] else np.nan,
+                    float(row["y_cache_px"]) if row["y_cache_px"] else np.nan,
+                ]
+                for row in method_rows
+            ],
+            dtype=np.float64,
+        )
+        recomputed = _compare_with_archived_trajectory(
+            method,
+            tracks_xy_cache=actual_tracks,
+            proposal_available=actual_available,
+        )
+        recorded = payload["methods"][method]["trajectory_replay"]
+        for key, expected in recomputed.items():
+            actual = recorded.get(key)
+            if isinstance(expected, float):
+                matches = math.isclose(
+                    float(actual),
+                    expected,
+                    rel_tol=0.0,
+                    abs_tol=1e-15,
+                )
+            else:
+                matches = actual == expected
+            if not matches:
+                raise ValueError(
+                    f"Figure 1 {method} replay metric changed: {key}"
+                )
+        if (
+            recorded.get("reexported_trajectory_path")
+            != f"source_data/{REPLAY_CSV_NAME}"
+            or recorded.get("reexported_trajectory_sha256") != replay_hash
+        ):
+            raise ValueError(
+                f"Figure 1 {method} replay trajectory hash changed"
+            )
 
     ostrack = payload["methods"][OSTRACK_METHOD]
     summarize_ostrack_bbox(

@@ -1,11 +1,11 @@
 {
   "code_sha256": {
-    "export_native_geometry.py": "0b89878f0db794cb0016b848333d15834176b692fdc89005a98acdf915cb8ba0",
-    "freeze_case.py": "f5c8dacc7ca07b9ea44880723362dc91d8ae0a64d5360043c7951c984d6b63fb",
-    "test_export_native_geometry.py": "adf3b2daf0e4e53a8863bee4cb3c9e6fa9898b2565f022a45fc342f8d37c410a",
+    "export_native_geometry.py": "ab7f11388961d6b390a5499d82448468dcabd790b25e4efaacb54471a0c7bc4b",
+    "freeze_case.py": "a513fa7e2060d1f4a846bf01cb0e422c7a330a78bfd4c52251e6a45b096ed892",
+    "test_export_native_geometry.py": "8b1d9c524d56a540721ad0e05fca93e4615b9f7826db6914d4ad54b1e4932d04",
     "test_freeze_case.py": "ea721baefdddb2503f980d63dabc8854cc876c457af95f43e321d8fc690990df"
   },
-  "contract_sha256": "130ac556082cab6ec5100cf9dde9465e62e295b73784f0cc890dc5b46db8ed15",
+  "contract_sha256": "74d5854802de69fd46b8bc2b417e25c98ecdd776cc6ce1ca21bb2336ed3edbfd",
   "figure": "Figure 1",
   "schema_version": "1.0",
   "source_artifacts": {
@@ -62,7 +62,8 @@
     "source_data/representative_dam4sam_mask_cache.png": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
     "source_data/representative_initialization.json": "9983277bda6488357fbe08575b659a13a2234b92cb9fb8b85468f87a0f380c15",
     "source_data/representative_method_outputs.csv": "4aba63b8168368984316fadf030e999a02e3f0482bb8fc0f3305d3463a33f244",
-    "source_data/representative_native_geometry.json": "f7082d740be3b1d797bace62d2dadace8df18acb34b584f02739ff41e929c3e8",
+    "source_data/representative_native_geometry.json": "bae012849739d33525288a7bee5297680cd93cff7e92e5c06b4c024595d54db1",
+    "source_data/representative_native_geometry_replay.csv": "ac082e9229f37d080ff7bcaf619d063497f2039be0c2925a1ed8d68613d998be",
     "source_data/representative_spot_crop.json": "fbefcd148a1536d5dfcc735ea8cbf280907eb77314407e611a3747a7069c7637",
     "source_data/representative_spot_crop.png": "41887e76188f17acb6f87186e3b61825fc76524867d8afd03a2ae94367b666c9",
     "source_data/source_provenance.json": "4cdb2dbe46e11f8bad60036bc0bb2808118a6b37c4b100c8b7aeafdbb721d244"

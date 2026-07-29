@@ -60,9 +60,10 @@ selected DAM4SAM mask contains 98 true pixels on the native `256 x 256`
 tracking grid. Its mask pixels are stored losslessly, not reconstructed from
 the centroid.
 
-The final renderer may therefore show both empirical geometries. It must use
-the frozen bbox coordinates and binary mask without smoothing or redrawing
-them.
+The final renderer must show these empirical geometries wherever it depicts the
+OSTrack bounding-box output or the DAM4SAM mask output. It must use the frozen
+bbox coordinates and binary mask without smoothing, redrawing, or substituting
+schematic geometry.
 
 ## Files
 
@@ -75,6 +76,8 @@ them.
 - `test_freeze_case.py` - selection, completeness, and package tests.
 - `source_data/representative_native_geometry.json` - empirical OSTrack bbox,
   DAM4SAM mask geometry, replay consistency, and source hashes.
+- `source_data/representative_native_geometry_replay.csv` - both re-exported
+  reduced trajectories on all 701 images, used to recompute replay consistency.
 - `source_data/representative_dam4sam_mask_cache.png` - lossless binary mask on
   the native 256 x 256 tracking grid.
 - `source_data/representative_initialization.json` - shared sequence, spot,

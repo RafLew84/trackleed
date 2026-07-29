@@ -3,18 +3,24 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
 import unittest
 
 import numpy as np
 
-import export_native_geometry
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from trackleed.analysis import publication_native_geometry
 
 
 class NativeGeometryExportTest(unittest.TestCase):
     def test_ostrack_bbox_summary_preserves_geometry_and_reduced_center(
         self,
     ) -> None:
-        summary = export_native_geometry.summarize_ostrack_bbox(
+        summary = publication_native_geometry.summarize_ostrack_bbox(
             np.asarray([10.0, 20.0, 8.0, 12.0], dtype=np.float32),
             expected_center_original_px=np.asarray(
                 [54.6875, 101.5625],
@@ -40,7 +46,7 @@ class NativeGeometryExportTest(unittest.TestCase):
         mask[2:5, 3:7] = True
         expected = np.asarray([4.5, 3.0], dtype=np.float64) / 0.256
 
-        summary = export_native_geometry.summarize_dam4sam_mask(
+        summary = publication_native_geometry.summarize_dam4sam_mask(
             mask,
             expected_center_original_px=expected,
         )
@@ -59,17 +65,44 @@ class NativeGeometryExportTest(unittest.TestCase):
 
     def test_empty_mask_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "empty"):
-            export_native_geometry.summarize_dam4sam_mask(
+            publication_native_geometry.summarize_dam4sam_mask(
                 np.zeros((8, 9), dtype=bool),
                 expected_center_original_px=np.asarray([1.0, 1.0]),
             )
 
     def test_reduced_center_mismatch_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "does not reproduce"):
-            export_native_geometry.summarize_ostrack_bbox(
+            publication_native_geometry.summarize_ostrack_bbox(
                 np.asarray([10.0, 20.0, 8.0, 12.0], dtype=np.float32),
                 expected_center_original_px=np.asarray([0.0, 0.0]),
             )
+
+    def test_full_replay_comparison_recomputes_all_frame_metrics(self) -> None:
+        expected_tracks = np.asarray(
+            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
+            dtype=np.float64,
+        )
+        actual_tracks = expected_tracks.copy()
+        actual_tracks[2, 0] += 1e-5
+        available = np.asarray([True, False, True])
+
+        summary = publication_native_geometry.compare_reduced_trajectories(
+            actual_tracks,
+            available,
+            expected_tracks,
+            available,
+            method="example",
+        )
+
+        self.assertTrue(summary["availability_matches_all_frames"])
+        self.assertTrue(
+            summary["reduced_center_matches_all_available_frames"]
+        )
+        self.assertEqual(summary["available_frame_count"], 2)
+        self.assertAlmostEqual(
+            summary["maximum_reduced_center_error_cache_px"],
+            1e-5,
+        )
 
 
 if __name__ == "__main__":

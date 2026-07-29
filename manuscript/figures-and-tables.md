@@ -22,7 +22,8 @@ Proposed panels:
 - **d.** Four evidence roles: Cu positive control, known translations, Ag(111)
   energy-scan stress test, and SAM2-family memory analysis.
 
-Source: schematic assembled from frozen contract definitions.  
+Source: panels a-c assembled from the frozen representative image, empirical
+native geometry, and measurement table; panel d is a contract-level schematic.
 Primary claim: the tracker proposes where to measure; it does not directly define
 the final quantitative position.
 
@@ -41,8 +42,9 @@ reinitialization is allowed.
 
 A targeted full-sequence replay supplies the empirical OSTrack bbox and
 DAM4SAM mask for this frozen case and reproduces their archived reduced
-trajectories over all 701 images. These geometries may be rendered as native
-outputs; use the frozen coordinates and pixels without smoothing or redrawing.
+trajectories over all 701 images. Panel a must render these empirical outputs
+from the frozen coordinates and pixels, without smoothing, redrawing, or
+substituting schematic geometry.
 
 ### Figure 2 - Controlled equivariance and energy-scan geometry
 

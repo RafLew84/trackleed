@@ -89,6 +89,7 @@ SOURCE_DATA_FILES = (
     "representative_initialization.json",
     "representative_method_outputs.csv",
     "representative_native_geometry.json",
+    "representative_native_geometry_replay.csv",
     "representative_spot_crop.json",
     "representative_spot_crop.png",
     "source_provenance.json",
@@ -96,6 +97,7 @@ SOURCE_DATA_FILES = (
 NATIVE_GEOMETRY_FILES = (
     "representative_dam4sam_mask_cache.png",
     "representative_native_geometry.json",
+    "representative_native_geometry_replay.csv",
 )
 
 
@@ -366,6 +368,8 @@ def _load_native_geometry() -> dict[str, object]:
     if (
         _as_int(selection.get("target_frame_order")) != 700
         or _as_int(selection.get("spot_id")) != 1
+        or _as_int(selection.get("frame_count")) != 701
+        or _as_int(selection.get("seed_frame_order")) != 0
     ):
         raise ValueError("Targeted Figure 1 native-geometry selection changed")
     if set(geometry.get("methods", {})) != {
@@ -373,6 +377,30 @@ def _load_native_geometry() -> dict[str, object]:
         "dam4sam_sam21pp_l",
     }:
         raise ValueError("Targeted Figure 1 native-geometry method set changed")
+    replay = geometry.get("replay_contract", {})
+    if (
+        replay.get("full_chronological_sequence_replayed") is not True
+        or replay.get("inclusive_frame_order_range") != [0, 700]
+        or replay.get("correction_or_reinitialization") != "forbidden"
+        or replay.get("query_scope") != "selected spot 1 only"
+    ):
+        raise ValueError("Targeted Figure 1 replay contract changed")
+    for method in (
+        "ostrack_vitb_256_mae_ce",
+        "dam4sam_sam21pp_l",
+    ):
+        trajectory = geometry["methods"][method].get("trajectory_replay", {})
+        if (
+            trajectory.get("availability_matches_all_frames") is not True
+            or trajectory.get(
+                "reduced_center_matches_all_available_frames"
+            )
+            is not True
+            or _as_int(trajectory.get("available_frame_count")) != 701
+        ):
+            raise ValueError(
+                f"Targeted Figure 1 {method} trajectory replay changed"
+            )
     return geometry
 
 
