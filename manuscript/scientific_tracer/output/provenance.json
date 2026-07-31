@@ -10,6 +10,20 @@
     "reason": "The frozen central record predates the unbounded-periodic-angle optimizer correction; the application default remains unbounded."
   },
   "execution_device": "cpu",
+  "implementation_sources": {
+    "fwhm_metrics": {
+      "path": "trackleed/analysis/fwhm_metrics.py",
+      "sha256": "a6cf8bc3ed686e3904a37cb374eb41ee5d7560121c1fdca015c5c396909dad40"
+    },
+    "gaussian_fitter": {
+      "path": "trackleed/analysis/peak_analyzer.py",
+      "sha256": "1fa74303ee00f6e11c4a3b91ecc7e3595cf04fe5baad0b9a6ebb3443841cd25a"
+    },
+    "tracer": {
+      "path": "trackleed/analysis/scientific_tracer.py",
+      "sha256": "0e8e637713d404617c0f8a3c7d8802a7f08827f3bab758e03b63216b29b8bece"
+    }
+  },
   "inputs": {
     "case_measurements": {
       "path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
@@ -44,8 +58,6 @@
       "sha256": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48"
     }
   },
-  "runner_sha256": "dee0aa508adef91bbcb6a76458f11c8f63979497350c420fcd5d8e6e3b4d7671",
-  "runner_source": "trackleed/analysis/scientific_tracer.py",
   "runtime": {
     "numpy": "2.2.5",
     "python": "3.12.9",

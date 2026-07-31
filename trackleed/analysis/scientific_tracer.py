@@ -43,16 +43,15 @@ PUBLISHED_CASE_RESULTS_PATH = Path(
     "manuscript/figures/figure03_independent_scane_stress/"
     "source_data/case_results.csv"
 )
-BRANCHES = ("B1", "B2")
-FROZEN_PACKAGE_HASHES = {
-    "README.md": "4d755f9b0f842f6ae29236fa5595d7162ab0e585207b0ddf88e62122d955c895",
-    "frozen/expected_central_records.csv": "e739350ebc78894de4a54fa1731494d1b141e251b81ea3710de507df81c9c1b7",
-    "frozen/expected_gap_records.csv": "8f5a4497ea7f13f8c61940d5db3ac67dcf4e851c469d6dd38a40723ef722f44d",
-    "frozen/expected_pair_records.csv": "3cd977f08eb2e670948e670bb0232d0a28624a1e39e9b5aca4f931ad475dc8fa",
-    "frozen/expected_summary.json": "346d8f079d48a041a72897bf4d553f2e3c2f3433f5eec703832e8eca26c21ee8",
-    "frozen/frame_images.csv": "7630f1ddbf60b4ebe8906aed6899c8e6fcee05c5cf415bd5a2e73c8c9f735acf",
-    "frozen/tracer_contract.json": "71485886573a03ecdb455ac5c84e7e14ff04b8d8cec1d70ec5730805019a7472",
+IMPLEMENTATION_SOURCE_PATHS = {
+    "fwhm_metrics": Path("trackleed/analysis/fwhm_metrics.py"),
+    "gaussian_fitter": Path("trackleed/analysis/peak_analyzer.py"),
+    "tracer": Path("trackleed/analysis/scientific_tracer.py"),
 }
+BRANCHES = ("B1", "B2")
+FROZEN_PACKAGE_MANIFEST_SHA256 = (
+    "ac7049a3d86ccd22276b19e3fdaa97687f54193e789523050af4a6ffc2a8f8be"
+)
 
 CANDIDATE_FIELDS = (
     "record_key",
@@ -145,6 +144,27 @@ EVALUATION_FIELDS = (
     "branch_margin_px",
 )
 
+MARGIN_FIELDS = (
+    "proposal_to_fit_margin_px",
+    "r_squared_margin",
+    "amplitude_margin",
+    "sigma_x_lower_margin_px",
+    "sigma_x_upper_margin_px",
+    "sigma_y_lower_margin_px",
+    "sigma_y_upper_margin_px",
+    "branch_margin_px",
+)
+
+VALIDATION_CHECKS = {
+    "complete_candidate_records": "passed",
+    "complete_evaluation_records": "passed",
+    "continuous_value_tolerances": "passed",
+    "frozen_input_hashes": "passed",
+    "implementation_source_hashes": "passed",
+    "reader_facing_rounding": "passed",
+    "record_keys_and_counts": "passed",
+}
+
 PAIR_FIELDS = (
     "tracker",
     "frame",
@@ -185,6 +205,15 @@ class TracerReport:
     matches_frozen_central_record: bool
 
 
+@dataclass(frozen=True)
+class _PreparedTracer:
+    workspace_root: Path
+    tracer_dir: Path
+    output_dir: Path
+    contract: dict[str, Any]
+    runtime: dict[str, str]
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -198,6 +227,16 @@ def _source_sha256(path: Path) -> str:
 
     canonical = path.read_bytes().replace(b"\r\n", b"\n")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _implementation_sources(workspace_root: Path) -> dict[str, dict[str, str]]:
+    return {
+        name: {
+            "path": path.as_posix(),
+            "sha256": _source_sha256(workspace_root / path),
+        }
+        for name, path in IMPLEMENTATION_SOURCE_PATHS.items()
+    }
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -252,7 +291,10 @@ def _relative_file(root: Path, value: str) -> Path:
 
 
 def _validate_package_files(tracer_dir: Path) -> dict[str, Any]:
-    manifest = _read_json(tracer_dir / "package_manifest.json")
+    manifest_path = tracer_dir / "package_manifest.json"
+    if _sha256(manifest_path) != FROZEN_PACKAGE_MANIFEST_SHA256:
+        raise TracerValidationError("Frozen tracer manifest contract changed")
+    manifest = _read_json(manifest_path)
     if (
         manifest.get("schema_version") != SCHEMA_VERSION
         or manifest.get("tracer_id") != TRACER_ID
@@ -262,8 +304,6 @@ def _validate_package_files(tracer_dir: Path) -> dict[str, Any]:
     expected = manifest.get("files_sha256")
     if not isinstance(expected, dict):
         raise TracerValidationError("Frozen tracer manifest has no file hash map")
-    if expected != FROZEN_PACKAGE_HASHES:
-        raise TracerValidationError("Frozen tracer manifest contract changed")
     actual = {
         path.relative_to(tracer_dir).as_posix(): path
         for path in sorted(tracer_dir.rglob("*"))
@@ -296,50 +336,68 @@ def _validate_package_files(tracer_dir: Path) -> dict[str, Any]:
 
 
 def _validate_contract_semantics(contract: Mapping[str, Any]) -> None:
-    if contract.get("expected_counts") != {
-        "branch_consistent_measurements": 44,
-        "candidate_records": 70,
-        "evaluated_gaps": 5,
-        "evaluation_records": 70,
-        "geometry_inconsistent_accepted_fits": 9,
-        "jointly_consistent_pair_frames": 18,
-        "recovered_gaps": 5,
-    }:
-        raise TracerValidationError("Frozen tracer expected counts changed")
-    if contract.get("comparison_tolerances") != {
-        "continuous_values": {"atol": 1e-8, "rtol": 1e-9},
-        "discrete_values": "exact",
-        "reader_facing_values": "exact_after_declared_rounding",
-    }:
-        raise TracerValidationError("Frozen tracer comparison tolerances changed")
-    compatibility = contract.get("estimator_compatibility")
-    if not isinstance(compatibility, dict) or any(
-        (
-            compatibility.get("center_preference_factor") != 0.34,
-            compatibility.get("image_loading")
-            != "tifffile.imread followed by skimage.util.img_as_float",
-            compatibility.get("mode") != "historical_publication_central_record",
-            compatibility.get("optimizer_theta_bounds_rad") != [-math.pi, math.pi],
-        )
+    count_names = {
+        "branch_consistent_measurements",
+        "candidate_records",
+        "evaluated_gaps",
+        "evaluation_records",
+        "geometry_inconsistent_accepted_fits",
+        "jointly_consistent_pair_frames",
+        "recovered_gaps",
+    }
+    counts = contract.get("expected_counts")
+    if (
+        not isinstance(counts, dict)
+        or set(counts) != count_names
+        or any(not isinstance(value, int) or value < 0 for value in counts.values())
     ):
-        raise TracerValidationError("Frozen tracer estimator compatibility changed")
-    if contract.get("reader_facing_rounding") != {
-        "counts": "exact",
-        "pair_distance_residual_px": {"decimal_places": 3},
-        "rates_percent": {"decimal_places": 1},
-    }:
-        raise TracerValidationError("Frozen tracer reader-facing rounding changed")
-    if contract.get("execution_contract") != {
-        "device": "cpu",
-        "runtime": {
-            "numpy": "2.2.5",
-            "python": "3.12.9",
-            "scikit-image": "0.25.2",
-            "scipy": "1.15.2",
-            "tifffile": "2025.3.30",
-        },
-    }:
-        raise TracerValidationError("Frozen tracer execution contract changed")
+        raise TracerValidationError("Frozen tracer expected counts are invalid")
+    comparison = contract.get("comparison_tolerances")
+    continuous = comparison.get("continuous_values") if isinstance(comparison, dict) else None
+    if (
+        not isinstance(continuous, dict)
+        or set(continuous) != {"atol", "rtol"}
+        or any(float(value) < 0 for value in continuous.values())
+        or comparison.get("discrete_values") != "exact"
+        or comparison.get("reader_facing_values")
+        != "exact_after_declared_rounding"
+    ):
+        raise TracerValidationError("Frozen tracer comparison tolerances are invalid")
+    compatibility = contract.get("estimator_compatibility")
+    theta_bounds = (
+        compatibility.get("optimizer_theta_bounds_rad")
+        if isinstance(compatibility, dict)
+        else None
+    )
+    if (
+        not isinstance(theta_bounds, list)
+        or len(theta_bounds) != 2
+        or not float(theta_bounds[0]) < float(theta_bounds[1])
+        or not isinstance(compatibility.get("image_loading"), str)
+        or not isinstance(compatibility.get("mode"), str)
+    ):
+        raise TracerValidationError("Frozen tracer estimator compatibility is invalid")
+    rounding = contract.get("reader_facing_rounding")
+    if (
+        not isinstance(rounding, dict)
+        or rounding.get("counts") != "exact"
+        or not isinstance(rounding.get("pair_distance_residual_px"), dict)
+        or not isinstance(rounding.get("rates_percent"), dict)
+        or not isinstance(
+            rounding["pair_distance_residual_px"].get("decimal_places"), int
+        )
+        or not isinstance(rounding["rates_percent"].get("decimal_places"), int)
+    ):
+        raise TracerValidationError("Frozen tracer reader-facing rounding is invalid")
+    execution = contract.get("execution_contract")
+    runtime = execution.get("runtime") if isinstance(execution, dict) else None
+    if (
+        not isinstance(runtime, dict)
+        or execution.get("device") != "cpu"
+        or set(runtime) != {"numpy", "python", "scikit-image", "scipy", "tifffile"}
+        or any(not isinstance(value, str) or not value for value in runtime.values())
+    ):
+        raise TracerValidationError("Frozen tracer execution contract is invalid")
     expected_paths = {
         "case_measurements": CASE_MEASUREMENTS_PATH.as_posix(),
         "case_summary": CASE_SUMMARY_PATH.as_posix(),
@@ -427,6 +485,38 @@ def _load_baseline_statuses(workspace_root: Path) -> dict[tuple[int, str], str]:
     }
 
 
+def _signed_gate_margins(
+    candidate: Mapping[str, object],
+    measurement_contract: Mapping[str, Any],
+) -> dict[str, float | None]:
+    margins: dict[str, float | None] = {field: None for field in MARGIN_FIELDS}
+    if not bool(candidate["finite_candidate"]):
+        return margins
+    proposal_max = float(measurement_contract["proposal_to_fit_max_px"])
+    r_squared_min = float(measurement_contract["r_squared_min"])
+    amplitude_min = float(measurement_contract["amplitude_reference_min"]) * float(
+        measurement_contract["amplitude_gate_multiplier"]
+    )
+    sigma_min = float(measurement_contract["width_gate"]["sigma_min_px"])
+    sigma_max = float(measurement_contract["width_gate"]["sigma_max_px"])
+    branch_tolerance = float(measurement_contract["branch_tolerance_px"])
+    margins.update(
+        {
+            "proposal_to_fit_margin_px": proposal_max
+            - float(candidate["proposal_offset_px"]),
+            "r_squared_margin": float(candidate["r_squared"]) - r_squared_min,
+            "amplitude_margin": float(candidate["amplitude"]) - amplitude_min,
+            "sigma_x_lower_margin_px": float(candidate["sigma_x"]) - sigma_min,
+            "sigma_x_upper_margin_px": sigma_max - float(candidate["sigma_x"]),
+            "sigma_y_lower_margin_px": float(candidate["sigma_y"]) - sigma_min,
+            "sigma_y_upper_margin_px": sigma_max - float(candidate["sigma_y"]),
+            "branch_margin_px": branch_tolerance
+            - float(candidate["branch_error_px"]),
+        }
+    )
+    return margins
+
+
 def _candidate_rows(
     workspace_root: Path,
     tracer_dir: Path,
@@ -435,15 +525,6 @@ def _candidate_rows(
     central = _central_contract(workspace_root)
     roi_side = int(central["roi_side_px"])
     half = roi_side // 2
-    width_gate = central["width_gate"]
-    proposal_max = float(central["proposal_to_fit_max_px"])
-    r_squared_min = float(central["r_squared_min"])
-    amplitude_min = float(central["amplitude_reference_min"]) * float(
-        central["amplitude_gate_multiplier"]
-    )
-    sigma_min = float(width_gate["sigma_min_px"])
-    sigma_max = float(width_gate["sigma_max_px"])
-    branch_tolerance = float(central["branch_tolerance_px"])
     center_preference = float(central["center_preference_factor"])
     compatibility = contract["estimator_compatibility"]
     theta_bounds = tuple(
@@ -627,16 +708,9 @@ def _candidate_rows(
                     "branch_error_px": branch_error,
                     "radial_residual_px": float(np.dot(residual, radial_unit)),
                     "tangential_residual_px": float(np.dot(residual, tangent_unit)),
-                    "proposal_to_fit_margin_px": proposal_max - proposal_offset,
-                    "r_squared_margin": float(fit["r_squared"]) - r_squared_min,
-                    "amplitude_margin": float(fit["amplitude"]) - amplitude_min,
-                    "sigma_x_lower_margin_px": float(fit["sigma_x"]) - sigma_min,
-                    "sigma_x_upper_margin_px": sigma_max - float(fit["sigma_x"]),
-                    "sigma_y_lower_margin_px": float(fit["sigma_y"]) - sigma_min,
-                    "sigma_y_upper_margin_px": sigma_max - float(fit["sigma_y"]),
-                    "branch_margin_px": branch_tolerance - branch_error,
                 }
             )
+            row.update(_signed_gate_margins(row, central))
             rows.append(row)
     return rows
 
@@ -649,47 +723,9 @@ def evaluate_candidates(
 ) -> list[dict[str, object]]:
     """Classify stored candidate fits without rerunning or copying fit values."""
 
-    proposal_max = float(central_contract["proposal_to_fit_max_px"])
-    r_squared_min = float(central_contract["r_squared_min"])
-    amplitude_min = float(central_contract["amplitude_reference_min"]) * float(
-        central_contract["amplitude_gate_multiplier"]
-    )
-    sigma_min = float(central_contract["width_gate"]["sigma_min_px"])
-    sigma_max = float(central_contract["width_gate"]["sigma_max_px"])
-    branch_tolerance = float(central_contract["branch_tolerance_px"])
     rows: list[dict[str, object]] = []
     for candidate in candidates:
-        margins: dict[str, float | None] = {
-            "proposal_to_fit_margin_px": None,
-            "r_squared_margin": None,
-            "amplitude_margin": None,
-            "sigma_x_lower_margin_px": None,
-            "sigma_x_upper_margin_px": None,
-            "sigma_y_lower_margin_px": None,
-            "sigma_y_upper_margin_px": None,
-            "branch_margin_px": None,
-        }
-        if bool(candidate["finite_candidate"]):
-            margins.update(
-                {
-                    "proposal_to_fit_margin_px": proposal_max
-                    - float(candidate["proposal_offset_px"]),
-                    "r_squared_margin": float(candidate["r_squared"])
-                    - r_squared_min,
-                    "amplitude_margin": float(candidate["amplitude"])
-                    - amplitude_min,
-                    "sigma_x_lower_margin_px": float(candidate["sigma_x"])
-                    - sigma_min,
-                    "sigma_x_upper_margin_px": sigma_max
-                    - float(candidate["sigma_x"]),
-                    "sigma_y_lower_margin_px": float(candidate["sigma_y"])
-                    - sigma_min,
-                    "sigma_y_upper_margin_px": sigma_max
-                    - float(candidate["sigma_y"]),
-                    "branch_margin_px": branch_tolerance
-                    - float(candidate["branch_error_px"]),
-                }
-            )
+        margins = _signed_gate_margins(candidate, central_contract)
 
         causes: list[str] = []
         if not bool(candidate["proposal_available"]):
@@ -955,23 +991,34 @@ def _summary(
     }
 
 
-def _reader_facing(summary: Mapping[str, Any]) -> dict[str, object]:
+def _reader_facing(
+    summary: Mapping[str, Any],
+    rounding: Mapping[str, Any],
+) -> dict[str, object]:
     visible = int(summary["physics_baseline_visible_opportunities"])
     consistent = int(summary["branch_consistent_measurements"])
     accepted = int(summary["accepted_measurements_all_frames"])
     inconsistent = int(summary["geometry_inconsistent_accepted_fits"])
     gaps = summary["post_gap_recovery"]
+    rate_places = int(rounding["rates_percent"]["decimal_places"])
+    residual_places = int(
+        rounding["pair_distance_residual_px"]["decimal_places"]
+    )
     return {
-        "coverage": f"{consistent}/{visible} ({100.0 * consistent / visible:.1f}%)",
+        "coverage": (
+            f"{consistent}/{visible} "
+            f"({100.0 * consistent / visible:.{rate_places}f}%)"
+        ),
         "post_gap_recovery": (
             f"{int(gaps['recovered_gap_count'])}/{int(gaps['evaluated_gap_count'])} "
-            f"({100.0 * float(gaps['rate']):.1f}%)"
+            f"({100.0 * float(gaps['rate']):.{rate_places}f}%)"
         ),
         "geometry_inconsistency": (
-            f"{inconsistent}/{accepted} ({100.0 * inconsistent / accepted:.1f}%)"
+            f"{inconsistent}/{accepted} "
+            f"({100.0 * inconsistent / accepted:.{rate_places}f}%)"
         ),
         "conditional_pair_residual_median": (
-            f"{float(summary['absolute_pair_distance_residual_px']['median']):.3f} px"
+            f"{float(summary['absolute_pair_distance_residual_px']['median']):.{residual_places}f} px"
         ),
     }
 
@@ -1012,8 +1059,36 @@ def _validate_central_result(
     tolerance = contract["comparison_tolerances"]["continuous_values"]
     atol = float(tolerance["atol"])
     rtol = float(tolerance["rtol"])
+    counts = contract["expected_counts"]
+    if (
+        len(candidates) != int(counts["candidate_records"])
+        or len(evaluations) != int(counts["evaluation_records"])
+    ):
+        raise TracerValidationError("Central candidate or evaluation count changed")
     candidate_by_key = {row["record_key"]: row for row in candidates}
     evaluation_by_key = {row["record_key"]: row for row in evaluations}
+    if (
+        len(candidate_by_key) != len(candidates)
+        or len(evaluation_by_key) != len(evaluations)
+        or set(candidate_by_key) != set(evaluation_by_key)
+    ):
+        raise TracerValidationError("Central candidate or evaluation keys changed")
+    _validate_expected_rows(
+        tracer_dir / contract["expected_files"]["candidate_records"],
+        candidates,
+        CANDIDATE_FIELDS,
+        atol,
+        rtol,
+        record_name="candidate",
+    )
+    _validate_expected_rows(
+        tracer_dir / contract["expected_files"]["evaluation_records"],
+        evaluations,
+        EVALUATION_FIELDS,
+        atol,
+        rtol,
+        record_name="evaluation",
+    )
     _, expected_rows = _read_csv(
         tracer_dir / contract["expected_files"]["central_records"]
     )
@@ -1107,15 +1182,21 @@ def _validate_expected_rows(
     fields: Sequence[str],
     atol: float,
     rtol: float,
+    *,
+    record_name: str | None = None,
 ) -> None:
     expected_fields, expected_rows = _read_csv(expected_path)
     if expected_fields != list(fields) or len(expected_rows) != len(actual_rows):
-        raise TracerValidationError(f"Frozen expected rows changed: {expected_path.name}")
+        label = record_name or expected_path.name
+        raise TracerValidationError(f"Frozen {label} record set changed")
+    label = record_name or expected_path.name
     for row_index, (expected, actual) in enumerate(zip(expected_rows, actual_rows)):
         for field in fields:
             expected_value = expected[field]
             actual_value = actual[field]
-            if expected_value in {"True", "False"}:
+            if expected_value == "":
+                matches = actual_value is None or actual_value == ""
+            elif expected_value in {"True", "False"}:
                 matches = bool(actual_value) == _parse_bool(expected_value)
             else:
                 try:
@@ -1126,7 +1207,7 @@ def _validate_expected_rows(
                     matches = _float_matches(actual_value, expected_value, atol, rtol)
             if not matches:
                 raise TracerValidationError(
-                    f"Frozen {expected_path.name} changed: row {row_index}/{field}"
+                    f"Frozen {label} record changed: row {row_index}/{field}"
                 )
 
 
@@ -1242,20 +1323,13 @@ def _candidate_from_csv(row: Mapping[str, str]) -> dict[str, object]:
         "solver_status",
         "missing_state",
     }
-    parsed: dict[str, object] = {}
-    for field in CANDIDATE_FIELDS:
-        value = row[field]
-        if value == "":
-            parsed[field] = None
-        elif field in bool_fields:
-            parsed[field] = _parse_bool(value)
-        elif field in int_fields:
-            parsed[field] = int(value)
-        elif field in numeric_fields:
-            parsed[field] = float(value)
-        else:
-            parsed[field] = value
-    return parsed
+    return _decode_csv_row(
+        row,
+        CANDIDATE_FIELDS,
+        bool_fields=bool_fields,
+        int_fields=int_fields,
+        numeric_fields=numeric_fields,
+    )
 
 
 def _evaluation_from_csv(row: Mapping[str, str]) -> dict[str, object]:
@@ -1271,49 +1345,62 @@ def _evaluation_from_csv(row: Mapping[str, str]) -> dict[str, object]:
         "sigma_y_upper_margin_px",
         "branch_margin_px",
     }
-    parsed: dict[str, object] = {}
-    for field in EVALUATION_FIELDS:
-        value = row[field]
-        if value == "":
-            parsed[field] = None
-        elif field in bool_fields:
-            parsed[field] = _parse_bool(value)
-        elif field == "frame":
-            parsed[field] = int(value)
-        elif field in numeric_fields:
-            parsed[field] = float(value)
-        else:
-            parsed[field] = value
-    return parsed
+    return _decode_csv_row(
+        row,
+        EVALUATION_FIELDS,
+        bool_fields=bool_fields,
+        int_fields={"frame"},
+        numeric_fields=numeric_fields,
+    )
 
 
 def _pair_from_csv(row: Mapping[str, str]) -> dict[str, object]:
-    return {
-        field: (
-            row[field]
-            if field == "tracker"
-            else int(row[field])
-            if field == "frame"
-            else float(row[field])
-        )
-        for field in PAIR_FIELDS
-    }
+    return _decode_csv_row(
+        row,
+        PAIR_FIELDS,
+        int_fields={"frame"},
+        numeric_fields=set(PAIR_FIELDS) - {"tracker", "frame"},
+    )
 
 
 def _gap_from_csv(row: Mapping[str, str]) -> dict[str, object]:
+    return _decode_csv_row(
+        row,
+        GAP_FIELDS,
+        bool_fields={"recovered"},
+        int_fields={"gap_frame_count", "recovery_delay_frames"},
+        numeric_fields=set(GAP_FIELDS)
+        - {
+            "tracker",
+            "branch",
+            "direction",
+            "recovered",
+            "gap_frame_count",
+            "recovery_delay_frames",
+        },
+    )
+
+
+def _decode_csv_row(
+    row: Mapping[str, str],
+    fields: Sequence[str],
+    *,
+    bool_fields: set[str] | frozenset[str] = frozenset(),
+    int_fields: set[str] | frozenset[str] = frozenset(),
+    numeric_fields: set[str] | frozenset[str] = frozenset(),
+) -> dict[str, object]:
+    converters = {
+        **{field: _parse_bool for field in bool_fields},
+        **{field: int for field in int_fields},
+        **{field: float for field in numeric_fields},
+    }
     parsed: dict[str, object] = {}
-    for field in GAP_FIELDS:
+    for field in fields:
         value = row[field]
         if value == "":
             parsed[field] = None
-        elif field in {"tracker", "branch", "direction"}:
-            parsed[field] = value
-        elif field == "recovered":
-            parsed[field] = _parse_bool(value)
-        elif field in {"gap_frame_count", "recovery_delay_frames"}:
-            parsed[field] = int(value)
         else:
-            parsed[field] = float(value)
+            parsed[field] = converters.get(field, str)(value)
     return parsed
 
 
@@ -1348,6 +1435,46 @@ def _validate_output_manifest(output_dir: Path) -> None:
             raise TracerValidationError(f"Tracer output hash mismatch: {name}")
 
 
+def _prepare_tracer(
+    workspace_root: Path,
+    tracer_dir: Path,
+    output_dir: Path,
+    *,
+    require_absent_output: bool = False,
+) -> _PreparedTracer:
+    workspace_root = workspace_root.resolve()
+    tracer_dir = tracer_dir.resolve()
+    output_dir = output_dir.resolve()
+    if require_absent_output and output_dir.exists():
+        raise FileExistsError(f"Refusing to replace tracer output: {output_dir}")
+    validate_package(workspace_root, workspace_root / BASELINE_PACKAGE)
+    contract = _validate_package_files(tracer_dir)
+    runtime = _validate_runtime(contract)
+    _validate_input_hashes(workspace_root, tracer_dir, contract)
+    return _PreparedTracer(
+        workspace_root=workspace_root,
+        tracer_dir=tracer_dir,
+        output_dir=output_dir,
+        contract=contract,
+        runtime=runtime,
+    )
+
+
+def _tracer_report(
+    candidates: Sequence[Mapping[str, object]],
+    evaluations: Sequence[Mapping[str, object]],
+    summary: Mapping[str, Any],
+) -> TracerReport:
+    return TracerReport(
+        candidate_count=len(candidates),
+        evaluation_count=len(evaluations),
+        branch_consistent_count=int(summary["branch_consistent_measurements"]),
+        evaluated_gap_count=int(summary["post_gap_recovery"]["evaluated_gap_count"]),
+        recovered_gap_count=int(summary["post_gap_recovery"]["recovered_gap_count"]),
+        matches_frozen_central_record=True,
+    )
+
+
 def validate_tracer_output(
     workspace_root: Path,
     tracer_dir: Path,
@@ -1355,13 +1482,12 @@ def validate_tracer_output(
 ) -> TracerReport:
     """Validate existing tracer artifacts without rewriting any file."""
 
-    workspace_root = workspace_root.resolve()
-    tracer_dir = tracer_dir.resolve()
-    output_dir = output_dir.resolve()
-    validate_package(workspace_root, workspace_root / BASELINE_PACKAGE)
-    contract = _validate_package_files(tracer_dir)
-    runtime = _validate_runtime(contract)
-    _validate_input_hashes(workspace_root, tracer_dir, contract)
+    prepared = _prepare_tracer(workspace_root, tracer_dir, output_dir)
+    workspace_root = prepared.workspace_root
+    tracer_dir = prepared.tracer_dir
+    output_dir = prepared.output_dir
+    contract = prepared.contract
+    runtime = prepared.runtime
     _validate_output_manifest(output_dir)
 
     candidate_fields, candidate_rows = _read_csv(
@@ -1401,7 +1527,10 @@ def validate_tracer_output(
         summary,
         workspace_root,
     )
-    if summary_document["reader_facing"] != _reader_facing(summary):
+    if summary_document["reader_facing"] != _reader_facing(
+        summary,
+        contract["reader_facing_rounding"],
+    ):
         raise TracerValidationError("Tracer reader-facing rounding changed")
     provenance = _read_json(output_dir / "provenance.json")
     if (
@@ -1411,29 +1540,20 @@ def validate_tracer_output(
         or provenance.get("inputs") != contract["frozen_inputs"]
         or provenance.get("estimator_compatibility")
         != contract["estimator_compatibility"]
+        or provenance.get("implementation_sources")
+        != _implementation_sources(workspace_root)
     ):
         raise TracerValidationError("Tracer provenance changed")
-    runner_source = _relative_file(
-        workspace_root, str(provenance.get("runner_source", ""))
-    )
-    if _source_sha256(runner_source) != provenance.get("runner_sha256"):
-        raise TracerValidationError("Tracer runner source hash changed")
     validation_report = _read_json(output_dir / "validation_report.json")
     if (
         validation_report.get("tracer_id") != TRACER_ID
         or validation_report.get("fail_closed") is not True
+        or validation_report.get("checks") != VALIDATION_CHECKS
         or validation_report.get("output_manifest_sha256")
         != _sha256(output_dir / "output_manifest.json")
     ):
         raise TracerValidationError("Tracer validation report changed")
-    report = TracerReport(
-        candidate_count=len(candidates),
-        evaluation_count=len(evaluations),
-        branch_consistent_count=int(summary["branch_consistent_measurements"]),
-        evaluated_gap_count=int(summary["post_gap_recovery"]["evaluated_gap_count"]),
-        recovered_gap_count=int(summary["post_gap_recovery"]["recovered_gap_count"]),
-        matches_frozen_central_record=True,
-    )
+    report = _tracer_report(candidates, evaluations, summary)
     report_values = asdict(report)
     if any(validation_report.get(key) != value for key, value in report_values.items()):
         raise TracerValidationError("Tracer validation report counts changed")
@@ -1447,15 +1567,17 @@ def run_tracer(
 ) -> TracerReport:
     """Reconstruct and validate the frozen tracer without tracker inference."""
 
-    workspace_root = workspace_root.resolve()
-    tracer_dir = tracer_dir.resolve()
-    output_dir = output_dir.resolve()
-    if output_dir.exists():
-        raise FileExistsError(f"Refusing to replace tracer output: {output_dir}")
-    validate_package(workspace_root, workspace_root / BASELINE_PACKAGE)
-    contract = _validate_package_files(tracer_dir)
-    runtime = _validate_runtime(contract)
-    _validate_input_hashes(workspace_root, tracer_dir, contract)
+    prepared = _prepare_tracer(
+        workspace_root,
+        tracer_dir,
+        output_dir,
+        require_absent_output=True,
+    )
+    workspace_root = prepared.workspace_root
+    tracer_dir = prepared.tracer_dir
+    output_dir = prepared.output_dir
+    contract = prepared.contract
+    runtime = prepared.runtime
     candidates = _candidate_rows(workspace_root, tracer_dir, contract)
     evaluations = evaluate_candidates(candidates, _central_contract(workspace_root))
     pairs = _pair_rows(candidates, evaluations, workspace_root)
@@ -1479,7 +1601,13 @@ def run_tracer(
     _write_csv(output_dir / "gap_records.csv", GAP_FIELDS, gaps)
     _write_json(
         output_dir / "summary.json",
-        {"central_result": summary, "reader_facing": _reader_facing(summary)},
+        {
+            "central_result": summary,
+            "reader_facing": _reader_facing(
+                summary,
+                contract["reader_facing_rounding"],
+            ),
+        },
     )
     _write_json(
         output_dir / "provenance.json",
@@ -1490,32 +1618,17 @@ def run_tracer(
             "runtime": runtime,
             "inputs": contract["frozen_inputs"],
             "estimator_compatibility": contract["estimator_compatibility"],
-            "runner_source": Path(__file__).relative_to(workspace_root).as_posix(),
-            "runner_sha256": _source_sha256(Path(__file__)),
+            "implementation_sources": _implementation_sources(workspace_root),
         },
     )
     manifest = _output_manifest(output_dir)
     _write_json(output_dir / "output_manifest.json", manifest)
-    report = TracerReport(
-        candidate_count=len(candidates),
-        evaluation_count=len(evaluations),
-        branch_consistent_count=int(summary["branch_consistent_measurements"]),
-        evaluated_gap_count=int(summary["post_gap_recovery"]["evaluated_gap_count"]),
-        recovered_gap_count=int(summary["post_gap_recovery"]["recovered_gap_count"]),
-        matches_frozen_central_record=True,
-    )
+    report = _tracer_report(candidates, evaluations, summary)
     _write_json(
         output_dir / "validation_report.json",
         {
             **asdict(report),
-            "checks": {
-                "candidate_schema_and_sources": "passed",
-                "continuous_value_tolerances": "passed",
-                "evaluation_classifications": "passed",
-                "frozen_input_hashes": "passed",
-                "reader_facing_rounding": "passed",
-                "record_keys_and_counts": "passed",
-            },
+            "checks": VALIDATION_CHECKS,
             "fail_closed": True,
             "output_manifest_sha256": _sha256(output_dir / "output_manifest.json"),
             "schema_version": SCHEMA_VERSION,

@@ -1,12 +1,14 @@
 {
   "files_sha256": {
     "README.md": "4d755f9b0f842f6ae29236fa5595d7162ab0e585207b0ddf88e62122d955c895",
+    "frozen/expected_candidate_records.csv": "f4781763076a7ff272cab5ddc92d512ee65b9f67dcace958eac5ff4ba922ecba",
     "frozen/expected_central_records.csv": "e739350ebc78894de4a54fa1731494d1b141e251b81ea3710de507df81c9c1b7",
+    "frozen/expected_evaluation_records.csv": "feec08ebbb2f70817a4c096fb08b477beeea6a67a5ae904fd4475032f33f5e6b",
     "frozen/expected_gap_records.csv": "8f5a4497ea7f13f8c61940d5db3ac67dcf4e851c469d6dd38a40723ef722f44d",
     "frozen/expected_pair_records.csv": "3cd977f08eb2e670948e670bb0232d0a28624a1e39e9b5aca4f931ad475dc8fa",
     "frozen/expected_summary.json": "346d8f079d48a041a72897bf4d553f2e3c2f3433f5eec703832e8eca26c21ee8",
     "frozen/frame_images.csv": "7630f1ddbf60b4ebe8906aed6899c8e6fcee05c5cf415bd5a2e73c8c9f735acf",
-    "frozen/tracer_contract.json": "71485886573a03ecdb455ac5c84e7e14ff04b8d8cec1d70ec5730805019a7472"
+    "frozen/tracer_contract.json": "3c937cd3fc29264d7456a82a8740cb639af2747840379073a1509eeed8e1c67a"
   },
   "immutable": true,
   "schema_version": 1,

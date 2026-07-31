@@ -38,7 +38,9 @@
     "recovered_gaps": 5
   },
   "expected_files": {
+    "candidate_records": "frozen/expected_candidate_records.csv",
     "central_records": "frozen/expected_central_records.csv",
+    "evaluation_records": "frozen/expected_evaluation_records.csv",
     "gap_records": "frozen/expected_gap_records.csv",
     "pair_records": "frozen/expected_pair_records.csv",
     "summary": "frozen/expected_summary.json"

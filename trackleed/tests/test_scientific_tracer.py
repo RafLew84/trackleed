@@ -42,6 +42,21 @@ class ScientificTracerTests(unittest.TestCase):
             if path.is_file()
         }
 
+    def _refresh_output_integrity(self, output: Path, changed_file: str) -> None:
+        changed_path = output / changed_file
+        output_manifest_path = output / "output_manifest.json"
+        output_manifest = json.loads(
+            output_manifest_path.read_text(encoding="utf-8")
+        )
+        output_manifest["files_sha256"][changed_file] = self._sha256(changed_path)
+        self._write_json(output_manifest_path, output_manifest)
+        report_path = output / "validation_report.json"
+        validation_report = json.loads(report_path.read_text(encoding="utf-8"))
+        validation_report["output_manifest_sha256"] = self._sha256(
+            output_manifest_path
+        )
+        self._write_json(report_path, validation_report)
+
     def test_headless_tracer_builds_candidate_and_evaluation_layers(self) -> None:
         with TemporaryDirectory() as temporary:
             output = Path(temporary) / "tracer-output"
@@ -107,6 +122,14 @@ class ScientificTracerTests(unittest.TestCase):
                 (output / "provenance.json").read_text(encoding="utf-8")
             )
             self.assertEqual(provenance["execution_device"], "cpu")
+            self.assertEqual(
+                set(provenance["implementation_sources"]),
+                {"fwhm_metrics", "gaussian_fitter", "tracer"},
+            )
+            self.assertEqual(
+                provenance["implementation_sources"]["gaussian_fitter"]["path"],
+                "trackleed/analysis/peak_analyzer.py",
+            )
             self.assertEqual(
                 provenance["runtime"],
                 {
@@ -243,31 +266,46 @@ class ScientificTracerTests(unittest.TestCase):
                 reader = csv.DictReader(handle)
                 fields = list(reader.fieldnames or [])
                 candidates = list(reader)
-            candidates[0]["center_x"] = str(float(candidates[0]["center_x"]) + 1.0)
+            candidates[0]["center_x_error"] = str(
+                float(candidates[0]["center_x_error"]) + 1.0
+            )
             with candidate_path.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(handle, fieldnames=fields)
                 writer.writeheader()
                 writer.writerows(candidates)
-            output_manifest_path = changed_candidate / "output_manifest.json"
-            output_manifest = json.loads(
-                output_manifest_path.read_text(encoding="utf-8")
+            self._refresh_output_integrity(
+                changed_candidate,
+                "candidate_records.csv",
             )
-            output_manifest["files_sha256"]["candidate_records.csv"] = self._sha256(
-                candidate_path
-            )
-            self._write_json(output_manifest_path, output_manifest)
-            report_path = changed_candidate / "validation_report.json"
-            validation_report = json.loads(report_path.read_text(encoding="utf-8"))
-            validation_report["output_manifest_sha256"] = self._sha256(
-                output_manifest_path
-            )
-            self._write_json(report_path, validation_report)
             before = self._snapshot(changed_candidate)
             with self.assertRaisesRegex(
-                TracerValidationError, "Central continuous value changed"
+                TracerValidationError, "Frozen candidate record changed"
             ):
                 validate_tracer_output(REPO_ROOT, FROZEN_TRACER, changed_candidate)
             self.assertEqual(self._snapshot(changed_candidate), before)
+
+            changed_evaluation = root / "changed-evaluation-output"
+            shutil.copytree(valid_output, changed_evaluation)
+            evaluation_path = changed_evaluation / "evaluation_records.csv"
+            with evaluation_path.open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                fields = list(reader.fieldnames or [])
+                evaluations = list(reader)
+            evaluations[0]["classification"] = "tampered"
+            with evaluation_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(evaluations)
+            self._refresh_output_integrity(
+                changed_evaluation,
+                "evaluation_records.csv",
+            )
+            before = self._snapshot(changed_evaluation)
+            with self.assertRaisesRegex(
+                TracerValidationError, "Frozen evaluation record changed"
+            ):
+                validate_tracer_output(REPO_ROOT, FROZEN_TRACER, changed_evaluation)
+            self.assertEqual(self._snapshot(changed_evaluation), before)
 
             changed_contract = root / "changed-contract-package"
             shutil.copytree(FROZEN_TRACER, changed_contract)
