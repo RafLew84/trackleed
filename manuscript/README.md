@@ -83,6 +83,9 @@ describes the corresponding physical state or experimental role.
   opportunity and measurement-contract package for the principal Ag(111)
   reconstruction, including stored native proposals, `221/24` reference keys
   and read-only fail-closed validation.
+- [`experimental_metadata/`](experimental_metadata/) - author-confirmed,
+  source-linked acquisition-metadata record, explicit unavailable fields,
+  TIFF inventory and metadata-derived claim constraints.
 
 ## Sources of truth
 

@@ -1,0 +1,15 @@
+{
+  "attestations": {
+    "explicit_gaps_reviewed": true,
+    "no_unsupported_inference": true,
+    "recovered_values_reviewed": true
+  },
+  "confirmation_statement": "The recovered values, explicit gaps, absence of unsupported inference and metadata-derived claim constraints are confirmed.",
+  "confirmed_by": "publication author via repository HITL checkpoint",
+  "confirmed_date": "2026-07-31",
+  "confirmed_not_recorded_field_ids": [],
+  "constraints_sha256": "689cc9d09a8cb59e6ad125f17187a44cd3e27932b495136a795dcf81746606b4",
+  "record_sha256": "61128e11683028be81e76f711e0759ffc9d9b6a8229bbb68a364d79f5931f6ee",
+  "schema_version": 1,
+  "status": "confirmed"
+}

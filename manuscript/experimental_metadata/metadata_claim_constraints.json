@@ -1,0 +1,98 @@
+{
+  "constraints": [
+    {
+      "claim_impact": "Keep geometric outcomes in pixels or dimensionless relative quantities; do not claim instrument-traceable absolute position, reciprocal-space calibration, or instrumental uncertainty.",
+      "constraint_id": "no_instrument_traceable_absolute_geometry",
+      "field_ids": [
+        "leed_instrument",
+        "incidence_geometry",
+        "physical_detector_calibration"
+      ]
+    },
+    {
+      "claim_impact": "Do not interpret Gaussian amplitude or fitted volume as calibrated absolute LEED intensity or compare it as a calibrated intensity scale across acquisitions.",
+      "constraint_id": "no_absolute_intensity_interpretation",
+      "field_ids": [
+        "detector_type",
+        "camera_model",
+        "exposure_time",
+        "gain",
+        "binning",
+        "frame_averaging",
+        "illumination_or_beam_current",
+        "detector_response"
+      ]
+    },
+    {
+      "claim_impact": "Do not attribute changes to a specified preparation state, contamination level, adsorbate exposure, or pressure history.",
+      "constraint_id": "no_preparation_state_attribution",
+      "field_ids": [
+        "cu111_cleaning",
+        "ag111_cleaning",
+        "cu111_annealing",
+        "ag111_annealing",
+        "surface_exposure",
+        "surface_cleanliness_verification",
+        "uhv_status_conditions",
+        "base_pressure",
+        "acquisition_pressure",
+        "pressure_gauge",
+        "process_gases"
+      ]
+    },
+    {
+      "claim_impact": "Use the Cu series as a recorded temperature-indexed positive control; do not claim kinetics, a calibrated thermal-expansion coefficient, a phase-transition temperature, or thermal-hysteresis attribution.",
+      "constraint_id": "no_temperature_kinetics_or_calibrated_transition",
+      "field_ids": [
+        "cu111_temperature_sensor",
+        "cu111_temperature_calibration",
+        "cu111_acquisition_timing",
+        "cu111_heating_rate",
+        "cu111_cooling_rate"
+      ]
+    },
+    {
+      "claim_impact": "Treat Ag evidence as case-based behavior over recorded energy sequences; do not claim time-dependent scan kinetics, temperature-dependent Ag behavior, or a calibrated structural LEED I(V) interpretation.",
+      "constraint_id": "no_ag_scan_kinetics_or_calibrated_iv",
+      "field_ids": [
+        "ag111_independent_scan_temperature",
+        "ag111_memory_scan_temperature",
+        "energy_step_timing_dwell",
+        "energy_sweep_control_program",
+        "energy_calibration_uncertainty"
+      ]
+    },
+    {
+      "claim_impact": "Midpoint drift and apparatus-shadow behavior may remain diagnostics but must not be attributed to a specific physical component or generalized to other LEED systems.",
+      "constraint_id": "apparatus_diagnostics_not_component_attribution",
+      "field_ids": [
+        "leed_instrument",
+        "detector_type",
+        "incidence_geometry"
+      ]
+    },
+    {
+      "claim_impact": "Treat Scans A and B as two separately acquired case series under the tested measurement contract, not controlled population replicates.",
+      "constraint_id": "ag_series_not_controlled_population_replicates",
+      "field_ids": [
+        "base_pressure",
+        "acquisition_pressure",
+        "exposure_time",
+        "gain",
+        "illumination_or_beam_current",
+        "ag111_cleaning"
+      ]
+    },
+    {
+      "claim_impact": "The National Instruments IMAQ tag may identify the TIFF writer only; it cannot identify the camera or detector model.",
+      "constraint_id": "imaq_writer_not_camera_identity",
+      "field_ids": [
+        "tiff_writer_software",
+        "camera_model"
+      ]
+    }
+  ],
+  "final_claim_boundary": false,
+  "schema_version": 1,
+  "scope": "metadata_derived_claim_constraints_only"
+}

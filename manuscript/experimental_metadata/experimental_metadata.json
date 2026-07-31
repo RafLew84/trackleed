@@ -1,0 +1,1443 @@
+{
+  "audit_rules": {
+    "absence_from_repository_defaults_to": "not available",
+    "filename_only_inference_forbidden": true,
+    "not_recorded_requires_author_confirmation": true,
+    "unlabeled_sidecar_columns_interpreted": false
+  },
+  "fields": [
+    {
+      "category": "apparatus",
+      "field_id": "measurement_technique",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "scientific_series_label and evidence_role columns",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": null,
+      "value": "low-energy electron diffraction (LEED) diffraction imaging"
+    },
+    {
+      "category": "apparatus",
+      "field_id": "leed_instrument",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "electron_source",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "incidence_geometry",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "sample_manipulator",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "working_distance",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "leed_screen",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "apparatus",
+      "field_id": "instrument_settings",
+      "provenance": [],
+      "reason": "No authoritative apparatus value was found in the audited acquisition, session, frozen-source or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "detector_type",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "detector_camera_manufacturer",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "sensor_type",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "imaging_optics",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "camera_model",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "image_dimensions",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.series[*].files[*].image_width/image_length",
+          "source_path": "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+          "source_sha256": "1ded0fae83542245a3d61b8297e221bc2cff41c39a960b37ff63578973bfa212"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "pixel",
+      "value": {
+        "height_px": 1000,
+        "series_file_counts": {
+          "ag111_memory_analysis": 69,
+          "ag111_scan_a": 35,
+          "ag111_scan_b": 46,
+          "cu111_thermal_cycle": 701
+        },
+        "verified_file_count": 851,
+        "width_px": 1000
+      }
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "pixel_bit_depth",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.series[*].files[*].bits_per_sample/samples_per_pixel/mode/compression",
+          "source_path": "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+          "source_sha256": "1ded0fae83542245a3d61b8297e221bc2cff41c39a960b37ff63578973bfa212"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": null,
+      "value": {
+        "bits_per_sample": 8,
+        "compression_tag": 1,
+        "encoding": "single-sample grayscale uncompressed TIFF",
+        "mode": "L",
+        "samples_per_pixel": 1
+      }
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "tiff_writer_software",
+      "note": "This is the embedded TIFF writer string; it is not a camera or detector model.",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.series[*].files[*].software",
+          "source_path": "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+          "source_sha256": "1ded0fae83542245a3d61b8297e221bc2cff41c39a960b37ff63578973bfa212"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": null,
+      "value": "National Instruments IMAQ"
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "physical_detector_calibration",
+      "provenance": [],
+      "reason": "The audited TIFFs and source records contain pixel coordinates but no authoritative physical detector, angular or reciprocal-space calibration.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "exposure_time",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "gain",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "binning",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "frame_averaging",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "illumination_or_beam_current",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "detector_response",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "acquisition_timestamps",
+      "provenance": [],
+      "reason": "Date-time-shaped sidecar tokens have no authoritative local schema, and Scan B has no sidecar; no semantic acquisition timestamps are admitted.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "detector_camera_imaging",
+      "field_id": "acquisition_preprocessing",
+      "provenance": [],
+      "reason": "No authoritative semantic field was found in the audited TIFF tags, session schema, frozen manifests or manuscript records.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "cu111_sample_identity",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Cu(111) thermal-cycle positive control row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "controlled_translations"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": null,
+      "value": {
+        "material": "Cu",
+        "nominal_surface_orientation": "(111)"
+      }
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "ag111_sample_identity",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Ag(111) energy-scan rows",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": null,
+      "value": {
+        "material": "Ag",
+        "nominal_surface_orientation": "(111)"
+      }
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "cu111_cleaning",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "ag111_cleaning",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "cu111_annealing",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "ag111_annealing",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "surface_exposure",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "crystal_source_purity",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "surface_miscut",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "sample_mounting",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "thermocouple_attachment",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "sample_preparation_exposure",
+      "field_id": "surface_cleanliness_verification",
+      "provenance": [],
+      "reason": "No authoritative preparation or exposure record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "uhv_conditions",
+      "field_id": "uhv_status_conditions",
+      "provenance": [],
+      "reason": "No authoritative record establishes whether or under which UHV conditions the reported acquisitions were performed; UHV is not inferred from use of LEED.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "uhv_conditions",
+      "field_id": "base_pressure",
+      "provenance": [],
+      "reason": "No base-pressure or gauge record was found in the audited local sources; UHV is not inferred from use of LEED.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "uhv_conditions",
+      "field_id": "acquisition_pressure",
+      "provenance": [],
+      "reason": "No pressure-during-acquisition record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "uhv_conditions",
+      "field_id": "pressure_gauge",
+      "provenance": [],
+      "reason": "No pressure-gauge manufacturer, model or calibration record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "uhv_conditions",
+      "field_id": "process_gases",
+      "provenance": [],
+      "reason": "No process-gas, purity or residual-gas record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "cu111_energy_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.series.energy_ev and $.series.frame_count",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+          "source_sha256": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Cu(111) thermal-cycle positive control row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "controlled_translations"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "eV",
+      "value": {
+        "acquired_frame_count": 701,
+        "constant_energy_ev": 56.0
+      }
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "ag111_scan_a_energy_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.baseline_cases[?series=26a21].energy_range_ev/reference_energy_ev",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+          "source_sha256": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "header and ordered frame,energy_ev rows",
+          "source_path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+          "source_sha256": "9831c4d2bdf78f65b2a0b8bfd03d783e139d43bc5bd296e22d2a22380206c5ae"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Ag(111) Scans A and B row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "ag111_scan_a"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "eV",
+      "value": {
+        "acquired_frame_count": 35,
+        "analysis_reference_energy_ev": 188.5,
+        "exact_schedule_recorded": true,
+        "maximum_energy_ev": 220.5,
+        "minimum_energy_ev": 40.0
+      }
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "ag111_scan_b_energy_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.baseline_cases[?series=26a21b].energy_range_ev/reference_energy_ev",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+          "source_sha256": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "header and ordered frame,energy_ev rows",
+          "source_path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_b_pair_1/scan_measurements.csv",
+          "source_sha256": "0431b7d15161277ab47f5e6f0ce3154cd5630cef3b55cf81762fda7f7bc3cf2d"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Ag(111) Scans A and B row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "ag111_scan_b"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "eV",
+      "value": {
+        "acquired_frame_count": 46,
+        "analysis_reference_energy_ev": 188.5,
+        "exact_schedule_recorded": true,
+        "maximum_energy_ev": 220.4,
+        "minimum_energy_ev": 40.0
+      }
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "ag111_memory_energy_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.energy_range_ev/frame_count/reference_energy_ev",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+          "source_sha256": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Ag(111) memory-analysis scan row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "eV",
+      "value": {
+        "acquired_frame_count": 69,
+        "analysis_reference_energy_ev": 187.9,
+        "maximum_energy_ev": 220.2,
+        "minimum_energy_ev": 45.0
+      }
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "energy_step_timing_dwell",
+      "provenance": [],
+      "reason": "Frozen records contain frame order and energy but no authoritative energy-step timing or dwell field.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_b_pair_1/scan_measurements.csv",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "energy_sweep_control_program",
+      "provenance": [],
+      "reason": "No authoritative sweep-control program or scan-rate record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_b_pair_1/scan_measurements.csv",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "energy_calibration_uncertainty",
+      "provenance": [],
+      "reason": "No authoritative energy calibration or uncertainty record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle",
+        "ag111_scan_a",
+        "ag111_scan_b",
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+        "manuscript/scientific_baseline/frozen_inputs/cases/scan_b_pair_1/scan_measurements.csv",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "energy_programs",
+      "field_id": "external_reference_energy_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "$.energy_range_ev/frame_count",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/external_reference_summary.json",
+          "source_sha256": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Restricted high-energy external reference row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "restricted_external_reference"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "eV",
+      "value": {
+        "frame_count": 15,
+        "maximum_energy_ev": 220.2,
+        "minimum_energy_ev": 187.9,
+        "relationship": "subset of ag111_memory_analysis"
+      }
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "cu111_temperature_program",
+      "provenance": [
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "header and rows 2-702",
+          "source_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/temperature_profile.csv",
+          "source_sha256": "c68df468e760880054e75294d9e8a82601c9771e439ab0eadc7f023268d0479d"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "all landmark rows",
+          "source_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv",
+          "source_sha256": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0"
+        },
+        {
+          "basis": "frozen_first_party_record",
+          "locator": "Cu(111) thermal-cycle positive control row",
+          "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+        }
+      ],
+      "reason": null,
+      "scope": [
+        "cu111_thermal_cycle",
+        "controlled_translations"
+      ],
+      "search_scope": [],
+      "status": "recorded",
+      "unit": "degree_Celsius",
+      "value": {
+        "final_frame_order": 700,
+        "final_temperature_c": 92.0,
+        "frame_count": 701,
+        "full_temperature_by_frame_recorded": true,
+        "initial_temperature_c": 10.0,
+        "maximum_temperature_c": 800.0,
+        "plateau_frame_orders": [
+          372,
+          373,
+          374,
+          375,
+          376
+        ],
+        "selected_post_plateau_frame_order": 378,
+        "selected_post_plateau_temperature_c": 797.0
+      }
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "cu111_temperature_sensor",
+      "provenance": [],
+      "reason": "No sensor type, location or thermal-contact record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "cu111_temperature_calibration",
+      "provenance": [],
+      "reason": "No temperature calibration or uncertainty record was found in the audited local sources.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "cu111_acquisition_timing",
+      "provenance": [],
+      "reason": "The frozen Cu record contains temperature by frame order but no authoritative elapsed-time or timestamp field.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "ag111_independent_scan_temperature",
+      "provenance": [],
+      "reason": "No authoritative sample-temperature field occurs in the independent energy-scan records; filename tokens are not admitted as evidence.",
+      "scope": [
+        "ag111_scan_a",
+        "ag111_scan_b"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "data/26a21_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "temperature_programs",
+      "field_id": "ag111_memory_scan_temperature",
+      "provenance": [],
+      "reason": "No authoritative sample-temperature field occurs in the memory-analysis records; filename tokens are not admitted as evidence.",
+      "scope": [
+        "ag111_memory_analysis"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "data/26a24_ScanE/Ag111-3G_E0400.txt"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "heating_cooling_rates",
+      "field_id": "cu111_heating_rate",
+      "provenance": [],
+      "reason": "A heating rate cannot be calculated from temperature versus frame order without authoritative acquisition timing.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/temperature_profile.csv"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    },
+    {
+      "category": "heating_cooling_rates",
+      "field_id": "cu111_cooling_rate",
+      "provenance": [],
+      "reason": "A cooling rate cannot be calculated from temperature versus frame order without authoritative acquisition timing.",
+      "scope": [
+        "cu111_thermal_cycle"
+      ],
+      "search_scope": [
+        "manuscript/manuscript.md",
+        "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/cu111_positive_control_manifest.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/independent_energy_scan_summary.json",
+        "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/memory_analysis_scan_summary.json",
+        "manuscript/experimental_metadata/tiff_metadata_inventory.json",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/temperature_profile.csv"
+      ],
+      "status": "not available",
+      "unit": null,
+      "value": null
+    }
+  ],
+  "record_status": "author_confirmed",
+  "schema_version": 1,
+  "status_definitions": {
+    "not available": "No authoritative record is available in the audited sources.",
+    "not recorded": "The author confirms the value was not recorded.",
+    "recorded": "An authoritative source records the value."
+  },
+  "study": "trackleed_publication_scientific_core"
+}
