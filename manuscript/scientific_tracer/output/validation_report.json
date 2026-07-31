@@ -1,0 +1,20 @@
+{
+  "branch_consistent_count": 44,
+  "candidate_count": 70,
+  "checks": {
+    "candidate_schema_and_sources": "passed",
+    "continuous_value_tolerances": "passed",
+    "evaluation_classifications": "passed",
+    "frozen_input_hashes": "passed",
+    "reader_facing_rounding": "passed",
+    "record_keys_and_counts": "passed"
+  },
+  "evaluated_gap_count": 5,
+  "evaluation_count": 70,
+  "fail_closed": true,
+  "matches_frozen_central_record": true,
+  "output_manifest_sha256": "5d89fabe3628e2d87c443c6efc2b566cc6d0215aba0ba8c9707d40e026dd56de",
+  "recovered_gap_count": 5,
+  "schema_version": 1,
+  "tracer_id": "scan_a_pair_1_locotrack_central"
+}

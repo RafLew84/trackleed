@@ -1,0 +1,29 @@
+{
+  "central_result": {
+    "absolute_pair_distance_residual_px": {
+      "max": 8.735846376277095,
+      "median": 1.9830182698233898,
+      "p95": 8.645125319289201
+    },
+    "accepted_measurements_all_frames": 57,
+    "branch_consistent_measurements": 44,
+    "fit_coverage_on_baseline_visible": 1.0,
+    "geometry_inconsistent_accepted_fits": 9,
+    "jointly_consistent_pair_frames": 18,
+    "native_visible_on_baseline_visible": 44,
+    "physics_baseline_visible_opportunities": 44,
+    "post_gap_recovery": {
+      "evaluated_gap_count": 5,
+      "rate": 1.0,
+      "recovered_gap_count": 5,
+      "zero_delay_count": 5
+    },
+    "tracker": "locotrack"
+  },
+  "reader_facing": {
+    "conditional_pair_residual_median": "1.983 px",
+    "coverage": "44/44 (100.0%)",
+    "geometry_inconsistency": "9/57 (15.8%)",
+    "post_gap_recovery": "5/5 (100.0%)"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "estimator_compatibility": {
+    "center_preference_factor": 0.34,
+    "image_loading": "tifffile.imread followed by skimage.util.img_as_float",
+    "mode": "historical_publication_central_record",
+    "optimizer_theta_bounds_rad": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "reason": "The frozen central record predates the unbounded-periodic-angle optimizer correction; the application default remains unbounded."
+  },
+  "execution_device": "cpu",
+  "inputs": {
+    "case_measurements": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+      "sha256": "9831c4d2bdf78f65b2a0b8bfd03d783e139d43bc5bd296e22d2a22380206c5ae"
+    },
+    "case_summary": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/summary.json",
+      "sha256": "676391bf18182c179dad4c336af0d18090990611becf9e746fb36ad52bd28b50"
+    },
+    "frame_images": {
+      "path": "frozen/frame_images.csv",
+      "sha256": "7630f1ddbf60b4ebe8906aed6899c8e6fcee05c5cf415bd5a2e73c8c9f735acf"
+    },
+    "gaps": {
+      "path": "manuscript/scientific_baseline/gaps.csv",
+      "sha256": "e80b875d706fb9dd148bf36ab26c7ca0609eaf59f0267aff91af84da91be55ab"
+    },
+    "measurement_contract": {
+      "path": "manuscript/scientific_baseline/measurement_contract.json",
+      "sha256": "b80751891329892032607da6c2b3860564dff80a7a051c00ae43bf6716b5d65e"
+    },
+    "opportunities": {
+      "path": "manuscript/scientific_baseline/opportunities.csv",
+      "sha256": "5210422645d08adf9bcafceead918989d2695ef156deaed3c2b1a4f949295fcf"
+    },
+    "proposals": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/proposals/scan_a_pair_1/locotrack.npz",
+      "sha256": "12f624da188aac4382742200fd2c3c1a4c9c19f0f88ac1262c4c1d5a622e86ff"
+    },
+    "published_case_results": {
+      "path": "manuscript/figures/figure03_independent_scane_stress/source_data/case_results.csv",
+      "sha256": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48"
+    }
+  },
+  "runner_sha256": "dee0aa508adef91bbcb6a76458f11c8f63979497350c420fcd5d8e6e3b4d7671",
+  "runner_source": "trackleed/analysis/scientific_tracer.py",
+  "runtime": {
+    "numpy": "2.2.5",
+    "python": "3.12.9",
+    "scikit-image": "0.25.2",
+    "scipy": "1.15.2",
+    "tifffile": "2025.3.30"
+  },
+  "schema_version": 1,
+  "tracer_id": "scan_a_pair_1_locotrack_central"
+}

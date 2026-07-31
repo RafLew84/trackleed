@@ -1,0 +1,191 @@
+{
+  "case_id": "scan_a_pair_1",
+  "comparison_tolerances": {
+    "continuous_values": {
+      "atol": 1e-08,
+      "rtol": 1e-09
+    },
+    "discrete_values": "exact",
+    "reader_facing_values": "exact_after_declared_rounding"
+  },
+  "estimator_compatibility": {
+    "center_preference_factor": 0.34,
+    "image_loading": "tifffile.imread followed by skimage.util.img_as_float",
+    "mode": "historical_publication_central_record",
+    "optimizer_theta_bounds_rad": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "reason": "The frozen central record predates the unbounded-periodic-angle optimizer correction; the application default remains unbounded."
+  },
+  "execution_contract": {
+    "device": "cpu",
+    "runtime": {
+      "numpy": "2.2.5",
+      "python": "3.12.9",
+      "scikit-image": "0.25.2",
+      "scipy": "1.15.2",
+      "tifffile": "2025.3.30"
+    }
+  },
+  "expected_counts": {
+    "branch_consistent_measurements": 44,
+    "candidate_records": 70,
+    "evaluated_gaps": 5,
+    "evaluation_records": 70,
+    "geometry_inconsistent_accepted_fits": 9,
+    "jointly_consistent_pair_frames": 18,
+    "recovered_gaps": 5
+  },
+  "expected_files": {
+    "central_records": "frozen/expected_central_records.csv",
+    "gap_records": "frozen/expected_gap_records.csv",
+    "pair_records": "frozen/expected_pair_records.csv",
+    "summary": "frozen/expected_summary.json"
+  },
+  "expected_output_schemas": {
+    "candidate_records.csv": [
+      "record_key",
+      "case_id",
+      "series_id",
+      "pair_id",
+      "method",
+      "frame",
+      "energy_ev",
+      "branch",
+      "physics_baseline_status",
+      "opportunity_key",
+      "image_artifact_id",
+      "image_source_path",
+      "image_sha256",
+      "proposal_source_path",
+      "proposal_sha256",
+      "proposal_available",
+      "native_x",
+      "native_y",
+      "native_mask_area",
+      "native_mask_score",
+      "native_mask_component_count",
+      "predicted_x",
+      "predicted_y",
+      "roi_side_px",
+      "crop_x0",
+      "crop_y0",
+      "crop_x1",
+      "crop_y1",
+      "roi_valid",
+      "solver_status",
+      "finite_candidate",
+      "missing_state",
+      "center_x",
+      "center_y",
+      "amplitude",
+      "r_squared",
+      "volume",
+      "sigma_x",
+      "sigma_y",
+      "theta",
+      "offset",
+      "center_x_error",
+      "center_y_error",
+      "amplitude_error",
+      "sigma_x_error",
+      "sigma_y_error",
+      "theta_error",
+      "offset_error",
+      "volume_error",
+      "proposal_offset_px",
+      "branch_error_px",
+      "radial_residual_px",
+      "tangential_residual_px",
+      "proposal_to_fit_margin_px",
+      "r_squared_margin",
+      "amplitude_margin",
+      "sigma_x_lower_margin_px",
+      "sigma_x_upper_margin_px",
+      "sigma_y_lower_margin_px",
+      "sigma_y_upper_margin_px",
+      "branch_margin_px"
+    ],
+    "evaluation_records.csv": [
+      "record_key",
+      "case_id",
+      "method",
+      "frame",
+      "energy_ev",
+      "branch",
+      "physics_baseline_status",
+      "opportunity_key",
+      "variant_id",
+      "accepted_fit",
+      "measurement_valid",
+      "measurement_status",
+      "classification",
+      "first_rejection_cause",
+      "full_rejection_causes",
+      "legacy_fit_reason",
+      "proposal_to_fit_margin_px",
+      "r_squared_margin",
+      "amplitude_margin",
+      "sigma_x_lower_margin_px",
+      "sigma_x_upper_margin_px",
+      "sigma_y_lower_margin_px",
+      "sigma_y_upper_margin_px",
+      "branch_margin_px"
+    ]
+  },
+  "frozen_inputs": {
+    "case_measurements": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+      "sha256": "9831c4d2bdf78f65b2a0b8bfd03d783e139d43bc5bd296e22d2a22380206c5ae"
+    },
+    "case_summary": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/cases/scan_a_pair_1/summary.json",
+      "sha256": "676391bf18182c179dad4c336af0d18090990611becf9e746fb36ad52bd28b50"
+    },
+    "frame_images": {
+      "path": "frozen/frame_images.csv",
+      "sha256": "7630f1ddbf60b4ebe8906aed6899c8e6fcee05c5cf415bd5a2e73c8c9f735acf"
+    },
+    "gaps": {
+      "path": "manuscript/scientific_baseline/gaps.csv",
+      "sha256": "e80b875d706fb9dd148bf36ab26c7ca0609eaf59f0267aff91af84da91be55ab"
+    },
+    "measurement_contract": {
+      "path": "manuscript/scientific_baseline/measurement_contract.json",
+      "sha256": "b80751891329892032607da6c2b3860564dff80a7a051c00ae43bf6716b5d65e"
+    },
+    "opportunities": {
+      "path": "manuscript/scientific_baseline/opportunities.csv",
+      "sha256": "5210422645d08adf9bcafceead918989d2695ef156deaed3c2b1a4f949295fcf"
+    },
+    "proposals": {
+      "path": "manuscript/scientific_baseline/frozen_inputs/proposals/scan_a_pair_1/locotrack.npz",
+      "sha256": "12f624da188aac4382742200fd2c3c1a4c9c19f0f88ac1262c4c1d5a622e86ff"
+    },
+    "published_case_results": {
+      "path": "manuscript/figures/figure03_independent_scane_stress/source_data/case_results.csv",
+      "sha256": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48"
+    }
+  },
+  "historical_sources": {
+    "central_records_sha256": "cb8a3d5063a1677146be6ec204f9ca653d40bd3db56cdf90506c2e91c9c0e8ec",
+    "gap_records_sha256": "412c10d62b583b960ec17dd1452bc5433b0cc8e0d23176e285293a35cbf97900",
+    "pair_records_sha256": "474405430763619dfee2eafc232c66e245151d371ad1d084b39aca15ba279fb3",
+    "summary_sha256": "ab3c66ddea883e928179a0d86beb2350f71eaeccafa00df91c6a7520f55c2173"
+  },
+  "method": "locotrack",
+  "pair_id": "pair_1",
+  "reader_facing_rounding": {
+    "counts": "exact",
+    "pair_distance_residual_px": {
+      "decimal_places": 3
+    },
+    "rates_percent": {
+      "decimal_places": 1
+    }
+  },
+  "schema_version": 1,
+  "series_id": "scan_a",
+  "tracer_id": "scan_a_pair_1_locotrack_central"
+}

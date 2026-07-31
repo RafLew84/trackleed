@@ -1,0 +1,6 @@
+tracker,branch,direction,gap_start_energy_ev,gap_end_energy_ev,gap_frame_count,first_expected_recovery_energy_ev,recovered,recovery_energy_ev,recovery_delay_frames
+locotrack,B1,low,99.0,99.0,1,93.5,True,93.5,0
+locotrack,B1,low,161.0,172.0,3,155.0,True,155.0,0
+locotrack,B2,low,149.5,149.5,1,144.0,True,144.0,0
+locotrack,B2,high,193.5,199.0,2,204.5,True,204.5,0
+locotrack,B2,high,215.0,220.5,2,220.5,True,220.5,0

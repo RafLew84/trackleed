@@ -1,0 +1,21 @@
+{
+  "tracker": "locotrack",
+  "physics_baseline_visible_opportunities": 44,
+  "native_visible_on_baseline_visible": 44,
+  "branch_consistent_measurements": 44,
+  "fit_coverage_on_baseline_visible": 1.0,
+  "accepted_measurements_all_frames": 57,
+  "geometry_inconsistent_accepted_fits": 9,
+  "jointly_consistent_pair_frames": 18,
+  "absolute_pair_distance_residual_px": {
+    "median": 1.9830182698233898,
+    "p95": 8.645125319289201,
+    "max": 8.735846376277095
+  },
+  "post_gap_recovery": {
+    "evaluated_gap_count": 5,
+    "recovered_gap_count": 5,
+    "rate": 1.0,
+    "zero_delay_count": 5
+  }
+}

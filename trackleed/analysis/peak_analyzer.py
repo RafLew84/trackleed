@@ -195,6 +195,7 @@ def _estimate_preferred_center_seed(
 def fit_spot_to_gaussian(
     roi_data: np.ndarray,
     center_preference_factor: float | None = None,
+    theta_bounds: tuple[float, float] | None = None,
 ) -> Optional[Dict[str, float]]:
     """
     Performs a full analysis pipeline for a single spot's ROI.
@@ -205,6 +206,11 @@ def fit_spot_to_gaussian(
 
     Args:
         roi_data: A 2D numpy array representing the pixel intensities of the spot.
+        center_preference_factor: Optional fractional radius used to prefer a
+            seed near the ROI center.
+        theta_bounds: Optional lower and upper optimizer bounds for the Gaussian
+            angle. ``None`` preserves the unbounded application default; the
+            publication tracer supplies its frozen historical bounds explicitly.
 
     Returns:
         A dictionary containing all fitted parameters (like center, amplitude)
@@ -259,8 +265,21 @@ def fit_spot_to_gaussian(
         lower_center_y = -height
         upper_center_y = 2 * height
 
-    lower_bounds = [0,       lower_center_x, lower_center_y, 0.5,   0.5,   -np.inf, 0]
-    upper_bounds = [np.inf,  upper_center_x, upper_center_y, width, height, np.inf, np.inf]
+    lower_theta, upper_theta = (
+        (-np.inf, np.inf) if theta_bounds is None else theta_bounds
+    )
+    if not lower_theta < upper_theta:
+        raise ValueError("theta_bounds must be strictly increasing")
+    lower_bounds = [0, lower_center_x, lower_center_y, 0.5, 0.5, lower_theta, 0]
+    upper_bounds = [
+        np.inf,
+        upper_center_x,
+        upper_center_y,
+        width,
+        height,
+        upper_theta,
+        np.inf,
+    ]
     bounds = (lower_bounds, upper_bounds)
     
     # Names of the parameters corresponding to the initial_guess list.
