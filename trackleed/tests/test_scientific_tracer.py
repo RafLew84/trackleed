@@ -7,14 +7,22 @@ import json
 from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
+from typing import get_type_hints
 import unittest
 
 from trackleed.publication.scientific_tracer import (
+    CANDIDATE_FIELDS,
+    EVALUATION_FIELDS,
+    CandidateRecord,
+    EvaluationRecord,
     TracerValidationError,
     evaluate_candidates,
     run_tracer,
+    stage_tracer_refreeze,
     validate_tracer_output,
 )
+from trackleed.analysis.scientific_tracer_contract import validate_tracer_package
+from trackleed.analysis.scientific_tracer_freeze import refreeze_tracer_package
 from scripts.run_publication_tracer import main as tracer_main
 
 
@@ -56,6 +64,148 @@ class ScientificTracerTests(unittest.TestCase):
             output_manifest_path
         )
         self._write_json(report_path, validation_report)
+
+    def _authenticate_package(self, tracer: Path, authentication: Path) -> None:
+        manifest_path = tracer / "package_manifest.json"
+        files = {
+            path.relative_to(tracer).as_posix(): self._sha256(path)
+            for path in sorted(tracer.rglob("*"))
+            if path.is_file()
+            and path.name != "package_manifest.json"
+            and "output" not in path.relative_to(tracer).parts
+        }
+        self._write_json(
+            manifest_path,
+            {
+                "files_sha256": files,
+                "immutable": True,
+                "schema_version": 1,
+                "tracer_id": "scan_a_pair_1_locotrack_central",
+            },
+        )
+        self._write_json(
+            authentication,
+            {
+                "package_manifest_sha256": self._sha256(manifest_path),
+                "schema_version": 1,
+                "tracer_id": "scan_a_pair_1_locotrack_central",
+            },
+        )
+
+    def test_candidate_and_evaluation_schemas_have_one_typed_source(self) -> None:
+        candidate_types = get_type_hints(CandidateRecord)
+        evaluation_types = get_type_hints(EvaluationRecord)
+
+        self.assertEqual(tuple(candidate_types), CANDIDATE_FIELDS)
+        self.assertEqual(tuple(evaluation_types), EVALUATION_FIELDS)
+        contract = json.loads(
+            (FROZEN_TRACER / "frozen" / "tracer_contract.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            contract["expected_output_schemas"]["candidate_records.csv"],
+            list(candidate_types),
+        )
+        self.assertEqual(
+            contract["expected_output_schemas"]["evaluation_records.csv"],
+            list(evaluation_types),
+        )
+
+    def test_explicit_refreeze_refreshes_schemas_manifest_and_authentication(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tracer = root / "tracer"
+            staged_output = root / "staged-output"
+            authentication = root / "authentication.json"
+            shutil.copytree(FROZEN_TRACER, tracer)
+            contract_path = tracer / "frozen" / "tracer_contract.json"
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            retired_schema = list(CANDIDATE_FIELDS)
+            retired_schema.remove("volume_error")
+            contract["expected_output_schemas"]["candidate_records.csv"] = (
+                retired_schema
+            )
+            self._write_json(contract_path, contract)
+            expected_candidates = (
+                tracer / "frozen" / "expected_candidate_records.csv"
+            )
+            with expected_candidates.open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                rows = list(reader)
+            with expected_candidates.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=retired_schema,
+                    extrasaction="ignore",
+                    lineterminator="\n",
+                )
+                writer.writeheader()
+                writer.writerows(rows)
+            self._authenticate_package(tracer, authentication)
+
+            stage_tracer_refreeze(
+                REPO_ROOT,
+                tracer,
+                staged_output,
+                authentication,
+            )
+
+            refreeze_tracer_package(
+                REPO_ROOT,
+                tracer,
+                staged_output,
+                authentication,
+            )
+
+            refreshed = validate_tracer_package(
+                REPO_ROOT,
+                tracer,
+                authentication_path=authentication,
+            )
+            self.assertEqual(
+                refreshed["expected_output_schemas"]["candidate_records.csv"],
+                list(CANDIDATE_FIELDS),
+            )
+            self.assertEqual(
+                refreshed["expected_output_schemas"]["evaluation_records.csv"],
+                list(EVALUATION_FIELDS),
+            )
+            self.assertEqual(
+                (tracer / "frozen" / "expected_candidate_records.csv").read_bytes(),
+                (staged_output / "candidate_records.csv").read_bytes(),
+            )
+
+    def test_refreeze_refuses_to_replace_an_unauthenticated_package(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tracer = root / "tracer"
+            authentication = root / "authentication.json"
+            shutil.copytree(FROZEN_TRACER, tracer)
+            shutil.copyfile(
+                REPO_ROOT / "manuscript" / "scientific_tracer_authentication.json",
+                authentication,
+            )
+            (tracer / "README.md").write_text(
+                "unauthenticated replacement\n",
+                encoding="utf-8",
+            )
+            before = self._snapshot(tracer)
+
+            with self.assertRaisesRegex(
+                TracerValidationError,
+                "Frozen tracer package hash mismatch",
+            ):
+                refreeze_tracer_package(
+                    REPO_ROOT,
+                    tracer,
+                    FROZEN_TRACER / "output",
+                    authentication,
+                )
+
+            self.assertEqual(self._snapshot(tracer), before)
 
     def test_headless_tracer_builds_candidate_and_evaluation_layers(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -124,7 +274,16 @@ class ScientificTracerTests(unittest.TestCase):
             self.assertEqual(provenance["execution_device"], "cpu")
             self.assertEqual(
                 set(provenance["implementation_sources"]),
-                {"fwhm_metrics", "gaussian_fitter", "tracer"},
+                {
+                    "fwhm_metrics",
+                    "gaussian_fitter",
+                    "tracer_contract",
+                    "tracer_evaluation",
+                    "tracer_records",
+                    "tracer_reconstruction",
+                    "tracer_validation",
+                    "tracer_orchestration",
+                },
             )
             self.assertEqual(
                 provenance["implementation_sources"]["gaussian_fitter"]["path"],
@@ -152,6 +311,25 @@ class ScientificTracerTests(unittest.TestCase):
                     "post_gap_recovery": "5/5 (100.0%)",
                 },
             )
+
+    def test_refactor_preserves_all_scientific_artifacts_byte_for_byte(self) -> None:
+        with TemporaryDirectory() as temporary:
+            output = Path(temporary) / "tracer-output"
+
+            run_tracer(REPO_ROOT, FROZEN_TRACER, output)
+
+            for name in (
+                "candidate_records.csv",
+                "evaluation_records.csv",
+                "pair_records.csv",
+                "gap_records.csv",
+                "summary.json",
+            ):
+                with self.subTest(name=name):
+                    self.assertEqual(
+                        (output / name).read_bytes(),
+                        (FROZEN_TRACER / "output" / name).read_bytes(),
+                    )
 
     def test_command_runs_clean_headless_reconstruction_and_validation(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -225,6 +403,31 @@ class ScientificTracerTests(unittest.TestCase):
         self.assertEqual(changed["record_key"], candidate["record_key"])
         self.assertNotIn("center_x", changed)
         self.assertNotIn("center_y", changed)
+
+    def test_typed_record_codec_fails_closed_on_invalid_field_type(self) -> None:
+        with TemporaryDirectory() as temporary:
+            output = Path(temporary) / "tracer-output"
+            run_tracer(REPO_ROOT, FROZEN_TRACER, output)
+            candidate_path = output / "candidate_records.csv"
+            with candidate_path.open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                fields = list(reader.fieldnames or [])
+                candidates = list(reader)
+            candidates[0]["frame"] = ""
+            with candidate_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(candidates)
+            self._refresh_output_integrity(output, "candidate_records.csv")
+            before = self._snapshot(output)
+
+            with self.assertRaisesRegex(
+                TracerValidationError,
+                "Cannot decode tracer output",
+            ):
+                validate_tracer_output(REPO_ROOT, FROZEN_TRACER, output)
+
+            self.assertEqual(self._snapshot(output), before)
 
     def test_altered_input_candidate_or_contract_fails_closed(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -302,7 +505,7 @@ class ScientificTracerTests(unittest.TestCase):
             )
             before = self._snapshot(changed_evaluation)
             with self.assertRaisesRegex(
-                TracerValidationError, "Frozen evaluation record changed"
+                TracerValidationError, "Cannot decode tracer output"
             ):
                 validate_tracer_output(REPO_ROOT, FROZEN_TRACER, changed_evaluation)
             self.assertEqual(self._snapshot(changed_evaluation), before)

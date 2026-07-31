@@ -14,7 +14,7 @@
   "evaluation_count": 70,
   "fail_closed": true,
   "matches_frozen_central_record": true,
-  "output_manifest_sha256": "14f4835f8a6572db030dd5054aa2017ec744d8446b7b6c0dca3da1dc9c00e54e",
+  "output_manifest_sha256": "299d409a30222a4fd9f5d418af5ea99542c6a17baa78258cb1714eaa20ac20e1",
   "recovered_gap_count": 5,
   "schema_version": 1,
   "tracer_id": "scan_a_pair_1_locotrack_central"

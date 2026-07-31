@@ -19,9 +19,29 @@
       "path": "trackleed/analysis/peak_analyzer.py",
       "sha256": "1fa74303ee00f6e11c4a3b91ecc7e3595cf04fe5baad0b9a6ebb3443841cd25a"
     },
-    "tracer": {
-      "path": "trackleed/analysis/scientific_tracer.py",
-      "sha256": "0e8e637713d404617c0f8a3c7d8802a7f08827f3bab758e03b63216b29b8bece"
+    "tracer_contract": {
+      "path": "trackleed/analysis/scientific_tracer_contract.py",
+      "sha256": "588e94da43576de0e58a7d8c20588c4bc8e90c0a1268ac28bd51a27301d95b5c"
+    },
+    "tracer_evaluation": {
+      "path": "trackleed/analysis/scientific_tracer_evaluation.py",
+      "sha256": "f45fcd20896e5f292b3d1aa8914a94ee2747a68ad2be60d0b6ea797735d3fc7a"
+    },
+    "tracer_orchestration": {
+      "path": "trackleed/publication/scientific_tracer.py",
+      "sha256": "68240fbf669e8df9a2f648025b894db5adcaf13c2aa03444294c82c1526e0411"
+    },
+    "tracer_reconstruction": {
+      "path": "trackleed/analysis/scientific_tracer_reconstruction.py",
+      "sha256": "43296c4e06fcd74b197ee021f9ea3b4b7f87174727729b7f70712bde2c85f72a"
+    },
+    "tracer_records": {
+      "path": "trackleed/analysis/scientific_tracer_records.py",
+      "sha256": "7f016507707d0076788f7634991407af05d9aee1ae6cbfc432feee51904a6472"
+    },
+    "tracer_validation": {
+      "path": "trackleed/analysis/scientific_tracer_validation.py",
+      "sha256": "1a2dc3d7355b617526214e7688274871cbc82d3df4925cf2786792d21896a00f"
     }
   },
   "inputs": {
