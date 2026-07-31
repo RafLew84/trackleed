@@ -9,18 +9,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 44,
-        "fit_coverage_on_baseline_visible": 1.0,
+        "branch_consistent_coverage_on_baseline_visible": 1.0,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 9,
         "jointly_consistent_pair_frames": 19,
         "native_visible_on_baseline_visible": 44,
         "pair_residual_denominator": 19,
         "physics_baseline_visible_opportunities": 44,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 5,
-          "rate": 1.0,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "easyleed": {
@@ -31,18 +31,18 @@
         },
         "accepted_measurements_all_frames": 42,
         "branch_consistent_measurements": 42,
-        "fit_coverage_on_baseline_visible": 0.9545454545454546,
+        "branch_consistent_coverage_on_baseline_visible": 0.9545454545454546,
         "geometry_inconsistency_denominator": 42,
         "geometry_inconsistent_accepted_fits": 0,
         "jointly_consistent_pair_frames": 15,
         "native_visible_on_baseline_visible": 44,
         "pair_residual_denominator": 15,
         "physics_baseline_visible_opportunities": 44,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 5,
-          "rate": 1.0,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "lk": {
@@ -53,18 +53,18 @@
         },
         "accepted_measurements_all_frames": 49,
         "branch_consistent_measurements": 43,
-        "fit_coverage_on_baseline_visible": 0.9772727272727273,
+        "branch_consistent_coverage_on_baseline_visible": 0.9772727272727273,
         "geometry_inconsistency_denominator": 49,
         "geometry_inconsistent_accepted_fits": 5,
         "jointly_consistent_pair_frames": 16,
         "native_visible_on_baseline_visible": 43,
         "pair_residual_denominator": 16,
         "physics_baseline_visible_opportunities": 44,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 5,
-          "rate": 1.0,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "locotrack": {
@@ -75,18 +75,18 @@
         },
         "accepted_measurements_all_frames": 57,
         "branch_consistent_measurements": 44,
-        "fit_coverage_on_baseline_visible": 1.0,
+        "branch_consistent_coverage_on_baseline_visible": 1.0,
         "geometry_inconsistency_denominator": 57,
         "geometry_inconsistent_accepted_fits": 9,
         "jointly_consistent_pair_frames": 18,
         "native_visible_on_baseline_visible": 44,
         "pair_residual_denominator": 18,
         "physics_baseline_visible_opportunities": 44,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 5,
-          "rate": 1.0,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "ostrack": {
@@ -97,18 +97,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 44,
-        "fit_coverage_on_baseline_visible": 1.0,
+        "branch_consistent_coverage_on_baseline_visible": 1.0,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 9,
         "jointly_consistent_pair_frames": 19,
         "native_visible_on_baseline_visible": 44,
         "pair_residual_denominator": 19,
         "physics_baseline_visible_opportunities": 44,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 5,
-          "rate": 1.0,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       }
     },
@@ -121,18 +121,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 49,
-        "fit_coverage_on_baseline_visible": 0.98,
+        "branch_consistent_coverage_on_baseline_visible": 0.98,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 7,
         "jointly_consistent_pair_frames": 20,
         "native_visible_on_baseline_visible": 49,
         "pair_residual_denominator": 20,
         "physics_baseline_visible_opportunities": 50,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 7,
-          "rate": 1.0,
-          "recovered_gap_count": 7,
-          "zero_delay_count": 7
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 7,
+          "zero_delay_branch_consistent_recovery_count": 7
         }
       },
       "easyleed": {
@@ -143,18 +143,18 @@
         },
         "accepted_measurements_all_frames": 48,
         "branch_consistent_measurements": 48,
-        "fit_coverage_on_baseline_visible": 0.96,
+        "branch_consistent_coverage_on_baseline_visible": 0.96,
         "geometry_inconsistency_denominator": 48,
         "geometry_inconsistent_accepted_fits": 0,
         "jointly_consistent_pair_frames": 18,
         "native_visible_on_baseline_visible": 48,
         "pair_residual_denominator": 18,
         "physics_baseline_visible_opportunities": 50,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 7,
-          "rate": 0.7142857142857143,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 0.7142857142857143,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "lk": {
@@ -165,18 +165,18 @@
         },
         "accepted_measurements_all_frames": 40,
         "branch_consistent_measurements": 40,
-        "fit_coverage_on_baseline_visible": 0.8,
+        "branch_consistent_coverage_on_baseline_visible": 0.8,
         "geometry_inconsistency_denominator": 40,
         "geometry_inconsistent_accepted_fits": 0,
         "jointly_consistent_pair_frames": 14,
         "native_visible_on_baseline_visible": 42,
         "pair_residual_denominator": 14,
         "physics_baseline_visible_opportunities": 50,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 7,
-          "rate": 0.5714285714285714,
-          "recovered_gap_count": 4,
-          "zero_delay_count": 4
+          "branch_consistent_recovery_rate": 0.5714285714285714,
+          "branch_consistent_recovered_gap_count": 4,
+          "zero_delay_branch_consistent_recovery_count": 4
         }
       },
       "locotrack": {
@@ -187,18 +187,18 @@
         },
         "accepted_measurements_all_frames": 57,
         "branch_consistent_measurements": 48,
-        "fit_coverage_on_baseline_visible": 0.96,
+        "branch_consistent_coverage_on_baseline_visible": 0.96,
         "geometry_inconsistency_denominator": 57,
         "geometry_inconsistent_accepted_fits": 7,
         "jointly_consistent_pair_frames": 19,
         "native_visible_on_baseline_visible": 50,
         "pair_residual_denominator": 19,
         "physics_baseline_visible_opportunities": 50,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 7,
-          "rate": 1.0,
-          "recovered_gap_count": 7,
-          "zero_delay_count": 7
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 7,
+          "zero_delay_branch_consistent_recovery_count": 7
         }
       },
       "ostrack": {
@@ -209,18 +209,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 49,
-        "fit_coverage_on_baseline_visible": 0.98,
+        "branch_consistent_coverage_on_baseline_visible": 0.98,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 7,
         "jointly_consistent_pair_frames": 20,
         "native_visible_on_baseline_visible": 50,
         "pair_residual_denominator": 20,
         "physics_baseline_visible_opportunities": 50,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 7,
-          "rate": 0.8571428571428571,
-          "recovered_gap_count": 6,
-          "zero_delay_count": 6
+          "branch_consistent_recovery_rate": 0.8571428571428571,
+          "branch_consistent_recovered_gap_count": 6,
+          "zero_delay_branch_consistent_recovery_count": 6
         }
       }
     },
@@ -233,18 +233,18 @@
         },
         "accepted_measurements_all_frames": 77,
         "branch_consistent_measurements": 57,
-        "fit_coverage_on_baseline_visible": 0.95,
+        "branch_consistent_coverage_on_baseline_visible": 0.95,
         "geometry_inconsistency_denominator": 77,
         "geometry_inconsistent_accepted_fits": 10,
         "jointly_consistent_pair_frames": 25,
         "native_visible_on_baseline_visible": 58,
         "pair_residual_denominator": 25,
         "physics_baseline_visible_opportunities": 60,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.8333333333333334,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 0.8333333333333334,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "easyleed": {
@@ -255,18 +255,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 57,
-        "fit_coverage_on_baseline_visible": 0.95,
+        "branch_consistent_coverage_on_baseline_visible": 0.95,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 0,
         "jointly_consistent_pair_frames": 23,
         "native_visible_on_baseline_visible": 60,
         "pair_residual_denominator": 23,
         "physics_baseline_visible_opportunities": 60,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 1.0,
-          "recovered_gap_count": 6,
-          "zero_delay_count": 6
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 6,
+          "zero_delay_branch_consistent_recovery_count": 6
         }
       },
       "lk": {
@@ -277,18 +277,18 @@
         },
         "accepted_measurements_all_frames": 59,
         "branch_consistent_measurements": 47,
-        "fit_coverage_on_baseline_visible": 0.7833333333333333,
+        "branch_consistent_coverage_on_baseline_visible": 0.7833333333333333,
         "geometry_inconsistency_denominator": 59,
         "geometry_inconsistent_accepted_fits": 9,
         "jointly_consistent_pair_frames": 15,
         "native_visible_on_baseline_visible": 53,
         "pair_residual_denominator": 15,
         "physics_baseline_visible_opportunities": 60,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.6666666666666666,
-          "recovered_gap_count": 4,
-          "zero_delay_count": 4
+          "branch_consistent_recovery_rate": 0.6666666666666666,
+          "branch_consistent_recovered_gap_count": 4,
+          "zero_delay_branch_consistent_recovery_count": 4
         }
       },
       "locotrack": {
@@ -299,18 +299,18 @@
         },
         "accepted_measurements_all_frames": 78,
         "branch_consistent_measurements": 58,
-        "fit_coverage_on_baseline_visible": 0.9666666666666667,
+        "branch_consistent_coverage_on_baseline_visible": 0.9666666666666667,
         "geometry_inconsistency_denominator": 78,
         "geometry_inconsistent_accepted_fits": 10,
         "jointly_consistent_pair_frames": 26,
         "native_visible_on_baseline_visible": 60,
         "pair_residual_denominator": 26,
         "physics_baseline_visible_opportunities": 60,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.8333333333333334,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 0.8333333333333334,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       },
       "ostrack": {
@@ -321,18 +321,18 @@
         },
         "accepted_measurements_all_frames": 77,
         "branch_consistent_measurements": 57,
-        "fit_coverage_on_baseline_visible": 0.95,
+        "branch_consistent_coverage_on_baseline_visible": 0.95,
         "geometry_inconsistency_denominator": 77,
         "geometry_inconsistent_accepted_fits": 10,
         "jointly_consistent_pair_frames": 25,
         "native_visible_on_baseline_visible": 60,
         "pair_residual_denominator": 25,
         "physics_baseline_visible_opportunities": 60,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.8333333333333334,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 0.8333333333333334,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       }
     },
@@ -345,18 +345,18 @@
         },
         "accepted_measurements_all_frames": 79,
         "branch_consistent_measurements": 66,
-        "fit_coverage_on_baseline_visible": 0.9850746268656716,
+        "branch_consistent_coverage_on_baseline_visible": 0.9850746268656716,
         "geometry_inconsistency_denominator": 79,
         "geometry_inconsistent_accepted_fits": 10,
         "jointly_consistent_pair_frames": 27,
         "native_visible_on_baseline_visible": 66,
         "pair_residual_denominator": 27,
         "physics_baseline_visible_opportunities": 67,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 1.0,
-          "recovered_gap_count": 6,
-          "zero_delay_count": 6
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 6,
+          "zero_delay_branch_consistent_recovery_count": 6
         }
       },
       "easyleed": {
@@ -367,18 +367,18 @@
         },
         "accepted_measurements_all_frames": 74,
         "branch_consistent_measurements": 67,
-        "fit_coverage_on_baseline_visible": 1.0,
+        "branch_consistent_coverage_on_baseline_visible": 1.0,
         "geometry_inconsistency_denominator": 74,
         "geometry_inconsistent_accepted_fits": 4,
         "jointly_consistent_pair_frames": 28,
         "native_visible_on_baseline_visible": 67,
         "pair_residual_denominator": 28,
         "physics_baseline_visible_opportunities": 67,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 1.0,
-          "recovered_gap_count": 6,
-          "zero_delay_count": 6
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 6,
+          "zero_delay_branch_consistent_recovery_count": 6
         }
       },
       "lk": {
@@ -389,18 +389,18 @@
         },
         "accepted_measurements_all_frames": 58,
         "branch_consistent_measurements": 58,
-        "fit_coverage_on_baseline_visible": 0.8656716417910447,
+        "branch_consistent_coverage_on_baseline_visible": 0.8656716417910447,
         "geometry_inconsistency_denominator": 58,
         "geometry_inconsistent_accepted_fits": 0,
         "jointly_consistent_pair_frames": 23,
         "native_visible_on_baseline_visible": 58,
         "pair_residual_denominator": 23,
         "physics_baseline_visible_opportunities": 67,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.6666666666666666,
-          "recovered_gap_count": 4,
-          "zero_delay_count": 4
+          "branch_consistent_recovery_rate": 0.6666666666666666,
+          "branch_consistent_recovered_gap_count": 4,
+          "zero_delay_branch_consistent_recovery_count": 4
         }
       },
       "locotrack": {
@@ -411,18 +411,18 @@
         },
         "accepted_measurements_all_frames": 80,
         "branch_consistent_measurements": 67,
-        "fit_coverage_on_baseline_visible": 1.0,
+        "branch_consistent_coverage_on_baseline_visible": 1.0,
         "geometry_inconsistency_denominator": 80,
         "geometry_inconsistent_accepted_fits": 10,
         "jointly_consistent_pair_frames": 28,
         "native_visible_on_baseline_visible": 67,
         "pair_residual_denominator": 28,
         "physics_baseline_visible_opportunities": 67,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 1.0,
-          "recovered_gap_count": 6,
-          "zero_delay_count": 6
+          "branch_consistent_recovery_rate": 1.0,
+          "branch_consistent_recovered_gap_count": 6,
+          "zero_delay_branch_consistent_recovery_count": 6
         }
       },
       "ostrack": {
@@ -433,18 +433,18 @@
         },
         "accepted_measurements_all_frames": 76,
         "branch_consistent_measurements": 66,
-        "fit_coverage_on_baseline_visible": 0.9850746268656716,
+        "branch_consistent_coverage_on_baseline_visible": 0.9850746268656716,
         "geometry_inconsistency_denominator": 76,
         "geometry_inconsistent_accepted_fits": 8,
         "jointly_consistent_pair_frames": 26,
         "native_visible_on_baseline_visible": 67,
         "pair_residual_denominator": 26,
         "physics_baseline_visible_opportunities": 67,
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
           "evaluated_gap_count": 6,
-          "rate": 0.8333333333333334,
-          "recovered_gap_count": 5,
-          "zero_delay_count": 5
+          "branch_consistent_recovery_rate": 0.8333333333333334,
+          "branch_consistent_recovered_gap_count": 5,
+          "zero_delay_branch_consistent_recovery_count": 5
         }
       }
     }
@@ -458,18 +458,18 @@
       },
       "accepted_measurements_all_frames": 272,
       "branch_consistent_measurements": 216,
-      "fit_coverage_on_baseline_visible": 0.9773755656108597,
+      "branch_consistent_coverage_on_baseline_visible": 0.9773755656108597,
       "geometry_inconsistency_denominator": 272,
       "geometry_inconsistent_accepted_fits": 36,
       "jointly_consistent_pair_frames": 91,
       "native_visible_on_baseline_visible": 217,
       "pair_residual_denominator": 91,
       "physics_baseline_visible_opportunities": 221,
-      "post_gap_recovery": {
+      "post_gap_branch_consistent_recovery": {
         "evaluated_gap_count": 24,
-        "rate": 0.9583333333333334,
-        "recovered_gap_count": 23,
-        "zero_delay_count": 23
+        "branch_consistent_recovery_rate": 0.9583333333333334,
+        "branch_consistent_recovered_gap_count": 23,
+        "zero_delay_branch_consistent_recovery_count": 23
       }
     },
     "easyleed": {
@@ -480,18 +480,18 @@
       },
       "accepted_measurements_all_frames": 222,
       "branch_consistent_measurements": 214,
-      "fit_coverage_on_baseline_visible": 0.9683257918552036,
+      "branch_consistent_coverage_on_baseline_visible": 0.9683257918552036,
       "geometry_inconsistency_denominator": 222,
       "geometry_inconsistent_accepted_fits": 4,
       "jointly_consistent_pair_frames": 84,
       "native_visible_on_baseline_visible": 219,
       "pair_residual_denominator": 84,
       "physics_baseline_visible_opportunities": 221,
-      "post_gap_recovery": {
+      "post_gap_branch_consistent_recovery": {
         "evaluated_gap_count": 24,
-        "rate": 0.9166666666666666,
-        "recovered_gap_count": 22,
-        "zero_delay_count": 22
+        "branch_consistent_recovery_rate": 0.9166666666666666,
+        "branch_consistent_recovered_gap_count": 22,
+        "zero_delay_branch_consistent_recovery_count": 22
       }
     },
     "lk": {
@@ -502,18 +502,18 @@
       },
       "accepted_measurements_all_frames": 206,
       "branch_consistent_measurements": 188,
-      "fit_coverage_on_baseline_visible": 0.8506787330316742,
+      "branch_consistent_coverage_on_baseline_visible": 0.8506787330316742,
       "geometry_inconsistency_denominator": 206,
       "geometry_inconsistent_accepted_fits": 14,
       "jointly_consistent_pair_frames": 68,
       "native_visible_on_baseline_visible": 196,
       "pair_residual_denominator": 68,
       "physics_baseline_visible_opportunities": 221,
-      "post_gap_recovery": {
+      "post_gap_branch_consistent_recovery": {
         "evaluated_gap_count": 24,
-        "rate": 0.7083333333333334,
-        "recovered_gap_count": 17,
-        "zero_delay_count": 17
+        "branch_consistent_recovery_rate": 0.7083333333333334,
+        "branch_consistent_recovered_gap_count": 17,
+        "zero_delay_branch_consistent_recovery_count": 17
       }
     },
     "locotrack": {
@@ -524,18 +524,18 @@
       },
       "accepted_measurements_all_frames": 272,
       "branch_consistent_measurements": 217,
-      "fit_coverage_on_baseline_visible": 0.9819004524886877,
+      "branch_consistent_coverage_on_baseline_visible": 0.9819004524886877,
       "geometry_inconsistency_denominator": 272,
       "geometry_inconsistent_accepted_fits": 36,
       "jointly_consistent_pair_frames": 91,
       "native_visible_on_baseline_visible": 221,
       "pair_residual_denominator": 91,
       "physics_baseline_visible_opportunities": 221,
-      "post_gap_recovery": {
+      "post_gap_branch_consistent_recovery": {
         "evaluated_gap_count": 24,
-        "rate": 0.9583333333333334,
-        "recovered_gap_count": 23,
-        "zero_delay_count": 23
+        "branch_consistent_recovery_rate": 0.9583333333333334,
+        "branch_consistent_recovered_gap_count": 23,
+        "zero_delay_branch_consistent_recovery_count": 23
       }
     },
     "ostrack": {
@@ -546,18 +546,18 @@
       },
       "accepted_measurements_all_frames": 269,
       "branch_consistent_measurements": 216,
-      "fit_coverage_on_baseline_visible": 0.9773755656108597,
+      "branch_consistent_coverage_on_baseline_visible": 0.9773755656108597,
       "geometry_inconsistency_denominator": 269,
       "geometry_inconsistent_accepted_fits": 34,
       "jointly_consistent_pair_frames": 90,
       "native_visible_on_baseline_visible": 221,
       "pair_residual_denominator": 90,
       "physics_baseline_visible_opportunities": 221,
-      "post_gap_recovery": {
+      "post_gap_branch_consistent_recovery": {
         "evaluated_gap_count": 24,
-        "rate": 0.875,
-        "recovered_gap_count": 21,
-        "zero_delay_count": 21
+        "branch_consistent_recovery_rate": 0.875,
+        "branch_consistent_recovered_gap_count": 21,
+        "zero_delay_branch_consistent_recovery_count": 21
       }
     }
   },

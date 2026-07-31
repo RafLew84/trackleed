@@ -6,17 +6,21 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from trackleed.analysis.scientific_panel_common import DISPLAY_METHODS
+from trackleed.analysis.scientific_panel_common import (
+    AGGREGATE_METHOD_ORDER,
+    METHOD_BY_ID,
+    CaseSpec,
+)
 from trackleed.analysis.scientific_panel_records import (
     AggregateReportRecord,
     CaseReportRecord,
     PanelGapRecord,
     PanelPairRecord,
 )
-from trackleed.analysis.scientific_tracer_records import CandidateRecord, EvaluationRecord
-
-
-AGGREGATE_METHOD_ORDER = ("locotrack", "ostrack", "dam4sam", "lk", "easyleed")
+from trackleed.analysis.scientific_tracer_records import (
+    CandidateRecord,
+    EvaluationRecord,
+)
 
 
 def summarize_panel(
@@ -36,9 +40,7 @@ def summarize_panel(
     ]
     accepted = [row for row in evaluations if bool(row["measurement_valid"])]
     inconsistent = [
-        row
-        for row in accepted
-        if row["measurement_status"] == "geometry_inconsistent"
+        row for row in accepted if row["measurement_status"] == "geometry_inconsistent"
     ]
     residuals = [abs(float(row["distance_residual_px"])) for row in pairs]
     recovered = [row for row in gaps if bool(row["recovered"])]
@@ -49,7 +51,9 @@ def summarize_panel(
             for row in baseline_visible
         ),
         "branch_consistent_measurements": len(consistent),
-        "fit_coverage_on_baseline_visible": len(consistent) / len(baseline_visible),
+        "branch_consistent_coverage_on_baseline_visible": (
+            len(consistent) / len(baseline_visible)
+        ),
         "accepted_measurements_all_frames": len(accepted),
         "geometry_inconsistent_accepted_fits": len(inconsistent),
         "geometry_inconsistency_denominator": len(accepted),
@@ -60,11 +64,11 @@ def summarize_panel(
             "p95": float(np.percentile(residuals, 95)),
             "max": max(residuals),
         },
-        "post_gap_recovery": {
+        "post_gap_branch_consistent_recovery": {
             "evaluated_gap_count": len(gaps),
-            "recovered_gap_count": len(recovered),
-            "rate": len(recovered) / len(gaps),
-            "zero_delay_count": sum(
+            "branch_consistent_recovered_gap_count": len(recovered),
+            "branch_consistent_recovery_rate": len(recovered) / len(gaps),
+            "zero_delay_branch_consistent_recovery_count": sum(
                 int(row["recovery_delay_frames"]) == 0 for row in recovered
             ),
         },
@@ -72,35 +76,29 @@ def summarize_panel(
 
 
 def case_report(
-    case_spec: tuple[str, str, str, str, str, int],
+    case_spec: CaseSpec,
     method: str,
     summary: Mapping[str, Any],
 ) -> CaseReportRecord:
-    _case_id, _series_id, _pair_id, series, pair, _frame_count = case_spec
     accepted = int(summary["accepted_measurements_all_frames"])
     inconsistent = int(summary["geometry_inconsistent_accepted_fits"])
-    gaps = summary["post_gap_recovery"]
+    gaps = summary["post_gap_branch_consistent_recovery"]
     return CaseReportRecord(
-        series=series,
-        pair=pair,
+        series=case_spec.publication_series,
+        pair=case_spec.publication_pair,
         method=method,
-        display_method=DISPLAY_METHODS[method],
-        visible_opportunities=int(
-            summary["physics_baseline_visible_opportunities"]
-        ),
-        branch_consistent_measurements=int(
-            summary["branch_consistent_measurements"]
-        ),
-        fit_coverage=float(summary["fit_coverage_on_baseline_visible"]),
+        display_method=METHOD_BY_ID[method].display_name,
+        visible_opportunities=int(summary["physics_baseline_visible_opportunities"]),
+        branch_consistent_measurements=int(summary["branch_consistent_measurements"]),
+        # Frozen publication column name; see legacy_publication_aliases.
+        fit_coverage=float(summary["branch_consistent_coverage_on_baseline_visible"]),
         evaluated_gaps=int(gaps["evaluated_gap_count"]),
-        recovered_gaps=int(gaps["recovered_gap_count"]),
-        gap_recovery_rate=float(gaps["rate"]),
+        recovered_gaps=int(gaps["branch_consistent_recovered_gap_count"]),
+        gap_recovery_rate=float(gaps["branch_consistent_recovery_rate"]),
         accepted_measurements_all_frames=accepted,
         geometry_inconsistent_accepted_fits=inconsistent,
         geometry_inconsistent_fraction=inconsistent / accepted,
-        jointly_consistent_pair_frames=int(
-            summary["jointly_consistent_pair_frames"]
-        ),
+        jointly_consistent_pair_frames=int(summary["jointly_consistent_pair_frames"]),
         case_median_abs_distance_residual_px=float(
             summary["absolute_pair_distance_residual_px"]["median"]
         ),
@@ -113,35 +111,28 @@ def aggregate_report(
 ) -> AggregateReportRecord:
     accepted = int(summary["accepted_measurements_all_frames"])
     inconsistent = int(summary["geometry_inconsistent_accepted_fits"])
-    gaps = summary["post_gap_recovery"]
+    gaps = summary["post_gap_branch_consistent_recovery"]
     residuals = summary["absolute_pair_distance_residual_px"]
     return AggregateReportRecord(
         method=method,
-        display_method=DISPLAY_METHODS[method],
-        visible_opportunities=int(
-            summary["physics_baseline_visible_opportunities"]
-        ),
-        branch_consistent_measurements=int(
-            summary["branch_consistent_measurements"]
-        ),
+        display_method=METHOD_BY_ID[method].display_name,
+        visible_opportunities=int(summary["physics_baseline_visible_opportunities"]),
+        branch_consistent_measurements=int(summary["branch_consistent_measurements"]),
+        # Frozen publication column names; see legacy_publication_aliases.
         weighted_fit_coverage=float(
-            summary["fit_coverage_on_baseline_visible"]
+            summary["branch_consistent_coverage_on_baseline_visible"]
         ),
         evaluated_gaps=int(gaps["evaluated_gap_count"]),
-        recovered_gaps=int(gaps["recovered_gap_count"]),
-        weighted_gap_recovery_rate=float(gaps["rate"]),
+        recovered_gaps=int(gaps["branch_consistent_recovered_gap_count"]),
+        weighted_gap_recovery_rate=float(gaps["branch_consistent_recovery_rate"]),
         accepted_measurements_all_frames=accepted,
         geometry_inconsistent_accepted_fits=inconsistent,
         geometry_inconsistent_fraction=inconsistent / accepted,
-        jointly_consistent_pair_frames=int(
-            summary["jointly_consistent_pair_frames"]
-        ),
+        jointly_consistent_pair_frames=int(summary["jointly_consistent_pair_frames"]),
         median_abs_distance_residual_px=float(residuals["median"]),
         p95_abs_distance_residual_px=float(residuals["p95"]),
         maximum_abs_distance_residual_px=float(residuals["max"]),
     )
-
-
 
 
 def reader_facing_panel(
@@ -149,28 +140,24 @@ def reader_facing_panel(
     rounding: Mapping[str, Any],
 ) -> dict[str, dict[str, str]]:
     rate_places = int(rounding["rates_percent"]["decimal_places"])
-    residual_places = int(
-        rounding["pair_distance_residual_px"]["decimal_places"]
-    )
+    residual_places = int(rounding["pair_distance_residual_px"]["decimal_places"])
     result: dict[str, dict[str, str]] = {}
     for method in AGGREGATE_METHOD_ORDER:
         method_summary = summary["methods"][method]
         visible = int(method_summary["physics_baseline_visible_opportunities"])
         consistent = int(method_summary["branch_consistent_measurements"])
         accepted = int(method_summary["accepted_measurements_all_frames"])
-        inconsistent = int(
-            method_summary["geometry_inconsistent_accepted_fits"]
-        )
-        gaps = method_summary["post_gap_recovery"]
+        inconsistent = int(method_summary["geometry_inconsistent_accepted_fits"])
+        gaps = method_summary["post_gap_branch_consistent_recovery"]
         result[method] = {
-            "coverage": (
+            "branch_consistent_coverage": (
                 f"{consistent}/{visible} "
                 f"({100.0 * consistent / visible:.{rate_places}f}%)"
             ),
-            "post_gap_recovery": (
-                f"{int(gaps['recovered_gap_count'])}/"
+            "post_gap_branch_consistent_recovery": (
+                f"{int(gaps['branch_consistent_recovered_gap_count'])}/"
                 f"{int(gaps['evaluated_gap_count'])} "
-                f"({100.0 * float(gaps['rate']):.{rate_places}f}%)"
+                f"({100.0 * float(gaps['branch_consistent_recovery_rate']):.{rate_places}f}%)"
             ),
             "geometry_inconsistency": (
                 f"{inconsistent}/{accepted} "
@@ -184,4 +171,9 @@ def reader_facing_panel(
     return result
 
 
-__all__ = ["AGGREGATE_METHOD_ORDER", "aggregate_report", "case_report", "reader_facing_panel", "summarize_panel"]
+__all__ = [
+    "aggregate_report",
+    "case_report",
+    "reader_facing_panel",
+    "summarize_panel",
+]

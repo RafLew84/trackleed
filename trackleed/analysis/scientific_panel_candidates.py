@@ -16,6 +16,7 @@ from trackleed.analysis.scientific_panel_common import (
     BASELINE_PACKAGE,
     CASE_SPECS,
     MEASUREMENT_CONTRACT_PATH,
+    METHOD_BY_ID,
     METHODS,
     OPPORTUNITIES_PATH,
     TracerValidationError,
@@ -40,8 +41,7 @@ def panel_record_key(
     roi_side: int,
 ) -> str:
     return (
-        f"case={case_id}|method={method}|frame={frame}|"
-        f"branch={branch}|roi={roi_side}"
+        f"case={case_id}|method={method}|frame={frame}|branch={branch}|roi={roi_side}"
     )
 
 
@@ -83,11 +83,14 @@ def _proposal_arrays(
     reference_frame: int,
 ) -> dict[str, np.ndarray]:
     package_path = str(proposal_record.get("package_path", ""))
-    proposal_path = relative_file(workspace_root, (BASELINE_PACKAGE / package_path).as_posix())
-    if proposal_path.suffix == ".npz":
+    proposal_path = relative_file(
+        workspace_root, (BASELINE_PACKAGE / package_path).as_posix()
+    )
+    proposal_codec = METHOD_BY_ID[method].proposal_codec
+    if proposal_codec == "npz" and proposal_path.suffix == ".npz":
         with np.load(proposal_path, allow_pickle=False) as archive:
             arrays = {name: np.asarray(archive[name]) for name in archive.files}
-    elif proposal_path.suffix == ".csv" and method == "easyleed":
+    elif proposal_codec == "easyleed_csv" and proposal_path.suffix == ".csv":
         tracks = np.full((2, frame_count, 2), np.nan, dtype=np.float32)
         visible = np.zeros((2, frame_count), dtype=bool)
         areas = np.zeros((2, frame_count), dtype=np.float32)
@@ -117,7 +120,9 @@ def _proposal_arrays(
             "mask_component_counts": components,
         }
     else:
-        raise TracerValidationError(f"Unsupported frozen proposal format: {proposal_path}")
+        raise TracerValidationError(
+            f"Unsupported frozen proposal format: {proposal_path}"
+        )
 
     shapes = {
         "tracks_xy": (2, frame_count, 2),
@@ -151,23 +156,24 @@ def reconstruct_panel_candidates(
     images_by_series, proposal_index = _input_index(workspace_root)
     _, opportunity_rows = read_raw_csv(workspace_root / OPPORTUNITIES_PATH)
     opportunities = {
-        (row["case_id"], int(row["frame"]), row["branch"]): row[
-            "opportunity_key"
-        ]
+        (row["case_id"], int(row["frame"]), row["branch"]): row["opportunity_key"]
         for row in opportunity_rows
     }
     image_cache: dict[Path, np.ndarray] = {}
     rows: list[CandidateRecord] = []
 
-    for case_id, series_id, pair_id, _series, _pair, frame_count in CASE_SPECS:
+    for case_spec in CASE_SPECS:
+        case_id = case_spec.case_id
+        series_id = case_spec.series_id
+        pair_id = case_spec.pair_id
+        frame_count = case_spec.frame_count
         case_dir = BASELINE_PACKAGE / "frozen_inputs" / "cases" / case_id
         case_summary = read_json(workspace_root / case_dir / "summary.json")
         _, baseline_rows = read_raw_csv(
             workspace_root / case_dir / "scan_measurements.csv"
         )
         statuses = {
-            (int(row["frame"]), row["branch"]): row["status"]
-            for row in baseline_rows
+            (int(row["frame"]), row["branch"]): row["status"] for row in baseline_rows
         }
         energy_by_frame = {
             int(row["frame"]): float(row["energy_ev"]) for row in baseline_rows
@@ -179,9 +185,7 @@ def reconstruct_panel_candidates(
         )
         reference_energy = float(case_summary["reference_energy_ev"])
         reference_frame = int(case_summary["reference_frame"])
-        seeds = {
-            str(seed["branch"]): seed for seed in case_summary["frozen_seeds"]
-        }
+        seeds = {str(seed["branch"]): seed for seed in case_summary["frozen_seeds"]}
         if set(seeds) != set(BRANCHES):
             raise TracerValidationError(f"Frozen branch seeds changed: {case_id}")
         image_records = images_by_series.get(series_id, [])
@@ -365,9 +369,7 @@ def reconstruct_panel_candidates(
                             "solver_status": "completed",
                             "finite_candidate": finite_candidate,
                             "missing_state": (
-                                "none"
-                                if finite_candidate
-                                else "non_finite_parameters"
+                                "none" if finite_candidate else "non_finite_parameters"
                             ),
                             "center_x": center_x,
                             "center_y": center_y,
@@ -388,9 +390,7 @@ def reconstruct_panel_candidates(
                             "volume_error": float(fit["volume_error"]),
                             "proposal_offset_px": proposal_offset,
                             "branch_error_px": branch_error,
-                            "radial_residual_px": float(
-                                np.dot(residual, radial_unit)
-                            ),
+                            "radial_residual_px": float(np.dot(residual, radial_unit)),
                             "tangential_residual_px": float(
                                 np.dot(residual, tangent_unit)
                             ),

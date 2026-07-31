@@ -39,6 +39,8 @@ class PanelGapRecord(TypedDict):
 
 
 class CaseReportRecord(TypedDict):
+    """Publication CSV schema; legacy metric aliases are contract-declared."""
+
     series: str
     pair: str
     method: str
@@ -57,6 +59,8 @@ class CaseReportRecord(TypedDict):
 
 
 class AggregateReportRecord(TypedDict):
+    """Publication CSV schema; legacy metric aliases are contract-declared."""
+
     method: str
     display_method: str
     visible_opportunities: int

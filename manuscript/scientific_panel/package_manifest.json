@@ -1,6 +1,6 @@
 {
   "files_sha256": {
-    "README.md": "e3f6e8360df13a159073587ed7a34632347f2b7913d135c98102cc8e1deffef3",
+    "README.md": "b6b48719ecb88075afc5b4499aa3d437b8921f7e45a187d86ce8a790c155cc1d",
     "frozen/expected_aggregate_method_results.csv": "9e3be9d776de3210ffd036c2d879ab59e8bc3a379ba2b0006c86754b8d490c9b",
     "frozen/expected_candidate_records.csv": "a178d053f667475747a86c512f8a4f8eab2af57eab58499e9d3c5ec5faf96652",
     "frozen/expected_case_results.csv": "ce80d0d66cc463e4db7855459e664dd021fb3831cf6570bff2c154abf15cc412",
@@ -8,9 +8,9 @@
     "frozen/expected_gap_records.csv": "598b5ac18a77ed3b8c35d0824f87758b3c79fb7f93865e2c40a576bc0349c884",
     "frozen/expected_historical_central_records.csv": "0f86740a65229c3088252dc796375b8b807a838dc539095a5a85ba2461028e94",
     "frozen/expected_pair_records.csv": "2d42156f3ce19f84c67fb0eeb53e72747223cf8935e19c299ee3592ce20723e3",
-    "frozen/expected_summary.json": "cbac5770babadfc780391f65a5f7931555eef12d9b00b0392c50f82d3dfd3dc3",
+    "frozen/expected_summary.json": "99cdad372842b47a768824d5123d5ad40ca6a91ca1e2d564ce4fab9ea041383d",
     "frozen/historical_source_inventory.json": "6d3350cba5abf23b57a916f6cc01eaa22675c46b6fc7ad9650704960ce82e335",
-    "frozen/panel_contract.json": "fde827bca009b9019d88ff5702db0c80814bd949ac3bd579d392f21c851227cb"
+    "frozen/panel_contract.json": "8a86e4ba8c7fe5472b62c97fcb68dbe105ca8045b96a5e9e85cafc9e7974bdf5"
   },
   "immutable": true,
   "schema_version": 1,

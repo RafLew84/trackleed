@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from scripts.reconstruct_publication import main as reconstruction_main
 from trackleed.publication.scientific_panel import run_central_panel
 from trackleed.publication.scientific_tracer import evaluate_candidates
 
@@ -50,14 +51,9 @@ class ScientificPanelTests(unittest.TestCase):
             self.assertEqual({row["method"] for row in candidates}, METHODS)
             self.assertEqual({row["case_id"] for row in candidates}, CASES)
             self.assertEqual({row["branch"] for row in candidates}, {"B1", "B2"})
+            self.assertEqual(len({row["image_artifact_id"] for row in candidates}), 81)
             self.assertEqual(
-                len({row["image_artifact_id"] for row in candidates}), 81
-            )
-            self.assertEqual(
-                {
-                    row["measurement_status"]
-                    for row in evaluations
-                },
+                {row["measurement_status"] for row in evaluations},
                 {
                     "proposal_unavailable",
                     "roi_invalid",
@@ -67,9 +63,9 @@ class ScientificPanelTests(unittest.TestCase):
                 },
             )
 
-            summary = json.loads(
-                (output / "summary.json").read_text(encoding="utf-8")
-            )["central_result"]
+            summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))[
+                "central_result"
+            ]
             self.assertEqual(summary["reference_sets"]["opportunities"]["n"], 221)
             self.assertEqual(summary["reference_sets"]["gaps"]["n"], 24)
             for method in METHODS:
@@ -78,7 +74,10 @@ class ScientificPanelTests(unittest.TestCase):
                     aggregate["physics_baseline_visible_opportunities"], 221
                 )
                 self.assertEqual(
-                    aggregate["post_gap_recovery"]["evaluated_gap_count"], 24
+                    aggregate["post_gap_branch_consistent_recovery"][
+                        "evaluated_gap_count"
+                    ],
+                    24,
                 )
                 self.assertEqual(
                     aggregate["geometry_inconsistency_denominator"],
@@ -91,6 +90,20 @@ class ScientificPanelTests(unittest.TestCase):
 
             self.assertTrue((output / "case_results.csv").is_file())
             self.assertTrue((output / "aggregate_method_results.csv").is_file())
+            self.assertEqual(
+                reconstruction_main(
+                    [
+                        "--workspace-root",
+                        str(REPO_ROOT),
+                        "--panel-package",
+                        str(FROZEN_PANEL),
+                        "--output",
+                        str(output),
+                        "--validate",
+                    ]
+                ),
+                0,
+            )
 
     def test_pre_fit_failures_and_every_gate_have_distinct_outcomes(self) -> None:
         contract = json.loads(

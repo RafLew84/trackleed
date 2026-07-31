@@ -12,6 +12,7 @@ from trackleed.analysis.scientific_panel_candidates import (
     reconstruct_panel_candidates,
 )
 from trackleed.analysis.scientific_panel_common import (
+    AGGREGATE_METHOD_ORDER,
     CASE_SPECS,
     GAPS_PATH,
     METHODS,
@@ -27,7 +28,6 @@ from trackleed.analysis.scientific_panel_records import (
     PanelPairRecord,
 )
 from trackleed.analysis.scientific_panel_reporting import (
-    AGGREGATE_METHOD_ORDER,
     aggregate_report,
     case_report,
     reader_facing_panel,
@@ -66,7 +66,9 @@ def reconstruct_panel_artifacts(
     case_reports: list[CaseReportRecord] = []
     case_summaries: dict[str, dict[str, dict[str, Any]]] = {}
     for case_spec in CASE_SPECS:
-        case_id, series_id, pair_id, _series, _pair, _frame_count = case_spec
+        case_id = case_spec.case_id
+        series_id = case_spec.series_id
+        pair_id = case_spec.pair_id
         case_summaries[case_id] = {}
         for method in METHODS:
             selected_candidates = [
@@ -141,8 +143,6 @@ def reconstruct_panel_artifacts(
         aggregate_reports=aggregate_reports,
         summary=summary,
     )
-
-
 
 
 __all__ = [

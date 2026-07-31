@@ -10,7 +10,9 @@ from typing import Any
 from trackleed.analysis.scientific_panel_common import (
     BASELINE_MANIFEST_PATH,
     CASE_SPECS,
+    LEGACY_PUBLICATION_ALIASES,
     MEASUREMENT_CONTRACT_PATH,
+    METHOD_BY_ID,
     METHODS,
     PANEL_AUTHENTICATION_PATH,
     PANEL_ID,
@@ -64,27 +66,13 @@ denominators.
 Run:
 
 ```text
-python -m scripts.run_publication_panel --clean --validate
+python -m scripts.reconstruct_publication --clean --validate
 ```
 
 Validation authenticates this package, the scientific-baseline package and
 the existing publication source-data anchors before comparing every discrete
 and continuous record under the predeclared tolerances.
 """
-
-
-def _historical_path(
-    historical_root: Path,
-    series: str,
-    pair: str,
-    method: str,
-) -> Path:
-    case_dir = historical_root / series / pair
-    if method == "easyleed":
-        return case_dir / "easyleed" / "easyleed_measurements.csv"
-    if method == "dam4sam":
-        return case_dir / "trackers" / "dam4sam_measurements.csv"
-    return case_dir / "representatives" / f"{method}_measurements.csv"
 
 
 def _freeze_historical_records(
@@ -94,9 +82,15 @@ def _freeze_historical_records(
 ) -> list[dict[str, str]]:
     rows: list[dict[str, object]] = []
     inventory: list[dict[str, str]] = []
-    for case_id, series_id, pair_id, series, pair, _frame_count in CASE_SPECS:
+    for case_spec in CASE_SPECS:
         for method in METHODS:
-            path = _historical_path(historical_root, series, pair, method)
+            method_spec = METHOD_BY_ID[method]
+            path = (
+                historical_root
+                / case_spec.publication_series
+                / case_spec.publication_pair
+                / method_spec.historical_measurements_path
+            )
             fields, source_rows = read_raw_csv(path)
             required = set(HISTORICAL_CENTRAL_FIELDS) - {
                 "case_id",
@@ -110,21 +104,21 @@ def _freeze_historical_records(
             for source_row in source_rows:
                 rows.append(
                     {
-                        "case_id": case_id,
-                        "series_id": series_id,
-                        "pair_id": pair_id,
+                        "case_id": case_spec.case_id,
+                        "series_id": case_spec.series_id,
+                        "pair_id": case_spec.pair_id,
                         **source_row,
                     }
                 )
             try:
-                source_path = path.resolve().relative_to(
-                    workspace_root.resolve()
-                ).as_posix()
+                source_path = (
+                    path.resolve().relative_to(workspace_root.resolve()).as_posix()
+                )
             except ValueError:
                 source_path = path.resolve().as_posix()
             inventory.append(
                 {
-                    "case_id": case_id,
+                    "case_id": case_spec.case_id,
                     "method": method,
                     "source_path": source_path,
                     "source_sha256": sha256(path),
@@ -155,17 +149,16 @@ def _base_contract(workspace_root: Path) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "tracer_id": PANEL_ID,
         "scope": {
-            "cases": [case[0] for case in CASE_SPECS],
+            "cases": [case.case_id for case in CASE_SPECS],
             "methods": list(METHODS),
         },
         "comparison_tolerances": measurement["comparison_tolerances"],
         "reader_facing_rounding": measurement["reader_facing_rounding"],
         "denominators": measurement["denominators"],
+        "legacy_publication_aliases": LEGACY_PUBLICATION_ALIASES,
         "estimator_compatibility": {
             "center_preference_factor": 0.34,
-            "image_loading": (
-                "tifffile.imread followed by skimage.util.img_as_float"
-            ),
+            "image_loading": ("tifffile.imread followed by skimage.util.img_as_float"),
             "mode": "historical_publication_central_record",
             "optimizer_theta_bounds_rad": [-math.pi, math.pi],
             "reason": (
@@ -188,9 +181,7 @@ def _base_contract(workspace_root: Path) -> dict[str, Any]:
             },
             "published_aggregate_results": {
                 "path": PUBLISHED_AGGREGATE_RESULTS_PATH.as_posix(),
-                "sha256": sha256(
-                    workspace_root / PUBLISHED_AGGREGATE_RESULTS_PATH
-                ),
+                "sha256": sha256(workspace_root / PUBLISHED_AGGREGATE_RESULTS_PATH),
             },
         },
         "expected_files": {

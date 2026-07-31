@@ -14,7 +14,7 @@ denominators.
 Run:
 
 ```text
-python -m scripts.run_publication_panel --clean --validate
+python -m scripts.reconstruct_publication --clean --validate
 ```
 
 Validation authenticates this package, the scientific-baseline package and

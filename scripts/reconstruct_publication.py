@@ -1,4 +1,4 @@
-"""Run or validate the frozen complete Ag(111) central panel."""
+"""Single acceptance seam for frozen publication reconstruction."""
 
 from __future__ import annotations
 
@@ -72,9 +72,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             report = run_central_panel(workspace, package, output)
             if arguments.validate:
-                report = validate_central_panel_output(
-                    workspace, package, output
-                )
+                report = validate_central_panel_output(workspace, package, output)
     except (
         FileExistsError,
         FileNotFoundError,

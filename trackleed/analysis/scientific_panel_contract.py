@@ -11,6 +11,7 @@ from trackleed.analysis.scientific_panel_common import (
     BASELINE_MANIFEST_PATH,
     BASELINE_PACKAGE,
     CASE_SPECS,
+    LEGACY_PUBLICATION_ALIASES,
     METHODS,
     PANEL_AUTHENTICATION_PATH,
     PANEL_ID,
@@ -111,7 +112,7 @@ def validate_panel_package(
             )
 
     contract = read_json(panel_dir / "frozen" / "panel_contract.json")
-    expected_cases = [case[0] for case in CASE_SPECS]
+    expected_cases = [case.case_id for case in CASE_SPECS]
     scope = contract.get("scope")
     if (
         contract.get("schema_version") != SCHEMA_VERSION
@@ -123,16 +124,18 @@ def validate_panel_package(
         raise TracerValidationError("Frozen panel scope changed")
     schemas = contract.get("expected_output_schemas")
     expected_files = contract.get("expected_files")
-    if not isinstance(schemas, dict) or not isinstance(expected_files, dict):
+    if (
+        contract.get("legacy_publication_aliases") != LEGACY_PUBLICATION_ALIASES
+        or not isinstance(schemas, dict)
+        or not isinstance(expected_files, dict)
+    ):
         raise TracerValidationError("Frozen panel output contract is missing")
     for output_name, fields in PANEL_SCHEMAS.items():
         expected_name = output_name.removesuffix(".csv")
         expected_path = panel_dir / str(expected_files.get(expected_name, ""))
         frozen_fields, _ = read_raw_csv(expected_path)
         if schemas.get(output_name) != list(fields) or frozen_fields != list(fields):
-            raise TracerValidationError(
-                f"Frozen panel schema changed: {output_name}"
-            )
+            raise TracerValidationError(f"Frozen panel schema changed: {output_name}")
 
     counts = contract.get("expected_counts")
     required_counts = {

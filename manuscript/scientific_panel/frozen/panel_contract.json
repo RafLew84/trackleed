@@ -235,6 +235,14 @@
       "sha256": "08804698ec55fe34b94117e7792cbdab3f7357ce0206f8a33c49778bfe31fe5f"
     }
   },
+  "legacy_publication_aliases": {
+    "aggregate_method_results.recovered_gaps": "post_gap_branch_consistent_recovery.branch_consistent_recovered_gap_count",
+    "aggregate_method_results.weighted_fit_coverage": "branch_consistent_coverage_on_baseline_visible",
+    "aggregate_method_results.weighted_gap_recovery_rate": "post_gap_branch_consistent_recovery.branch_consistent_recovery_rate",
+    "case_results.fit_coverage": "branch_consistent_coverage_on_baseline_visible",
+    "case_results.gap_recovery_rate": "post_gap_branch_consistent_recovery.branch_consistent_recovery_rate",
+    "case_results.recovered_gaps": "post_gap_branch_consistent_recovery.branch_consistent_recovered_gap_count"
+  },
   "reader_facing_rounding": {
     "counts": "exact",
     "pair_distance_residual_px": {
