@@ -13,7 +13,9 @@ from trackleed.analysis.scientific_panel_common import (
 from trackleed.analysis.scientific_tracer_common import source_sha256
 
 
-SENSITIVITY_ID = f"{PANEL_ID}_measurement_sensitivity"
+SENSITIVITY_ID = f"{PANEL_ID}_measurement_window_and_capture_contract_sensitivity"
+CENTRAL_VARIANT_ID = "roi_48_proposal_15"
+CENTRAL_WIDTH_CONTRACT_ID = "width_central"
 DATA_ARTIFACT_NAMES = (
     "candidate_records.csv",
     "evaluation_records.csv",
@@ -33,7 +35,11 @@ IMPLEMENTATION_PATHS = {
     "panel_reporting": Path("trackleed/analysis/scientific_panel_reporting.py"),
     "sensitivity_analysis": Path("trackleed/analysis/scientific_sensitivity.py"),
     "sensitivity_audit": Path("trackleed/analysis/scientific_sensitivity_audit.py"),
+    "sensitivity_common": Path("trackleed/analysis/scientific_sensitivity_common.py"),
     "sensitivity_records": Path("trackleed/analysis/scientific_sensitivity_records.py"),
+    "sensitivity_reconstruction": Path(
+        "trackleed/analysis/scientific_sensitivity_reconstruction.py"
+    ),
     "sensitivity_reporting": Path(
         "trackleed/analysis/scientific_sensitivity_reporting.py"
     ),
@@ -81,6 +87,8 @@ def sensitivity_output_manifest(output_dir: Path) -> dict[str, object]:
 
 
 __all__ = [
+    "CENTRAL_VARIANT_ID",
+    "CENTRAL_WIDTH_CONTRACT_ID",
     "DATA_ARTIFACT_NAMES",
     "OUTPUT_FILE_NAMES",
     "SENSITIVITY_ID",

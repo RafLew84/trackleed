@@ -4,13 +4,22 @@ from __future__ import annotations
 
 from typing import Literal, TypedDict, get_type_hints
 
+from trackleed.analysis.scientific_tracer_records import RejectionCause
+
 
 SensitivityScope = Literal["case", "method"]
+SensitivityFamily = Literal[
+    "roi_x_proposal_to_fit",
+    "branch_tolerance_ofat",
+    "r_squared_ofat",
+    "amplitude_ofat",
+    "conditional_width_sensitivity",
+]
 
 
 class SensitivityResultRecord(TypedDict):
     variant_id: str
-    family: str
+    family: SensitivityFamily
     scope: SensitivityScope
     case_id: str | None
     series_id: str | None
@@ -46,11 +55,11 @@ class SensitivityResultRecord(TypedDict):
 
 class RejectionCauseCountRecord(TypedDict):
     variant_id: str
-    family: str
+    family: SensitivityFamily
     scope: SensitivityScope
     case_id: str | None
     method: str
-    cause: str
+    cause: RejectionCause
     first_rejection_count: int
     full_rejection_count: int
 
@@ -80,6 +89,7 @@ __all__ = [
     "WIDTH_TRIGGER_FIELDS",
     "RejectionCauseCountRecord",
     "SensitivityResultRecord",
+    "SensitivityFamily",
     "SensitivityScope",
     "WidthTriggerRecord",
 ]

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from scripts.reconstruct_publication import main as reconstruction_main
-from trackleed.analysis.scientific_sensitivity import audit_width_trigger
+from trackleed.analysis.scientific_sensitivity import (
+    audit_width_trigger,
+    run_width_sensitivity,
+)
 from trackleed.analysis.scientific_tracer_records import (
     CandidateRecord,
     EvaluationRecord,
@@ -24,6 +29,47 @@ MEASUREMENT_CONTRACT = (
 
 
 class ScientificSensitivityTests(unittest.TestCase):
+    def test_triggered_width_sweep_reuses_central_and_evaluates_four_additions(
+        self,
+    ) -> None:
+        contract = json.loads(MEASUREMENT_CONTRACT.read_text(encoding="utf-8"))
+
+        with (
+            patch(
+                "trackleed.analysis.scientific_sensitivity.evaluate_candidates",
+                side_effect=lambda _candidates, _contract, *, variant_id: [
+                    {"variant_id": variant_id, "record_key": variant_id}
+                ],
+            ) as evaluate,
+            patch(
+                "trackleed.analysis.scientific_sensitivity.summarize_variant",
+                side_effect=lambda _root, variant, *_args: {"contract": dict(variant)},
+            ),
+        ):
+            evaluations, summaries = run_width_sensitivity(
+                REPO_ROOT,
+                contract,
+                contract["central_contract"],
+                [],
+                [],
+            )
+
+        self.assertEqual(evaluate.call_count, 4)
+        self.assertNotIn("width_central", summaries)
+        self.assertEqual(
+            set(summaries),
+            {
+                "width_lower_relaxed",
+                "width_lower_tight",
+                "width_upper_tight",
+                "width_upper_relaxed",
+            },
+        )
+        self.assertEqual(
+            {row["variant_id"] for row in evaluations},
+            set(summaries),
+        )
+
     def test_width_trigger_ignores_methods_without_finite_candidates(self) -> None:
         candidate = CandidateRecord(  # type: ignore[typeddict-item]
             record_key="near-boundary",
@@ -75,6 +121,11 @@ class ScientificSensitivityTests(unittest.TestCase):
                 },
             )
             summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                summary["sensitivity_id"],
+                "ag111_five_method_four_case_central_"
+                "measurement_window_and_capture_contract_sensitivity",
+            )
             self.assertEqual(len(summary["variants"]), 15)
             self.assertEqual(
                 summary["conditional_width_sensitivity"]["decision"],
@@ -134,9 +185,29 @@ class ScientificSensitivityTests(unittest.TestCase):
                 "--validate",
             ]
             self.assertEqual(reconstruction_main(arguments), 0)
-            summary["tampered"] = True
-            (output / "summary.json").write_text(
-                json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            summary["variants"]["roi_32_proposal_12"]["methods"]["easyleed"][
+                "absolute_pair_distance_residual_px"
+            ]["median"] += 1.0
+            summary_path = output / "summary.json"
+            summary_path.write_text(
+                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            manifest_path = output / "output_manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["files_sha256"]["summary.json"] = hashlib.sha256(
+                summary_path.read_bytes()
+            ).hexdigest()
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            validation_path = output / "validation_report.json"
+            validation = json.loads(validation_path.read_text(encoding="utf-8"))
+            validation["output_manifest_sha256"] = hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest()
+            validation_path.write_text(
+                json.dumps(validation, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
             self.assertEqual(reconstruction_main(arguments), 2)

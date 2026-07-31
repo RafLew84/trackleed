@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -20,6 +19,9 @@ from trackleed.analysis.scientific_panel_contract import prepare_panel
 from trackleed.analysis.scientific_sensitivity_audit import (
     WidthTriggerAudit,
     audit_width_trigger,
+)
+from trackleed.analysis.scientific_sensitivity_common import (
+    CENTRAL_WIDTH_CONTRACT_ID,
 )
 from trackleed.analysis.scientific_sensitivity_reporting import (
     summarize_variant,
@@ -44,7 +46,7 @@ class SensitivityArtifacts:
     central_variant_matches_frozen_record: bool
 
 
-def _complete_variants(
+def complete_sensitivity_variants(
     measurement_contract: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     variants = measurement_contract.get("sensitivity_variants")
@@ -85,7 +87,7 @@ def _candidate_sets(
     return result
 
 
-def _width_variant(
+def complete_width_variant(
     central: dict[str, Any],
     measurement_contract: dict[str, Any],
     width_value: dict[str, Any],
@@ -111,24 +113,22 @@ def _width_variant(
     }
 
 
-def _run_width_sensitivity(
+def run_width_sensitivity(
     workspace_root: Path,
     measurement_contract: dict[str, Any],
     central: dict[str, Any],
     central_candidates: list[CandidateRecord],
-    central_summary: dict[str, Any],
     frozen_gaps: list[dict[str, str]],
 ) -> tuple[list[EvaluationRecord], dict[str, dict[str, Any]]]:
     evaluations: list[EvaluationRecord] = []
     summaries: dict[str, dict[str, Any]] = {}
     width_contract = measurement_contract["conditional_width_sensitivity"]
     for width_value in width_contract["contracts"]:
-        variant = _width_variant(central, measurement_contract, width_value)
+        variant = complete_width_variant(central, measurement_contract, width_value)
         width_id = str(variant["variant_id"])
-        if width_id == "width_central":
-            summary = deepcopy(central_summary)
-            summary["contract"] = {**summary["contract"], **variant}
-            summaries[width_id] = summary
+        if width_id == CENTRAL_WIDTH_CONTRACT_ID:
+            # The central contract is already the mandatory central variant.
+            # Reuse that result instead of duplicating its evaluation layer.
             continue
         width_evaluations = evaluate_candidates(
             central_candidates,
@@ -156,7 +156,7 @@ def reconstruct_sensitivity(
     measurement_contract = read_json(
         prepared.workspace_root / MEASUREMENT_CONTRACT_PATH
     )
-    central_contract, variants = _complete_variants(measurement_contract)
+    central_contract, variants = complete_sensitivity_variants(measurement_contract)
     expected = prepared.contract["expected_files"]
     _, central_candidates = read_csv(
         prepared.panel_dir / expected["candidate_records"], CandidateRecord
@@ -202,12 +202,11 @@ def reconstruct_sensitivity(
     width_evaluations: list[EvaluationRecord] = []
     width_summaries: dict[str, dict[str, Any]] = {}
     if width_trigger.run_width_sensitivity:
-        width_evaluations, width_summaries = _run_width_sensitivity(
+        width_evaluations, width_summaries = run_width_sensitivity(
             prepared.workspace_root,
             measurement_contract,
             central_contract,
             central_candidates,
-            summaries["roi_48_proposal_15"],
             frozen_gaps,
         )
     return SensitivityArtifacts(
@@ -227,5 +226,8 @@ __all__ = [
     "SensitivityArtifacts",
     "WidthTriggerAudit",
     "audit_width_trigger",
+    "complete_sensitivity_variants",
+    "complete_width_variant",
     "reconstruct_sensitivity",
+    "run_width_sensitivity",
 ]

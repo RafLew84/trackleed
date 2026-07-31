@@ -16,6 +16,8 @@ from trackleed.analysis.scientific_sensitivity import (
     reconstruct_sensitivity,
 )
 from trackleed.analysis.scientific_sensitivity_common import (
+    CENTRAL_VARIANT_ID,
+    CENTRAL_WIDTH_CONTRACT_ID,
     SENSITIVITY_ID,
     SensitivityReport,
     implementation_sources,
@@ -49,9 +51,13 @@ def _report(artifacts: SensitivityArtifacts) -> SensitivityReport:
             {row["roi_side_px"] for row in artifacts.candidates}
         ),
         candidate_count=len(artifacts.candidates),
-        evaluation_count=len(artifacts.evaluations),
+        evaluation_count=(
+            len(artifacts.evaluations) + len(artifacts.width_evaluations)
+        ),
         width_sensitivity_triggered=(artifacts.width_trigger.run_width_sensitivity),
-        width_contract_count=len(artifacts.width_summaries),
+        width_contract_count=(
+            5 if artifacts.width_trigger.run_width_sensitivity else 0
+        ),
         central_variant_matches_frozen_record=(
             artifacts.central_variant_matches_frozen_record
         ),
@@ -60,6 +66,14 @@ def _report(artifacts: SensitivityArtifacts) -> SensitivityReport:
 
 def _summary_document(artifacts: SensitivityArtifacts) -> dict[str, Any]:
     audit = artifacts.width_trigger
+    width_contracts: dict[str, Any] = {}
+    if audit.run_width_sensitivity:
+        width_contracts = {
+            CENTRAL_WIDTH_CONTRACT_ID: {
+                "reuses_variant_id": CENTRAL_VARIANT_ID,
+            },
+            **artifacts.width_summaries,
+        }
     return {
         "schema_version": SCHEMA_VERSION,
         "sensitivity_id": SENSITIVITY_ID,
@@ -77,7 +91,7 @@ def _summary_document(artifacts: SensitivityArtifacts) -> dict[str, Any]:
             "triggered_methods": list(audit.triggered_methods),
             "method_audit": list(audit.method_records),
             "case_diagnostics": list(audit.case_records),
-            "width_contracts": artifacts.width_summaries,
+            "width_contracts": width_contracts,
             "central_contract_changed": False,
             "optimizer_hard_bounds_changed": False,
             "automatic_configuration_selection": False,
@@ -109,7 +123,7 @@ def run_sensitivity(
     write_csv(
         output_dir / "evaluation_records.csv",
         EvaluationRecord,
-        artifacts.evaluations,
+        [*artifacts.evaluations, *artifacts.width_evaluations],
     )
     write_csv(
         output_dir / "sensitivity_results.csv",

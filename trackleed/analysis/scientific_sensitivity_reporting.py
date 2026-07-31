@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 from trackleed.analysis.scientific_panel_common import CASE_SPECS, METHODS
 from trackleed.analysis.scientific_panel_outcomes import (
@@ -17,6 +17,7 @@ from trackleed.analysis.scientific_panel_records import (
 )
 from trackleed.analysis.scientific_sensitivity_records import (
     RejectionCauseCountRecord,
+    SensitivityFamily,
     SensitivityResultRecord,
     SensitivityScope,
 )
@@ -161,7 +162,7 @@ def _result_record(
     inconsistent = int(summary["geometry_inconsistent_accepted_fits"])
     return SensitivityResultRecord(
         variant_id=variant_id,
-        family=str(contract["family"]),
+        family=cast(SensitivityFamily, contract["family"]),
         scope=scope,
         case_id=case_id,
         series_id=case.series_id if case is not None else None,

@@ -4,20 +4,21 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import asdict
+import math
 from pathlib import Path
 
 from trackleed.analysis.scientific_panel_common import (
-    CASE_SPECS,
     MEASUREMENT_CONTRACT_PATH,
-    METHODS,
     SCHEMA_VERSION,
     TracerValidationError,
     read_json,
     sha256,
 )
-from trackleed.analysis.scientific_panel_contract import PreparedPanel, prepare_panel
+from trackleed.analysis.scientific_panel_contract import prepare_panel
 from trackleed.analysis.scientific_sensitivity import SensitivityArtifacts
 from trackleed.analysis.scientific_sensitivity_common import (
+    CENTRAL_VARIANT_ID,
+    CENTRAL_WIDTH_CONTRACT_ID,
     DATA_ARTIFACT_NAMES,
     OUTPUT_FILE_NAMES,
     SENSITIVITY_ID,
@@ -29,11 +30,43 @@ from trackleed.analysis.scientific_sensitivity_records import (
     SensitivityResultRecord,
     WidthTriggerRecord,
 )
+from trackleed.analysis.scientific_sensitivity_reconstruction import (
+    reconstruct_sensitivity_results,
+    validate_sensitivity_coverage_matrix,
+)
+from trackleed.analysis.scientific_sensitivity_reporting import (
+    rejection_cause_count_records,
+    sensitivity_result_records,
+)
 from trackleed.analysis.scientific_tracer_records import (
     CandidateRecord,
     EvaluationRecord,
     read_csv,
 )
+
+
+def _records_match(
+    actual: list[CandidateRecord], expected: list[CandidateRecord]
+) -> bool:
+    """Compare typed CSV rows while treating paired NaN values as equal."""
+
+    if len(actual) != len(expected):
+        return False
+    for actual_row, expected_row in zip(actual, expected, strict=True):
+        if actual_row.keys() != expected_row.keys():
+            return False
+        for field, actual_value in actual_row.items():
+            expected_value = expected_row[field]
+            if (
+                isinstance(actual_value, float)
+                and isinstance(expected_value, float)
+                and math.isnan(actual_value)
+                and math.isnan(expected_value)
+            ):
+                continue
+            if actual_value != expected_value:
+                return False
+    return True
 
 
 def validate_sensitivity_artifacts(artifacts: SensitivityArtifacts) -> None:
@@ -80,77 +113,16 @@ def validate_sensitivity_artifacts(artifacts: SensitivityArtifacts) -> None:
             "Central sensitivity result differs from frozen panel"
         )
     if artifacts.width_trigger.run_width_sensitivity:
-        if len(artifacts.width_summaries) != 5:
+        if (
+            len(artifacts.width_summaries) != 4
+            or len(artifacts.width_evaluations) != 6480
+            or Counter(row["variant_id"] for row in artifacts.width_evaluations)
+            != {variant_id: 1620 for variant_id in artifacts.width_summaries}
+            or CENTRAL_WIDTH_CONTRACT_ID in artifacts.width_summaries
+        ):
             raise TracerValidationError("Triggered width sweep is incomplete")
     elif artifacts.width_summaries or artifacts.width_evaluations:
         raise TracerValidationError("Width sweep ran without a trigger")
-
-
-def _validate_coverage_matrix(
-    prepared: PreparedPanel,
-    candidates: list[CandidateRecord],
-    evaluations: list[EvaluationRecord],
-    results: list[SensitivityResultRecord],
-    rejection_counts: list[RejectionCauseCountRecord],
-    audit: list[WidthTriggerRecord],
-    variants: dict[str, object],
-    width: dict[str, object],
-) -> None:
-    workspace_root = prepared.workspace_root
-    measurement_contract = read_json(workspace_root / MEASUREMENT_CONTRACT_PATH)
-    expected_variant_ids = {
-        str(variant["variant_id"])
-        for variant in measurement_contract["sensitivity_variants"]
-    }
-    width_contracts = width["width_contracts"]
-    if not isinstance(width_contracts, dict):
-        raise TracerValidationError("Sensitivity width results changed")
-    expected_result_ids = expected_variant_ids | set(width_contracts)
-    if (
-        set(variants) != expected_variant_ids
-        or Counter(row["roi_side_px"] for row in candidates)
-        != {32: 1620, 48: 1620, 64: 1620}
-        or Counter(row["variant_id"] for row in evaluations)
-        != {variant_id: 1620 for variant_id in expected_variant_ids}
-        or Counter(row["variant_id"] for row in results)
-        != {variant_id: 25 for variant_id in expected_result_ids}
-        or Counter(row["scope"] for row in results)
-        != {
-            "case": 20 * len(expected_result_ids),
-            "method": 5 * len(expected_result_ids),
-        }
-        or Counter(row["scope"] for row in audit) != {"case": 20, "method": 5}
-    ):
-        raise TracerValidationError("Sensitivity coverage matrix changed")
-    expected_rejection_keys = {
-        (row["variant_id"], row["scope"], row["case_id"], row["method"])
-        for row in results
-    }
-    actual_rejection_counts = Counter(
-        (row["variant_id"], row["scope"], row["case_id"], row["method"])
-        for row in rejection_counts
-    )
-    if actual_rejection_counts != {key: 9 for key in expected_rejection_keys}:
-        raise TracerValidationError("Sensitivity rejection-cause matrix changed")
-    for variant in variants.values():
-        if not isinstance(variant, dict) or (
-            set(variant.get("cases", {})) != {case.case_id for case in CASE_SPECS}
-            or set(variant.get("methods", {})) != set(METHODS)
-        ):
-            raise TracerValidationError("Sensitivity summary matrix changed")
-        for method_summary in variant["methods"].values():
-            if (
-                method_summary["physics_baseline_visible_opportunities"] != 221
-                or method_summary["post_gap_branch_consistent_recovery"][
-                    "evaluated_gap_count"
-                ]
-                != 24
-                or method_summary["geometry_inconsistency_denominator"]
-                != method_summary["accepted_measurements_all_frames"]
-                or method_summary["pair_residual_denominator"]
-                != method_summary["jointly_consistent_pair_frames"]
-            ):
-                raise TracerValidationError("Sensitivity summary denominator changed")
 
 
 def validate_sensitivity_output(
@@ -200,11 +172,16 @@ def validate_sensitivity_output(
         len(width_contracts) if isinstance(width_contracts, dict) else -1
     )
     decision = width.get("decision")
+    additional_width_contract_count = (
+        width_contract_count - 1 if width_contract_count == 5 else 0
+    )
+    expected_evaluation_count = 24300 + 1620 * additional_width_contract_count
+    expected_result_count = 375 + 25 * additional_width_contract_count
     if (
         len(candidates) != 4860
-        or len(evaluations) != 24300
-        or len(results) != 375 + 25 * width_contract_count
-        or len(rejection_counts) != (375 + 25 * width_contract_count) * 9
+        or len(evaluations) != expected_evaluation_count
+        or len(results) != expected_result_count
+        or len(rejection_counts) != expected_result_count * 9
         or len(audit) != 25
         or summary.get("schema_version") != SCHEMA_VERSION
         or summary.get("sensitivity_id") != SENSITIVITY_ID
@@ -223,7 +200,7 @@ def validate_sensitivity_output(
         or width.get("case_diagnostics") != audit[5:]
     ):
         raise TracerValidationError("Sensitivity output contract changed")
-    _validate_coverage_matrix(
+    validate_sensitivity_coverage_matrix(
         prepared,
         candidates,
         evaluations,
@@ -233,6 +210,42 @@ def validate_sensitivity_output(
         variants,
         width,
     )
+    measurement_contract = read_json(
+        prepared.workspace_root / MEASUREMENT_CONTRACT_PATH
+    )
+    reconstructed = reconstruct_sensitivity_results(
+        prepared,
+        candidates,
+        measurement_contract,
+    )
+    expected_width_contracts: dict[str, object] = {}
+    if reconstructed.triggered_methods:
+        expected_width_contracts = {
+            CENTRAL_WIDTH_CONTRACT_ID: {
+                "reuses_variant_id": CENTRAL_VARIANT_ID,
+            },
+            **reconstructed.width_summaries,
+        }
+    if (
+        evaluations != reconstructed.evaluations
+        or variants != reconstructed.variants
+        or width_contracts != expected_width_contracts
+        or audit != reconstructed.audit
+        or width.get("triggered_methods") != list(reconstructed.triggered_methods)
+        or results
+        != sensitivity_result_records(
+            reconstructed.variants,
+            reconstructed.width_summaries,
+        )
+        or rejection_counts
+        != rejection_cause_count_records(
+            reconstructed.variants,
+            reconstructed.width_summaries,
+        )
+    ):
+        raise TracerValidationError(
+            "Sensitivity results do not reconstruct from candidate records"
+        )
     if (
         provenance.get("schema_version") != SCHEMA_VERSION
         or provenance.get("sensitivity_id") != SENSITIVITY_ID
@@ -258,11 +271,19 @@ def validate_sensitivity_output(
     expected_evaluation_path = (
         prepared.panel_dir / prepared.contract["expected_files"]["evaluation_records"]
     )
+    expected_candidate_path = (
+        prepared.panel_dir / prepared.contract["expected_files"]["candidate_records"]
+    )
+    _, frozen_candidates = read_csv(expected_candidate_path, CandidateRecord)
     _, frozen_central = read_csv(expected_evaluation_path, EvaluationRecord)
+    actual_central_candidates = [row for row in candidates if row["roi_side_px"] == 48]
     actual_central = [
-        row for row in evaluations if row["variant_id"] == "roi_48_proposal_15"
+        row for row in evaluations if row["variant_id"] == CENTRAL_VARIANT_ID
     ]
-    if actual_central != frozen_central:
+    if (
+        not _records_match(actual_central_candidates, frozen_candidates)
+        or actual_central != frozen_central
+    ):
         raise TracerValidationError(
             "Central sensitivity output differs from frozen panel"
         )
@@ -270,7 +291,7 @@ def validate_sensitivity_output(
         variant_count=len(variants),
         unique_roi_candidate_set_count=len({row["roi_side_px"] for row in candidates}),
         candidate_count=len(candidates),
-        evaluation_count=len(evaluations),
+        evaluation_count=expected_evaluation_count,
         width_sensitivity_triggered=decision == "run_all_width_contracts",
         width_contract_count=width_contract_count,
         central_variant_matches_frozen_record=True,

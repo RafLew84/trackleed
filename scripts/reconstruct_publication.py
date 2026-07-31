@@ -25,7 +25,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Reconstruct the frozen Ag(111) central panel and its predeclared "
-            "measurement sensitivity."
+            "measurement-window and capture-contract sensitivity."
         )
     )
     parser.add_argument("--workspace-root", type=Path, default=Path.cwd())
@@ -108,7 +108,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dumps(
             {
                 "central_panel": asdict(central_report),
-                "measurement_sensitivity": asdict(sensitivity_report),
+                "measurement_window_and_capture_contract_sensitivity": asdict(
+                    sensitivity_report
+                ),
             },
             indent=2,
             sort_keys=True,
