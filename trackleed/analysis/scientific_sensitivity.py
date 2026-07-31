@@ -63,7 +63,7 @@ def complete_sensitivity_variants(
     return central, complete
 
 
-def _candidate_sets(
+def reconstruct_candidate_sets(
     workspace_root: Path,
     panel_contract: dict[str, Any],
     central_candidates: list[CandidateRecord],
@@ -164,7 +164,7 @@ def reconstruct_sensitivity(
     _, central_evaluations = read_csv(
         prepared.panel_dir / expected["evaluation_records"], EvaluationRecord
     )
-    candidate_sets = _candidate_sets(
+    candidate_sets = reconstruct_candidate_sets(
         prepared.workspace_root,
         prepared.contract,
         central_candidates,
@@ -228,6 +228,7 @@ __all__ = [
     "audit_width_trigger",
     "complete_sensitivity_variants",
     "complete_width_variant",
+    "reconstruct_candidate_sets",
     "reconstruct_sensitivity",
     "run_width_sensitivity",
 ]

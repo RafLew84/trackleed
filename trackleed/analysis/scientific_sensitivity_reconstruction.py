@@ -19,6 +19,7 @@ from trackleed.analysis.scientific_sensitivity import (
     audit_width_trigger,
     complete_sensitivity_variants,
     complete_width_variant,
+    reconstruct_candidate_sets,
 )
 from trackleed.analysis.scientific_sensitivity_common import (
     CENTRAL_VARIANT_ID,
@@ -34,6 +35,7 @@ from trackleed.analysis.scientific_tracer_evaluation import evaluate_candidates
 from trackleed.analysis.scientific_tracer_records import (
     CandidateRecord,
     EvaluationRecord,
+    read_csv,
     read_raw_csv,
 )
 
@@ -45,6 +47,26 @@ class ReconstructedSensitivity:
     evaluations: list[EvaluationRecord]
     audit: list[WidthTriggerRecord]
     triggered_methods: tuple[str, ...]
+
+
+def reconstruct_authenticated_candidates(
+    prepared: PreparedPanel,
+    measurement_contract: dict[str, Any],
+) -> list[CandidateRecord]:
+    """Rebuild the ROI matrix, reusing central rows and refitting ROI 32/64."""
+
+    _, variants = complete_sensitivity_variants(measurement_contract)
+    candidate_path = (
+        prepared.panel_dir / prepared.contract["expected_files"]["candidate_records"]
+    )
+    _, central_candidates = read_csv(candidate_path, CandidateRecord)
+    candidate_sets = reconstruct_candidate_sets(
+        prepared.workspace_root,
+        prepared.contract,
+        central_candidates,
+        variants,
+    )
+    return [row for roi_side in (32, 48, 64) for row in candidate_sets[roi_side]]
 
 
 def validate_sensitivity_coverage_matrix(
@@ -217,6 +239,7 @@ def reconstruct_sensitivity_results(
 
 __all__ = [
     "ReconstructedSensitivity",
+    "reconstruct_authenticated_candidates",
     "reconstruct_sensitivity_results",
     "validate_sensitivity_coverage_matrix",
 ]

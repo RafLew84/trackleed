@@ -31,6 +31,7 @@ from trackleed.analysis.scientific_sensitivity_records import (
     WidthTriggerRecord,
 )
 from trackleed.analysis.scientific_sensitivity_reconstruction import (
+    reconstruct_authenticated_candidates,
     reconstruct_sensitivity_results,
     validate_sensitivity_coverage_matrix,
 )
@@ -213,6 +214,14 @@ def validate_sensitivity_output(
     measurement_contract = read_json(
         prepared.workspace_root / MEASUREMENT_CONTRACT_PATH
     )
+    authenticated_candidates = reconstruct_authenticated_candidates(
+        prepared,
+        measurement_contract,
+    )
+    if not _records_match(candidates, authenticated_candidates):
+        raise TracerValidationError(
+            "Sensitivity candidates do not reconstruct from authenticated inputs"
+        )
     reconstructed = reconstruct_sensitivity_results(
         prepared,
         candidates,
@@ -271,19 +280,11 @@ def validate_sensitivity_output(
     expected_evaluation_path = (
         prepared.panel_dir / prepared.contract["expected_files"]["evaluation_records"]
     )
-    expected_candidate_path = (
-        prepared.panel_dir / prepared.contract["expected_files"]["candidate_records"]
-    )
-    _, frozen_candidates = read_csv(expected_candidate_path, CandidateRecord)
     _, frozen_central = read_csv(expected_evaluation_path, EvaluationRecord)
-    actual_central_candidates = [row for row in candidates if row["roi_side_px"] == 48]
     actual_central = [
         row for row in evaluations if row["variant_id"] == CENTRAL_VARIANT_ID
     ]
-    if (
-        not _records_match(actual_central_candidates, frozen_candidates)
-        or actual_central != frozen_central
-    ):
+    if actual_central != frozen_central:
         raise TracerValidationError(
             "Central sensitivity output differs from frozen panel"
         )

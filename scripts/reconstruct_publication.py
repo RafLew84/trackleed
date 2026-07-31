@@ -81,21 +81,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 sensitivity_output,
             )
         else:
+            # Both runners validate their complete output before returning.
             central_report = run_central_panel(workspace, package, output)
             sensitivity_report = run_sensitivity(
                 workspace,
                 package,
                 sensitivity_output,
             )
-            if arguments.validate:
-                central_report = validate_central_panel_output(
-                    workspace, package, output
-                )
-                sensitivity_report = validate_sensitivity_output(
-                    workspace,
-                    package,
-                    sensitivity_output,
-                )
     except (
         FileExistsError,
         FileNotFoundError,

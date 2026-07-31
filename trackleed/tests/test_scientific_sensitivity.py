@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -184,32 +185,38 @@ class ScientificSensitivityTests(unittest.TestCase):
                 str(publication_output),
                 "--validate",
             ]
-            self.assertEqual(reconstruction_main(arguments), 0)
-            summary["variants"]["roi_32_proposal_12"]["methods"]["easyleed"][
-                "absolute_pair_distance_residual_px"
-            ]["median"] += 1.0
-            summary_path = output / "summary.json"
-            summary_path.write_text(
-                json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-            )
-            manifest_path = output / "output_manifest.json"
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["files_sha256"]["summary.json"] = hashlib.sha256(
-                summary_path.read_bytes()
-            ).hexdigest()
-            manifest_path.write_text(
-                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            validation_path = output / "validation_report.json"
-            validation = json.loads(validation_path.read_text(encoding="utf-8"))
-            validation["output_manifest_sha256"] = hashlib.sha256(
-                manifest_path.read_bytes()
-            ).hexdigest()
-            validation_path.write_text(
-                json.dumps(validation, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
+
+            def resign(changed_artifact: str) -> None:
+                manifest_path = output / "output_manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["files_sha256"][changed_artifact] = hashlib.sha256(
+                    (output / changed_artifact).read_bytes()
+                ).hexdigest()
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                validation_path = output / "validation_report.json"
+                validation = json.loads(validation_path.read_text(encoding="utf-8"))
+                validation["output_manifest_sha256"] = hashlib.sha256(
+                    manifest_path.read_bytes()
+                ).hexdigest()
+                validation_path.write_text(
+                    json.dumps(validation, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+
+            candidate_path = output / "candidate_records.csv"
+            with candidate_path.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+                fieldnames = list(rows[0])
+            roi_32 = next(row for row in rows if row["roi_side_px"] == "32")
+            roi_32["image_sha256"] = "0" * 64
+            with candidate_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            resign("candidate_records.csv")
             self.assertEqual(reconstruction_main(arguments), 2)
 
     def test_width_trigger_is_audited_per_method_and_records_no_trigger(
