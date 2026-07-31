@@ -38,6 +38,7 @@ RejectionCause = Literal[
     "width",
     "physics_branch_consistency",
 ]
+REJECTION_CAUSES = get_args(RejectionCause)
 SolverStatus = Literal["not_run", "failed", "completed"]
 MissingState = Literal[
     "proposal_unavailable",
@@ -243,9 +244,7 @@ def decode_csv_row(
             and allowed_values is not None
             and decoded[field] not in allowed_values
         ):
-            raise ValueError(
-                f"Invalid tracer value for {field}: {decoded[field]!r}"
-            )
+            raise ValueError(f"Invalid tracer value for {field}: {decoded[field]!r}")
     return decoded  # type: ignore[return-value]
 
 
@@ -297,6 +296,7 @@ __all__ = [
     "GAP_FIELDS",
     "MARGIN_FIELDS",
     "PAIR_FIELDS",
+    "REJECTION_CAUSES",
     "CandidateRecord",
     "EvaluationRecord",
     "GapRecord",

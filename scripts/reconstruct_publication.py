@@ -15,12 +15,17 @@ from trackleed.publication.scientific_panel import (
     run_central_panel,
     validate_central_panel_output,
 )
+from trackleed.publication.scientific_sensitivity import (
+    run_sensitivity,
+    validate_sensitivity_output,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Reconstruct the frozen five-method, four-case Ag(111) central panel."
+            "Reconstruct the frozen Ag(111) central panel and its predeclared "
+            "measurement sensitivity."
         )
     )
     parser.add_argument("--workspace-root", type=Path, default=Path.cwd())
@@ -64,24 +69,51 @@ def _remove_output(output: Path, workspace: Path, package: Path) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     workspace, package, output = _paths(arguments)
+    sensitivity_output = output / "sensitivity"
     try:
         if arguments.clean:
             _remove_output(output, workspace, package)
         if output.exists() and arguments.validate and not arguments.clean:
-            report = validate_central_panel_output(workspace, package, output)
+            central_report = validate_central_panel_output(workspace, package, output)
+            sensitivity_report = validate_sensitivity_output(
+                workspace,
+                package,
+                sensitivity_output,
+            )
         else:
-            report = run_central_panel(workspace, package, output)
+            central_report = run_central_panel(workspace, package, output)
+            sensitivity_report = run_sensitivity(
+                workspace,
+                package,
+                sensitivity_output,
+            )
             if arguments.validate:
-                report = validate_central_panel_output(workspace, package, output)
+                central_report = validate_central_panel_output(
+                    workspace, package, output
+                )
+                sensitivity_report = validate_sensitivity_output(
+                    workspace,
+                    package,
+                    sensitivity_output,
+                )
     except (
         FileExistsError,
         FileNotFoundError,
         TracerValidationError,
         ValueError,
     ) as exc:
-        print(f"publication panel failed: {exc}", file=sys.stderr)
+        print(f"publication reconstruction failed: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(asdict(report), indent=2, sort_keys=True))
+    print(
+        json.dumps(
+            {
+                "central_panel": asdict(central_report),
+                "measurement_sensitivity": asdict(sensitivity_report),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

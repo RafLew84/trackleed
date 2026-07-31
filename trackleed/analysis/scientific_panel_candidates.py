@@ -142,10 +142,12 @@ def _proposal_arrays(
 def reconstruct_panel_candidates(
     workspace_root: Path,
     contract: Mapping[str, Any],
+    *,
+    measurement_contract: Mapping[str, Any] | None = None,
 ) -> list[CandidateRecord]:
-    """Fit every method/case/branch/image proposal exactly once."""
+    """Fit every method/case/branch/image proposal for one ROI contract."""
 
-    measurement_contract = central_contract(workspace_root)
+    measurement_contract = measurement_contract or central_contract(workspace_root)
     roi_side = int(measurement_contract["roi_side_px"])
     half = roi_side // 2
     center_preference = float(measurement_contract["center_preference_factor"])

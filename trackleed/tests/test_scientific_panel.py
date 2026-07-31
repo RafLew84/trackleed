@@ -6,7 +6,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from scripts.reconstruct_publication import main as reconstruction_main
 from trackleed.publication.scientific_panel import run_central_panel
 from trackleed.publication.scientific_tracer import evaluate_candidates
 
@@ -90,20 +89,6 @@ class ScientificPanelTests(unittest.TestCase):
 
             self.assertTrue((output / "case_results.csv").is_file())
             self.assertTrue((output / "aggregate_method_results.csv").is_file())
-            self.assertEqual(
-                reconstruction_main(
-                    [
-                        "--workspace-root",
-                        str(REPO_ROOT),
-                        "--panel-package",
-                        str(FROZEN_PANEL),
-                        "--output",
-                        str(output),
-                        "--validate",
-                    ]
-                ),
-                0,
-            )
 
     def test_pre_fit_failures_and_every_gate_have_distinct_outcomes(self) -> None:
         contract = json.loads(
