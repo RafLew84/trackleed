@@ -1,0 +1,271 @@
+{
+  "comparison_tolerances": {
+    "continuous_values": {
+      "atol": 1e-08,
+      "rtol": 1e-09
+    },
+    "discrete_values": "exact",
+    "reader_facing_values": "exact_after_declared_rounding"
+  },
+  "denominators": {
+    "branch_consistent_coverage": {
+      "kind": "fixed_reference_opportunity_set",
+      "n": 221
+    },
+    "conditional_pair_distance_residual": {
+      "kind": "variant_and_method_specific",
+      "population": "jointly_branch_consistent_pair_frames",
+      "report_n": true
+    },
+    "geometry_inconsistent_continuation": {
+      "kind": "variant_and_method_specific",
+      "population": "all_accepted_fits_in_all_visibility_regimes"
+    },
+    "post_gap_branch_consistent_recovery": {
+      "kind": "fixed_reference_opportunity_set",
+      "n": 24
+    }
+  },
+  "estimator_compatibility": {
+    "center_preference_factor": 0.34,
+    "image_loading": "tifffile.imread followed by skimage.util.img_as_float",
+    "mode": "historical_publication_central_record",
+    "optimizer_theta_bounds_rad": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "reason": "The frozen central record predates the unbounded-periodic-angle optimizer correction; the application default remains unbounded."
+  },
+  "execution_contract": {
+    "device": "cpu",
+    "runtime": {
+      "numpy": "2.2.5",
+      "python": "3.12.9",
+      "scikit-image": "0.25.2",
+      "scipy": "1.15.2",
+      "tifffile": "2025.3.30"
+    }
+  },
+  "expected_counts": {
+    "aggregate_method_results": 5,
+    "candidate_records": 1620,
+    "case_results": 20,
+    "evaluation_records": 1620,
+    "gap_records": 120,
+    "historical_central_records": 1620,
+    "pair_records": 424
+  },
+  "expected_files": {
+    "aggregate_method_results": "frozen/expected_aggregate_method_results.csv",
+    "candidate_records": "frozen/expected_candidate_records.csv",
+    "case_results": "frozen/expected_case_results.csv",
+    "evaluation_records": "frozen/expected_evaluation_records.csv",
+    "gap_records": "frozen/expected_gap_records.csv",
+    "historical_central_records": "frozen/expected_historical_central_records.csv",
+    "pair_records": "frozen/expected_pair_records.csv",
+    "summary": "frozen/expected_summary.json"
+  },
+  "expected_output_schemas": {
+    "aggregate_method_results.csv": [
+      "method",
+      "display_method",
+      "visible_opportunities",
+      "branch_consistent_measurements",
+      "weighted_fit_coverage",
+      "evaluated_gaps",
+      "recovered_gaps",
+      "weighted_gap_recovery_rate",
+      "accepted_measurements_all_frames",
+      "geometry_inconsistent_accepted_fits",
+      "geometry_inconsistent_fraction",
+      "jointly_consistent_pair_frames",
+      "median_abs_distance_residual_px",
+      "p95_abs_distance_residual_px",
+      "maximum_abs_distance_residual_px"
+    ],
+    "candidate_records.csv": [
+      "record_key",
+      "case_id",
+      "series_id",
+      "pair_id",
+      "method",
+      "frame",
+      "energy_ev",
+      "branch",
+      "physics_baseline_status",
+      "opportunity_key",
+      "image_artifact_id",
+      "image_source_path",
+      "image_sha256",
+      "proposal_source_path",
+      "proposal_sha256",
+      "proposal_available",
+      "native_x",
+      "native_y",
+      "native_mask_area",
+      "native_mask_score",
+      "native_mask_component_count",
+      "predicted_x",
+      "predicted_y",
+      "roi_side_px",
+      "crop_x0",
+      "crop_y0",
+      "crop_x1",
+      "crop_y1",
+      "roi_valid",
+      "solver_status",
+      "finite_candidate",
+      "missing_state",
+      "center_x",
+      "center_y",
+      "amplitude",
+      "r_squared",
+      "volume",
+      "sigma_x",
+      "sigma_y",
+      "theta",
+      "offset",
+      "center_x_error",
+      "center_y_error",
+      "amplitude_error",
+      "sigma_x_error",
+      "sigma_y_error",
+      "theta_error",
+      "offset_error",
+      "volume_error",
+      "proposal_offset_px",
+      "branch_error_px",
+      "radial_residual_px",
+      "tangential_residual_px",
+      "proposal_to_fit_margin_px",
+      "r_squared_margin",
+      "amplitude_margin",
+      "sigma_x_lower_margin_px",
+      "sigma_x_upper_margin_px",
+      "sigma_y_lower_margin_px",
+      "sigma_y_upper_margin_px",
+      "branch_margin_px"
+    ],
+    "case_results.csv": [
+      "series",
+      "pair",
+      "method",
+      "display_method",
+      "visible_opportunities",
+      "branch_consistent_measurements",
+      "fit_coverage",
+      "evaluated_gaps",
+      "recovered_gaps",
+      "gap_recovery_rate",
+      "accepted_measurements_all_frames",
+      "geometry_inconsistent_accepted_fits",
+      "geometry_inconsistent_fraction",
+      "jointly_consistent_pair_frames",
+      "case_median_abs_distance_residual_px"
+    ],
+    "evaluation_records.csv": [
+      "record_key",
+      "case_id",
+      "method",
+      "frame",
+      "energy_ev",
+      "branch",
+      "physics_baseline_status",
+      "opportunity_key",
+      "variant_id",
+      "accepted_fit",
+      "measurement_valid",
+      "measurement_status",
+      "classification",
+      "first_rejection_cause",
+      "full_rejection_causes",
+      "legacy_fit_reason",
+      "proposal_to_fit_margin_px",
+      "r_squared_margin",
+      "amplitude_margin",
+      "sigma_x_lower_margin_px",
+      "sigma_x_upper_margin_px",
+      "sigma_y_lower_margin_px",
+      "sigma_y_upper_margin_px",
+      "branch_margin_px"
+    ],
+    "gap_records.csv": [
+      "gap_key",
+      "case_id",
+      "series_id",
+      "pair_id",
+      "method",
+      "branch",
+      "direction",
+      "gap_start_energy_ev",
+      "gap_end_energy_ev",
+      "gap_frame_count",
+      "first_expected_recovery_energy_ev",
+      "recovered",
+      "recovery_energy_ev",
+      "recovery_delay_frames"
+    ],
+    "pair_records.csv": [
+      "record_key",
+      "case_id",
+      "series_id",
+      "pair_id",
+      "method",
+      "frame",
+      "energy_ev",
+      "pair_distance_px",
+      "predicted_distance_px",
+      "distance_residual_px",
+      "midpoint_x",
+      "midpoint_y",
+      "midpoint_drift_px"
+    ]
+  },
+  "frozen_inputs": {
+    "published_aggregate_results": {
+      "path": "manuscript/figures/figure03_independent_scane_stress/source_data/aggregate_method_results.csv",
+      "sha256": "30e50bfbd328d1595afec5fa7e2aa186fc3d0fb19417acd633f76b2f56b256ea"
+    },
+    "published_case_results": {
+      "path": "manuscript/figures/figure03_independent_scane_stress/source_data/case_results.csv",
+      "sha256": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48"
+    },
+    "scientific_baseline_manifest": {
+      "path": "manuscript/scientific_baseline/package_manifest.json",
+      "sha256": "08804698ec55fe34b94117e7792cbdab3f7357ce0206f8a33c49778bfe31fe5f"
+    }
+  },
+  "reader_facing_rounding": {
+    "counts": "exact",
+    "pair_distance_residual_px": {
+      "decimal_places": 3
+    },
+    "rates_percent": {
+      "decimal_places": 1
+    },
+    "relative_pair_change_percent": {
+      "decimal_places": 4
+    },
+    "source_data": "full_precision",
+    "translation_error_px": {
+      "decimal_places": 4
+    }
+  },
+  "schema_version": 1,
+  "scope": {
+    "cases": [
+      "scan_a_pair_1",
+      "scan_a_pair_2",
+      "scan_b_pair_1",
+      "scan_b_pair_2"
+    ],
+    "methods": [
+      "easyleed",
+      "locotrack",
+      "ostrack",
+      "dam4sam",
+      "lk"
+    ]
+  },
+  "tracer_id": "ag111_five_method_four_case_central"
+}

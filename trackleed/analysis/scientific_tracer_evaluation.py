@@ -118,7 +118,16 @@ def evaluate_candidates(
             measurement_status = "branch_consistent"
 
         legacy_reasons: list[str] = []
-        if finite_candidate:
+        legacy_missing_reasons = {
+            "proposal_unavailable": "",
+            "roi_invalid": "roi_outside_image",
+            "solver_failure": "gaussian_fit_failed",
+            "non_finite_parameters": "non_finite_parameters",
+        }
+        missing_cause = causes[0] if causes else None
+        if missing_cause in legacy_missing_reasons:
+            legacy_fit_reason = legacy_missing_reasons[missing_cause]
+        elif finite_candidate:
             if r_squared_failed:
                 legacy_reasons.append("low_r2")
             if amplitude_failed:
@@ -127,9 +136,11 @@ def evaluate_candidates(
                 legacy_reasons.append("invalid_sigma")
             if proposal_to_fit_failed:
                 legacy_reasons.append("center_outside_convergence_zone")
-        legacy_fit_reason = (
-            "accepted" if not legacy_reasons else "+".join(legacy_reasons)
-        )
+            legacy_fit_reason = (
+                "accepted" if not legacy_reasons else "+".join(legacy_reasons)
+            )
+        else:
+            legacy_fit_reason = "non_finite_parameters"
         rows.append(
             EvaluationRecord(
                 record_key=str(candidate["record_key"]),

@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "case_id": "scan_a_pair_1",
+      "method": "easyleed",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/easyleed/easyleed_measurements.csv",
+      "source_sha256": "70252eb4abaf6ec99ab09b7694451d79278446c8c512ce9faad50e830f2a1b89"
+    },
+    {
+      "case_id": "scan_a_pair_1",
+      "method": "locotrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/locotrack_measurements.csv",
+      "source_sha256": "cb8a3d5063a1677146be6ec204f9ca653d40bd3db56cdf90506c2e91c9c0e8ec"
+    },
+    {
+      "case_id": "scan_a_pair_1",
+      "method": "ostrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/ostrack_measurements.csv",
+      "source_sha256": "2c46110413ceb202105f7a07dda773d6265e6ad4aab09eef456310a646734389"
+    },
+    {
+      "case_id": "scan_a_pair_1",
+      "method": "dam4sam",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/trackers/dam4sam_measurements.csv",
+      "source_sha256": "589906ee75a3cf078d3eb1dfb8777b7a9c6e7fd36b74e25fd044525bb1ccc349"
+    },
+    {
+      "case_id": "scan_a_pair_1",
+      "method": "lk",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/lk_measurements.csv",
+      "source_sha256": "28cbcc7aa369b63349f30b34df7b3ec204f8d8f69116abf8b3cf9b4cefd4e34d"
+    },
+    {
+      "case_id": "scan_a_pair_2",
+      "method": "easyleed",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/easyleed/easyleed_measurements.csv",
+      "source_sha256": "9c11f192a209ab91436553988c1ac30bb7f7ad311e1b1bddbc056bc89e27af63"
+    },
+    {
+      "case_id": "scan_a_pair_2",
+      "method": "locotrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/locotrack_measurements.csv",
+      "source_sha256": "b1f06f76ba3284fd1a7ac79c15a7bf58a3a4f08c19576215ff4d358f80790e86"
+    },
+    {
+      "case_id": "scan_a_pair_2",
+      "method": "ostrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/ostrack_measurements.csv",
+      "source_sha256": "afdba200fcc8c32e26141853f0421cf9290fb588f549acd6a073a3fb6ef78869"
+    },
+    {
+      "case_id": "scan_a_pair_2",
+      "method": "dam4sam",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/trackers/dam4sam_measurements.csv",
+      "source_sha256": "b53a762003c7252d17cfed2b2a32c96d48d47109c5da773cd9da47340d2a8580"
+    },
+    {
+      "case_id": "scan_a_pair_2",
+      "method": "lk",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/lk_measurements.csv",
+      "source_sha256": "d999fb0929a710564472744c160025157c7792f37bc290b3a015b91b7bbcf825"
+    },
+    {
+      "case_id": "scan_b_pair_1",
+      "method": "easyleed",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/easyleed/easyleed_measurements.csv",
+      "source_sha256": "a0cf9fa5915aac3df9e0be36ca918a077da19bf2cd02a66a12f92bad68baa06f"
+    },
+    {
+      "case_id": "scan_b_pair_1",
+      "method": "locotrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/locotrack_measurements.csv",
+      "source_sha256": "7034c3e4cd3f4c0f44479d138cafbf572cbfe310756ecada1913d8b709a643f4"
+    },
+    {
+      "case_id": "scan_b_pair_1",
+      "method": "ostrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/ostrack_measurements.csv",
+      "source_sha256": "878d279d202b253ecc7438bb36be5efabc5192e8f67a09ea374e82455f5303b2"
+    },
+    {
+      "case_id": "scan_b_pair_1",
+      "method": "dam4sam",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/trackers/dam4sam_measurements.csv",
+      "source_sha256": "009f27b52abd8dd10f9171fa8827fee4432cafaec1002623c599b7634f4a0289"
+    },
+    {
+      "case_id": "scan_b_pair_1",
+      "method": "lk",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/lk_measurements.csv",
+      "source_sha256": "c89b35e9721701733c188c231f787fcf308c52dfe0885d6effc2dfc285d2c1d6"
+    },
+    {
+      "case_id": "scan_b_pair_2",
+      "method": "easyleed",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/easyleed/easyleed_measurements.csv",
+      "source_sha256": "0ab0c81db2e6eb856c17118f0a2c6ed839897b2ad18e75f5be8ac1c32ee46d85"
+    },
+    {
+      "case_id": "scan_b_pair_2",
+      "method": "locotrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/locotrack_measurements.csv",
+      "source_sha256": "4604c5c7cfd61b4b6db585ad229947ae8f589d92a1aa240dc7e23c2b61cbae76"
+    },
+    {
+      "case_id": "scan_b_pair_2",
+      "method": "ostrack",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/ostrack_measurements.csv",
+      "source_sha256": "485aa629e117fdb0170a169f9188aa65932988b8273197973f665672199d16ae"
+    },
+    {
+      "case_id": "scan_b_pair_2",
+      "method": "dam4sam",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/trackers/dam4sam_measurements.csv",
+      "source_sha256": "927ad2ac13820208713afd8df3f26f840e4ebd471f1ced6f5329bd7b88c9c0fb"
+    },
+    {
+      "case_id": "scan_b_pair_2",
+      "method": "lk",
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/lk_measurements.csv",
+      "source_sha256": "777d80419fea93eb9fad059fa30d99767f160f96c7def965eff8c920e0a1d4dd"
+    }
+  ]
+}

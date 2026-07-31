@@ -1,0 +1,574 @@
+{
+  "cases": {
+    "scan_a_pair_1": {
+      "dam4sam": {
+        "absolute_pair_distance_residual_px": {
+          "max": 8.735839201916065,
+          "median": 1.825106920381586,
+          "p95": 8.639785713964011
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 44,
+        "fit_coverage_on_baseline_visible": 1.0,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 9,
+        "jointly_consistent_pair_frames": 19,
+        "native_visible_on_baseline_visible": 44,
+        "pair_residual_denominator": 19,
+        "physics_baseline_visible_opportunities": 44,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 5,
+          "rate": 1.0,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "easyleed": {
+        "absolute_pair_distance_residual_px": {
+          "max": 3.5473569633174975,
+          "median": 1.5260859052693831,
+          "p95": 3.4930717144071193
+        },
+        "accepted_measurements_all_frames": 42,
+        "branch_consistent_measurements": 42,
+        "fit_coverage_on_baseline_visible": 0.9545454545454546,
+        "geometry_inconsistency_denominator": 42,
+        "geometry_inconsistent_accepted_fits": 0,
+        "jointly_consistent_pair_frames": 15,
+        "native_visible_on_baseline_visible": 44,
+        "pair_residual_denominator": 15,
+        "physics_baseline_visible_opportunities": 44,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 5,
+          "rate": 1.0,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "lk": {
+        "absolute_pair_distance_residual_px": {
+          "max": 8.735756987484137,
+          "median": 1.9825211718058426,
+          "p95": 8.655775505678633
+        },
+        "accepted_measurements_all_frames": 49,
+        "branch_consistent_measurements": 43,
+        "fit_coverage_on_baseline_visible": 0.9772727272727273,
+        "geometry_inconsistency_denominator": 49,
+        "geometry_inconsistent_accepted_fits": 5,
+        "jointly_consistent_pair_frames": 16,
+        "native_visible_on_baseline_visible": 43,
+        "pair_residual_denominator": 16,
+        "physics_baseline_visible_opportunities": 44,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 5,
+          "rate": 1.0,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "locotrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 8.735846376277095,
+          "median": 1.9830182698233898,
+          "p95": 8.645125319289201
+        },
+        "accepted_measurements_all_frames": 57,
+        "branch_consistent_measurements": 44,
+        "fit_coverage_on_baseline_visible": 1.0,
+        "geometry_inconsistency_denominator": 57,
+        "geometry_inconsistent_accepted_fits": 9,
+        "jointly_consistent_pair_frames": 18,
+        "native_visible_on_baseline_visible": 44,
+        "pair_residual_denominator": 18,
+        "physics_baseline_visible_opportunities": 44,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 5,
+          "rate": 1.0,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "ostrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 8.735855086405877,
+          "median": 1.8223422561807183,
+          "p95": 8.639788418386354
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 44,
+        "fit_coverage_on_baseline_visible": 1.0,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 9,
+        "jointly_consistent_pair_frames": 19,
+        "native_visible_on_baseline_visible": 44,
+        "pair_residual_denominator": 19,
+        "physics_baseline_visible_opportunities": 44,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 5,
+          "rate": 1.0,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      }
+    },
+    "scan_a_pair_2": {
+      "dam4sam": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.144808256754004,
+          "median": 1.649985266119188,
+          "p95": 3.6408734871189137
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 49,
+        "fit_coverage_on_baseline_visible": 0.98,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 7,
+        "jointly_consistent_pair_frames": 20,
+        "native_visible_on_baseline_visible": 49,
+        "pair_residual_denominator": 20,
+        "physics_baseline_visible_opportunities": 50,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 7,
+          "rate": 1.0,
+          "recovered_gap_count": 7,
+          "zero_delay_count": 7
+        }
+      },
+      "easyleed": {
+        "absolute_pair_distance_residual_px": {
+          "max": 4.862079593743033,
+          "median": 1.6501646559723326,
+          "p95": 3.7865230632025897
+        },
+        "accepted_measurements_all_frames": 48,
+        "branch_consistent_measurements": 48,
+        "fit_coverage_on_baseline_visible": 0.96,
+        "geometry_inconsistency_denominator": 48,
+        "geometry_inconsistent_accepted_fits": 0,
+        "jointly_consistent_pair_frames": 18,
+        "native_visible_on_baseline_visible": 48,
+        "pair_residual_denominator": 18,
+        "physics_baseline_visible_opportunities": 50,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 7,
+          "rate": 0.7142857142857143,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "lk": {
+        "absolute_pair_distance_residual_px": {
+          "max": 4.8620906189588595,
+          "median": 1.5595912035054766,
+          "p95": 3.83945703940395
+        },
+        "accepted_measurements_all_frames": 40,
+        "branch_consistent_measurements": 40,
+        "fit_coverage_on_baseline_visible": 0.8,
+        "geometry_inconsistency_denominator": 40,
+        "geometry_inconsistent_accepted_fits": 0,
+        "jointly_consistent_pair_frames": 14,
+        "native_visible_on_baseline_visible": 42,
+        "pair_residual_denominator": 14,
+        "physics_baseline_visible_opportunities": 50,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 7,
+          "rate": 0.5714285714285714,
+          "recovered_gap_count": 4,
+          "zero_delay_count": 4
+        }
+      },
+      "locotrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.144808606909578,
+          "median": 1.5613846926057704,
+          "p95": 4.889469014217206
+        },
+        "accepted_measurements_all_frames": 57,
+        "branch_consistent_measurements": 48,
+        "fit_coverage_on_baseline_visible": 0.96,
+        "geometry_inconsistency_denominator": 57,
+        "geometry_inconsistent_accepted_fits": 7,
+        "jointly_consistent_pair_frames": 19,
+        "native_visible_on_baseline_visible": 50,
+        "pair_residual_denominator": 19,
+        "physics_baseline_visible_opportunities": 50,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 7,
+          "rate": 1.0,
+          "recovered_gap_count": 7,
+          "zero_delay_count": 7
+        }
+      },
+      "ostrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.144961885482871,
+          "median": 1.6474014792349294,
+          "p95": 4.876239949027672
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 49,
+        "fit_coverage_on_baseline_visible": 0.98,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 7,
+        "jointly_consistent_pair_frames": 20,
+        "native_visible_on_baseline_visible": 50,
+        "pair_residual_denominator": 20,
+        "physics_baseline_visible_opportunities": 50,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 7,
+          "rate": 0.8571428571428571,
+          "recovered_gap_count": 6,
+          "zero_delay_count": 6
+        }
+      }
+    },
+    "scan_b_pair_1": {
+      "dam4sam": {
+        "absolute_pair_distance_residual_px": {
+          "max": 6.867587980042572,
+          "median": 1.1642268793497124,
+          "p95": 6.016569240970259
+        },
+        "accepted_measurements_all_frames": 77,
+        "branch_consistent_measurements": 57,
+        "fit_coverage_on_baseline_visible": 0.95,
+        "geometry_inconsistency_denominator": 77,
+        "geometry_inconsistent_accepted_fits": 10,
+        "jointly_consistent_pair_frames": 25,
+        "native_visible_on_baseline_visible": 58,
+        "pair_residual_denominator": 25,
+        "physics_baseline_visible_opportunities": 60,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.8333333333333334,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "easyleed": {
+        "absolute_pair_distance_residual_px": {
+          "max": 3.9586355673478124,
+          "median": 1.1313988858100856,
+          "p95": 3.6892843229606336
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 57,
+        "fit_coverage_on_baseline_visible": 0.95,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 0,
+        "jointly_consistent_pair_frames": 23,
+        "native_visible_on_baseline_visible": 60,
+        "pair_residual_denominator": 23,
+        "physics_baseline_visible_opportunities": 60,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 1.0,
+          "recovered_gap_count": 6,
+          "zero_delay_count": 6
+        }
+      },
+      "lk": {
+        "absolute_pair_distance_residual_px": {
+          "max": 3.3325962286674553,
+          "median": 1.1311664580232446,
+          "p95": 3.153282771736462
+        },
+        "accepted_measurements_all_frames": 59,
+        "branch_consistent_measurements": 47,
+        "fit_coverage_on_baseline_visible": 0.7833333333333333,
+        "geometry_inconsistency_denominator": 59,
+        "geometry_inconsistent_accepted_fits": 9,
+        "jointly_consistent_pair_frames": 15,
+        "native_visible_on_baseline_visible": 53,
+        "pair_residual_denominator": 15,
+        "physics_baseline_visible_opportunities": 60,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.6666666666666666,
+          "recovered_gap_count": 4,
+          "zero_delay_count": 4
+        }
+      },
+      "locotrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 6.868913224765606,
+          "median": 1.3364024678859323,
+          "p95": 5.985232149574529
+        },
+        "accepted_measurements_all_frames": 78,
+        "branch_consistent_measurements": 58,
+        "fit_coverage_on_baseline_visible": 0.9666666666666667,
+        "geometry_inconsistency_denominator": 78,
+        "geometry_inconsistent_accepted_fits": 10,
+        "jointly_consistent_pair_frames": 26,
+        "native_visible_on_baseline_visible": 60,
+        "pair_residual_denominator": 26,
+        "physics_baseline_visible_opportunities": 60,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.8333333333333334,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      },
+      "ostrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 6.867508822114132,
+          "median": 1.1659433951824667,
+          "p95": 6.018047747599642
+        },
+        "accepted_measurements_all_frames": 77,
+        "branch_consistent_measurements": 57,
+        "fit_coverage_on_baseline_visible": 0.95,
+        "geometry_inconsistency_denominator": 77,
+        "geometry_inconsistent_accepted_fits": 10,
+        "jointly_consistent_pair_frames": 25,
+        "native_visible_on_baseline_visible": 60,
+        "pair_residual_denominator": 25,
+        "physics_baseline_visible_opportunities": 60,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.8333333333333334,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      }
+    },
+    "scan_b_pair_2": {
+      "dam4sam": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.797101006737989,
+          "median": 2.0350673025014885,
+          "p95": 5.067059692622057
+        },
+        "accepted_measurements_all_frames": 79,
+        "branch_consistent_measurements": 66,
+        "fit_coverage_on_baseline_visible": 0.9850746268656716,
+        "geometry_inconsistency_denominator": 79,
+        "geometry_inconsistent_accepted_fits": 10,
+        "jointly_consistent_pair_frames": 27,
+        "native_visible_on_baseline_visible": 66,
+        "pair_residual_denominator": 27,
+        "physics_baseline_visible_opportunities": 67,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 1.0,
+          "recovered_gap_count": 6,
+          "zero_delay_count": 6
+        }
+      },
+      "easyleed": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.79722092960526,
+          "median": 2.0650707042102567,
+          "p95": 4.973536603660676
+        },
+        "accepted_measurements_all_frames": 74,
+        "branch_consistent_measurements": 67,
+        "fit_coverage_on_baseline_visible": 1.0,
+        "geometry_inconsistency_denominator": 74,
+        "geometry_inconsistent_accepted_fits": 4,
+        "jointly_consistent_pair_frames": 28,
+        "native_visible_on_baseline_visible": 67,
+        "pair_residual_denominator": 28,
+        "physics_baseline_visible_opportunities": 67,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 1.0,
+          "recovered_gap_count": 6,
+          "zero_delay_count": 6
+        }
+      },
+      "lk": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.6780575068471535,
+          "median": 2.033841611291905,
+          "p95": 3.6452981974142173
+        },
+        "accepted_measurements_all_frames": 58,
+        "branch_consistent_measurements": 58,
+        "fit_coverage_on_baseline_visible": 0.8656716417910447,
+        "geometry_inconsistency_denominator": 58,
+        "geometry_inconsistent_accepted_fits": 0,
+        "jointly_consistent_pair_frames": 23,
+        "native_visible_on_baseline_visible": 58,
+        "pair_residual_denominator": 23,
+        "physics_baseline_visible_opportunities": 67,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.6666666666666666,
+          "recovered_gap_count": 4,
+          "zero_delay_count": 4
+        }
+      },
+      "locotrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.797106757747542,
+          "median": 2.0681025923043705,
+          "p95": 4.96800115855352
+        },
+        "accepted_measurements_all_frames": 80,
+        "branch_consistent_measurements": 67,
+        "fit_coverage_on_baseline_visible": 1.0,
+        "geometry_inconsistency_denominator": 80,
+        "geometry_inconsistent_accepted_fits": 10,
+        "jointly_consistent_pair_frames": 28,
+        "native_visible_on_baseline_visible": 67,
+        "pair_residual_denominator": 28,
+        "physics_baseline_visible_opportunities": 67,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 1.0,
+          "recovered_gap_count": 6,
+          "zero_delay_count": 6
+        }
+      },
+      "ostrack": {
+        "absolute_pair_distance_residual_px": {
+          "max": 5.678221868270725,
+          "median": 1.9903048815462796,
+          "p95": 3.605722614674278
+        },
+        "accepted_measurements_all_frames": 76,
+        "branch_consistent_measurements": 66,
+        "fit_coverage_on_baseline_visible": 0.9850746268656716,
+        "geometry_inconsistency_denominator": 76,
+        "geometry_inconsistent_accepted_fits": 8,
+        "jointly_consistent_pair_frames": 26,
+        "native_visible_on_baseline_visible": 67,
+        "pair_residual_denominator": 26,
+        "physics_baseline_visible_opportunities": 67,
+        "post_gap_recovery": {
+          "evaluated_gap_count": 6,
+          "rate": 0.8333333333333334,
+          "recovered_gap_count": 5,
+          "zero_delay_count": 5
+        }
+      }
+    }
+  },
+  "methods": {
+    "dam4sam": {
+      "absolute_pair_distance_residual_px": {
+        "max": 8.735839201916065,
+        "median": 1.788179181553403,
+        "p95": 5.973203407546521
+      },
+      "accepted_measurements_all_frames": 272,
+      "branch_consistent_measurements": 216,
+      "fit_coverage_on_baseline_visible": 0.9773755656108597,
+      "geometry_inconsistency_denominator": 272,
+      "geometry_inconsistent_accepted_fits": 36,
+      "jointly_consistent_pair_frames": 91,
+      "native_visible_on_baseline_visible": 217,
+      "pair_residual_denominator": 91,
+      "physics_baseline_visible_opportunities": 221,
+      "post_gap_recovery": {
+        "evaluated_gap_count": 24,
+        "rate": 0.9583333333333334,
+        "recovered_gap_count": 23,
+        "zero_delay_count": 23
+      }
+    },
+    "easyleed": {
+      "absolute_pair_distance_residual_px": {
+        "max": 5.79722092960526,
+        "median": 1.7367102643215162,
+        "p95": 3.718843442381691
+      },
+      "accepted_measurements_all_frames": 222,
+      "branch_consistent_measurements": 214,
+      "fit_coverage_on_baseline_visible": 0.9683257918552036,
+      "geometry_inconsistency_denominator": 222,
+      "geometry_inconsistent_accepted_fits": 4,
+      "jointly_consistent_pair_frames": 84,
+      "native_visible_on_baseline_visible": 219,
+      "pair_residual_denominator": 84,
+      "physics_baseline_visible_opportunities": 221,
+      "post_gap_recovery": {
+        "evaluated_gap_count": 24,
+        "rate": 0.9166666666666666,
+        "recovered_gap_count": 22,
+        "zero_delay_count": 22
+      }
+    },
+    "lk": {
+      "absolute_pair_distance_residual_px": {
+        "max": 8.735756987484137,
+        "median": 1.763723634049228,
+        "p95": 4.441505301861808
+      },
+      "accepted_measurements_all_frames": 206,
+      "branch_consistent_measurements": 188,
+      "fit_coverage_on_baseline_visible": 0.8506787330316742,
+      "geometry_inconsistency_denominator": 206,
+      "geometry_inconsistent_accepted_fits": 14,
+      "jointly_consistent_pair_frames": 68,
+      "native_visible_on_baseline_visible": 196,
+      "pair_residual_denominator": 68,
+      "physics_baseline_visible_opportunities": 221,
+      "post_gap_recovery": {
+        "evaluated_gap_count": 24,
+        "rate": 0.7083333333333334,
+        "recovered_gap_count": 17,
+        "zero_delay_count": 17
+      }
+    },
+    "locotrack": {
+      "absolute_pair_distance_residual_px": {
+        "max": 8.735846376277095,
+        "median": 1.8366454823238882,
+        "p95": 5.973206417649465
+      },
+      "accepted_measurements_all_frames": 272,
+      "branch_consistent_measurements": 217,
+      "fit_coverage_on_baseline_visible": 0.9819004524886877,
+      "geometry_inconsistency_denominator": 272,
+      "geometry_inconsistent_accepted_fits": 36,
+      "jointly_consistent_pair_frames": 91,
+      "native_visible_on_baseline_visible": 221,
+      "pair_residual_denominator": 91,
+      "physics_baseline_visible_opportunities": 221,
+      "post_gap_recovery": {
+        "evaluated_gap_count": 24,
+        "rate": 0.9583333333333334,
+        "recovered_gap_count": 23,
+        "zero_delay_count": 23
+      }
+    },
+    "ostrack": {
+      "absolute_pair_distance_residual_px": {
+        "max": 8.735855086405877,
+        "median": 1.769749564042172,
+        "p95": 5.937326048535333
+      },
+      "accepted_measurements_all_frames": 269,
+      "branch_consistent_measurements": 216,
+      "fit_coverage_on_baseline_visible": 0.9773755656108597,
+      "geometry_inconsistency_denominator": 269,
+      "geometry_inconsistent_accepted_fits": 34,
+      "jointly_consistent_pair_frames": 90,
+      "native_visible_on_baseline_visible": 221,
+      "pair_residual_denominator": 90,
+      "physics_baseline_visible_opportunities": 221,
+      "post_gap_recovery": {
+        "evaluated_gap_count": 24,
+        "rate": 0.875,
+        "recovered_gap_count": 21,
+        "zero_delay_count": 21
+      }
+    }
+  },
+  "reference_sets": {
+    "gaps": {
+      "n": 24,
+      "set_id": "evaluable_iv_gaps_v1"
+    },
+    "opportunities": {
+      "n": 221,
+      "set_id": "baseline_visible_opportunities_v1"
+    }
+  }
+}
