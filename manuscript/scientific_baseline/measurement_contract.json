@@ -1,0 +1,612 @@
+{
+  "candidate_semantics": {
+    "finite_candidate_fit": {
+      "all_of": [
+        "proposal_available",
+        "roi_valid",
+        "solver_completed",
+        "finite:center_x",
+        "finite:center_y",
+        "finite:amplitude",
+        "finite:r_squared",
+        "finite:sigma_x",
+        "finite:sigma_y"
+      ],
+      "evaluated_before": "acceptance_gates"
+    },
+    "gate_margin_audit": {
+      "inclusive_bounds": true,
+      "near_width_boundary_rule": "either sigma_x or sigma_y has width_boundary_distance <= 0.05",
+      "passing_signed_margin": ">= 0",
+      "trigger_count_rule": "count >= ceil(0.05 * finite_candidate_fit_n)",
+      "trigger_scope": "computed separately per method on the central variant",
+      "width_boundary_distance": "min(abs(sigma - sigma_min), abs(sigma_max - sigma)) / (sigma_max - sigma_min)"
+    },
+    "rejection_reporting": {
+      "first_reason_order": [
+        "proposal_unavailable",
+        "roi_invalid",
+        "solver_failure",
+        "non_finite_parameters",
+        "proposal_to_fit",
+        "r_squared",
+        "amplitude",
+        "width",
+        "physics_branch_consistency"
+      ],
+      "full_reasons": "retain every failed gate in evaluation order"
+    },
+    "width_only_rejection": {
+      "definition": "width gate fails while proposal, ROI, solver, finite-parameter, proposal-to-fit, r_squared and amplitude requirements pass",
+      "includes_physics_branch_consistency": false,
+      "reference_opportunity_count": 221,
+      "trigger_count": 12
+    }
+  },
+  "central_contract": {
+    "amplitude_gate_multiplier": 1.0,
+    "amplitude_reference_min": 0.012,
+    "branch_tolerance_px": 18.0,
+    "center_preference_factor": 0.34,
+    "optimizer_hard_bounds": {
+      "role": "numerical_solver_constraint",
+      "sigma_max": "roi_axis_length_px",
+      "sigma_min_px": 0.5,
+      "varied_by_width_sensitivity": false
+    },
+    "proposal_to_fit_max_px": 15.0,
+    "r_squared_min": 0.85,
+    "roi_side_px": 48,
+    "width_gate": {
+      "maximum_inclusive": true,
+      "minimum_inclusive": true,
+      "role": "post_fit_publication_acceptance",
+      "sigma_max_px": 13.0,
+      "sigma_min_px": 0.6
+    }
+  },
+  "comparison_tolerances": {
+    "continuous_values": {
+      "atol": 1e-08,
+      "rtol": 1e-09
+    },
+    "discrete_values": "exact",
+    "reader_facing_values": "exact_after_declared_rounding"
+  },
+  "conditional_width_sensitivity": {
+    "bounds_inclusive": true,
+    "contracts": [
+      {
+        "contract_id": "width_lower_relaxed",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.5
+      },
+      {
+        "contract_id": "width_central",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      },
+      {
+        "contract_id": "width_lower_tight",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.75
+      },
+      {
+        "contract_id": "width_upper_tight",
+        "sigma_max_px": 10.0,
+        "sigma_min_px": 0.6
+      },
+      {
+        "contract_id": "width_upper_relaxed",
+        "sigma_max_px": 16.0,
+        "sigma_min_px": 0.6
+      }
+    ],
+    "optimizer_hard_bounds_unchanged": true,
+    "trigger": {
+      "gate_margin": {
+        "count_rule": "ceil(minimum_fraction * N)",
+        "minimum_fraction": 0.05,
+        "normalized_distance_to_bound_max": 0.05,
+        "population": "finite_candidate_fits_per_method"
+      },
+      "scope": "if either condition is met by any method, run every width contract for all five methods",
+      "width_only_rejection": {
+        "excludes": "physics_based_branch_consistency",
+        "minimum_count": 12,
+        "reference_opportunity_count": 221
+      }
+    }
+  },
+  "denominator_language": "fixed reference opportunity sets with explicit variant-specific denominators for conditional outcomes",
+  "denominators": {
+    "branch_consistent_coverage": {
+      "kind": "fixed_reference_opportunity_set",
+      "n": 221
+    },
+    "conditional_pair_distance_residual": {
+      "kind": "variant_and_method_specific",
+      "population": "jointly_branch_consistent_pair_frames",
+      "report_n": true
+    },
+    "geometry_inconsistent_continuation": {
+      "kind": "variant_and_method_specific",
+      "population": "all_accepted_fits_in_all_visibility_regimes"
+    },
+    "post_gap_branch_consistent_recovery": {
+      "kind": "fixed_reference_opportunity_set",
+      "n": 24
+    }
+  },
+  "reader_facing_rounding": {
+    "counts": "exact",
+    "pair_distance_residual_px": {
+      "decimal_places": 3
+    },
+    "rates_percent": {
+      "decimal_places": 1
+    },
+    "relative_pair_change_percent": {
+      "decimal_places": 4
+    },
+    "source_data": "full_precision",
+    "translation_error_px": {
+      "decimal_places": 4
+    }
+  },
+  "reference_sets": {
+    "gaps": {
+      "key_count": 24,
+      "key_field": "gap_key",
+      "keys_sha256": "f3c899bfbfc0c6565a52f4b8a771af513c37cbc0206d8c93a5e3c42ac4168c39",
+      "manifest": "gaps.csv",
+      "set_id": "evaluable_iv_gaps_v1"
+    },
+    "opportunities": {
+      "key_count": 221,
+      "key_field": "opportunity_key",
+      "keys_sha256": "f84cb5607ba34147efedae4c65392269187934fca05e36468e64bc1bf112de16",
+      "manifest": "opportunities.csv",
+      "set_id": "baseline_visible_opportunities_v1"
+    }
+  },
+  "schema_version": 1,
+  "sensitivity_variants": [
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 10.88,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 10.88,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 12.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 32,
+      "variant_id": "roi_32_proposal_12",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 10.88,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 10.88,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 32,
+      "variant_id": "roi_32_proposal_15",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 10.88,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 10.88,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 18.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 32,
+      "variant_id": "roi_32_proposal_18",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 12.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "roi_48_proposal_12",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": true,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "roi_48_proposal_15",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 18.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "roi_48_proposal_18",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 21.76,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 21.76,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 12.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 64,
+      "variant_id": "roi_64_proposal_12",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 21.76,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 21.76,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 64,
+      "variant_id": "roi_64_proposal_15",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 21.76,
+      "center_preference_factor": 0.34,
+      "family": "roi_x_proposal_to_fit",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 21.76,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 18.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 64,
+      "variant_id": "roi_64_proposal_18",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 12.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "branch_tolerance_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "branch_tolerance_12",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 24.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "branch_tolerance_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "branch_tolerance_24",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "r_squared_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.8,
+      "roi_side_px": 48,
+      "variant_id": "r_squared_0p80",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.0,
+      "amplitude_threshold_min": 0.012,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "r_squared_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.9,
+      "roi_side_px": 48,
+      "variant_id": "r_squared_0p90",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 0.75,
+      "amplitude_threshold_min": 0.009000000000000001,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "amplitude_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "amplitude_multiplier_0p75",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    },
+    {
+      "amplitude_gate_multiplier": 1.25,
+      "amplitude_threshold_min": 0.015,
+      "branch_tolerance_px": 18.0,
+      "center_bound_radius_px": 16.32,
+      "center_preference_factor": 0.34,
+      "family": "amplitude_ofat",
+      "gap_set_id": "evaluable_iv_gaps_v1",
+      "initial_search_radius_px": 16.32,
+      "is_central": false,
+      "opportunity_set_id": "baseline_visible_opportunities_v1",
+      "optimizer_hard_bounds": {
+        "role": "numerical_solver_constraint",
+        "sigma_max": "roi_axis_length_px",
+        "sigma_min_px": 0.5,
+        "varied_by_width_sensitivity": false
+      },
+      "proposal_to_fit_max_px": 15.0,
+      "r_squared_min": 0.85,
+      "roi_side_px": 48,
+      "variant_id": "amplitude_multiplier_1p25",
+      "width_gate": {
+        "maximum_inclusive": true,
+        "minimum_inclusive": true,
+        "role": "post_fit_publication_acceptance",
+        "sigma_max_px": 13.0,
+        "sigma_min_px": 0.6
+      }
+    }
+  ],
+  "study": "ag111_principal_stress_test"
+}

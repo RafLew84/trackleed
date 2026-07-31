@@ -1,0 +1,2609 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "case-contract:scan_a_pair_1",
+      "case_id": "scan_a_pair_1",
+      "package_path": "frozen_inputs/cases/scan_a_pair_1/summary.json",
+      "pair_id": "pair_1",
+      "role": "case_contract",
+      "schema": {
+        "format": "json",
+        "top_level_keys": [
+          "automatic_candidate_count",
+          "dataset",
+          "decision_checks",
+          "energy_range_ev",
+          "frame_count",
+          "frozen_independent_pair_rank",
+          "frozen_seeds",
+          "geometry",
+          "pairwise_scan_geometry",
+          "prototype_scope",
+          "reference_energy_ev",
+          "reference_frame",
+          "scan_status_counts",
+          "synthetic_transform_contract",
+          "thresholds",
+          "visibility_gaps",
+          "visible_branch_error_px"
+        ],
+        "top_level_type": "dict"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 4104,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/summary.json",
+      "source_sha256": "676391bf18182c179dad4c336af0d18090990611becf9e746fb36ad52bd28b50"
+    },
+    {
+      "artifact_id": "case-contract:scan_a_pair_2",
+      "case_id": "scan_a_pair_2",
+      "package_path": "frozen_inputs/cases/scan_a_pair_2/summary.json",
+      "pair_id": "pair_2",
+      "role": "case_contract",
+      "schema": {
+        "format": "json",
+        "top_level_keys": [
+          "automatic_candidate_count",
+          "dataset",
+          "decision_checks",
+          "energy_range_ev",
+          "frame_count",
+          "frozen_independent_pair_rank",
+          "frozen_seeds",
+          "geometry",
+          "pairwise_scan_geometry",
+          "prototype_scope",
+          "reference_energy_ev",
+          "reference_frame",
+          "scan_status_counts",
+          "synthetic_transform_contract",
+          "thresholds",
+          "visibility_gaps",
+          "visible_branch_error_px"
+        ],
+        "top_level_type": "dict"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 4613,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/summary.json",
+      "source_sha256": "136c5bb11515a6db1ae468f633b859f946d6d059e29b69365162dc994ca17b24"
+    },
+    {
+      "artifact_id": "case-contract:scan_b_pair_1",
+      "case_id": "scan_b_pair_1",
+      "package_path": "frozen_inputs/cases/scan_b_pair_1/summary.json",
+      "pair_id": "pair_1",
+      "role": "case_contract",
+      "schema": {
+        "format": "json",
+        "top_level_keys": [
+          "automatic_candidate_count",
+          "dataset",
+          "decision_checks",
+          "energy_range_ev",
+          "frame_count",
+          "frozen_independent_pair_rank",
+          "frozen_seeds",
+          "geometry",
+          "pairwise_scan_geometry",
+          "prototype_scope",
+          "reference_energy_ev",
+          "reference_frame",
+          "scan_status_counts",
+          "synthetic_transform_contract",
+          "thresholds",
+          "visibility_gaps",
+          "visible_branch_error_px"
+        ],
+        "top_level_type": "dict"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 4366,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/summary.json",
+      "source_sha256": "9a1e5c1c2b348f17529cdbb51fe51a2fcec364af8e5902e6367f02857b21c98c"
+    },
+    {
+      "artifact_id": "case-contract:scan_b_pair_2",
+      "case_id": "scan_b_pair_2",
+      "package_path": "frozen_inputs/cases/scan_b_pair_2/summary.json",
+      "pair_id": "pair_2",
+      "role": "case_contract",
+      "schema": {
+        "format": "json",
+        "top_level_keys": [
+          "automatic_candidate_count",
+          "dataset",
+          "decision_checks",
+          "energy_range_ev",
+          "frame_count",
+          "frozen_independent_pair_rank",
+          "frozen_seeds",
+          "geometry",
+          "pairwise_scan_geometry",
+          "prototype_scope",
+          "reference_energy_ev",
+          "reference_frame",
+          "scan_status_counts",
+          "synthetic_transform_contract",
+          "thresholds",
+          "visibility_gaps",
+          "visible_branch_error_px"
+        ],
+        "top_level_type": "dict"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 4365,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/summary.json",
+      "source_sha256": "ace7a69524c42211c37f48ba41157fed709c5627d16001a22852d7de58578816"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_1:dam4sam",
+      "case_id": "scan_a_pair_1",
+      "method": "dam4sam",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_1/dam4sam.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 2538,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/trackers/dam4sam_merged_native.npz",
+      "source_sha256": "9956ecfd4572f4aeb91a384005cfb7cc0fd7bf6d01eb9af81cda977e4c286115"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_1:easyleed",
+      "case_id": "scan_a_pair_1",
+      "method": "easyleed",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_1/easyleed.csv",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "columns": [
+          "direction",
+          "sequence_index",
+          "frame",
+          "energy_ev",
+          "branch",
+          "native_x",
+          "native_y",
+          "native_intensity",
+          "native_radius",
+          "native_status",
+          "native_error",
+          "physics_x",
+          "physics_y",
+          "physics_branch_error_px"
+        ],
+        "format": "csv",
+        "row_count": 72
+      },
+      "series_id": "scan_a",
+      "size_bytes": 11435,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/easyleed/easyleed_native.csv",
+      "source_sha256": "05738bbd50783eb16bb702786974a9412d1a2ddc5558efc08bcd200bf967941b"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_1:lk",
+      "case_id": "scan_a_pair_1",
+      "method": "lk",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_1/lk.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1757,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/lk_merged_native.npz",
+      "source_sha256": "dd106d42a68f0584b7b5e1151ddb1cc3b14e8fde126077580c84399f0fdff8d1"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_1:locotrack",
+      "case_id": "scan_a_pair_1",
+      "method": "locotrack",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_1/locotrack.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 2100,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/locotrack_merged_native.npz",
+      "source_sha256": "12f624da188aac4382742200fd2c3c1a4c9c19f0f88ac1262c4c1d5a622e86ff"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_1:ostrack",
+      "case_id": "scan_a_pair_1",
+      "method": "ostrack",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_1/ostrack.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 3000,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/representatives/ostrack_merged_native.npz",
+      "source_sha256": "a7e39398c83fa61a9c957c37b7352caccacd95b52b531e356979ce91e5219058"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_2:dam4sam",
+      "case_id": "scan_a_pair_2",
+      "method": "dam4sam",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_2/dam4sam.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 2548,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/trackers/dam4sam_merged_native.npz",
+      "source_sha256": "b4be249092e49c90230b08798a30c483640ed722c8268d4bd88cc743e08fb800"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_2:easyleed",
+      "case_id": "scan_a_pair_2",
+      "method": "easyleed",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_2/easyleed.csv",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "columns": [
+          "direction",
+          "sequence_index",
+          "frame",
+          "energy_ev",
+          "branch",
+          "native_x",
+          "native_y",
+          "native_intensity",
+          "native_radius",
+          "native_status",
+          "native_error",
+          "physics_x",
+          "physics_y",
+          "physics_branch_error_px"
+        ],
+        "format": "csv",
+        "row_count": 72
+      },
+      "series_id": "scan_a",
+      "size_bytes": 11299,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/easyleed/easyleed_native.csv",
+      "source_sha256": "65d7a39762c31db84784c361aae2f1f58db34f5c00266a83638a2ddfe15046f1"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_2:lk",
+      "case_id": "scan_a_pair_2",
+      "method": "lk",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_2/lk.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1699,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/lk_merged_native.npz",
+      "source_sha256": "ad478e4d745a04257e522e2ddbd852430d8094e0bdf116a93ea7d3a23c7da86f"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_2:locotrack",
+      "case_id": "scan_a_pair_2",
+      "method": "locotrack",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_2/locotrack.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 2098,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/locotrack_merged_native.npz",
+      "source_sha256": "f2ff1884c822449fdecce4d604f794c00b10d4ae3aef646af72d06744076b950"
+    },
+    {
+      "artifact_id": "native-proposals:scan_a_pair_2:ostrack",
+      "case_id": "scan_a_pair_2",
+      "method": "ostrack",
+      "package_path": "frozen_inputs/proposals/scan_a_pair_2/ostrack.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              35,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              35
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 2985,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/ostrack_merged_native.npz",
+      "source_sha256": "4d2f9ac066f5de54a93ad0af2e600bef0d33197ea339b20149286b4828ee07e5"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_1:dam4sam",
+      "case_id": "scan_b_pair_1",
+      "method": "dam4sam",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_1/dam4sam.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 2862,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/trackers/dam4sam_merged_native.npz",
+      "source_sha256": "6330b16853b47496398f40ebf8d30727572de2a2338f8fe93560644b14709fb9"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_1:easyleed",
+      "case_id": "scan_b_pair_1",
+      "method": "easyleed",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_1/easyleed.csv",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "columns": [
+          "direction",
+          "sequence_index",
+          "frame",
+          "energy_ev",
+          "branch",
+          "native_x",
+          "native_y",
+          "native_intensity",
+          "native_radius",
+          "native_status",
+          "native_error",
+          "physics_x",
+          "physics_y",
+          "physics_branch_error_px"
+        ],
+        "format": "csv",
+        "row_count": 94
+      },
+      "series_id": "scan_b",
+      "size_bytes": 14870,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/easyleed/easyleed_native.csv",
+      "source_sha256": "c4147140ee96a5026f02a95e9cce4f54e7abb82c96d67c74e9f3d1831a0bd9f6"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_1:lk",
+      "case_id": "scan_b_pair_1",
+      "method": "lk",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_1/lk.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1897,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/lk_merged_native.npz",
+      "source_sha256": "f57980ed672ec9d8bb639c80b63ab5018708e40e6919cb644d9c3dd468327125"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_1:locotrack",
+      "case_id": "scan_b_pair_1",
+      "method": "locotrack",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_1/locotrack.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 2345,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/locotrack_merged_native.npz",
+      "source_sha256": "c8d20595401a521ee47460cb42dbd011832db2d610c9b680b42341fc0654851e"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_1:ostrack",
+      "case_id": "scan_b_pair_1",
+      "method": "ostrack",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_1/ostrack.npz",
+      "pair_id": "pair_1",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 3515,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/representatives/ostrack_merged_native.npz",
+      "source_sha256": "81deca1e08a35737cc637b5ff16c65de9814b54bb2754bda0dc85e6033fcc1d7"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_2:dam4sam",
+      "case_id": "scan_b_pair_2",
+      "method": "dam4sam",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_2/dam4sam.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 2886,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/trackers/dam4sam_merged_native.npz",
+      "source_sha256": "206ba54067516e7531c70950e32152c6a90fe214cc5f87b33b991a93c5d1e1bb"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_2:easyleed",
+      "case_id": "scan_b_pair_2",
+      "method": "easyleed",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_2/easyleed.csv",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "columns": [
+          "direction",
+          "sequence_index",
+          "frame",
+          "energy_ev",
+          "branch",
+          "native_x",
+          "native_y",
+          "native_intensity",
+          "native_radius",
+          "native_status",
+          "native_error",
+          "physics_x",
+          "physics_y",
+          "physics_branch_error_px"
+        ],
+        "format": "csv",
+        "row_count": 94
+      },
+      "series_id": "scan_b",
+      "size_bytes": 14734,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/easyleed/easyleed_native.csv",
+      "source_sha256": "c618e03f630c24c8e470f58981d5887f00947f764f07680c9257cdde69f91bc6"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_2:lk",
+      "case_id": "scan_b_pair_2",
+      "method": "lk",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_2/lk.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1805,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/lk_merged_native.npz",
+      "source_sha256": "df386925cf6416797fff425de692b7a653948a676bc00703590a9f01f3258c3e"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_2:locotrack",
+      "case_id": "scan_b_pair_2",
+      "method": "locotrack",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_2/locotrack.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 2348,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/locotrack_merged_native.npz",
+      "source_sha256": "ad970a994e304021ed8f37a12f1de144ab048247984a9b6fc775dfd04c87a7d8"
+    },
+    {
+      "artifact_id": "native-proposals:scan_b_pair_2:ostrack",
+      "case_id": "scan_b_pair_2",
+      "method": "ostrack",
+      "package_path": "frozen_inputs/proposals/scan_b_pair_2/ostrack.npz",
+      "pair_id": "pair_2",
+      "role": "native_proposals",
+      "schema": {
+        "arrays": {
+          "mask_areas": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_bboxes_xyxy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              4
+            ]
+          },
+          "mask_component_counts": {
+            "dtype": "int32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "mask_scores": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46
+            ]
+          },
+          "tracks_xy": {
+            "dtype": "float32",
+            "shape": [
+              2,
+              46,
+              2
+            ]
+          },
+          "visible_mask": {
+            "dtype": "bool",
+            "shape": [
+              2,
+              46
+            ]
+          }
+        },
+        "format": "npz"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 3533,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/representatives/ostrack_merged_native.npz",
+      "source_sha256": "9de6a38eee2f8d7bc27ce9c98eb20d8b0201fc4cc284b8020b7bfd0125827bd8"
+    },
+    {
+      "artifact_id": "physics-baseline:scan_a_pair_1",
+      "case_id": "scan_a_pair_1",
+      "package_path": "frozen_inputs/cases/scan_a_pair_1/scan_measurements.csv",
+      "pair_id": "pair_1",
+      "role": "physics_baseline",
+      "schema": {
+        "columns": [
+          "frame",
+          "energy_ev",
+          "branch",
+          "predicted_x",
+          "predicted_y",
+          "status",
+          "fit_valid",
+          "fit_reason",
+          "center_x",
+          "center_y",
+          "proposal_offset_px",
+          "r_squared",
+          "amplitude",
+          "volume",
+          "sigma_x",
+          "sigma_y",
+          "radial_residual_px",
+          "tangential_residual_px",
+          "branch_error_px",
+          "measured_radius_px"
+        ],
+        "format": "csv",
+        "row_count": 70
+      },
+      "series_id": "scan_a",
+      "size_bytes": 19407,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/scan_measurements.csv",
+      "source_sha256": "9831c4d2bdf78f65b2a0b8bfd03d783e139d43bc5bd296e22d2a22380206c5ae"
+    },
+    {
+      "artifact_id": "physics-baseline:scan_a_pair_2",
+      "case_id": "scan_a_pair_2",
+      "package_path": "frozen_inputs/cases/scan_a_pair_2/scan_measurements.csv",
+      "pair_id": "pair_2",
+      "role": "physics_baseline",
+      "schema": {
+        "columns": [
+          "frame",
+          "energy_ev",
+          "branch",
+          "predicted_x",
+          "predicted_y",
+          "status",
+          "fit_valid",
+          "fit_reason",
+          "center_x",
+          "center_y",
+          "proposal_offset_px",
+          "r_squared",
+          "amplitude",
+          "volume",
+          "sigma_x",
+          "sigma_y",
+          "radial_residual_px",
+          "tangential_residual_px",
+          "branch_error_px",
+          "measured_radius_px"
+        ],
+        "format": "csv",
+        "row_count": 70
+      },
+      "series_id": "scan_a",
+      "size_bytes": 19629,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/scan_measurements.csv",
+      "source_sha256": "7acbbe4a9022a3b4f6848b4e5bab69722626d9680765201e6fd54c34661749d3"
+    },
+    {
+      "artifact_id": "physics-baseline:scan_b_pair_1",
+      "case_id": "scan_b_pair_1",
+      "package_path": "frozen_inputs/cases/scan_b_pair_1/scan_measurements.csv",
+      "pair_id": "pair_1",
+      "role": "physics_baseline",
+      "schema": {
+        "columns": [
+          "frame",
+          "energy_ev",
+          "branch",
+          "predicted_x",
+          "predicted_y",
+          "status",
+          "fit_valid",
+          "fit_reason",
+          "center_x",
+          "center_y",
+          "proposal_offset_px",
+          "r_squared",
+          "amplitude",
+          "volume",
+          "sigma_x",
+          "sigma_y",
+          "radial_residual_px",
+          "tangential_residual_px",
+          "branch_error_px",
+          "measured_radius_px"
+        ],
+        "format": "csv",
+        "row_count": 92
+      },
+      "series_id": "scan_b",
+      "size_bytes": 25535,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/scan_measurements.csv",
+      "source_sha256": "0431b7d15161277ab47f5e6f0ce3154cd5630cef3b55cf81762fda7f7bc3cf2d"
+    },
+    {
+      "artifact_id": "physics-baseline:scan_b_pair_2",
+      "case_id": "scan_b_pair_2",
+      "package_path": "frozen_inputs/cases/scan_b_pair_2/scan_measurements.csv",
+      "pair_id": "pair_2",
+      "role": "physics_baseline",
+      "schema": {
+        "columns": [
+          "frame",
+          "energy_ev",
+          "branch",
+          "predicted_x",
+          "predicted_y",
+          "status",
+          "fit_valid",
+          "fit_reason",
+          "center_x",
+          "center_y",
+          "proposal_offset_px",
+          "r_squared",
+          "amplitude",
+          "volume",
+          "sigma_x",
+          "sigma_y",
+          "radial_residual_px",
+          "tangential_residual_px",
+          "branch_error_px",
+          "measured_radius_px"
+        ],
+        "format": "csv",
+        "row_count": 92
+      },
+      "series_id": "scan_b",
+      "size_bytes": 25956,
+      "source_path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/scan_measurements.csv",
+      "source_sha256": "e3ad7a2fd9235c84769caa262be7ac3e0a767142ec4b2787a682e5bd3344c763"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0000_T0014_E0400_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0000_T0014_E0400_C0000.tiff",
+      "source_sha256": "4310ed29c5f94db5aaaff2c5ac77457fa6272084a8cf58ba24d3e97142033ef7"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0001_T0014_E0440_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0001_T0014_E0440_C0000.tiff",
+      "source_sha256": "1423eede2e45ff41c1617390045593d31c46945776b1aefde66823a99029a08c"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0002_T0014_E0495_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0002_T0014_E0495_C0000.tiff",
+      "source_sha256": "8cf9a63a91237aac90562f2433c02b519eaccdf92328ffc827b6234eac791eb9"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0003_T0014_E0550_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0003_T0014_E0550_C0000.tiff",
+      "source_sha256": "b44132d9a2a380dae64bc16935cf3408b3df53673564dc300f3a6eece38e6065"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0004_T0014_E0605_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0004_T0014_E0605_C0000.tiff",
+      "source_sha256": "599e5dad0f97a5a9b4e8109903744fcdfa464a53855c95d48b20aea87f5a0373"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0005_T0014_E0660_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0005_T0014_E0660_C0000.tiff",
+      "source_sha256": "3969b0c389d70c51e5ab3848ff27f20d33e82b9c973a384c699d88423741349e"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0006_T0014_E0715_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0006_T0014_E0715_C0000.tiff",
+      "source_sha256": "dd2047829eaf58c7daa1f7b9022df5ab8af60654fb02b1ed75318a38645b62e8"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0007_T0014_E0770_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0007_T0014_E0770_C0000.tiff",
+      "source_sha256": "973791d42c95711c10a8e0f5b8395d32e8dc69d22d144d9b1a8e861d185c5359"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0008_T0014_E0825_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0008_T0014_E0825_C0000.tiff",
+      "source_sha256": "8a89b849324543d74f4935734b17e45de5d6d1b3ec638258e3e50b683d96bd9a"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0009_T0014_E0880_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0009_T0014_E0880_C0000.tiff",
+      "source_sha256": "edbaf345a7454769ed886f294d471dc6066110faa07f993a6b391f52886658cc"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0010_T0014_E0935_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0010_T0014_E0935_C0000.tiff",
+      "source_sha256": "9cc33a1bd5d8973066b0d500ff51d0f472a7a790443a8744e953ea477e9afc4a"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0011_T0014_E0990_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0011_T0014_E0990_C0000.tiff",
+      "source_sha256": "223b2b288f47eb6e96fe73ca3082330f48181db4f1d342df94503d20ef259ac8"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0012_T0014_E1045_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0012_T0014_E1045_C0000.tiff",
+      "source_sha256": "add4b4da787b996db1fb8b96fb4dc5895031e4dcdee8bb8b9643e2603de335d0"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0013_T0014_E1100_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0013_T0014_E1100_C0000.tiff",
+      "source_sha256": "fa67150b064280582a0aa9700d937b1850f378d332667dc23363c336bac3e159"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0014_T0014_E1155_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0014_T0014_E1155_C0000.tiff",
+      "source_sha256": "15fe62a889388f6871e4dca5c97ad4d8cf7c719bca6469abf6c9756583b12243"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0015_T0014_E1215_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0015_T0014_E1215_C0000.tiff",
+      "source_sha256": "7ecf5ec50b7a9775c3eae7087fab29a4770d913a10a26248d9d2bb0da6bb1ff6"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0016_T0014_E1270_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0016_T0014_E1270_C0000.tiff",
+      "source_sha256": "df4c9d29d8d97647dcd0f0ad1d27f738213f298c030fe80aec49a959c32bcc2e"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0017_T0014_E1330_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0017_T0014_E1330_C0000.tiff",
+      "source_sha256": "104f8e64239bb5d1102337140a34a0de15f2caead6e42dba88071235058e5a4a"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0018_T0014_E1385_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0018_T0014_E1385_C0000.tiff",
+      "source_sha256": "641818292fef5255506f3746ecf76ed528603ef1dcb07ada12fb94a5c476d3aa"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0019_T0014_E1440_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0019_T0014_E1440_C0000.tiff",
+      "source_sha256": "eff2968d5fde96b1b2fa7f13c110fe44f72dce9ef5c35ea1659444756a22ee12"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0020_T0014_E1495_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0020_T0014_E1495_C0000.tiff",
+      "source_sha256": "7850af566f7d139fa3e1bc0dbfa3f33a90539995d4071de3db060bcfd8bc410e"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0021_T0014_E1550_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0021_T0014_E1550_C0000.tiff",
+      "source_sha256": "e36797b4eb61f7d25d39411fbf3de54c693cc71a9b37de00cece8a16f9fe7227"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0022_T0014_E1610_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0022_T0014_E1610_C0000.tiff",
+      "source_sha256": "168742eb4cfd4d416670be0972d63b02f45ba94109fada5d41891b5fdca5b0d8"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0023_T0014_E1665_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0023_T0014_E1665_C0000.tiff",
+      "source_sha256": "282e9141be8a69a2e10e4a91c88ed48c87447fdd2428c5f3d20f924a2cd477b4"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0024_T0014_E1720_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0024_T0014_E1720_C0000.tiff",
+      "source_sha256": "5574cbb00b6279c7f839241d42310e4d27c73499b538e0d6d3e085f36a57de3e"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0025_T0014_E1775_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0025_T0014_E1775_C0000.tiff",
+      "source_sha256": "b67c3ba68461dacfc330d3f1f4f23ecf4f494cfb112f6b6c0a08a5116c88ba56"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0026_T0014_E1830_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0026_T0014_E1830_C0000.tiff",
+      "source_sha256": "ced8cc43b5865b7de71116700d69aca2097cef6ac74ddb5bfd8645b172ede4cf"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0027_T0014_E1885_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0027_T0014_E1885_C0000.tiff",
+      "source_sha256": "3e62d54232bb8d966a4e0cb786002fc9f9b26218320c37d6701f0c7475a7206d"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0028_T0014_E1935_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0028_T0014_E1935_C0000.tiff",
+      "source_sha256": "5004086408bf713e91e4e6e5eecd4ccb55614082015d4395f7297af8bbc928b4"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0029_T0014_E1990_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0029_T0014_E1990_C0000.tiff",
+      "source_sha256": "92c81c121fb92a34f73a57396f9148040eb8986814107c99cc7681fa0c931c40"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0030_T0014_E2045_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0030_T0014_E2045_C0000.tiff",
+      "source_sha256": "db2788a89b19f6f74a35c49e25ec2be44a1e16928cfdd0ba239266de2bb48b1c"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0031_T0014_E2100_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0031_T0014_E2100_C0000.tiff",
+      "source_sha256": "4596e6c0cf14fe4296020a8665580b8f3d6c9a07620ac09eef2bc653c7de6b78"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0032_T0014_E2150_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0032_T0014_E2150_C0000.tiff",
+      "source_sha256": "f5b3aba85904f7a3f1ec601872175e8eb2efe1df58de95486c7051452f106193"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0033_T0014_E2205_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0033_T0014_E2205_C0000.tiff",
+      "source_sha256": "1accef8bc8c01629b460cf8a38c8cbf6cdc56b525f28d2e2911993ad04608e8e"
+    },
+    {
+      "artifact_id": "raw-image:scan_a:Ag111-3G_0034_T0014_E2205_C0000.tiff",
+      "case_ids": [
+        "scan_a_pair_1",
+        "scan_a_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_a",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21_ScanE/Ag111-3G_0034_T0014_E2205_C0000.tiff",
+      "source_sha256": "acf63c05d446d6665722fbf82cf0a46eb087f2451a73e5432e00f22d69ece7a2"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0000_T0014_E0400_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0000_T0014_E0400_C0000.tiff",
+      "source_sha256": "37a382b16973e04918d111015d3b00087d852a67bc57330a85c294a69784a8a0"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0001_T0014_E0430_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0001_T0014_E0430_C0000.tiff",
+      "source_sha256": "5b34406b4a45f2362930f9e16e2353c60e0d63d1dc0316cf0a6c377a822b2996"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0002_T0014_E0471_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0002_T0014_E0471_C0000.tiff",
+      "source_sha256": "2d11986d1f2d996e2c66f998a86ca7d580e89d5e46d19030e37051772ca4d468"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0003_T0014_E0512_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0003_T0014_E0512_C0000.tiff",
+      "source_sha256": "4cb0fe0bb4c8eb52674e6386296b913857f8f28abb0f290f00a43fb6ca05b823"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0004_T0014_E0554_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0004_T0014_E0554_C0000.tiff",
+      "source_sha256": "26a9b01f0ca41a0893bcf1c38b10dcbc6943e01fffeca5f79d253e1d63b5a3d4"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0005_T0014_E0595_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0005_T0014_E0595_C0000.tiff",
+      "source_sha256": "d2420d1b293642452d735ef6b55609d8a2a9aaca23cd71c8b74d8c1015319f16"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0006_T0014_E0636_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0006_T0014_E0636_C0000.tiff",
+      "source_sha256": "5f28c317241c80fe565a659e35b633c6140b497db592e35135adfdbd5c522bad"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0007_T0014_E0678_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0007_T0014_E0678_C0000.tiff",
+      "source_sha256": "4e95b0c8f254f6db5319cb5c35fa9c747385221b452caf53c2199418dc6489ad"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0008_T0014_E0719_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0008_T0014_E0719_C0000.tiff",
+      "source_sha256": "77b0c8b9bbd5d28058d41e830f5fd221f7d78b9be9f2ab7cdab6c8977c7cbe18"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0009_T0014_E0760_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0009_T0014_E0760_C0000.tiff",
+      "source_sha256": "5d8c97e894008742345796759771f9991d6ccb07e4243414ee3fcc5b0c9264c6"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0010_T0014_E0801_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0010_T0014_E0801_C0000.tiff",
+      "source_sha256": "6246858e86d4db75bdea9a7989d2b21aa95af5ee7705ad5d7527432a6b5d35c0"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0011_T0014_E0842_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0011_T0014_E0842_C0000.tiff",
+      "source_sha256": "96c144f256a09c130d002c1ffd4103a069833f6184eecb35323eee9eb7e67c36"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0012_T0014_E0884_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0012_T0014_E0884_C0000.tiff",
+      "source_sha256": "cde03a19feb9f1665e56f1c686f3fe4ff0e7c9eb921cd6280ab105d9b6f4d072"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0013_T0014_E0925_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0013_T0014_E0925_C0000.tiff",
+      "source_sha256": "338ed8b63d4b953d99aa6c94a58bfc418b4480453b7474812c69fb6591eec6d5"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0014_T0014_E0966_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0014_T0014_E0966_C0000.tiff",
+      "source_sha256": "bfec0d92dbeac45906c18bb9d33bf8aa0559609129d879b188f8714e812f29eb"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0015_T0014_E1008_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0015_T0014_E1008_C0000.tiff",
+      "source_sha256": "fe955776cc6a49a8f14b280acd3fe6a1c6042b683b0e56f58209c7599a3f333d"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0016_T0014_E1049_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0016_T0014_E1049_C0000.tiff",
+      "source_sha256": "0052557ddee38982e2069c6f7d14ded5257c03fc5936328312c86965844f8171"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0017_T0014_E1090_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0017_T0014_E1090_C0000.tiff",
+      "source_sha256": "9628fd97a37026b430e1711357aa81b206af17f004ad6a972a2795d47870cf6f"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0018_T0014_E1135_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0018_T0014_E1135_C0000.tiff",
+      "source_sha256": "7b360aa6ccbfbb99fce7f2e1fdd866302c6022e873ef815c92e7ed01c8073715"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0019_T0014_E1176_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0019_T0014_E1176_C0000.tiff",
+      "source_sha256": "97598706612a35f9f0d4a0d7b7ae3af6446aa1e0313cf3089a761349316b2d5b"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0020_T0014_E1218_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0020_T0014_E1218_C0000.tiff",
+      "source_sha256": "1497320d9f16d1ad1495e2639a4da8266ac80f05b4bd7e870ba563942f9e8ddd"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0021_T0014_E1262_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0021_T0014_E1262_C0000.tiff",
+      "source_sha256": "3147011996300123daa1133c29065034b634be58f9b28409cd5e60af3ca5af73"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0022_T0014_E1304_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0022_T0014_E1304_C0000.tiff",
+      "source_sha256": "68b30d529cde4c933d0ed670787649fd9ae8c31a1f268a782587de60152fddd8"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0023_T0014_E1345_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0023_T0014_E1345_C0000.tiff",
+      "source_sha256": "31ab9ef1755db887b970766b59f2e5d820a75a55d97168e7098f72ebe2a2276e"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0024_T0014_E1386_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0024_T0014_E1386_C0000.tiff",
+      "source_sha256": "e6b006dd9d6cdf7a97109cdd4aca80a30d64a0ccf15f2d23b11a3d76758b3958"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0025_T0014_E1428_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0025_T0014_E1428_C0000.tiff",
+      "source_sha256": "5334ce8ba8fa703b25745f8a1e929615cb1a1df603d16a1f87a13356a710d8b8"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0026_T0014_E1469_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0026_T0014_E1469_C0000.tiff",
+      "source_sha256": "d3fb88d4acf170e0c92fc966f6e5ebffb89ef0bcdea749c2e925a358b446199d"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0027_T0014_E1510_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0027_T0014_E1510_C0000.tiff",
+      "source_sha256": "4389a2df3ac61b6324f169f91489569855b887016a251e03d81ad1d964bc0ba5"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0028_T0014_E1555_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0028_T0014_E1555_C0000.tiff",
+      "source_sha256": "bdb6164dc0864d1e0607c98fab643ebdc46cf5153abb4628273ef9ea588dde22"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0029_T0014_E1596_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0029_T0014_E1596_C0000.tiff",
+      "source_sha256": "055ba1837551ee87d1e3ce4268b680a4f4d4de2f483e982f044831f4393e4c0b"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0030_T0014_E1638_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0030_T0014_E1638_C0000.tiff",
+      "source_sha256": "e2ddd90b3e710cbecff32e1cf54bb3c869c729e7aa65c90ae3caa50e8525877f"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0031_T0014_E1679_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0031_T0014_E1679_C0000.tiff",
+      "source_sha256": "2163a5f9d1a8874a54aefa84af88ba0464cf0d6dc95ba0b51577a835c66b32b3"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0032_T0014_E1720_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0032_T0014_E1720_C0000.tiff",
+      "source_sha256": "c818b9a46d8204f3ddab7582ea4c506f2779e9f82c2c5821a7016a63610fae7f"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0033_T0014_E1761_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0033_T0014_E1761_C0000.tiff",
+      "source_sha256": "14c7a52f0d3fe84a1b9ea77ced3f260e9e86c792a3f2f450bad1d4abe057e9da"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0034_T0014_E1802_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0034_T0014_E1802_C0000.tiff",
+      "source_sha256": "f96c04c91a9522bcbf8cf44c2565b41188102613ea87a6db68636bf5d9f75e18"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0035_T0014_E1844_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0035_T0014_E1844_C0000.tiff",
+      "source_sha256": "136ff290e32acce3d896d6e361242bd146c33778711f954a961d726c975a48ec"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0036_T0014_E1885_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0036_T0014_E1885_C0000.tiff",
+      "source_sha256": "5531c6cb7bc0dbe652ac3ad5b6713f2533690e0e805f07afeca322c00ff6fa1b"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0037_T0014_E1922_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0037_T0014_E1922_C0000.tiff",
+      "source_sha256": "ed263c2b61bb220a394428452f2eb28a11428624fc6a0ad104f3d62c5b26ffe3"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0038_T0014_E1964_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0038_T0014_E1964_C0000.tiff",
+      "source_sha256": "cc67edba81ccd226d6c0a86a2bc574b72de5791f048c845b255f110fedb3b183"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0039_T0014_E2005_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0039_T0014_E2005_C0000.tiff",
+      "source_sha256": "7c627d602fac47677158fc4f0a8a228880c37edd38915e8f40c24489dfcd2711"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0040_T0014_E2046_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0040_T0014_E2046_C0000.tiff",
+      "source_sha256": "0c253e21fa0f72366eed848ab0915449cb00eab43f8fd237ac172d2fbd52fe47"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0041_T0014_E2088_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0041_T0014_E2088_C0000.tiff",
+      "source_sha256": "f9d97379dfd1468636262b3efd4681ec12865014b1c2b221b655ce4f2fe25599"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0042_T0014_E2125_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0042_T0014_E2125_C0000.tiff",
+      "source_sha256": "26f6972ffc76f1bb2a4419def468f1eaa995bb49c45b28fb4a41e1258bdd5967"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0043_T0014_E2166_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0043_T0014_E2166_C0000.tiff",
+      "source_sha256": "6eb2ff6e677412dfa760e09fd4dc5510c0ea4b8e27546831e81445cd445de67f"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0044_T0014_E2204_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0044_T0014_E2204_C0000.tiff",
+      "source_sha256": "d2ee84aabaa3ca4ceca14e011d07170bc2e83770a44678084ece21ff658c3bc7"
+    },
+    {
+      "artifact_id": "raw-image:scan_b:Ag111-3G_0045_T0014_E2204_C0000.tiff",
+      "case_ids": [
+        "scan_b_pair_1",
+        "scan_b_pair_2"
+      ],
+      "role": "raw_image",
+      "schema": {
+        "format": "tiff"
+      },
+      "series_id": "scan_b",
+      "size_bytes": 1000250,
+      "source_path": "data/26a21b_ScanE/Ag111-3G_0045_T0014_E2204_C0000.tiff",
+      "source_sha256": "d41ce2ae2a223cfb31bad21c5c087a93fbf14934a0b627d6273d5a31b2ac7844"
+    }
+  ],
+  "schema_version": 1,
+  "study": "ag111_principal_stress_test"
+}

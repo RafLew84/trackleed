@@ -1,0 +1,145 @@
+{
+  "prototype_scope": "Physics-scaling proposal plus common Gaussian measurement; not a tracker comparison.",
+  "dataset": "data\\26a21_ScanE",
+  "frame_count": 35,
+  "energy_range_ev": [
+    40.0,
+    220.5
+  ],
+  "reference_frame": 27,
+  "reference_energy_ev": 188.5,
+  "geometry": {
+    "center_x": 491.00030779190064,
+    "center_y": 472.01122086402023,
+    "aperture_radius_px": 114.01355267927885,
+    "screen_radius_px": 474.8787101681743
+  },
+  "automatic_candidate_count": 16,
+  "frozen_independent_pair_rank": 1,
+  "frozen_seeds": [
+    {
+      "branch": "B1",
+      "detection_x": 270.0,
+      "detection_y": 521.0,
+      "center_x": 270.5660437559954,
+      "center_y": 518.7639020103123,
+      "reference_r2": 0.9475267115463623,
+      "reference_amplitude": 0.6049726650608068
+    },
+    {
+      "branch": "B2",
+      "detection_x": 712.0,
+      "detection_y": 457.0,
+      "center_x": 713.0009342062413,
+      "center_y": 457.8224355676349,
+      "reference_r2": 0.9604485848104812,
+      "reference_amplitude": 0.3033253650344358
+    }
+  ],
+  "thresholds": {
+    "roi_size_px": 48,
+    "r_squared_min": 0.85,
+    "amplitude_min": 0.012,
+    "center_tolerance_px": 15.0,
+    "branch_tolerance_px": 18.0
+  },
+  "synthetic_transform_contract": {
+    "attempt_count": 16,
+    "accepted_count": 16,
+    "median_equivariance_error_px": 0.010995704681212358,
+    "max_equivariance_error_px": 0.024728217843336533
+  },
+  "scan_status_counts": {
+    "apparatus_absence": 4,
+    "beam_onset_or_termination": 13,
+    "visible_fit": 44,
+    "iv_visibility_gap": 9
+  },
+  "visible_branch_error_px": {
+    "median": 3.9953285813210035,
+    "p95": 13.548194897994275
+  },
+  "pairwise_scan_geometry": {
+    "jointly_visible_frame_count": 17,
+    "absolute_distance_residual_px": {
+      "median": 1.8410238984136527,
+      "p95": 8.651851336112873,
+      "max": 8.734081646857817
+    },
+    "midpoint_drift_px": {
+      "median": 2.750653994510925,
+      "p95": 8.82119420473729,
+      "max": 9.412441850741686
+    }
+  },
+  "visibility_gaps": [
+    {
+      "branch": "B1",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 49.5,
+      "end_energy_ev": 77.0,
+      "frame_count": 6,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 99.0,
+      "end_energy_ev": 99.0,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 104.5
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 161.0,
+      "end_energy_ev": 172.0,
+      "frame_count": 3,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 177.5
+    },
+    {
+      "branch": "B2",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 49.5,
+      "end_energy_ev": 82.5,
+      "frame_count": 7,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 149.5,
+      "end_energy_ev": 149.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 155.0
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 193.5,
+      "end_energy_ev": 199.0,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 204.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 215.0,
+      "end_energy_ev": 220.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 220.5
+    }
+  ],
+  "decision_checks": {
+    "known_transforms_recovered": true,
+    "coherent_pairwise_energy_law": false,
+    "natural_iv_gap_available": true
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "prototype_scope": "Physics-scaling proposal plus common Gaussian measurement; not a tracker comparison.",
+  "dataset": "data\\26a21_ScanE",
+  "frame_count": 35,
+  "energy_range_ev": [
+    40.0,
+    220.5
+  ],
+  "reference_frame": 27,
+  "reference_energy_ev": 188.5,
+  "geometry": {
+    "center_x": 491.00030779190064,
+    "center_y": 472.01122086402023,
+    "aperture_radius_px": 114.01355267927885,
+    "screen_radius_px": 474.8787101681743
+  },
+  "automatic_candidate_count": 16,
+  "frozen_independent_pair_rank": 2,
+  "frozen_seeds": [
+    {
+      "branch": "B1",
+      "detection_x": 572.0,
+      "detection_y": 274.0,
+      "center_x": 572.6216740181782,
+      "center_y": 273.5206842936438,
+      "reference_r2": 0.9504672958476035,
+      "reference_amplitude": 0.5971852314431195
+    },
+    {
+      "branch": "B2",
+      "detection_x": 407.0,
+      "detection_y": 695.0,
+      "center_x": 405.19466919066446,
+      "center_y": 694.6440004858089,
+      "reference_r2": 0.949945078364875,
+      "reference_amplitude": 0.30575498614661656
+    }
+  ],
+  "thresholds": {
+    "roi_size_px": 48,
+    "r_squared_min": 0.85,
+    "amplitude_min": 0.012,
+    "center_tolerance_px": 15.0,
+    "branch_tolerance_px": 18.0
+  },
+  "synthetic_transform_contract": {
+    "attempt_count": 16,
+    "accepted_count": 16,
+    "median_equivariance_error_px": 0.00452600876808089,
+    "max_equivariance_error_px": 0.0403043947681863
+  },
+  "scan_status_counts": {
+    "apparatus_absence": 4,
+    "beam_onset_or_termination": 6,
+    "visible_fit": 50,
+    "iv_visibility_gap": 10
+  },
+  "visible_branch_error_px": {
+    "median": 3.120619306678222,
+    "p95": 10.436164995189436
+  },
+  "pairwise_scan_geometry": {
+    "jointly_visible_frame_count": 20,
+    "absolute_distance_residual_px": {
+      "median": 1.6467458254564349,
+      "p95": 3.669167297157842,
+      "max": 4.862067649416645
+    },
+    "midpoint_drift_px": {
+      "median": 1.391850613267749,
+      "p95": 6.09547209658858,
+      "max": 10.311020141407118
+    }
+  },
+  "visibility_gaps": [
+    {
+      "branch": "B1",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 44.0,
+      "end_energy_ev": 60.5,
+      "frame_count": 4,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 99.0,
+      "end_energy_ev": 99.0,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 104.5
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 155.0,
+      "end_energy_ev": 161.0,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 166.5
+    },
+    {
+      "branch": "B2",
+      "classification": "beam_onset_or_termination",
+      "start_energy_ev": 55.0,
+      "end_energy_ev": 60.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 71.5,
+      "end_energy_ev": 71.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 77.0
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 82.5,
+      "end_energy_ev": 82.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 88.0
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 149.5,
+      "end_energy_ev": 149.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 155.0
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 193.5,
+      "end_energy_ev": 199.0,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 204.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "start_energy_ev": 215.0,
+      "end_energy_ev": 220.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 220.5
+    }
+  ],
+  "decision_checks": {
+    "known_transforms_recovered": true,
+    "coherent_pairwise_energy_law": true,
+    "natural_iv_gap_available": true
+  }
+}

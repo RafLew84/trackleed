@@ -79,6 +79,10 @@ describes the corresponding physical state or experimental role.
   manifest.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
+- [`scientific_baseline/`](scientific_baseline/) - immutable input,
+  opportunity and measurement-contract package for the principal Ag(111)
+  reconstruction, including stored native proposals, `221/24` reference keys
+  and read-only fail-closed validation.
 
 ## Sources of truth
 
