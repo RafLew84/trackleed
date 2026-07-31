@@ -195,6 +195,8 @@ papers/
 publication_exports/
 mail.md
 publikacja.md
+to_send.md
+/to_send/
 third_party/
 notebooks/
 notebooks
@@ -250,3 +252,8 @@ tracking_models/micro_sam/models/vit_t_lm
 tracking_models/micro_sam/models/vit_t_lm_decoder
 /output
 tmp/research/figure_methods_evidence.md
+
+# Local agent state and generated working artifacts
+/.scratch/
+/tmp/
+/NUL
