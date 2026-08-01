@@ -1,0 +1,31 @@
+{
+  "automatic_configuration_selection": false,
+  "central_conditional_residual_median_px_range": [
+    1.7367102643215162,
+    1.8366454823238882
+  ],
+  "central_contract_changed": false,
+  "conditional_residual_median_px_envelope": [
+    1.4988461207997261,
+    1.9386438331731597
+  ],
+  "coverage_numerator_envelope": [
+    170,
+    221
+  ],
+  "fixed_coverage_denominator": 221,
+  "fixed_recovery_denominator": 24,
+  "geometry_inconsistency_fraction_envelope": [
+    0.0045045045045045045,
+    0.2536764705882353
+  ],
+  "lucas_kanade_lowest_coverage_in_every_variant": true,
+  "method_count": 5,
+  "recovery_numerator_envelope": [
+    17,
+    24
+  ],
+  "variant_count": 15,
+  "width_sensitivity_decision": "not_run_no_trigger",
+  "width_triggered_methods": []
+}

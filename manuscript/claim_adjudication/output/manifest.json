@@ -1,0 +1,21 @@
+{
+  "author_checkpoint_status": "confirmed",
+  "claim_count": 9,
+  "contract_sha256": "645001054e1d0dfa7c25f89c09436a21f7fed8c43319111857cf868d63dced5b",
+  "decision_counts": {
+    "narrowed": 5,
+    "preserved": 4,
+    "removed": 0
+  },
+  "implementation_sha256": {
+    "trackleed/publication/scientific_claim_adjudication.py": "a0736fe30209c9985a4d0a35a0e5318a672e85e886e983c3dc552e23942282f5",
+    "trackleed/publication/scientific_sensitivity_sources.py": "92601e96eac4426d63785a00c3841ef0a483c86a0cca28abe9df1be0226bd954"
+  },
+  "outputs_sha256": {
+    "author_checkpoint.json": "cfaeee37a385976f25170ac011484d3a485402db172c14ce9b5173747113722a",
+    "final_claim_boundary.json": "215b11cde81ff354583c5ddb4b9bd4ee4e6910c959d46422606412dc6f6c1eb0",
+    "sensitivity_claim_evidence.json": "0c5ec36f277b77e6707510b4338dc0d7cae4bc916b0f6daa58c005e9f6e4261e"
+  },
+  "schema_version": 1,
+  "status": "completed"
+}

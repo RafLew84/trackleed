@@ -1,0 +1,13 @@
+{
+  "files_sha256": {
+    "candidate_records.csv": "fabb610149ff9144b4ca7f8f98e3918455c88da4904f2e327e6fffb7f945ce03",
+    "evaluation_records.csv": "f16cec649c85e1cc4e30e6e8c04350853a34d9aacb33647937a9f1c466bb62e6",
+    "gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
+    "provenance.json": "333ffe2f7a494067c94874eec368b6f26ebd2ad515b7cbbcf7e17249ca6bc632",
+    "rejection_cause_counts.csv": "a1787bdcd3d129d8c5b23f744acb7bb0778e71d76737c61045ea3f04734d826c",
+    "sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
+    "summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d"
+  },
+  "schema_version": 1,
+  "sensitivity_id": "ag111_five_method_four_case_central_measurement_window_and_capture_contract_sensitivity"
+}

@@ -1,0 +1,13 @@
+{
+  "attestations": {
+    "all_claim_decisions_reviewed": true,
+    "metadata_constraints_accepted": true,
+    "sensitivity_constraints_accepted": true
+  },
+  "boundary_sha256": "215b11cde81ff354583c5ddb4b9bd4ee4e6910c959d46422606412dc6f6c1eb0",
+  "confirmation_statement": "The publication author approves all C1-C9 decisions, the metadata constraints, the sensitivity constraints, and the final scientific claim boundary bound by this SHA-256.",
+  "confirmed_by": "publication author via repository HITL checkpoint",
+  "confirmed_date": "2026-08-01",
+  "schema_version": 1,
+  "status": "confirmed"
+}

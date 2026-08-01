@@ -19,6 +19,10 @@ from trackleed.publication.scientific_sensitivity import (
     run_sensitivity,
     validate_sensitivity_output,
 )
+from trackleed.publication.scientific_sensitivity_bundle import (
+    build_sensitivity_publication_bundle,
+    validate_sensitivity_publication_bundle,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -80,6 +84,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 package,
                 sensitivity_output,
             )
+            publication_bundle_report = validate_sensitivity_publication_bundle(
+                workspace_root=workspace,
+            )
         else:
             # Both runners validate their complete output before returning.
             central_report = run_central_panel(workspace, package, output)
@@ -87,6 +94,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 workspace,
                 package,
                 sensitivity_output,
+            )
+            publication_bundle_report = build_sensitivity_publication_bundle(
+                workspace_root=workspace,
+                sensitivity_output_directory=sensitivity_output,
             )
     except (
         FileExistsError,
@@ -102,6 +113,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "central_panel": asdict(central_report),
                 "measurement_window_and_capture_contract_sensitivity": asdict(
                     sensitivity_report
+                ),
+                "reader_facing_sensitivity_bundle": asdict(
+                    publication_bundle_report
                 ),
             },
             indent=2,

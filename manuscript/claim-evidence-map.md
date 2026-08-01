@@ -15,6 +15,21 @@ results, or conclusions unless its evidence and limitation are recorded here.
 | C8 | The Cu(111) physical endpoint changes substantially during the thermal cycle and largely returns. | Cu(111) pairwise endpoint artifact | Plateau medians `-0.6868%` and `-1.5703%`; final values `+0.1217%` and `-0.1523%` | Do not infer a thermal-expansion coefficient, structural transition, or crystallographic anisotropy from two pairs. | Supported |
 | C9 | Tracking-proposal availability does not guarantee an accepted quantitative position measurement. | Separate Cu(111) pair 2–4 missingness diagnostic in the pairwise endpoint artifact | A saved proposal is present throughout; all `24/24` missing fits pass the center, width, and `R²` gates and fail only the common amplitude gate | The saved trajectory used earlier YOLO proposals, lies outside the five-method run, and is neither a comparison of the five strategies nor spot-identity ground truth. | Supported |
 
+## Final adjudication checkpoint
+
+The metadata- and sensitivity-constrained wording for every claim is recorded
+in the [adjudication contract](claim_adjudication/adjudication_contract.json).
+The proposed decisions are `4 preserved`, `5 narrowed`, and `0 removed`.
+Generated numerical anchors and the boundary-bound author checkpoint are in the
+[claim-adjudication output](claim_adjudication/output/). The publication author
+confirmed this final boundary in the repository HITL checkpoint on 2026-08-01.
+
+The global boundary is that all claims apply only under the tested measurement
+contracts and data regimes. The evidence establishes reproducibility and
+physical self-consistency of the measurement chain, not external absolute
+tracking accuracy, spot-identity ground truth, a universal method ranking,
+calibrated structural LEED I(V), or instrument-traceable detector geometry.
+
 ## Prohibited or restricted claims
 
 Do not state that:

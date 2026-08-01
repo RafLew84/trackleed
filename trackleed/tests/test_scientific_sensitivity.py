@@ -30,6 +30,90 @@ MEASUREMENT_CONTRACT = (
 
 
 class ScientificSensitivityTests(unittest.TestCase):
+    def test_reconstruction_builds_reader_facing_sensitivity_bundle(self) -> None:
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary).resolve()
+            package = workspace / "panel"
+            output = package / "output"
+            with (
+                patch(
+                    "scripts.reconstruct_publication.run_central_panel",
+                    return_value=object(),
+                ),
+                patch(
+                    "scripts.reconstruct_publication.run_sensitivity",
+                    return_value=object(),
+                ),
+                patch(
+                    "scripts.reconstruct_publication."
+                    "build_sensitivity_publication_bundle",
+                    return_value=object(),
+                ) as build_bundle,
+                patch("scripts.reconstruct_publication.asdict", return_value={}),
+            ):
+                result = reconstruction_main(
+                    [
+                        "--workspace-root",
+                        str(workspace),
+                        "--panel-package",
+                        str(package),
+                        "--output",
+                        str(output),
+                        "--validate",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            build_bundle.assert_called_once_with(
+                workspace_root=workspace,
+                sensitivity_output_directory=output / "sensitivity",
+            )
+
+    def test_reconstruction_validation_does_not_rewrite_publication_bundle(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            workspace = Path(temporary).resolve()
+            package = workspace / "panel"
+            output = package / "output"
+            output.mkdir(parents=True)
+            with (
+                patch(
+                    "scripts.reconstruct_publication.validate_central_panel_output",
+                    return_value=object(),
+                ),
+                patch(
+                    "scripts.reconstruct_publication.validate_sensitivity_output",
+                    return_value=object(),
+                ),
+                patch(
+                    "scripts.reconstruct_publication."
+                    "validate_sensitivity_publication_bundle",
+                    return_value=object(),
+                ) as validate_bundle,
+                patch(
+                    "scripts.reconstruct_publication."
+                    "build_sensitivity_publication_bundle",
+                    return_value=object(),
+                ) as build_bundle,
+                patch("scripts.reconstruct_publication.asdict", return_value={}),
+            ):
+                result = reconstruction_main(
+                    [
+                        "--workspace-root",
+                        str(workspace),
+                        "--panel-package",
+                        str(package),
+                        "--output",
+                        str(output),
+                        "--validate",
+                    ]
+                )
+
+            self.assertEqual(result, 0)
+            validate_bundle.assert_called_once_with(workspace_root=workspace)
+            build_bundle.assert_not_called()
+
     def test_triggered_width_sweep_reuses_central_and_evaluates_four_additions(
         self,
     ) -> None:

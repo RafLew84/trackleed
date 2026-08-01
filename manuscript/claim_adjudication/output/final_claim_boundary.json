@@ -1,0 +1,153 @@
+{
+  "automatic_configuration_selection": false,
+  "capture_basin_triggered": false,
+  "central_contract_changed": false,
+  "claims": [
+    {
+      "claim_id": "C1",
+      "decision": "narrowed",
+      "final_claim": "Across the tested data regimes and predeclared measurement contracts, the common Gaussian estimator can suppress method-specific proposal differences when the intended spot remains inside its capture region.",
+      "metadata_constraint_ids": [
+        "no_instrument_traceable_absolute_geometry"
+      ],
+      "rationale": "The complete ROI and gate perturbation set did not invalidate the common-estimator interpretation, but neither sensitivity nor the available detector metadata establishes instrument-traceable absolute accuracy outside the tested contracts.",
+      "sensitivity_basis": [
+        "all_15_predeclared_variants",
+        "central_variant_reproduced",
+        "width_materiality_trigger_not_activated"
+      ]
+    },
+    {
+      "claim_id": "C2",
+      "decision": "preserved",
+      "final_claim": "In the recorded Cu(111) positive-control sequence, stable tracking yields mutually consistent pairwise Delta R/R across five heterogeneous strategies after common Gaussian refinement.",
+      "metadata_constraint_ids": [
+        "no_instrument_traceable_absolute_geometry",
+        "no_temperature_kinetics_or_calibrated_transition"
+      ],
+      "rationale": "The Ag-only sensitivity assessment does not alter the independently frozen Cu endpoint evidence; the existing positive-control and no-ranking boundary remains mandatory.",
+      "sensitivity_basis": [
+        "not_applicable_to_ag_only_sensitivity"
+      ]
+    },
+    {
+      "claim_id": "C3",
+      "decision": "narrowed",
+      "final_claim": "Across the two recorded Ag(111) energy sequences, the four case-based stress-test strata differentiate strategies through branch-consistent coverage, post-gap recovery, and geometry-inconsistent continuation under the tested measurement contracts.",
+      "metadata_constraint_ids": [
+        "no_ag_scan_kinetics_or_calibrated_iv",
+        "ag_series_not_controlled_population_replicates",
+        "no_instrument_traceable_absolute_geometry"
+      ],
+      "rationale": "The outcome separation remains visible across all 15 variants, but the scans are case series rather than controlled population replicates and do not support calibrated structural I(V) or kinetic interpretation.",
+      "sensitivity_basis": [
+        "coverage_envelope_170_to_221_of_221",
+        "recovery_envelope_17_to_24_of_24",
+        "geometry_inconsistency_retains_accepted_fit_denominator"
+      ]
+    },
+    {
+      "claim_id": "C4",
+      "decision": "narrowed",
+      "final_claim": "Under the frozen central contract, similar conditional pair-distance residuals do not imply similar measurement-chain robustness; across all predeclared variants, conditional residuals remain inseparable from their method- and variant-specific pair-frame n and fixed-denominator coverage.",
+      "metadata_constraint_ids": [
+        "no_ag_scan_kinetics_or_calibrated_iv",
+        "ag_series_not_controlled_population_replicates",
+        "no_instrument_traceable_absolute_geometry"
+      ],
+      "rationale": "The central residual range is reproduced, while its numerical envelope changes under perturbation. Lucas-Kanade retains the lowest coverage in every variant, so the denominator-aware interpretation is stable but the central residual similarity is not generalized to every contract.",
+      "sensitivity_basis": [
+        "central_residual_range_1p7367102643215162_to_1p8366454823238882_px",
+        "all_variant_residual_envelope_1p4988461207997261_to_1p9386438331731597_px",
+        "lucas_kanade_lowest_coverage_in_all_15_variants"
+      ]
+    },
+    {
+      "claim_id": "C5",
+      "decision": "preserved",
+      "final_claim": "Under identical SAM2.1 weights in the one-series, two-pair mechanism experiment, memory-aware propagation improves continuity while increasing geometry-inconsistent accepted fits.",
+      "metadata_constraint_ids": [
+        "no_ag_scan_kinetics_or_calibrated_iv",
+        "no_preparation_state_attribution"
+      ],
+      "rationale": "The five-method sensitivity assessment does not modify the separate controlled SAM2-family contract or its restricted mechanism scope.",
+      "sensitivity_basis": [
+        "not_applicable_to_separate_sam2_family_contract"
+      ]
+    },
+    {
+      "claim_id": "C6",
+      "decision": "preserved",
+      "final_claim": "EasyLEED and ViPErLEED can be placed under the same downstream Gaussian measurement contract despite different native contracts in the frozen high-energy compatibility check.",
+      "metadata_constraint_ids": [
+        "no_instrument_traceable_absolute_geometry",
+        "apparatus_diagnostics_not_component_attribution"
+      ],
+      "rationale": "The external-reference comparison has its own initialization contract and denominator and is not part of the five-method sensitivity matrix; its compatibility-only boundary remains unchanged.",
+      "sensitivity_basis": [
+        "not_applicable_to_separate_external_reference_contract"
+      ]
+    },
+    {
+      "claim_id": "C7",
+      "decision": "preserved",
+      "final_claim": "Pairwise distance cancels common translation of the observed pattern but does not remove nonrigid distortion, misassociation, sector-specific behavior, or detector-calibration limitations.",
+      "metadata_constraint_ids": [
+        "no_instrument_traceable_absolute_geometry",
+        "apparatus_diagnostics_not_component_attribution"
+      ],
+      "rationale": "This analytical property is unchanged by the sensitivity outcomes and remains bounded by the known geometry and apparatus limitations.",
+      "sensitivity_basis": [
+        "analytical_pair_geometry_unchanged"
+      ]
+    },
+    {
+      "claim_id": "C8",
+      "decision": "narrowed",
+      "final_claim": "In the recorded temperature-indexed Cu(111) positive-control sequence, the pairwise physical endpoint changes substantially and largely returns; the result does not establish kinetics, hysteresis, a calibrated thermal-expansion coefficient, a phase-transition temperature, or crystallographic anisotropy.",
+      "metadata_constraint_ids": [
+        "no_temperature_kinetics_or_calibrated_transition",
+        "no_preparation_state_attribution"
+      ],
+      "rationale": "The endpoint evidence is preserved, while incomplete temperature calibration, timing, preparation, and pressure metadata require an explicitly descriptive temperature-indexed interpretation.",
+      "sensitivity_basis": [
+        "not_applicable_to_ag_only_sensitivity"
+      ]
+    },
+    {
+      "claim_id": "C9",
+      "decision": "narrowed",
+      "final_claim": "In the separate saved-proposal Cu pair 2-4 diagnostic, proposal availability does not guarantee an accepted quantitative position: all 24 consecutive missing fits fail only the common uncalibrated amplitude gate.",
+      "metadata_constraint_ids": [
+        "no_absolute_intensity_interpretation",
+        "no_instrument_traceable_absolute_geometry"
+      ],
+      "rationale": "The diagnostic remains supported, but Gaussian amplitude is not a calibrated absolute intensity and the saved proposal trajectory remains outside the five-method comparison.",
+      "sensitivity_basis": [
+        "not_applicable_to_separate_cu_missingness_diagnostic"
+      ]
+    }
+  ],
+  "decision_counts": {
+    "narrowed": 5,
+    "preserved": 4,
+    "removed": 0
+  },
+  "global_boundary": "All claims apply only under the tested measurement contracts and data regimes. The evidence establishes reproducibility and physical self-consistency of the measurement chain, not external absolute tracking accuracy, spot-identity ground truth, a universal method ranking, calibrated structural LEED I(V), or instrument-traceable detector geometry.",
+  "schema_version": 1,
+  "scope": "final_scientific_claim_boundary",
+  "source_links": {
+    "claim_evidence_map": {
+      "claim_inventory_sha256": "b0ae06599f24532b11b2b19752475d9fea7ce31ba6f9695dd9723e0642433650",
+      "path": "manuscript/claim-evidence-map.md"
+    },
+    "metadata_claim_constraints": {
+      "path": "manuscript/experimental_metadata/metadata_claim_constraints.json",
+      "sha256": "689cc9d09a8cb59e6ad125f17187a44cd3e27932b495136a795dcf81746606b4"
+    },
+    "sensitivity_claim_evidence": {
+      "path": "manuscript/claim_adjudication/output/sensitivity_claim_evidence.json",
+      "sha256": "0c5ec36f277b77e6707510b4338dc0d7cae4bc916b0f6daa58c005e9f6e4261e"
+    }
+  }
+}

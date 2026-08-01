@@ -306,8 +306,14 @@ Final artifact:
 ## Supplementary display items
 
 - **Figure S1:** all 24 frozen Cu diagnostic overlays.
-- **Figure S2:** per-series and per-pair energy-scan trajectories and visibility
-  regimes.
+- **Figure S2 — generated and validated:** the nine-element ROI ×
+  proposal-to-fit matrix, six one-factor-at-a-time perturbations, all four
+  denominator-aware outcomes, and the width gate-margin audit. This is the
+  sole sensitivity figure; Figure 2 has no sensitivity panel. Final artifact:
+  [README](figures/figure_s2_measurement_sensitivity/README.md),
+  [PNG](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.png),
+  [PDF](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.pdf),
+  and [manifest](figures/figure_s2_measurement_sensitivity/manifest.json).
 - **Figure S3:** native proposal error versus Gaussian-refined error for every
   controlled translation.
 - **Figure S4:** EasyLEED/ViPErLEED high-energy external-reference overlays.
@@ -357,6 +363,13 @@ Final artifact:
   [full-precision CSV](tables/stratified_uncertainty/output/controlled_translation_by_trial.csv),
   [supplement Markdown](tables/stratified_uncertainty/output/table_s5_controlled_translation_by_trial.md),
   and [manifest](tables/stratified_uncertainty/manifest.json).
+- **Table S6 — generated and validated:** all 375 full-precision method and
+  case results for the 15 sensitivity variants, with fixed opportunity
+  denominators and method- and variant-specific conditional n. Final artifact:
+  [README](tables/table_s6_measurement_sensitivity/README.md),
+  [full-precision CSV](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.csv),
+  [supplement Markdown](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md),
+  and [manifest](tables/table_s6_measurement_sensitivity/manifest.json).
 
 The finalized Tables S3 and S5 are documented in the
 [stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md).

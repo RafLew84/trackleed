@@ -1,0 +1,55 @@
+{
+  "automatic_configuration_selection": false,
+  "conditional_denominators": [
+    "accepted fits",
+    "jointly consistent pair frames"
+  ],
+  "figure": "Figure S2",
+  "fixed_denominators": [
+    221,
+    24
+  ],
+  "gate_audit_record_count": 25,
+  "implementation_sha256": {
+    "trackleed/publication/scientific_sensitivity_figure.py": "69cbaca56954b6e82b2ba495c9b6164af68821918e33583eccb4b5d9fbe56007",
+    "trackleed/publication/scientific_sensitivity_sources.py": "92601e96eac4426d63785a00c3841ef0a483c86a0cca28abe9df1be0226bd954"
+  },
+  "method_count": 5,
+  "ofat_variant_count": 6,
+  "outputs_sha256": {
+    "figure_s2_measurement_sensitivity.pdf": "260f314759cef374a927bdb5a2cf3ab6e377f7330983ef26ba1d7b0f79fe1192",
+    "figure_s2_measurement_sensitivity.png": "e6b7075dd1618f8d82b267c15a7dde551fbef22196c3f6eb21bc99acd55dd646"
+  },
+  "panel_order": [
+    "coverage",
+    "recovery",
+    "geometry_inconsistency",
+    "conditional_pair_residual",
+    "gate_margin_audit"
+  ],
+  "rendering": {
+    "central_variant_outline": "roi_48_proposal_15",
+    "figure_size_inches": [
+      11.0,
+      9.5
+    ],
+    "font_family": "DejaVu Sans",
+    "png_dpi": 300
+  },
+  "roi_matrix_variant_count": 9,
+  "schema_version": 1,
+  "source_data_sha256": {
+    "gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
+    "rejection_cause_counts.csv": "a1787bdcd3d129d8c5b23f744acb7bb0778e71d76737c61045ea3f04734d826c",
+    "sensitivity_output_manifest.json": "41f55716c98be9ee1022a6f9be354e0c1d0cabbc600d65215aa8f4edf0761c9f",
+    "sensitivity_provenance.json": "333ffe2f7a494067c94874eec368b6f26ebd2ad515b7cbbcf7e17249ca6bc632",
+    "sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
+    "sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
+    "sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
+    "source_provenance.json": "72552eb903e56c33b1312ffec245cf8ec2508c1a02ab0b5da6e6a5298ff05a6e"
+  },
+  "status": "completed",
+  "title": "Measurement-window and capture-contract sensitivity",
+  "variant_count": 15,
+  "width_sensitivity_triggered": false
+}
