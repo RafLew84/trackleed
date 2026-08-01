@@ -86,6 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             publication_bundle_report = validate_sensitivity_publication_bundle(
                 workspace_root=workspace,
+                sensitivity_output_directory=sensitivity_output,
             )
         else:
             # Both runners validate their complete output before returning.

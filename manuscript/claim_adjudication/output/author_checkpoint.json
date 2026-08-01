@@ -4,7 +4,7 @@
     "metadata_constraints_accepted": true,
     "sensitivity_constraints_accepted": true
   },
-  "boundary_sha256": "65f9d84758ab9df6b01980e65443ae2cc32eb33e1cdfdd1f8afca335cb7cb735",
+  "boundary_sha256": "b31c58183833691348ba58d89a508972a88be231ad29206fab89b62a4acfe248",
   "confirmation_statement": "The publication author approves all C1-C9 decisions, the metadata constraints, the sensitivity constraints, and the final scientific claim boundary bound by this SHA-256.",
   "confirmed_by": "publication author via repository HITL checkpoint",
   "confirmed_date": "2026-08-01",

@@ -25,7 +25,7 @@
         "no_instrument_traceable_absolute_geometry",
         "no_temperature_kinetics_or_calibrated_transition"
       ],
-      "rationale": "The Ag-only sensitivity assessment does not alter the independently frozen Cu endpoint evidence; the existing positive-control and no-ranking boundary remains mandatory.",
+      "rationale": "The Ag-only measurement-window and capture-contract sensitivity does not alter the independently frozen Cu endpoint evidence; the existing positive-control and no-ranking boundary remains mandatory.",
       "sensitivity_basis": [
         "not_applicable_to_ag_only_sensitivity"
       ]
@@ -70,7 +70,7 @@
         "no_ag_scan_kinetics_or_calibrated_iv",
         "no_preparation_state_attribution"
       ],
-      "rationale": "The five-method sensitivity assessment does not modify the separate controlled SAM2-family contract or its restricted mechanism scope.",
+      "rationale": "The five-method measurement-window and capture-contract sensitivity does not modify the separate controlled SAM2-family contract or its restricted mechanism scope.",
       "sensitivity_basis": [
         "not_applicable_to_separate_sam2_family_contract"
       ]

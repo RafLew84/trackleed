@@ -170,6 +170,7 @@ def build_sensitivity_publication_bundle(
 def validate_sensitivity_publication_bundle(
     *,
     workspace_root: Path,
+    sensitivity_output_directory: Path | None = None,
 ) -> SensitivityPublicationBundleReport:
     """Validate committed reader-facing artifacts without rewriting them."""
 
@@ -178,7 +179,8 @@ def validate_sensitivity_publication_bundle(
         _resolved_bundle_paths(workspace_root)
     )
     origin_directory = (
-        workspace_root
+        sensitivity_output_directory
+        or workspace_root
         / "manuscript"
         / "scientific_panel"
         / "output"

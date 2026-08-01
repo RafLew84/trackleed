@@ -1,7 +1,7 @@
 {
   "author_checkpoint_status": "confirmed",
   "claim_count": 9,
-  "contract_sha256": "645001054e1d0dfa7c25f89c09436a21f7fed8c43319111857cf868d63dced5b",
+  "contract_sha256": "6fe6793b20aa5084d617585cddf79e4acc234acc6209707e154d4c0b155d72de",
   "decision_counts": {
     "narrowed": 5,
     "preserved": 4,
@@ -12,8 +12,8 @@
     "trackleed/publication/scientific_sensitivity_sources.py": "acd78ced6dd438c585a6c3ace44859ab47df7e14890bcc0c93a0e436431bea03"
   },
   "outputs_sha256": {
-    "author_checkpoint.json": "de89b2faed526ae879900ba75d8e598b08e7adab157ebd7df95a405602555312",
-    "final_claim_boundary.json": "65f9d84758ab9df6b01980e65443ae2cc32eb33e1cdfdd1f8afca335cb7cb735",
+    "author_checkpoint.json": "de20cd6b380577c083955ce2e15f30a07fff24ad8f1c02d9c9309ea15d496e9a",
+    "final_claim_boundary.json": "b31c58183833691348ba58d89a508972a88be231ad29206fab89b62a4acfe248",
     "sensitivity_claim_evidence.json": "16e35834c9b3efca2d716836f2567101095d0e63331cc82ed020bcc695f5e727"
   },
   "schema_version": 1,

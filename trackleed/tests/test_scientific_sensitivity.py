@@ -111,7 +111,10 @@ class ScientificSensitivityTests(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            validate_bundle.assert_called_once_with(workspace_root=workspace)
+            validate_bundle.assert_called_once_with(
+                workspace_root=workspace,
+                sensitivity_output_directory=output / "sensitivity",
+            )
             build_bundle.assert_not_called()
 
     def test_triggered_width_sweep_reuses_central_and_evaluates_four_additions(
