@@ -1,0 +1,54 @@
+﻿{
+    "expected_omath_count":  13,
+    "required_math_checks":  [
+                                 "formula_texts_exact",
+                                 "radical_count",
+                                 "fraction_count",
+                                 "subscript_count",
+                                 "superscript_count"
+                             ],
+    "variants":  [
+                     {
+                         "name":  "current-default",
+                         "reader":  "markdown",
+                         "source":  "single_backslash.md",
+                         "omath_count":  0,
+                         "required_symbol_checks":  {
+                                                        "formula_texts_exact":  false,
+                                                        "radical_count":  false,
+                                                        "fraction_count":  false,
+                                                        "subscript_count":  false,
+                                                        "superscript_count":  false
+                                                    },
+                         "pass":  false
+                     },
+                     {
+                         "name":  "dollar-default",
+                         "reader":  "markdown",
+                         "source":  "dollar_math.md",
+                         "omath_count":  13,
+                         "required_symbol_checks":  {
+                                                        "formula_texts_exact":  true,
+                                                        "radical_count":  true,
+                                                        "fraction_count":  true,
+                                                        "subscript_count":  true,
+                                                        "superscript_count":  true
+                                                    },
+                         "pass":  true
+                     },
+                     {
+                         "name":  "single-backslash-reader",
+                         "reader":  "markdown+tex_math_single_backslash",
+                         "source":  "single_backslash.md",
+                         "omath_count":  13,
+                         "required_symbol_checks":  {
+                                                        "formula_texts_exact":  true,
+                                                        "radical_count":  true,
+                                                        "fraction_count":  true,
+                                                        "subscript_count":  true,
+                                                        "superscript_count":  true
+                                                    },
+                         "pass":  true
+                     }
+                 ]
+}

@@ -55,6 +55,11 @@ eksperymentalnych.
   rozdzielono między źródło naukowe, eksport DOCX i reader-facing display;
   autorów oraz warunki eksperymentalne odroczono zgodnie z lokalną definicją
   `scientific-baseline-complete`.
+- [Kontrakt notacji matematycznej i transportu do
+  DOCX](issues/02-kontrakt-notacji-i-transportu-do-docx.md) — zachowano
+  źródłowe `\(...\)` / `\[...\]`, zatwierdzono jawny reader
+  `markdown+tex_math_single_backslash`, zakaz cichego fallbacku oraz
+  fail-closed audit Pandoc AST i natywnego OMath zakończony render gate.
 
 ## Not yet specified
 
