@@ -60,6 +60,11 @@ eksperymentalnych.
   źródłowe `\(...\)` / `\[...\]`, zatwierdzono jawny reader
   `markdown+tex_math_single_backslash`, zakaz cichego fallbacku oraz
   fail-closed audit Pandoc AST i natywnego OMath zakończony render gate.
+- [Semantyka denominatorów w main
+  text](issues/04-semantyka-denominatorow-w-main-text.md) — rozdzielono
+  24-state inventory od stałych opportunity sets 80/40, przypisano conditional
+  residuals do method-specific surviving `n` oraz przyjęto samowystarczalny
+  Abstract bez odwołań do tabel, rysunków i Supplementary Information.
 
 ## Not yet specified
 
