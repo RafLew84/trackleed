@@ -7,10 +7,14 @@ from trackleed.publication.scientific_claim_adjudication import (
     build_claim_adjudication,
     confirm_claim_adjudication,
 )
+from trackleed.publication.scientific_sensitivity_bundle import (
+    SENSITIVITY_SOURCE_RELATIVE_PATH,
+)
 
 
 ARTIFACT_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ARTIFACT_ROOT.parents[1]
+SOURCE_DATA_ROOT = REPO_ROOT / SENSITIVITY_SOURCE_RELATIVE_PATH
 
 
 def main() -> None:
@@ -22,7 +26,7 @@ def main() -> None:
     build_claim_adjudication(
         workspace_root=REPO_ROOT,
         contract_path=ARTIFACT_ROOT / "adjudication_contract.json",
-        sensitivity_source_directory=ARTIFACT_ROOT / "source_data",
+        sensitivity_source_directory=SOURCE_DATA_ROOT,
         metadata_directory=REPO_ROOT / "manuscript" / "experimental_metadata",
         claim_map_path=REPO_ROOT / "manuscript" / "claim-evidence-map.md",
         output_directory=ARTIFACT_ROOT / "output",

@@ -30,6 +30,11 @@ from trackleed.publication.scientific_sensitivity_sources import (
 )
 
 
+SENSITIVITY_SOURCE_RELATIVE_PATH = Path(
+    "manuscript/source_data/measurement_sensitivity"
+)
+
+
 @dataclass(frozen=True)
 class SensitivityPublicationBundleReport:
     table_s6: TableS6Report
@@ -39,9 +44,10 @@ class SensitivityPublicationBundleReport:
 
 def _resolved_bundle_paths(
     workspace_root: Path,
-) -> tuple[Path, Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path, Path]:
     manuscript_root = workspace_root / "manuscript"
     return (
+        workspace_root / SENSITIVITY_SOURCE_RELATIVE_PATH,
         manuscript_root / "tables" / "table_s6_measurement_sensitivity",
         manuscript_root / "figures" / "figure_s2_measurement_sensitivity",
         manuscript_root / "claim_adjudication",
@@ -96,6 +102,7 @@ def build_sensitivity_publication_bundle(
     *,
     workspace_root: Path,
     sensitivity_output_directory: Path,
+    sensitivity_source_root: Path | None = None,
     table_root: Path | None = None,
     figure_root: Path | None = None,
     adjudication_root: Path | None = None,
@@ -106,6 +113,10 @@ def build_sensitivity_publication_bundle(
 
     workspace_root = workspace_root.resolve()
     manuscript_root = workspace_root / "manuscript"
+    sensitivity_source_root = (
+        sensitivity_source_root
+        or workspace_root / SENSITIVITY_SOURCE_RELATIVE_PATH
+    ).resolve()
     table_root = (
         table_root
         or manuscript_root / "tables" / "table_s6_measurement_sensitivity"
@@ -125,33 +136,28 @@ def build_sensitivity_publication_bundle(
         or adjudication_root / "adjudication_contract.json"
     ).resolve()
 
-    for source_directory in (
-        table_root / "source_data",
-        figure_root / "source_data",
-        adjudication_root / "source_data",
-    ):
-        freeze_sensitivity_source_data(
-            sensitivity_output_directory,
-            source_directory,
-            workspace_root=workspace_root,
-        )
+    freeze_sensitivity_source_data(
+        sensitivity_output_directory,
+        sensitivity_source_root,
+        workspace_root=workspace_root,
+    )
 
     table_report = build_table_s6_artifact(
         workspace_root,
-        table_root / "source_data",
+        sensitivity_source_root,
         table_root / "output",
         table_root / "manifest.json",
     )
     figure_report = build_figure_s2_artifact(
         workspace_root,
-        figure_root / "source_data",
+        sensitivity_source_root,
         figure_root / "output",
         figure_root / "manifest.json",
     )
     claim_report = build_claim_adjudication(
         workspace_root=workspace_root,
         contract_path=adjudication_contract_path,
-        sensitivity_source_directory=adjudication_root / "source_data",
+        sensitivity_source_directory=sensitivity_source_root,
         metadata_directory=manuscript_root / "experimental_metadata",
         claim_map_path=manuscript_root / "claim-evidence-map.md",
         output_directory=adjudication_root / "output",
@@ -175,7 +181,7 @@ def validate_sensitivity_publication_bundle(
     """Validate committed reader-facing artifacts without rewriting them."""
 
     workspace_root = workspace_root.resolve()
-    table_root, figure_root, adjudication_root, supplement_path = (
+    source_root, table_root, figure_root, adjudication_root, supplement_path = (
         _resolved_bundle_paths(workspace_root)
     )
     origin_directory = (
@@ -186,33 +192,28 @@ def validate_sensitivity_publication_bundle(
         / "output"
         / "sensitivity"
     )
-    for source_directory in (
-        table_root / "source_data",
-        figure_root / "source_data",
-        adjudication_root / "source_data",
-    ):
-        validate_sensitivity_source_data(
-            source_directory,
-            origin_directory=origin_directory,
-        )
+    validate_sensitivity_source_data(
+        source_root,
+        origin_directory=origin_directory,
+    )
     with TemporaryDirectory() as temporary:
         generated_root = Path(temporary)
         table_report = build_table_s6_artifact(
             workspace_root,
-            table_root / "source_data",
+            source_root,
             generated_root / "table-output",
             generated_root / "table-manifest.json",
         )
         figure_report = build_figure_s2_artifact(
             workspace_root,
-            figure_root / "source_data",
+            source_root,
             generated_root / "figure-output",
             generated_root / "figure-manifest.json",
         )
         claim_report = build_claim_adjudication(
             workspace_root=workspace_root,
             contract_path=adjudication_root / "adjudication_contract.json",
-            sensitivity_source_directory=adjudication_root / "source_data",
+            sensitivity_source_directory=source_root,
             metadata_directory=workspace_root / "manuscript" / "experimental_metadata",
             claim_map_path=workspace_root / "manuscript" / "claim-evidence-map.md",
             output_directory=generated_root / "claim-output",
@@ -276,6 +277,7 @@ def validate_sensitivity_publication_bundle(
 
 
 __all__ = [
+    "SENSITIVITY_SOURCE_RELATIVE_PATH",
     "SensitivityPublicationBundleReport",
     "build_sensitivity_publication_bundle",
     "validate_sensitivity_publication_bundle",

@@ -9,6 +9,9 @@ complete boundary, and a boundary-bound human checkpoint.
 The proposed decisions are four preserved, five narrowed, and zero removed.
 No claim may be strengthened by a favorable perturbation, and no perturbation
 changes the frozen central measurement contract or selects a configuration.
+The adjudication consumes the single authenticated sensitivity package in
+`manuscript/source_data/measurement_sensitivity/`, shared with Figure S2 and
+Table S6.
 
 Build from the repository root with:
 

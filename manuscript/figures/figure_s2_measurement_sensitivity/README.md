@@ -19,5 +19,6 @@ Build from the repository root with:
 python -m manuscript.figures.figure_s2_measurement_sensitivity.build_figure
 ```
 
-The authenticated sources are in `source_data/`; `manifest.json` binds source,
-implementation, rendering, and output hashes.
+The figure consumes the single authenticated package in
+`manuscript/source_data/measurement_sensitivity/`; `manifest.json` binds that
+shared source package, implementation, rendering, and output hashes.

@@ -16,5 +16,6 @@ Build from the repository root with:
 python -m manuscript.tables.table_s6_measurement_sensitivity.build_table
 ```
 
-The authenticated sources are in `source_data/`; `manifest.json` binds source,
-implementation, and output hashes.
+The table consumes the single authenticated package in
+`manuscript/source_data/measurement_sensitivity/`; `manifest.json` binds that
+shared source package, implementation, and output hashes.
