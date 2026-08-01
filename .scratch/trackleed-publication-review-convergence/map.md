@@ -76,6 +76,12 @@ eksperymentalnych.
   hierarchii contract → denominators → outcomes → capture effect, nagłówek
   `persistent spot association`, selektywną kompresję Discussion oraz krótsze
   podpisy Figures 1, 4 i 5 bez usunięcia sensitivity i claim boundaries.
+- [Weryfikacja reconstruction seam i konsekwencji dla
+  fingerprint](issues/07-weryfikacja-reconstruction-seam-i-fingerprint.md) —
+  pełny CPU/headless build i 23-komponentowy fingerprint przechodzą w pinned,
+  byte-preserving środowisku; zwykły clean checkout Windows ujawnia
+  niejawny mix LF/CRLF, który trzeba usunąć przed kontrolowanym rebaseline zmian
+  03–06.
 
 ## Not yet specified
 
