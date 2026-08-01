@@ -38,6 +38,23 @@ ORIGIN_DIRECTORY = (
 
 
 class ControlledTranslationEvidenceTests(unittest.TestCase):
+    def test_typed_loader_rejects_unknown_roles_in_both_matrices(self) -> None:
+        for filename in ("equivariance_results.csv", "pair_invariance.csv"):
+            with self.subTest(filename=filename), TemporaryDirectory() as temporary:
+                changed_source = Path(temporary) / "source"
+                shutil.copytree(SOURCE_DIRECTORY, changed_source)
+                path = changed_source / filename
+                path.write_text(
+                    path.read_text(encoding="utf-8").replace(
+                        ",oracle_control,Oracle ROI control,",
+                        ",unknown_role,Oracle ROI control,",
+                        1,
+                    ),
+                    encoding="utf-8",
+                )
+                with self.assertRaises(ValueError):
+                    load_controlled_translation_evidence(changed_source)
+
     def test_rejected_pair_steps_break_figure_s1_trajectories(self) -> None:
         evidence = load_controlled_translation_evidence(SOURCE_DIRECTORY)
         points = [

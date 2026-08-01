@@ -21,6 +21,7 @@ PairId = Literal["1-6", "3-5"]
 PAIR_IDS: tuple[PairId, ...] = ("1-6", "3-5")
 SourceFrameOrder = Literal[0, 372, 378, 700]
 EvidenceRole = Literal["tracker", "oracle_control"]
+EVIDENCE_ROLES: tuple[EvidenceRole, ...] = ("tracker", "oracle_control")
 METHOD_ORDER: tuple[MethodId, ...] = (
     "locotrack_base_offline",
     "ostrack_vitb_256_mae_ce",
@@ -211,7 +212,11 @@ def load_controlled_translation_evidence(
         len(spots) != 576
         or len(pairs) != 288
         or {row.method for row in spots} != set(METHOD_ORDER)
+        or {row.method for row in pairs} != set(METHOD_ORDER)
         or {row.source_frame_order for row in spots} != set(TRIAL_ORDER)
+        or {row.source_frame_order for row in pairs} != set(TRIAL_ORDER)
+        or {row.role for row in spots} != set(EVIDENCE_ROLES)
+        or {row.role for row in pairs} != set(EVIDENCE_ROLES)
         or {row.pair for row in pairs} != set(PAIR_IDS)
     ):
         raise ValueError("Controlled-translation evidence matrix changed")
@@ -306,6 +311,7 @@ __all__ = [
     "ControlledTranslationEvidence",
     "Coverage",
     "EvidenceRole",
+    "EVIDENCE_ROLES",
     "MethodId",
     "METHOD_ORDER",
     "PAIR_IDS",
