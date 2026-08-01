@@ -60,6 +60,11 @@ eksperymentalnych.
   źródłowe `\(...\)` / `\[...\]`, zatwierdzono jawny reader
   `markdown+tex_math_single_backslash`, zakaz cichego fallbacku oraz
   fail-closed audit Pandoc AST i natywnego OMath zakończony render gate.
+- [Integracja sensitivity z narracją i granicą
+  claims](issues/03-integracja-sensitivity-z-narracja-i-claims.md) — wybrano
+  osobną sekcję Results 4.4 dla 15 predeclared variants, samowystarczalne zdanie
+  Abstract oraz zmiany Discussion i Limitations zachowujące denominator-aware,
+  case-based granicę C1/C3/C4 bez optymalizacji i rankingu trackerów.
 - [Semantyka denominatorów w main
   text](issues/04-semantyka-denominatorow-w-main-text.md) — rozdzielono
   24-state inventory od stałych opportunity sets 80/40, przypisano conditional
