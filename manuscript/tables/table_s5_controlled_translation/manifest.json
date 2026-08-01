@@ -1,0 +1,36 @@
+{
+  "claim_limit": "Known translations assess measurement-chain equivariance and common-estimator behavior, not absolute tracking accuracy or identity ground truth.",
+  "conditional_denominators": [
+    "accepted Gaussian measurements",
+    "jointly valid pair measurements"
+  ],
+  "fixed_denominators": {
+    "pair_step_opportunities_per_trial_method": 10,
+    "spot_step_opportunities_per_trial_method": 20
+  },
+  "implementation_sha256": {
+    "trackleed/publication/controlled_translation_evidence.py": "0188e6d0837d47d7423b08ae6e2d6aedb2299bda6b22c9965c8be99cbfbe89fe",
+    "trackleed/publication/controlled_translation_table.py": "f4cc453dd0651f6fb73db9d6c4a4ced0941507f055afac3a859127d4a13bbe0d"
+  },
+  "method_count": 6,
+  "outputs_sha256": {
+    "table_s5_controlled_translation.csv": "4cd0dab2b9c176760494999db6e6039d8d171f03e45f05671d91c9c2aaad9ac8",
+    "table_s5_controlled_translation.md": "2baa719df186ab12c0c9e20c22dfeae97f7ec03a2851c3933a55d86c7c6728a3"
+  },
+  "row_count": 24,
+  "schema_version": 1,
+  "source_data_path": "manuscript/source_data/controlled_translations",
+  "source_data_sha256": {
+    ".gitattributes": "c3968046d001c2bcce0bd14f486fab7d225ea189dc53222ec4c414f95bb035da",
+    "contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+    "equivariance_results.csv": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e",
+    "method_summary.csv": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01",
+    "pair_invariance.csv": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c",
+    "source_provenance.json": "d176e87b19d8f255c1492cc1faf16b882d5afcee88e082cffba4b84738dcd229",
+    "upstream_manifest.json": "de8006055dbacd6147064c33d2d9f0eb5746a2fbed322728579ef905d2aed683"
+  },
+  "status": "completed",
+  "table": "Table S5",
+  "title": "Controlled-translation outcomes by source trial",
+  "trial_count": 4
+}

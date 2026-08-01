@@ -1,0 +1,31 @@
+{
+  "origin_required_at_build": false,
+  "schema_version": 1,
+  "sources": {
+    "contract.json": {
+      "frozen_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/contract.json",
+      "origin_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f"
+    },
+    "equivariance_results.csv": {
+      "frozen_sha256": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/equivariance_results.csv",
+      "origin_sha256": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e"
+    },
+    "method_summary.csv": {
+      "frozen_sha256": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv",
+      "origin_sha256": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01"
+    },
+    "pair_invariance.csv": {
+      "frozen_sha256": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/pair_invariance.csv",
+      "origin_sha256": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c"
+    },
+    "upstream_manifest.json": {
+      "frozen_sha256": "de8006055dbacd6147064c33d2d9f0eb5746a2fbed322728579ef905d2aed683",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/manifest.json",
+      "origin_sha256": "de8006055dbacd6147064c33d2d9f0eb5746a2fbed322728579ef905d2aed683"
+    }
+  }
+}

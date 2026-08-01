@@ -1,4 +1,4 @@
-"""Five-panel renderer for publication Figure 2."""
+"""Four-panel renderer for publication Figure 2."""
 
 from __future__ import annotations
 
@@ -7,21 +7,16 @@ from pathlib import Path
 from typing import Sequence
 
 from figure_contract import (
-    DISPLAY_NAMES,
     FIGURE_BASENAME,
     FONT_SIZES_PT,
     METHOD_COLORS,
     METHOD_ORDER,
-    MIDPOINT_COLOR,
-    MISSING_COLOR,
     NEUTRAL_COLOR,
     ORACLE_METHOD,
-    PAIR_COLOR,
     SOURCE_DATA_DIRECTORY,
     as_float,
     as_int,
     load_all_method_metrics,
-    load_energy_source_data,
     load_translation_source_data,
 )
 
@@ -312,127 +307,6 @@ def _render_panel_d(
     _panel_label(axis, "d")
 
 
-def _render_panel_e(
-    top_axis: object,
-    bottom_axis: object,
-    energy_rows: Sequence[dict[str, object]],
-) -> None:
-    import numpy as np
-
-    energies = np.asarray([row["energy_ev"] for row in energy_rows], dtype=float)
-    predicted = np.asarray(
-        [row["predicted_pair_distance_px"] for row in energy_rows],
-        dtype=float,
-    )
-    valid_rows = [row for row in energy_rows if row["pair_valid"]]
-    missing_rows = [row for row in energy_rows if not row["pair_valid"]]
-    valid_energy = np.asarray(
-        [row["energy_ev"] for row in valid_rows],
-        dtype=float,
-    )
-    measured_distance = np.asarray(
-        [row["measured_pair_distance_px"] for row in valid_rows],
-        dtype=float,
-    )
-    midpoint_drift = np.asarray(
-        [row["midpoint_drift_px"] for row in valid_rows],
-        dtype=float,
-    )
-    sort_order = np.argsort(energies, kind="stable")
-    top_axis.plot(
-        energies[sort_order],
-        predicted[sort_order],
-        color=NEUTRAL_COLOR,
-        linestyle=(0, (4, 2)),
-        linewidth=1.0,
-        label=r"Expected $D(E) \propto 1/\sqrt{E}$",
-    )
-    top_axis.scatter(
-        valid_energy,
-        measured_distance,
-        s=18,
-        color=PAIR_COLOR,
-        edgecolor="white",
-        linewidth=0.35,
-        label="Measured pair distance",
-        zorder=3,
-    )
-    distance_min = min(float(np.min(predicted)), float(np.min(measured_distance)))
-    distance_max = max(float(np.max(predicted)), float(np.max(measured_distance)))
-    distance_padding = 0.06 * (distance_max - distance_min)
-    top_axis.set_ylim(
-        distance_min - distance_padding,
-        distance_max + distance_padding,
-    )
-    top_axis.scatter(
-        [row["energy_ev"] for row in missing_rows],
-        [distance_min - 0.55 * distance_padding] * len(missing_rows),
-        marker="|",
-        s=32,
-        color=MISSING_COLOR,
-        linewidth=0.8,
-        label="Pair unavailable",
-        clip_on=False,
-    )
-    top_axis.axvline(
-        187.9,
-        color="#666666",
-        linestyle=(0, (2, 2)),
-        linewidth=0.75,
-    )
-    top_axis.text(
-        187.9,
-        0.52,
-        r"$E_{\mathrm{ref}}$",
-        transform=top_axis.get_xaxis_transform(),
-        rotation=90,
-        va="center",
-        ha="left",
-        fontsize=FONT_SIZES_PT["minor_annotation"],
-        color="#666666",
-    )
-    top_axis.set_ylabel(r"Pair distance $D(E)$ [px]")
-    top_axis.set_title(
-        "Energy-dependent pair separation and common midpoint motion",
-        loc="left",
-    )
-    top_axis.grid(alpha=0.14, linewidth=0.55)
-    top_axis.legend(
-        frameon=False,
-        ncol=3,
-        loc="upper right",
-        columnspacing=1.0,
-        handletextpad=0.5,
-    )
-    top_axis.tick_params(labelbottom=False)
-    _panel_label(top_axis, "e", x=-0.07)
-
-    bottom_axis.scatter(
-        valid_energy,
-        midpoint_drift,
-        s=18,
-        color=MIDPOINT_COLOR,
-        edgecolor="white",
-        linewidth=0.35,
-        zorder=3,
-    )
-    bottom_axis.axhline(0.0, color=NEUTRAL_COLOR, linewidth=0.6, alpha=0.5)
-    bottom_axis.axvline(
-        187.9,
-        color="#666666",
-        linestyle=(0, (2, 2)),
-        linewidth=0.75,
-    )
-    bottom_axis.set_xlim(43.0, 222.5)
-    bottom_axis.set_ylim(
-        -0.2,
-        max(1.0, 1.12 * float(np.max(midpoint_drift))),
-    )
-    bottom_axis.set_xlabel("Electron energy [eV]")
-    bottom_axis.set_ylabel("Midpoint drift [px]")
-    bottom_axis.grid(alpha=0.14, linewidth=0.55)
-
-
 def render_figure(output_directory: Path) -> dict[str, Path]:
     import matplotlib
 
@@ -444,7 +318,6 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
     required_source_files = (
         "translation_path.csv",
         "method_metrics.csv",
-        "energy_geometry.csv",
         "representative_cu_crop.png",
         "representative_cu_crop.json",
         "source_provenance.json",
@@ -466,7 +339,6 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
     oracle_row = next(
         row for row in all_method_rows if row["method"] == ORACLE_METHOD
     )
-    energy_rows = load_energy_source_data()
     crop_metadata = json.loads(
         (SOURCE_DATA_DIRECTORY / "representative_cu_crop.json").read_text(
             encoding="utf-8"
@@ -491,37 +363,27 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
             "ps.fonttype": 42,
         }
     )
-    figure = plt.figure(figsize=(7.2, 8.1), facecolor="white")
+    figure = plt.figure(figsize=(7.2, 5.3), facecolor="white")
     grid = figure.add_gridspec(
-        3,
         2,
-        height_ratios=(1.02, 0.9, 1.45),
+        2,
         left=0.13,
         right=0.985,
-        bottom=0.07,
-        top=0.955,
-        hspace=0.48,
+        bottom=0.11,
+        top=0.94,
+        hspace=0.52,
         wspace=0.42,
     )
     axis_a = figure.add_subplot(grid[0, 0])
     axis_b = figure.add_subplot(grid[0, 1])
     axis_c = figure.add_subplot(grid[1, 0])
     axis_d = figure.add_subplot(grid[1, 1])
-    energy_grid = grid[2, :].subgridspec(
-        2,
-        1,
-        height_ratios=(1.55, 1.0),
-        hspace=0.10,
-    )
-    axis_e_top = figure.add_subplot(energy_grid[0, 0])
-    axis_e_bottom = figure.add_subplot(energy_grid[1, 0], sharex=axis_e_top)
 
     _render_panel_a(axis_a, crop, crop_metadata, translation_rows)
     _render_panel_b(axis_b, method_rows, oracle_row)
     _render_panel_c(axis_c, method_rows)
     _render_panel_d(axis_d, method_rows, oracle_row)
-    _render_panel_e(axis_e_top, axis_e_bottom, energy_rows)
-    for axis in (axis_a, axis_b, axis_c, axis_d, axis_e_top, axis_e_bottom):
+    for axis in (axis_a, axis_b, axis_c, axis_d):
         _style_axis(axis)
 
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -539,7 +401,7 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
         pdf_path,
         facecolor="white",
         metadata={
-            "Title": "Controlled equivariance and energy-scan geometry",
+            "Title": "Controlled measurement-chain equivariance",
             "Author": "TrackLEED collaboration",
             "Subject": "Publication Figure 2",
             "Creator": "TrackLEED Figure 2 builder",

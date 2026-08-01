@@ -65,79 +65,6 @@ class StratifiedReportingTableTest(unittest.TestCase):
         self.assertEqual(row["geometry_inconsistency"], "4/180")
         self.assertNotIn("conditional_residual", row)
 
-    def test_translation_table_uses_trials_as_the_reporting_unit(self) -> None:
-        rows = build_tables.build_controlled_translation_trial_table()
-
-        self.assertEqual(len(rows), 24)
-        row = next(
-            row
-            for row in rows
-            if row["trial"] == "initial low-temperature state"
-            and row["method"] == "LocoTrack"
-        )
-        self.assertEqual(row["temperature_c"], 10)
-        self.assertEqual(row["proposal_coverage"], "20/20")
-        self.assertEqual(row["measurement_coverage"], "20/20")
-        self.assertAlmostEqual(
-            row["measurement_error_median_px"],
-            0.0031384264221719837,
-        )
-        self.assertAlmostEqual(
-            row["measurement_error_p95_px"],
-            0.00437150211062956,
-        )
-        self.assertAlmostEqual(
-            row["measurement_error_max_px"],
-            0.005410235401619575,
-        )
-        self.assertEqual(row["pair_coverage"], "10/10")
-        self.assertAlmostEqual(
-            row["maximum_abs_delta_d_over_d_pp"],
-            0.00018074382868849865,
-        )
-
-    def test_table_s5_render_defines_denominators_and_conditioning(self) -> None:
-        rendered = build_tables.render_translation_markdown(
-            build_tables.build_controlled_translation_trial_table(),
-        )
-
-        self.assertTrue(rendered.startswith("**Table S5."))
-        self.assertIn(
-            "four separately initialized source trials from one Cu(111) series",
-            rendered,
-        )
-        self.assertIn(
-            "20 spot–step and 10 pair–step evaluation opportunities",
-            rendered,
-        )
-        self.assertIn(
-            "conditional on accepted Gaussian measurements",
-            rendered,
-        )
-        self.assertIn(
-            "conditional on jointly valid pair measurements",
-            rendered,
-        )
-        self.assertIn(
-            "known image translation",
-            rendered,
-        )
-        self.assertIn(
-            "not a tracker",
-            rendered,
-        )
-        self.assertIn(
-            "not four independent acquisitions",
-            rendered,
-        )
-        self.assertIn("Lucas–Kanade", rendered)
-        self.assertNotIn("Lucas-Kanade", rendered)
-        self.assertNotIn("# Table S5", rendered)
-        self.assertNotIn("source frame", rendered.lower())
-        self.assertNotIn("26a21", rendered)
-        self.assertNotIn("ScanE", rendered)
-        self.assertNotIn("C:\\Users", rendered)
-
     def test_artifact_records_descriptive_policy_and_deterministic_outputs(
         self,
     ) -> None:
@@ -154,11 +81,9 @@ class StratifiedReportingTableTest(unittest.TestCase):
             self.assertEqual(
                 {path.name for path in output_directory.iterdir()},
                 {
-                    "controlled_translation_by_trial.csv",
                     "energy_scan_by_case.csv",
                     "energy_scan_leave_one_case_out.csv",
                     "table_s3_energy_scan_by_case.md",
-                    "table_s5_controlled_translation_by_trial.md",
                 },
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -187,16 +112,10 @@ class StratifiedReportingTableTest(unittest.TestCase):
             )
             self.assertEqual(
                 manifest["table_status"],
-                {
-                    "Table S3": "finalized",
-                    "Table S5": "finalized",
-                },
+                {"Table S3": "finalized"},
             )
-            self.assertEqual(len(manifest["outputs"]), 5)
-            for markdown_name in (
-                "table_s3_energy_scan_by_case.md",
-                "table_s5_controlled_translation_by_trial.md",
-            ):
+            self.assertEqual(len(manifest["outputs"]), 3)
+            for markdown_name in ("table_s3_energy_scan_by_case.md",):
                 groups: list[list[str]] = []
                 for line in (
                     output_directory / markdown_name
@@ -257,12 +176,6 @@ class StratifiedReportingTableTest(unittest.TestCase):
                 build_tables.SUPPLEMENT_S3_END_MARKER,
                 build_tables.extract_supplement_s3_block,
             ),
-            (
-                "Table S5",
-                build_tables.SUPPLEMENT_S5_BEGIN_MARKER,
-                build_tables.SUPPLEMENT_S5_END_MARKER,
-                build_tables.extract_supplement_s5_block,
-            ),
         )
         for table_label, begin_marker, end_marker, extract in table_contracts:
             valid = f"{begin_marker}\ncontent\n{end_marker}"
@@ -279,41 +192,6 @@ class StratifiedReportingTableTest(unittest.TestCase):
                 with self.subTest(table=table_label, record=invalid):
                     with self.assertRaises(ValueError):
                         extract(invalid)
-
-    def test_table_s5_sync_appends_then_replaces_one_generated_block(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            supplement_path = Path(temporary_directory) / "supplement.md"
-            supplement_path.write_text(
-                "# Supplement\n\nExisting content.\n",
-                encoding="utf-8",
-            )
-            with mock.patch.object(
-                build_tables,
-                "SUPPLEMENT_PATH",
-                supplement_path,
-            ):
-                build_tables.sync_supplement_s5("first table\n")
-                build_tables.sync_supplement_s5("updated table\n")
-
-            supplement = supplement_path.read_text(encoding="utf-8")
-            self.assertEqual(
-                build_tables.extract_supplement_s5_block(supplement),
-                "updated table\n",
-            )
-            self.assertEqual(
-                supplement.count(build_tables.SUPPLEMENT_S5_HEADING),
-                1,
-            )
-            self.assertEqual(
-                supplement.count(build_tables.SUPPLEMENT_S5_BEGIN_MARKER),
-                1,
-            )
-            self.assertEqual(
-                supplement.count(build_tables.SUPPLEMENT_S5_END_MARKER),
-                1,
-            )
 
     def test_provenance_rejects_malformed_hashes_and_escaping_paths(
         self,
@@ -340,7 +218,7 @@ class StratifiedReportingTableTest(unittest.TestCase):
                         with self.assertRaises(ValueError):
                             build_tables.validate_source_data()
 
-    def test_only_two_scratch_originals_may_be_optional(self) -> None:
+    def test_committed_original_is_required(self) -> None:
         provenance = json.loads(
             build_tables.PROVENANCE_PATH.read_text(encoding="utf-8")
         )
@@ -349,28 +227,16 @@ class StratifiedReportingTableTest(unittest.TestCase):
             for source in provenance["sources"]
             if not source.get("original_required_at_build", True)
         ]
-        self.assertEqual(len(optional), 2)
-        self.assertTrue(
-            all(
-                source["original_path"].startswith(".scratch/")
-                for source in optional
-            )
-        )
+        self.assertEqual(optional, [])
 
-        mutations = []
-        only_one = json.loads(json.dumps(provenance))
-        only_one["sources"][0]["original_required_at_build"] = True
-        mutations.append(only_one)
-        committed_optional = json.loads(json.dumps(provenance))
-        committed_optional["sources"][2]["original_required_at_build"] = False
-        mutations.append(committed_optional)
-        for changed in mutations:
-            with tempfile.TemporaryDirectory() as temporary_directory:
-                path = Path(temporary_directory) / "provenance.json"
-                path.write_text(json.dumps(changed), encoding="utf-8")
-                with mock.patch.object(build_tables, "PROVENANCE_PATH", path):
-                    with self.assertRaises(ValueError):
-                        build_tables.validate_source_data()
+        changed = json.loads(json.dumps(provenance))
+        changed["sources"][0]["original_required_at_build"] = False
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "provenance.json"
+            path.write_text(json.dumps(changed), encoding="utf-8")
+            with mock.patch.object(build_tables, "PROVENANCE_PATH", path):
+                with self.assertRaises(ValueError):
+                    build_tables.validate_source_data()
 
     def test_committed_table_s3_and_supplement_are_synchronized(self) -> None:
         output_directory = TABLE_ROOT / "output"
@@ -405,19 +271,6 @@ class StratifiedReportingTableTest(unittest.TestCase):
         supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
         self.assertEqual(
             build_tables.extract_supplement_s3_block(supplement),
-            markdown,
-        )
-
-    def test_committed_table_s5_and_supplement_are_synchronized(self) -> None:
-        markdown = (
-            TABLE_ROOT
-            / "output"
-            / "table_s5_controlled_translation_by_trial.md"
-        ).read_text(encoding="utf-8")
-        supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
-
-        self.assertEqual(
-            build_tables.extract_supplement_s5_block(supplement),
             markdown,
         )
 

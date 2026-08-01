@@ -23,12 +23,6 @@ CONTROLLED_TRANSLATION_ROOT = (
 )
 CONTROLLED_TRANSLATION_CONTRACT = CONTROLLED_TRANSLATION_ROOT / "contract.json"
 CONTROLLED_TRANSLATION_SUMMARY = CONTROLLED_TRANSLATION_ROOT / "method_summary.csv"
-ENERGY_SCAN_ROOT = (
-    REPOSITORY_ROOT
-    / ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output"
-)
-ENERGY_SCAN_BRANCH_MEASUREMENTS = ENERGY_SCAN_ROOT / "scan_measurements.csv"
-ENERGY_SCAN_PAIR_MEASUREMENTS = ENERGY_SCAN_ROOT / "pair_measurements.csv"
 
 METHOD_ORDER = (
     "locotrack_base_offline",
@@ -54,9 +48,7 @@ METHOD_COLORS = {
     "easyleed_kalman": "#D55E00",
 }
 PAIR_COLOR = "#0072B2"
-MIDPOINT_COLOR = "#CC79A7"
 NEUTRAL_COLOR = "#4D4D4D"
-MISSING_COLOR = "#999999"
 FONT_SIZES_PT = {
     "base": 7.2,
     "axis_title": 8.0,
@@ -71,8 +63,6 @@ FONT_SIZES_PT = {
 SOURCE_FILES = {
     "controlled_translation_contract": CONTROLLED_TRANSLATION_CONTRACT,
     "controlled_translation_method_summary": CONTROLLED_TRANSLATION_SUMMARY,
-    "energy_scan_branch_measurements": ENERGY_SCAN_BRANCH_MEASUREMENTS,
-    "energy_scan_pair_measurements": ENERGY_SCAN_PAIR_MEASUREMENTS,
 }
 
 
@@ -220,68 +210,6 @@ def load_method_metrics(path: Path) -> list[dict[str, object]]:
         if row["method"] in METHOD_ORDER
     ]
 
-
-def build_energy_geometry_rows(
-    branch_measurements_path: Path,
-    pair_measurements_path: Path,
-) -> list[dict[str, object]]:
-    branch_rows = read_csv(branch_measurements_path)
-    grouped: dict[int, dict[str, dict[str, str]]] = {}
-    for row in branch_rows:
-        frame = as_int(row["frame"])
-        branch = row["branch"]
-        if branch not in {"B1", "B2"}:
-            raise ValueError(f"Unexpected branch label: {branch}")
-        if branch in grouped.setdefault(frame, {}):
-            raise ValueError(f"Duplicate branch row: frame={frame}, branch={branch}")
-        grouped[frame][branch] = row
-
-    pair_by_frame = {
-        as_int(row["frame"]): row for row in read_csv(pair_measurements_path)
-    }
-    rows: list[dict[str, object]] = []
-    for frame in sorted(grouped):
-        branches = grouped[frame]
-        if set(branches) != {"B1", "B2"}:
-            raise ValueError(f"Incomplete branch pair at frame {frame}")
-        first = branches["B1"]
-        second = branches["B2"]
-        first_energy = as_float(first["energy_ev"])
-        second_energy = as_float(second["energy_ev"])
-        if first_energy != second_energy:
-            raise ValueError(f"Branch energy mismatch at frame {frame}")
-        predicted_distance = math.hypot(
-            as_float(first["predicted_x"]) - as_float(second["predicted_x"]),
-            as_float(first["predicted_y"]) - as_float(second["predicted_y"]),
-        )
-        pair = pair_by_frame.get(frame)
-        rows.append(
-            {
-                "frame_id": frame,
-                "energy_ev": first_energy,
-                "predicted_pair_distance_px": predicted_distance,
-                "pair_valid": pair is not None,
-                "measured_pair_distance_px": (
-                    as_float(pair["pair_distance_px"]) if pair else None
-                ),
-                "midpoint_dx_px": (
-                    as_float(pair["midpoint_dx_px"]) if pair else None
-                ),
-                "midpoint_dy_px": (
-                    as_float(pair["midpoint_dy_px"]) if pair else None
-                ),
-                "midpoint_drift_px": (
-                    as_float(pair["midpoint_drift_px"]) if pair else None
-                ),
-                "branch_1_regime": first["status"],
-                "branch_2_regime": second["status"],
-            }
-        )
-    if len(rows) != 69 or len(pair_by_frame) != 36:
-        raise ValueError("Energy-geometry cardinality differs from frozen artifact")
-    return rows
-
-
 def _prepare_representative_crop(contract: dict[str, object]) -> dict[str, object]:
     import numpy as np
     from PIL import Image
@@ -353,15 +281,10 @@ def refresh_source_data() -> None:
     )
     translation_rows = load_translation_path(CONTROLLED_TRANSLATION_CONTRACT)
     method_rows = load_all_method_metrics(CONTROLLED_TRANSLATION_SUMMARY)
-    energy_rows = build_energy_geometry_rows(
-        ENERGY_SCAN_BRANCH_MEASUREMENTS,
-        ENERGY_SCAN_PAIR_MEASUREMENTS,
-    )
     crop_metadata = _prepare_representative_crop(contract)
 
     write_csv(SOURCE_DATA_DIRECTORY / "translation_path.csv", translation_rows)
     write_csv(SOURCE_DATA_DIRECTORY / "method_metrics.csv", method_rows)
-    write_csv(SOURCE_DATA_DIRECTORY / "energy_geometry.csv", energy_rows)
     write_json(SOURCE_DATA_DIRECTORY / "representative_cu_crop.json", crop_metadata)
 
     provenance_sources = {
@@ -396,25 +319,3 @@ def load_translation_source_data() -> list[dict[str, object]]:
         }
         for row in read_csv(SOURCE_DATA_DIRECTORY / "translation_path.csv")
     ]
-
-
-def load_energy_source_data() -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for row in read_csv(SOURCE_DATA_DIRECTORY / "energy_geometry.csv"):
-        rows.append(
-            {
-                "frame_id": as_int(row["frame_id"]),
-                "energy_ev": as_float(row["energy_ev"]),
-                "predicted_pair_distance_px": as_float(
-                    row["predicted_pair_distance_px"]
-                ),
-                "pair_valid": as_bool(row["pair_valid"]),
-                "measured_pair_distance_px": as_optional_float(
-                    row["measured_pair_distance_px"]
-                ),
-                "midpoint_drift_px": as_optional_float(
-                    row["midpoint_drift_px"]
-                ),
-            }
-        )
-    return rows

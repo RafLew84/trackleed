@@ -10,21 +10,13 @@ import tempfile
 from pathlib import Path
 
 from figure_contract import (
-    CONTROLLED_TRANSLATION_CONTRACT,
-    CONTROLLED_TRANSLATION_SUMMARY,
-    ENERGY_SCAN_BRANCH_MEASUREMENTS,
-    ENERGY_SCAN_PAIR_MEASUREMENTS,
     FIGURE_ROOT,
     FONT_SIZES_PT,
     METHOD_COLORS,
-    METHOD_ORDER,
     OUTPUT_DIRECTORY,
     SOURCE_DATA_DIRECTORY,
     as_int,
-    build_energy_geometry_rows,
-    load_energy_source_data,
     load_method_metrics,
-    load_translation_path,
     refresh_source_data,
     sha256_file,
     write_json,
@@ -37,6 +29,12 @@ CODE_FILES = (
     "figure_contract.py",
     "figure_render.py",
     "test_build_figure.py",
+)
+PANEL_ORDER = (
+    "translation_path",
+    "native_vs_refined_displacement",
+    "measurement_coverage",
+    "pair_invariance",
 )
 
 
@@ -74,7 +72,8 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
         "schema_version": "1.1",
         "status": "completed",
         "figure": "Figure 2",
-        "title": "Controlled equivariance and energy-scan geometry",
+        "title": "Controlled measurement-chain equivariance",
+        "panel_order": list(PANEL_ORDER),
         "code_sha256": _code_hashes(),
         "source_artifacts": provenance["sources"],
         "source_data_sha256": _source_data_hashes(),
@@ -83,7 +82,7 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
             for path in outputs.values()
         },
         "rendering": {
-            "figure_size_inches": [7.2, 8.1],
+            "figure_size_inches": [7.2, 5.3],
             "png_dpi": 400,
             "png_dimensions_px": png_dimensions,
             "font_family": "DejaVu Sans",
@@ -99,7 +98,7 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
         },
         "claim_limit": (
             "Known translations test measurement-chain equivariance, not "
-            "experimental dynamics or absolute spot identity."
+            "absolute tracking accuracy or identity ground truth."
         ),
     }
 
@@ -130,11 +129,6 @@ def _validate_contract() -> None:
     if any(as_int(row["pair_opportunities"]) != 40 for row in methods):
         raise ValueError("Pair-opportunity denominator changed")
 
-    energy_rows = load_energy_source_data()
-    if len(energy_rows) != 69 or sum(
-        bool(row["pair_valid"]) for row in energy_rows
-    ) != 36:
-        raise ValueError("Energy-geometry missingness contract changed")
 
 
 def validate() -> None:
@@ -171,8 +165,7 @@ def validate() -> None:
 
     print(
         "Figure 2 validation passed: 5 methods, 80 spot and 40 pair "
-        "opportunities/method, 69 energy images with 36 valid and 33 "
-        "unavailable pair measurements."
+        "opportunities/method."
     )
 
 

@@ -1,11 +1,10 @@
-# Figure 2 - controlled equivariance and energy-scan geometry
+# Figure 2 - controlled measurement-chain equivariance
 
 Status: generated and validated.
 
-This directory is the self-contained publication artifact for Figure 2. It
-separates the controlled response of the complete
-`proposal -> ROI -> Gaussian position` chain from the energy-dependent geometry
-used in the Ag(111) stress tests.
+This directory is the publication artifact for the controlled response of the
+complete `proposal -> ROI -> Gaussian position` chain. Energy-scan geometry and
+measurement-window sensitivity are intentionally absent from Figure 2.
 
 ## Panels
 
@@ -21,14 +20,10 @@ used in the Ag(111) stress tests.
   valid-pair count is printed against the common denominator of 40 opportunities
   per method. The oracle-ROI result is shown as a reference rather than as a
   sixth tracker.
-- **e.** Pair separation `D(E)` and common midpoint drift for the frozen primary
-  pair of the memory-analysis energy scan. Missing pair measurements are shown as
-  gray marks and are not connected across gaps.
-
 ## Caption draft
 
-**Figure 2. Controlled equivariance of the measurement chain and
-energy-dependent pair geometry.** (a) Frozen closed translation path applied to
+**Figure 2. Controlled equivariance of the measurement chain.** (a) Frozen
+closed translation path applied to
 four independently initialized Cu(111) states; the representative initial
 10 °C image is shown. (b) Median displacement-equivariance error before and
 after the common two-dimensional Gaussian estimator. The oracle ROI estimates
@@ -36,12 +31,8 @@ the interpolation-plus-estimator floor without a tracker. (c) Valid Gaussian
 measurements out of 80 predefined spot opportunities per method. (d) Maximum
 absolute pairwise relative-distance change under common image translation.
 Valid-pair counts out of 40 predefined opportunities are printed beside each
-method.
-(e) Measured pair distance compared with the expected `1/sqrt(E)` contraction,
-with the pair midpoint drift retained as a separate apparatus/projection
-diagnostic. Gray marks denote unavailable pair measurements. Controlled
-translations test measurement-chain equivariance, not experimental dynamics or
-absolute spot identity.
+method. Known translations assess measurement-chain equivariance and common-
+estimator behavior, not absolute tracking accuracy or identity ground truth.
 
 ## Files
 

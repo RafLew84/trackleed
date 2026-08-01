@@ -3,15 +3,37 @@
 
 from __future__ import annotations
 
+import json
 import unittest
 
 import build_figure
+import figure_contract
 
 
 class Figure2SourceContractTest(unittest.TestCase):
+    def test_main_figure_contains_only_controlled_translation_evidence(self) -> None:
+        manifest = json.loads(
+            (build_figure.FIGURE_ROOT / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertEqual(
+            manifest["panel_order"],
+            [
+                "translation_path",
+                "native_vs_refined_displacement",
+                "measurement_coverage",
+                "pair_invariance",
+            ],
+        )
+        serialized = json.dumps(manifest).lower()
+        self.assertNotIn("energy-scan", serialized)
+        self.assertNotIn("sensitivity", serialized)
+
     def test_translation_path_is_closed_and_has_six_steps(self) -> None:
-        points = build_figure.load_translation_path(
-            build_figure.CONTROLLED_TRANSLATION_CONTRACT
+        points = figure_contract.load_translation_path(
+            figure_contract.CONTROLLED_TRANSLATION_CONTRACT
         )
 
         self.assertEqual(len(points), 6)
@@ -21,13 +43,13 @@ class Figure2SourceContractTest(unittest.TestCase):
         self.assertEqual(points[-1]["dy_px"], 0.0)
 
     def test_method_metrics_preserve_all_five_denominators(self) -> None:
-        rows = build_figure.load_method_metrics(
-            build_figure.CONTROLLED_TRANSLATION_SUMMARY
+        rows = figure_contract.load_method_metrics(
+            figure_contract.CONTROLLED_TRANSLATION_SUMMARY
         )
 
         self.assertEqual(
             [row["method"] for row in rows],
-            list(build_figure.METHOD_ORDER),
+            list(figure_contract.METHOD_ORDER),
         )
         self.assertEqual(
             [row["valid_gaussian_measurements"] for row in rows],
@@ -41,21 +63,6 @@ class Figure2SourceContractTest(unittest.TestCase):
             [40, 40, 40, 36, 34],
         )
         self.assertTrue(all(row["pair_opportunities"] == 40 for row in rows))
-
-    def test_energy_geometry_retains_missing_pair_measurements(self) -> None:
-        rows = build_figure.build_energy_geometry_rows(
-            build_figure.ENERGY_SCAN_BRANCH_MEASUREMENTS,
-            build_figure.ENERGY_SCAN_PAIR_MEASUREMENTS,
-        )
-
-        self.assertEqual(len(rows), 69)
-        self.assertEqual(sum(row["pair_valid"] for row in rows), 36)
-        self.assertEqual(sum(not row["pair_valid"] for row in rows), 33)
-        reference = [row for row in rows if row["energy_ev"] == 187.9]
-        self.assertEqual(len(reference), 1)
-        self.assertTrue(reference[0]["pair_valid"])
-        self.assertAlmostEqual(reference[0]["midpoint_drift_px"], 0.0021737785)
-
 
 if __name__ == "__main__":
     unittest.main()

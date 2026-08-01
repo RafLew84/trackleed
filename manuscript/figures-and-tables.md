@@ -53,10 +53,10 @@ Final artifact:
 - [PDF](figures/figure01_measurement_chain/output/pdf/figure01_measurement_chain.pdf)
 - [render manifest](figures/figure01_measurement_chain/render_manifest.json)
 
-### Figure 2 - Controlled equivariance and energy-scan geometry
+### Figure 2 - Controlled measurement-chain equivariance
 
-**Question:** Does the complete measurement chain recover a known displacement,
-and why is pair distance used for the energy scans?
+**Question:** Does the complete measurement chain recover a known displacement
+while retaining measurement availability and pair invariance?
 
 **Status:** generated and validated.
 
@@ -66,15 +66,12 @@ Proposed panels:
 - **b.** Native-proposal versus Gaussian-refined displacement error.
 - **c.** Gaussian measurement coverage for the five trackers.
 - **d.** Maximum absolute pairwise `Delta D/D` under common translation.
-- **e.** Energy-scan pair geometry showing `D(E)` and midpoint drift as separate
-  quantities.
 
 Primary sources:
 
 - [equivariance results](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/equivariance_results.csv)
 - [pair invariance](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/pair_invariance.csv)
 - [controlled-translation method summary](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv)
-- [energy-scan pair geometry](../.scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair_measurements.csv)
 
 Final artifact:
 
@@ -83,8 +80,8 @@ Final artifact:
 - [PDF](figures/figure02_controlled_equivariance/output/pdf/figure02_controlled_equivariance.pdf)
 - [manifest](figures/figure02_controlled_equivariance/manifest.json)
 
-Required caption limitation: known translations test equivariance, not
-experimental dynamics or absolute spot identity.
+Required caption limitation: known translations assess measurement-chain
+equivariance, not absolute tracking accuracy or identity ground truth.
 
 ### Figure 3 - Five-strategy Ag(111) energy-scan stress test
 
@@ -305,7 +302,18 @@ Final artifact:
 
 ## Supplementary display items
 
-- **Figure S1:** all 24 frozen Cu diagnostic overlays.
+- **Figure S1 — generated and validated:** complete paths and diagnostics for
+  all four independently initialized controlled-translation source trials.
+  Rows show the commanded and Gaussian-refined paths for every spot and
+  method, every available native-versus-refined displacement-error
+  observation, and both pair-invariance trajectories; crosses mark invalid
+  pairs. Known translations assess measurement-chain equivariance and
+  common-estimator behavior, not absolute tracking accuracy or identity
+  ground truth. Final artifact:
+  [README](figures/figure_s1_controlled_translation_trials/README.md),
+  [PNG](figures/figure_s1_controlled_translation_trials/output/figure_s1_controlled_translation_trials.png),
+  [PDF](figures/figure_s1_controlled_translation_trials/output/figure_s1_controlled_translation_trials.pdf),
+  and [manifest](figures/figure_s1_controlled_translation_trials/manifest.json).
 - **Figure S2 — generated and validated:** the nine-element ROI ×
   proposal-to-fit matrix, six one-factor-at-a-time perturbations, all four
   denominator-aware outcomes, signed central-contract gate margins, and the
@@ -359,11 +367,12 @@ Final artifact:
 - **Table S5 — generated and validated:** per-source-trial
   controlled-translation proposal and measurement coverage, conditional
   median/P95/maximum displacement error, pair coverage, and maximum absolute
-  `Delta D/D`. Final artifact:
-  [README](tables/stratified_uncertainty/README.md),
-  [full-precision CSV](tables/stratified_uncertainty/output/controlled_translation_by_trial.csv),
-  [supplement Markdown](tables/stratified_uncertainty/output/table_s5_controlled_translation_by_trial.md),
-  and [manifest](tables/stratified_uncertainty/manifest.json).
+  `Delta D/D`, with explicit fixed and conditional denominators. Final
+  artifact:
+  [README](tables/table_s5_controlled_translation/README.md),
+  [full-precision CSV](tables/table_s5_controlled_translation/output/table_s5_controlled_translation.csv),
+  [supplement Markdown](tables/table_s5_controlled_translation/output/table_s5_controlled_translation.md),
+  and [manifest](tables/table_s5_controlled_translation/manifest.json).
 - **Table S6 — generated and validated:** all 375 full-precision method and
   case results for the 15 sensitivity variants, with fixed opportunity
   denominators and method- and variant-specific conditional n. Final artifact:
@@ -372,8 +381,9 @@ Final artifact:
   [supplement Markdown](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md),
   and [manifest](tables/table_s6_measurement_sensitivity/manifest.json).
 
-The finalized Tables S3 and S5 are documented in the
-[stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md).
+The finalized Table S3 is documented in the
+[stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md),
+and Table S5 has a separate controlled-translation artifact.
 
 ## Asset policy
 

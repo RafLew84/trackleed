@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "status": "completed",
+  "contract_sha256": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+  "source_files_sha256": {
+    ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/build_contract.py": "6de3e8c047a4db78efb08dac3c4fb2e17af98320893bdeed810ae6131dfc9c00",
+    ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/build_results.py": "c30ca211bf74215dc4b3eed3dec6d686af785e06ae5bd5726b973b9a9f19f48e",
+    ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
+    ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/run_tracker.py": "62d19477f0fe946592d9bd689f35cf352cd7a21dcd2f22f0bb70878d5072af09",
+    ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/inference_frames.csv": "247015e43fa30ee300a66d58d195c65b04e1abf686d40822ae2a723c6db55f66",
+    ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/manifest.json": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6",
+    ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_headless.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+    ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/gaussian_measurements.csv": "e6bcb78002f919b85d06329d574f53f3a99f37a0ad1b6db3db4fab42e7c03e92",
+    ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/run_manifest.json": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316",
+    "trackleed/analysis/peak_analyzer.py": "5d6af3da893300f4f8bb36196b73e7ad1584566d1f12f5db9a93bf2bb7013416"
+  },
+  "native_files_sha256": {
+    "dam4sam_sam21pp_l/cu_frame_0000.npz": "6b7c9b173239033b2bc9776ca646577c3d8e745d34bd73d62ddb27e67b764847",
+    "dam4sam_sam21pp_l/cu_frame_0372.npz": "3ada7e3fb517c006d98982aeeddf0227585bf8be8e9e2bbdec2ea1733a0ef2bc",
+    "dam4sam_sam21pp_l/cu_frame_0378.npz": "97ab892042096964b39ac763be8725efdb43961a5153d4d7033ed8b5d9a982c4",
+    "dam4sam_sam21pp_l/cu_frame_0700.npz": "6ccd902cf403dd6b6af3bac4fedbd38c004281177848a987cc6c53f245f3ade5",
+    "dam4sam_sam21pp_l/summary.json": "75c29336eeea288da2f76d76ae360ffaff72dbc87dcf44e4729d915ab72ebc3e",
+    "easyleed_kalman/cu_frame_0000.npz": "11adc56c2c06dce2f495ec968183682c568a0e8b837e525a34a774c0df92b35b",
+    "easyleed_kalman/cu_frame_0372.npz": "6697360f83c67429f52b454b83ae92e09cacd4a4bfc531a0827e089a79e5f39b",
+    "easyleed_kalman/cu_frame_0378.npz": "8b4e9bc18fd4bc3cda20beb4ee8baa7ba77a8a761a72ecfcc7dab371c534ee82",
+    "easyleed_kalman/cu_frame_0700.npz": "cce8657e7c2429e92b55c71430393154f6548e50d6bb5af528ebd6bae76e42fe",
+    "easyleed_kalman/summary.json": "deec263d1ddba298d8e6b6e7c2567a1bcee767eb47684d06cfb71609fc7af322",
+    "locotrack_base_offline/cu_frame_0000.npz": "21fec99f2048bd685d022a51ff6e937f786c13e7cceda483cc726f1b2e2757c8",
+    "locotrack_base_offline/cu_frame_0372.npz": "288d7ddeec6104862af9a4f2f0a662bbc88955e7b8ace290b8234bb75275df7c",
+    "locotrack_base_offline/cu_frame_0378.npz": "382fac8bb25f59c31be0b42351dbc0b34ccc8ddeae32cc6528af2ca7c60c762c",
+    "locotrack_base_offline/cu_frame_0700.npz": "955a022401c5c5c100048a0f5311e6e94c88c0c81abe7dda6159714ac8658221",
+    "locotrack_base_offline/summary.json": "4196926237cb10d6d93e7a61e658bade9a76b98bbc4adffda892f9383324b52d",
+    "lucas_kanade_skip_anchor/cu_frame_0000.npz": "79709efd56072b65e9a03bd08a373a18bbc6d6df579c9f2817b3dbc5e9a11d6f",
+    "lucas_kanade_skip_anchor/cu_frame_0372.npz": "de7146f017dbef94bb87ff0c2b8ae194ccebb6c838fb8f50334d964ebf496fc1",
+    "lucas_kanade_skip_anchor/cu_frame_0378.npz": "dc95aac9858c31eb693ffd34952695b00deddf2d89b7c1eb99211103e7c2b1f0",
+    "lucas_kanade_skip_anchor/cu_frame_0700.npz": "477e1b8fb0f710a7c49b0eab62967a7227a340246f6a4446196191d8da5dac34",
+    "lucas_kanade_skip_anchor/summary.json": "f0f5bde55a9c965be3ce0579d16234b7ed07a17e0558f3825f68663997373f5e",
+    "ostrack_vitb_256_mae_ce/cu_frame_0000.npz": "713ed6ab4d2437673d18c7466883e2ec3303c947d3ba3db573d4670de02ccdb8",
+    "ostrack_vitb_256_mae_ce/cu_frame_0372.npz": "6cdb322541d66b168c27eb493a156bd32ad4a0b67874d0d394bf722b7827f11d",
+    "ostrack_vitb_256_mae_ce/cu_frame_0378.npz": "8179f9981865df4acb64ec3d12e55a556479ae680018fab45402d6c5d64ed85a",
+    "ostrack_vitb_256_mae_ce/cu_frame_0700.npz": "a72fe20d3b61b924a802f329002087b40fcd7a9936862047dd0e9bcaf9195ff8",
+    "ostrack_vitb_256_mae_ce/summary.json": "3759937a0b01dec5dd819a942af551dd3b85a7b4c48a3822eb47248ed424d39c"
+  },
+  "output_files_sha256": {
+    "README.md": "2cecf76760e28e72d5ee9423b28d546443a7313d5b5251bb0db5b09adca571e0",
+    "equivariance_results.csv": "c4b88d34210ef80a5fce9b9f49c51887ee921a4285d841aec3d5954b00d2d13e",
+    "pair_invariance.csv": "2f3ad0fcd751c2f9995ef4c651438e26bd4d6fa26da3e284536f5e8f8378782c",
+    "method_summary.csv": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01",
+    "controlled_translation_summary.png": "7cf0c0e4fd91028f090adbc496301839f015da40cf3ba5f933271d7d92cc23a6",
+    "summary.json": "dbecd5aae5d02d26d2f555946266fbd0a0d56159bd74135cd2eb2329a935eb7a"
+  },
+  "support_files_sha256": {
+    "validate_artifact.py": "4bcde7ae434308cfaf2c3e0c585d16bca4ac3d2dfd2f433c8f783037251925fb",
+    "test_build_contract.py": "c63f9a6e81c270d7326a70d03bc174008756b8be1b58d03d4cc2e44d2c23b9c5",
+    "test_run_tracker.py": "4af7585bad22dccd5abcce79d6404fa747a528fcfe17fe73a620a91d9c03e1b9",
+    "test_build_results.py": "f97d2b0422cfd84ea3b05ff8403b34dedfd812d391336a60ba94d07a146da8d2",
+    "test_validate_artifact.py": "15cf4791d1162e9f523a368a8d65e7725da90610ba0f86b665bff172e2a63698"
+  }
+}

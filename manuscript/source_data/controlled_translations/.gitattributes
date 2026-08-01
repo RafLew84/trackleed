@@ -1,0 +1,4 @@
+*.csv binary
+contract.json binary
+upstream_manifest.json binary
+source_provenance.json text eol=lf

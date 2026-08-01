@@ -6,8 +6,6 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import math
-import statistics
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,21 +23,10 @@ SUPPLEMENT_S3_END_MARKER = "<!-- END TABLE S3 -->"
 SUPPLEMENT_S3_HEADING = (
     "## Table S3 — stratified Ag(111) energy-scan outcomes"
 )
-SUPPLEMENT_S5_BEGIN_MARKER = "<!-- BEGIN TABLE S5 -->"
-SUPPLEMENT_S5_END_MARKER = "<!-- END TABLE S5 -->"
-SUPPLEMENT_S5_HEADING = (
-    "## Table S5 — controlled translations by source trial"
-)
 
 SCAN_LABELS = {
     "26a21": "Scan A",
     "26a21b": "Scan B",
-}
-TRIAL_LABELS = {
-    0: "initial low-temperature state",
-    372: "800 °C plateau onset",
-    378: "post-plateau contraction minimum",
-    700: "final cooled state",
 }
 DISPLAY_METHOD_ORDER = (
     "LocoTrack",
@@ -82,10 +69,6 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def as_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes"}
-
-
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -111,8 +94,8 @@ def validate_source_data() -> dict[str, object]:
     ):
         raise ValueError("Malformed source provenance.")
     sources = provenance["sources"]
-    if not isinstance(sources, list) or len(sources) != 3:
-        raise ValueError("Source provenance must list three frozen tables.")
+    if not isinstance(sources, list) or len(sources) != 1:
+        raise ValueError("Source provenance must list one frozen table.")
     required_keys = {
         "frozen_path",
         "frozen_sha256",
@@ -176,25 +159,9 @@ def validate_source_data() -> dict[str, object]:
             raise ValueError(
                 f"Original source hash changed: {original_path.name}"
             )
-    if optional_original_count != 2:
-        raise ValueError("Exactly two run-workspace originals must be optional.")
+    if optional_original_count != 0:
+        raise ValueError("The committed source original must be required.")
     return provenance
-
-
-def linear_percentile(values: list[float], percentile: float) -> float:
-    """Match the standard linear percentile for a nonempty value list."""
-
-    ordered = sorted(values)
-    position = (len(ordered) - 1) * percentile / 100.0
-    lower_index = math.floor(position)
-    upper_index = math.ceil(position)
-    if lower_index == upper_index:
-        return ordered[lower_index]
-    fraction = position - lower_index
-    return (
-        ordered[lower_index] * (1.0 - fraction)
-        + ordered[upper_index] * fraction
-    )
 
 
 def build_energy_scan_case_table() -> list[dict[str, object]]:
@@ -304,105 +271,6 @@ def build_leave_one_case_out_table() -> list[dict[str, object]]:
         key=lambda row: (
             tuple(SCAN_LABELS.values()).index(str(row["omitted_scan"])),
             str(row["omitted_pair"]),
-            DISPLAY_METHOD_ORDER.index(str(row["method"])),
-        ),
-    )
-
-
-def build_controlled_translation_trial_table() -> list[dict[str, object]]:
-    """Summarize deterministic translation outcomes within each source trial."""
-
-    spot_rows = read_csv(
-        SOURCE_DATA_DIRECTORY / "controlled_translation_spot_results.csv"
-    )
-    pair_rows = read_csv(
-        SOURCE_DATA_DIRECTORY / "controlled_translation_pair_results.csv"
-    )
-    methods = list(dict.fromkeys(row["method"] for row in spot_rows))
-    trials = list(
-        dict.fromkeys(int(row["source_frame_order"]) for row in spot_rows)
-    )
-    display_names = {
-        row["method"]: row["display_method"]
-        for row in spot_rows
-    }
-    roles = {row["method"]: row["role"] for row in spot_rows}
-    output: list[dict[str, object]] = []
-    for trial in trials:
-        for method in methods:
-            trial_spots = [
-                row
-                for row in spot_rows
-                if row["method"] == method
-                and int(row["source_frame_order"]) == trial
-                and as_bool(row["is_evaluation_step"])
-            ]
-            valid_errors = [
-                float(row["measurement_displacement_error_px"])
-                for row in trial_spots
-                if as_bool(row["fit_valid"])
-            ]
-            trial_pairs = [
-                row
-                for row in pair_rows
-                if row["method"] == method
-                and int(row["source_frame_order"]) == trial
-                and as_bool(row["is_evaluation_step"])
-            ]
-            valid_pair_changes = [
-                abs(float(row["delta_d_over_d_percent"]))
-                for row in trial_pairs
-                if as_bool(row["pair_valid"])
-            ]
-            proposal_count = sum(
-                as_bool(row["proposal_available"]) for row in trial_spots
-            )
-            fit_count = sum(
-                as_bool(row["fit_valid"]) for row in trial_spots
-            )
-            valid_pair_count = sum(
-                as_bool(row["pair_valid"]) for row in trial_pairs
-            )
-            proposal_coverage = CountOutcome(
-                proposal_count,
-                len(trial_spots),
-            )
-            measurement_coverage = CountOutcome(
-                fit_count,
-                len(trial_spots),
-            )
-            pair_coverage = CountOutcome(
-                valid_pair_count,
-                len(trial_pairs),
-            )
-            output.append(
-                {
-                    "trial": TRIAL_LABELS[trial],
-                    "temperature_c": int(
-                        float(trial_spots[0]["temperature_c"])
-                    ),
-                    "method": display_names[method],
-                    "role": roles[method],
-                    "proposal_coverage": proposal_coverage.fraction,
-                    "measurement_coverage": measurement_coverage.fraction,
-                    "measurement_error_median_px": statistics.median(
-                        valid_errors
-                    ),
-                    "measurement_error_p95_px": linear_percentile(
-                        valid_errors,
-                        95.0,
-                    ),
-                    "measurement_error_max_px": max(valid_errors),
-                    "pair_coverage": pair_coverage.fraction,
-                    "maximum_abs_delta_d_over_d_pp": max(
-                        valid_pair_changes
-                    ),
-                }
-            )
-    return sorted(
-        output,
-        key=lambda row: (
-            tuple(TRIAL_LABELS.values()).index(str(row["trial"])),
             DISPLAY_METHOD_ORDER.index(str(row["method"])),
         ),
     )
@@ -523,58 +391,6 @@ def render_energy_scan_markdown(
     return "\n".join(lines) + "\n"
 
 
-def render_translation_markdown(
-    rows: list[dict[str, object]],
-) -> str:
-    lines = [
-        (
-            "**Table S5. Controlled-translation outcomes by independently "
-            "initialized source trial.** Each deterministic six-image trial "
-            "contains a seed and five non-seed steps on the same closed path "
-            "of known image translation, yielding 20 spot–step and 10 "
-            "pair–step evaluation opportunities per method. Proposal coverage "
-            "is available native proposals / 20; for the oracle control it is "
-            "constructed-ROI availability / 20. Measurement coverage is "
-            "accepted common Gaussian measurements / 20. Median, 95th-"
-            "percentile, and maximum displacement errors are conditional on "
-            "accepted Gaussian measurements. Pair coverage is jointly valid "
-            "pair measurements / 10, and maximum absolute ΔD/D is conditional "
-            "on jointly valid pair measurements and reported in percentage "
-            "points. The four separately initialized source trials from one "
-            "Cu(111) series are descriptive strata, not four independent "
-            "acquisitions. The oracle ROI is a measurement control, not a "
-            "tracker. No inferential interval, composite score, or overall "
-            "ranking is implied."
-        ),
-        "",
-        (
-            "| Trial | T [°C] | Method | Proposal / constructed-ROI coverage "
-            "| Gaussian measurement coverage | Conditional median / P95 / "
-            "maximum displacement error [px] | Pair coverage | Maximum "
-            "absolute ΔD/D [pp] |"
-        ),
-        "|---|---:|---|---:|---:|---:|---:|---:|",
-    ]
-    for row in rows:
-        lines.append(
-            "| {trial} | {temperature_c} | {reader_method} | "
-            "{proposal_coverage} | "
-            "{measurement_coverage} | {median:.4f} / {p95:.4f} / {maximum:.4f} "
-            "| {pair_coverage} | {pair_max:.6f} |".format(
-                **row,
-                reader_method=str(row["method"]).replace(
-                    "Lucas-Kanade",
-                    "Lucas–Kanade",
-                ),
-                median=float(row["measurement_error_median_px"]),
-                p95=float(row["measurement_error_p95_px"]),
-                maximum=float(row["measurement_error_max_px"]),
-                pair_max=float(row["maximum_abs_delta_d_over_d_pp"]),
-            )
-        )
-    return "\n".join(lines) + "\n"
-
-
 def build_artifact(
     output_directory: Path = OUTPUT_DIRECTORY,
     manifest_path: Path = MANIFEST_PATH,
@@ -585,12 +401,8 @@ def build_artifact(
     output_directory.mkdir(parents=True, exist_ok=True)
     case_rows = build_energy_scan_case_table()
     leave_one_out_rows = build_leave_one_case_out_table()
-    trial_rows = build_controlled_translation_trial_table()
 
     output_paths = {
-        "controlled_translation_by_trial.csv": (
-            output_directory / "controlled_translation_by_trial.csv"
-        ),
         "energy_scan_by_case.csv": (
             output_directory / "energy_scan_by_case.csv"
         ),
@@ -600,14 +412,7 @@ def build_artifact(
         "table_s3_energy_scan_by_case.md": (
             output_directory / "table_s3_energy_scan_by_case.md"
         ),
-        "table_s5_controlled_translation_by_trial.md": (
-            output_directory / "table_s5_controlled_translation_by_trial.md"
-        ),
     }
-    write_csv_rows(
-        output_paths["controlled_translation_by_trial.csv"],
-        trial_rows,
-    )
     write_csv_rows(output_paths["energy_scan_by_case.csv"], case_rows)
     write_csv_rows(
         output_paths["energy_scan_leave_one_case_out.csv"],
@@ -615,11 +420,6 @@ def build_artifact(
     )
     output_paths["table_s3_energy_scan_by_case.md"].write_text(
         render_energy_scan_markdown(case_rows, leave_one_out_rows),
-        encoding="utf-8",
-        newline="\n",
-    )
-    output_paths["table_s5_controlled_translation_by_trial.md"].write_text(
-        render_translation_markdown(trial_rows),
         encoding="utf-8",
         newline="\n",
     )
@@ -634,15 +434,11 @@ def build_artifact(
         "status": "completed",
         "table_status": {
             "Table S3": "finalized",
-            "Table S5": "finalized",
         },
         "builder_sha256": sha256_file(Path(__file__).resolve()),
         "uncertainty_policy": {
             "inference": "descriptive; no confidence intervals or p-values",
             "replication_units": {
-                "controlled_translation": (
-                    "source trial (n=4; one Cu(111) series)"
-                ),
                 "independent_energy_scan": (
                     "series (n=2), stratified by frozen pair (four cases)"
                 ),
@@ -742,15 +538,6 @@ def extract_supplement_s3_block(supplement: str) -> str:
     )
 
 
-def extract_supplement_s5_block(supplement: str) -> str:
-    return _extract_supplement_table(
-        supplement,
-        begin_marker=SUPPLEMENT_S5_BEGIN_MARKER,
-        end_marker=SUPPLEMENT_S5_END_MARKER,
-        table_label="Table S5",
-    )
-
-
 def _sync_supplement_table(
     markdown: str,
     *,
@@ -805,24 +592,10 @@ def sync_supplement_s3(markdown: str) -> None:
     )
 
 
-def sync_supplement_s5(markdown: str) -> None:
-    _sync_supplement_table(
-        markdown,
-        begin_marker=SUPPLEMENT_S5_BEGIN_MARKER,
-        end_marker=SUPPLEMENT_S5_END_MARKER,
-        heading=SUPPLEMENT_S5_HEADING,
-        table_label="Table S5",
-    )
-
-
 def main() -> None:
     build_artifact()
     table_s3_path = OUTPUT_DIRECTORY / "table_s3_energy_scan_by_case.md"
     sync_supplement_s3(table_s3_path.read_text(encoding="utf-8"))
-    table_s5_path = (
-        OUTPUT_DIRECTORY / "table_s5_controlled_translation_by_trial.md"
-    )
-    sync_supplement_s5(table_s5_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 {
-  "claim_limit": "Known translations test measurement-chain equivariance, not experimental dynamics or absolute spot identity.",
+  "claim_limit": "Known translations test measurement-chain equivariance, not absolute tracking accuracy or identity ground truth.",
   "code_sha256": {
-    "build_figure.py": "e8441bbc8693e8e7e8262cce335b525f2d76e197b5c7bf60fbfed8913b35fd83",
-    "figure_contract.py": "0c23581e9b1979be08196eaf86f7d9d67ff892ab1271674924ab217df747aee6",
-    "figure_render.py": "1a48a6f270bc04da4f7ecd0873113ea922bb67e74a8b4ef97be7d9b1d9abb08e",
-    "test_build_figure.py": "1d006dfb76739a5c70b75475da7c30187ef4e5a20807686027a85dfdae58cbf6"
+    "build_figure.py": "c0a2ce48254c98dfa98d55ba3e6aaf5cb74ce3637e028a1d5031e68829af3974",
+    "figure_contract.py": "84e4d23239074056a4a6cb9c4fb7d48f46e24eca738e8a98af24b074ca4cb2f6",
+    "figure_render.py": "f455d60f1957788f44bc63965c5a442986b4ea0ffc77d1d38eb428e5eb38989c",
+    "test_build_figure.py": "a0d0e49f166dbfeae0195059280545dbc3aa09b862895e6d0171eae67de87efb"
   },
   "environment": {
     "matplotlib": "3.10.1",
@@ -14,13 +14,19 @@
   },
   "figure": "Figure 2",
   "outputs_sha256": {
-    "output/figure02_controlled_equivariance.png": "206cdd6e82e7bbc732152032d84581e9bc11cb6b9c13d1cc0a2106542e6fdf5e",
-    "output/pdf/figure02_controlled_equivariance.pdf": "b42c0a38f000b842e07757519229adb3643596022d8f0bf8053999364fdabb11"
+    "output/figure02_controlled_equivariance.png": "54bef1178d5ecfcda12c59424b50ffb2bdc4a9fd5fc9fdd1aa72c5c8fcddd424",
+    "output/pdf/figure02_controlled_equivariance.pdf": "dff32d5ead2394ade61d52bafea67d95e56d3a92525d183378d5298c33075165"
   },
+  "panel_order": [
+    "translation_path",
+    "native_vs_refined_displacement",
+    "measurement_coverage",
+    "pair_invariance"
+  ],
   "rendering": {
     "figure_size_inches": [
       7.2,
-      8.1
+      5.3
     ],
     "font_family": "DejaVu Sans",
     "font_file": "DejaVuSans.ttf",
@@ -43,7 +49,7 @@
     },
     "png_dimensions_px": [
       2880,
-      3240
+      2120
     ],
     "png_dpi": 400
   },
@@ -57,27 +63,18 @@
       "path": ".scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv",
       "sha256": "58bbad76882458ae052e58fb50e6a744f2623a19a1ec57baf69e1a573dc41c01"
     },
-    "energy_scan_branch_measurements": {
-      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/scan_measurements.csv",
-      "sha256": "2fb9b8ace5d50fe25f0411b488ea26f8998359f81034f83540d61c7497a7970d"
-    },
-    "energy_scan_pair_measurements": {
-      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair_measurements.csv",
-      "sha256": "da43c8b0a715340001b733fb83f5e518f9c2b825434aa6f61142d59f6582fe70"
-    },
     "representative_cu_raw_image": {
       "path": "data/25w28_ThExten_56eV_UD/Cu(111)G_0000_T0010_E0560_C0000.tiff",
       "sha256": "fcff874ed7c3cb97fd3952d52618e5f8943dfbc79e064bc78f57ecac94336283"
     }
   },
   "source_data_sha256": {
-    "source_data/energy_geometry.csv": "593debb207689403a080225f5124d6ba4e18f4685a40c3fe86ec3f03cd12693c",
     "source_data/method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
     "source_data/representative_cu_crop.json": "ddcce9d7bdb1f24efa92abbb05dda9b1ba9575f4d32da2393cad85d96c3ff1bb",
     "source_data/representative_cu_crop.png": "ad47e3b6ecaa926e9ab1e90cffec0d1d54227dc45d98c34cb041644472252ea1",
-    "source_data/source_provenance.json": "ef4aa3ba144a3ee4a7386cbcf585001a3741ab3e2ac12b986a63f4b3ab1ed5f9",
+    "source_data/source_provenance.json": "25fa3c79d2b8f5b6b9c3a9be22728f46698b87d766cbe8d3789547cdc3538fd1",
     "source_data/translation_path.csv": "921267e579f0d152e9a5de6d12d032b651f8d2329a58ee82195d8b66f10f7536"
   },
   "status": "completed",
-  "title": "Controlled equivariance and energy-scan geometry"
+  "title": "Controlled measurement-chain equivariance"
 }
