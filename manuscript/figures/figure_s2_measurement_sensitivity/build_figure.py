@@ -2,17 +2,17 @@
 
 from pathlib import Path
 
-from trackleed.publication.scientific_sensitivity_bundle import (
-    SENSITIVITY_SOURCE_RELATIVE_PATH,
-)
 from trackleed.publication.scientific_sensitivity_figure import (
     build_figure_s2_artifact,
+)
+from trackleed.publication.scientific_sensitivity_paths import (
+    sensitivity_source_root,
 )
 
 
 ARTIFACT_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ARTIFACT_ROOT.parents[2]
-SOURCE_DATA_ROOT = REPO_ROOT / SENSITIVITY_SOURCE_RELATIVE_PATH
+SOURCE_DATA_ROOT = sensitivity_source_root(REPO_ROOT)
 
 
 if __name__ == "__main__":

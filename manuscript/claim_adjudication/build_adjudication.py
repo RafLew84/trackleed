@@ -7,14 +7,14 @@ from trackleed.publication.scientific_claim_adjudication import (
     build_claim_adjudication,
     confirm_claim_adjudication,
 )
-from trackleed.publication.scientific_sensitivity_bundle import (
-    SENSITIVITY_SOURCE_RELATIVE_PATH,
+from trackleed.publication.scientific_sensitivity_paths import (
+    sensitivity_source_root,
 )
 
 
 ARTIFACT_ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ARTIFACT_ROOT.parents[1]
-SOURCE_DATA_ROOT = REPO_ROOT / SENSITIVITY_SOURCE_RELATIVE_PATH
+SOURCE_DATA_ROOT = sensitivity_source_root(REPO_ROOT)
 
 
 def main() -> None:

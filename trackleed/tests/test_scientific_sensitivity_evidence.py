@@ -25,10 +25,14 @@ from trackleed.publication.scientific_claim_adjudication import (
 from trackleed.publication.scientific_sensitivity_bundle import (
     validate_sensitivity_publication_bundle,
 )
+from trackleed.publication.scientific_sensitivity_paths import (
+    SensitivityPublicationPaths,
+    sensitivity_source_root,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOURCE_ROOT = REPO_ROOT / "manuscript" / "source_data" / "measurement_sensitivity"
+SOURCE_ROOT = sensitivity_source_root(REPO_ROOT)
 TABLE_ROOT = REPO_ROOT / "manuscript" / "tables" / "table_s6_measurement_sensitivity"
 FIGURE_ROOT = (
     REPO_ROOT / "manuscript" / "figures" / "figure_s2_measurement_sensitivity"
@@ -470,13 +474,15 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     / "output"
                     / "sensitivity"
                 ),
-                sensitivity_source_root=root / "source-data",
-                table_root=root / "table-s6",
-                figure_root=root / "figure-s2",
-                adjudication_root=root / "claim-adjudication",
-                supplementary_material_path=supplement,
-                adjudication_contract_path=(
-                    ADJUDICATION_ROOT / "adjudication_contract.json"
+                paths=SensitivityPublicationPaths(
+                    source_root=root / "source-data",
+                    table_root=root / "table-s6",
+                    figure_root=root / "figure-s2",
+                    adjudication_root=root / "claim-adjudication",
+                    supplementary_material=supplement,
+                    adjudication_contract=(
+                        ADJUDICATION_ROOT / "adjudication_contract.json"
+                    ),
                 ),
             )
 
@@ -526,13 +532,15 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     / "output"
                     / "sensitivity"
                 ),
-                sensitivity_source_root=source_root,
-                table_root=table_root,
-                figure_root=figure_root,
-                adjudication_root=adjudication_root,
-                supplementary_material_path=supplement,
-                adjudication_contract_path=(
-                    ADJUDICATION_ROOT / "adjudication_contract.json"
+                paths=SensitivityPublicationPaths(
+                    source_root=source_root,
+                    table_root=table_root,
+                    figure_root=figure_root,
+                    adjudication_root=adjudication_root,
+                    supplementary_material=supplement,
+                    adjudication_contract=(
+                        ADJUDICATION_ROOT / "adjudication_contract.json"
+                    ),
                 ),
             )
 
