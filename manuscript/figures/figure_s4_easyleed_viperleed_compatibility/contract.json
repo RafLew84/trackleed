@@ -1,0 +1,15 @@
+{
+  "figure": "Figure S4",
+  "schema_version": "1.0",
+  "status": "source_contract_frozen",
+  "title": "EasyLEED-ViPErLEED compatibility under the common Gaussian estimator",
+  "methods": ["EasyLEED", "ViPErLEED"],
+  "frame_count": 15,
+  "branch_opportunities_per_method": 60,
+  "part_of_main_five_method_matrix": false,
+  "claim_limits": [
+    "ViPErLEED is a separate whole-pattern external reference, not a sixth method in the five-strategy matrix.",
+    "The comparison assesses compatibility under different initialization contracts and does not supply position or identity ground truth.",
+    "Pair residuals are conditional on five valid P1 images and three valid P2 images per method."
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "branch_gap_checks_per_method": "4/4",
+  "branch_opportunities_per_method": 60,
+  "claims_position_ground_truth": false,
+  "conditional_pair_frames_per_method": {
+    "P1": 5,
+    "P2": 3
+  },
+  "cross_method_contract_agreement_px": {
+    "common_center_distance_maximum": 0.024036728374994654,
+    "common_center_distance_median": 0.0009857897447900941,
+    "jointly_valid_common_centers": 38,
+    "native_proposal_distance_maximum": 1.69552331430677,
+    "native_proposal_distance_median": 0.6256103065878225,
+    "native_proposal_pairs": 60
+  },
+  "energy_range_ev": [
+    187.9,
+    220.2
+  ],
+  "frame_count": 15,
+  "initialization_contracts": {
+    "EasyLEED": "one Kalman tracker per frozen spot",
+    "ViPErLEED": "registered 18-beam whole-pattern trajectory"
+  },
+  "methods": [
+    "EasyLEED",
+    "ViPErLEED"
+  ],
+  "part_of_main_five_method_matrix": false,
+  "per_method": {
+    "EasyLEED": {
+      "pair_median_abs_residual_px": {
+        "P1": 0.46152634953296,
+        "P2": 0.7618937213718482
+      },
+      "per_branch_valid_common_fits": {
+        "P1_B1": 13,
+        "P1_B2": 7,
+        "P2_B1": 13,
+        "P2_B2": 5
+      }
+    },
+    "ViPErLEED": {
+      "pair_median_abs_residual_px": {
+        "P1": 0.46033446939969735,
+        "P2": 0.7601447007832576
+      },
+      "per_branch_valid_common_fits": {
+        "P1_B1": 13,
+        "P1_B2": 7,
+        "P2_B1": 13,
+        "P2_B2": 5
+      }
+    }
+  },
+  "scientific_label": "Restricted high-energy external reference",
+  "valid_common_fits_per_method": 38
+}

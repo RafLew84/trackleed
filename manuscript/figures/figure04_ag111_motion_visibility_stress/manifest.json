@@ -1,0 +1,123 @@
+{
+  "claim_limits": [
+    "The independent energy scans are a physics-constrained stress test, not dense-manual-ground-truth accuracy.",
+    "Coverage and post-gap recovery must be presented before the conditional pair-distance residual.",
+    "Geometry-inconsistent accepted fits indicate possible false continuity, not externally proven identity switches.",
+    "The external EasyLEED-ViPErLEED compatibility check and pair-midpoint drift remain in separate supplementary figures."
+  ],
+  "code_sha256": {
+    "build_figure.py": "a807659c76728672aa9a0f665413ff1c4f99ba786b16e84788a35253f297a888",
+    "figure_contract.py": "153a11b36928dd361e5aee57f5a30095e403a14f5083a6e634d5126830d2ad8e",
+    "figure_render.py": "7d9799895bb00c521c0b2dbd4da75d7f1c6c99532b2c17f5aabf849a90619c74",
+    "figure_test_support.py": "33f238cf6c0a7a4b972d3699926677aacef73172aa09375f851e8902d0892ccb",
+    "freeze_source_data.py": "8df63920858142fd0f82c70f99144d2de828d1f9e4b84b460dcfb991391624ba",
+    "test_build_figure.py": "eb1ccd26f4b35d7c71e64f35d3509ddc74a7fe53f59ffc0f3d65ed546e39b27f",
+    "test_freeze_source_data.py": "93ac626387572d4549207b4a6d8426b3e25c39b0cb8ea19912f1dc2cccfc4109"
+  },
+  "contract_sha256": "7f43532dcc95c36f48ce952a75b4c1efbe4659e999dc446918b902f0766f4444",
+  "environment": {
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
+  },
+  "figure": "Figure 4",
+  "outputs_sha256": {
+    "output/figure04_ag111_motion_visibility_stress.png": "6d277659b798ccdfef9f06af8f0f47f5fe4b6ed50b8bea539554046e06860cb0",
+    "output/pdf/figure04_ag111_motion_visibility_stress.pdf": "b4e08812a42f0ec2362d69fc73a2da27eec5308465cfcb31a8c06e8f978b5300"
+  },
+  "rendering": {
+    "figure_size_inches": [
+      7.2,
+      7.4
+    ],
+    "font_family": "DejaVu Sans",
+    "font_file": "DejaVuSans.ttf",
+    "font_sizes_pt": {
+      "axis_label": 7.2,
+      "axis_title": 8.0,
+      "base": 7.2,
+      "card_header": 7.0,
+      "legend": 6.1,
+      "minor_annotation": 5.8,
+      "panel_label": 9.0,
+      "tick_label": 6.5,
+      "value_annotation": 6.2
+    },
+    "method_palette": {
+      "dam4sam": "#009E73",
+      "easyleed": "#D55E00",
+      "lk": "#CC79A7",
+      "locotrack": "#0072B2",
+      "ostrack": "#E69F00"
+    },
+    "panel_order": [
+      "representative_trajectory",
+      "measurement_coverage",
+      "gap_recovery",
+      "geometry_inconsistency",
+      "conditional_pair_residual"
+    ],
+    "png_dimensions_px": [
+      2880,
+      2960
+    ],
+    "png_dpi": 400,
+    "representative_trajectory_encoding": {
+      "grouping": "image frame; repeated energies retained",
+      "maximum_cross_method_range_px": 0.06604708906252199,
+      "method_specific_markers": false,
+      "point": "cross-method median of available valid Gaussian pair measurements",
+      "whisker": "cross-method minimum-to-maximum"
+    }
+  },
+  "schema_version": "1.0",
+  "source_artifacts": {
+    "independent_aggregate": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv",
+      "sha256": "5426c6dd5de7e1b5dbd0e84aac39833bb226c489f7a4ad9473c6aee034726392"
+    },
+    "independent_case_results": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/case_results.csv",
+      "sha256": "70d335cf5d811a39579d6b13bd835944b2c098081de1f90fe6bd9dd06a646f71"
+    },
+    "independent_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/summary.json",
+      "sha256": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61"
+    },
+    "representative_pair_dam4sam": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/trackers/dam4sam_pair_measurements.csv",
+      "sha256": "0b272dd3a31d54a11dec7c202bc9be577471a628c16915fde21818792744bb24"
+    },
+    "representative_pair_easyleed": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/easyleed/easyleed_pair_measurements.csv",
+      "sha256": "2ef4499dcad36a800a7be3c9d95262bbba402fc39da9d39a3b9e8d36cce00ff9"
+    },
+    "representative_pair_lk": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/lk_pair_measurements.csv",
+      "sha256": "7fd72ecd81093872569c4cea80cf02d0350e8b9dd30e1c86f8abf9c7a8df4276"
+    },
+    "representative_pair_locotrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/locotrack_pair_measurements.csv",
+      "sha256": "78244dc8dba5175b10f52ac46ff035a61de388029f03ca4e1a07beb6b8dc8193"
+    },
+    "representative_pair_ostrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/ostrack_pair_measurements.csv",
+      "sha256": "573d8f995ac771bb7be661590832919316ee60eef60ba61ac5e9537b4e81ae07"
+    },
+    "representative_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/scan_measurements.csv",
+      "sha256": "7acbbe4a9022a3b4f6848b4e5bab69722626d9680765201e6fd54c34661749d3"
+    }
+  },
+  "source_data_sha256": {
+    "source_data/aggregate_method_results.csv": "30e50bfbd328d1595afec5fa7e2aa186fc3d0fb19417acd633f76b2f56b256ea",
+    "source_data/case_results.csv": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48",
+    "source_data/representative_case.json": "099da76f76ca6f8249a96521064db556bd1aaed420a4921265242504c6239b53",
+    "source_data/representative_pair_measurements.csv": "1b3620acabfcc2c8e5cdd3451439bb631f0e7de0a0b61f01822a61395d9c4dd9",
+    "source_data/representative_visibility_regimes.csv": "4063255d663c2884c4125465de3a6db721f278be15b6f2fea8e200ea2f864cda",
+    "source_data/source_provenance.json": "ac9e227b5dd7840a226d9bafd86a78bd8a84432cb6ad34810929b3e1db91bc82"
+  },
+  "status": "completed",
+  "title": "Ag(111) motion and visibility-gap stress test"
+}

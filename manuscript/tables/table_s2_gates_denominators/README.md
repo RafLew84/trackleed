@@ -27,11 +27,13 @@ proposal, Gaussian, and branch-consistency gates.
   repository-stable LF line endings; provenance retains both frozen and
   original SHA-256 hashes.
 - `source_data/source_provenance.json` links each snapshot to its origin and
-  validates frozen SHA-256 hashes. Committed origins are checked during every
-  build; the two original run-workspace paths are optional audit locations,
-  because the committed snapshots make a clean checkout self-contained.
-  Text origins whose working-tree line endings can differ are also checked
-  against an explicit LF-normalized hash.
+  validates frozen SHA-256 hashes. Current committed origins are checked during
+  every build; the two original run-workspace paths are optional audit
+  locations because the committed snapshots make a clean checkout
+  self-contained. The historical `peak_analyzer.py` executed source is pinned
+  to its originating commit, so later compatible API changes do not rewrite
+  the scientific record. Text origins whose working-tree line endings can
+  differ are checked against an explicit LF-normalized hash.
 - `build_table.py` validates the numerical contracts, creates three
   machine-readable CSV files and the three-block Markdown table, and
   synchronizes the generated Table S2 block in

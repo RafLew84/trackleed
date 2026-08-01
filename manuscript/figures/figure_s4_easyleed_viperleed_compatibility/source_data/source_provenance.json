@@ -1,0 +1,26 @@
+{
+  "figure": "Figure S4",
+  "schema_version": "1.0",
+  "sources": {
+    "common_measurements.csv": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/common_measurements.csv",
+      "sha256": "08f8791d4ad7d83925588eb58e4da4e2ac12134ab649f07c9e2394324907a4fc"
+    },
+    "common_pair_measurements.csv": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/common_pair_measurements.csv",
+      "sha256": "3376a0cff3772498eb0df08dc358b0dc050eb3bfef525c01406a61c95b5c325e"
+    },
+    "gap_recovery.csv": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/gap_recovery.csv",
+      "sha256": "1a7798175f2e3658e7f6b60d46566edf3213984e31c8769ada35cb581455cf43"
+    },
+    "input_manifest.csv": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/input_manifest.csv",
+      "sha256": "059f80d89e6465997647f8d8a509224c265d53054077f3a3130095f8913a07b6"
+    },
+    "summary.json": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/summary.json",
+      "sha256": "390c49a88c10b9e76f6e47fd7d9c208348b507c4948b0630b606e5510ad69e3b"
+    }
+  }
+}

@@ -17,6 +17,21 @@ SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 
 
 class GatesDenominatorsTableTest(unittest.TestCase):
+    def test_historical_peak_analyzer_origin_is_commit_pinned(self) -> None:
+        provenance = build_table.validate_provenance()
+        source = next(
+            source
+            for source in provenance["sources"]
+            if source["origin_path"] == "trackleed/analysis/peak_analyzer.py"
+        )
+
+        self.assertFalse(source["origin_required_at_build"])
+        self.assertEqual(
+            source["origin_commit"],
+            "f105b0a66d6abfeb93caf549bb72097085a6a4aa",
+        )
+        self.assertEqual(source["origin_lf_sha256"], source["frozen_sha256"])
+
     def test_gate_contract_preserves_regime_specific_boundaries(self) -> None:
         rows = build_table.load_and_validate_gates()
         rendered = build_table.render_markdown(
@@ -158,8 +173,11 @@ class GatesDenominatorsTableTest(unittest.TestCase):
                 source["frozen_sha256"],
             )
             if not source.get("origin_required_at_build", True):
-                self.assertTrue(source["origin_path"].startswith(".scratch/"))
-            if "origin_lf_sha256" in source:
+                self.assertTrue(
+                    source["origin_path"].startswith(".scratch/")
+                    or "origin_commit" in source
+                )
+            if "origin_lf_sha256" in source and "origin_commit" not in source:
                 origin_path = build_table.REPOSITORY_ROOT / source["origin_path"]
                 self.assertEqual(
                     build_table.sha256_lf_normalized_text(origin_path),
@@ -200,6 +218,7 @@ class GatesDenominatorsTableTest(unittest.TestCase):
             source
             for source in provenance["sources"]
             if not source.get("origin_required_at_build", True)
+            and source["origin_path"].startswith(".scratch/")
         ]
         self.assertEqual(len(optional), 2)
         self.assertTrue(
@@ -210,9 +229,9 @@ class GatesDenominatorsTableTest(unittest.TestCase):
         only_one = json.loads(json.dumps(provenance))
         only_one["sources"][0]["origin_required_at_build"] = True
         mutations.append(only_one)
-        committed_optional = json.loads(json.dumps(provenance))
-        committed_optional["sources"][2]["origin_required_at_build"] = False
-        mutations.append(committed_optional)
+        unpinned_committed_optional = json.loads(json.dumps(provenance))
+        del unpinned_committed_optional["sources"][2]["origin_commit"]
+        mutations.append(unpinned_committed_optional)
         for changed in mutations:
             with tempfile.TemporaryDirectory() as temporary_directory:
                 path = Path(temporary_directory) / "provenance.json"

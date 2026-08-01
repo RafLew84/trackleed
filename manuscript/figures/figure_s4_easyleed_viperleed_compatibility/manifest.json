@@ -1,0 +1,44 @@
+{
+  "branch_opportunities_per_method": 60,
+  "claims_position_ground_truth": false,
+  "code_sha256": {
+    "build_figure.py": "f03201c6bc052c4081ed84cd6f2a6c9b8492069a5cb621979c6e582d71a6d728",
+    "freeze_source_data.py": "a0cf49b908df718e7cb3a9410aef81ef88314d8cbd812b21c17f7de02fa3a382",
+    "test_build_figure.py": "ad8b93617cb4865cfe2c661302e04ebd968eacfbcc97733781a3d148d629e7f5"
+  },
+  "conditional_pair_frames_per_method": {
+    "P1": 5,
+    "P2": 3
+  },
+  "contract_sha256": "47333fb763d85e5781ac86bba9ce38b3494e2481d13a719cf304ab34055a06f2",
+  "environment": {
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
+  },
+  "figure": "Figure S4",
+  "outputs": {
+    "pdf": {
+      "path": "output/pdf/figure_s4_easyleed_viperleed_compatibility.pdf",
+      "sha256": "c169d39ba89ce15cdca37530d1b0edb8cf865aaf4cd650740bb1868ffed8250e"
+    },
+    "png": {
+      "path": "output/figure_s4_easyleed_viperleed_compatibility.png",
+      "sha256": "2513b79051f107e289d5653ad1c7221e0b3fa09bdeb63c8af7e633bf61a7e6e8"
+    }
+  },
+  "part_of_main_five_method_matrix": false,
+  "schema_version": "1.0",
+  "source_data_sha256": {
+    "source_data/common_measurements.csv": "08f8791d4ad7d83925588eb58e4da4e2ac12134ab649f07c9e2394324907a4fc",
+    "source_data/common_pair_measurements.csv": "3376a0cff3772498eb0df08dc358b0dc050eb3bfef525c01406a61c95b5c325e",
+    "source_data/compatibility_contract.json": "d468292eca824210b71c2f18060e7d86e0cb83daf25c9ba7d4a62325cdefe4b8",
+    "source_data/gap_recovery.csv": "1a7798175f2e3658e7f6b60d46566edf3213984e31c8769ada35cb581455cf43",
+    "source_data/input_manifest.csv": "059f80d89e6465997647f8d8a509224c265d53054077f3a3130095f8913a07b6",
+    "source_data/source_provenance.json": "d3db4ac6179a941ca1684517abb6a153cb5076d8cf3bb4e926288dc955181aa0"
+  },
+  "status": "completed",
+  "title": "EasyLEED-ViPErLEED compatibility under the common Gaussian estimator",
+  "valid_common_fits_per_method": 38
+}

@@ -1,0 +1,24 @@
+{
+  "figure": "Figure S3",
+  "schema_version": "1.0",
+  "status": "source_contract_frozen",
+  "title": "Ag(111) pair-midpoint drift and apparatus/projection diagnostics",
+  "case_order": [
+    "scan_a_pair_1",
+    "scan_a_pair_2",
+    "scan_b_pair_1",
+    "scan_b_pair_2"
+  ],
+  "displayed_quantities": [
+    "pair-distance residual relative to the frozen radial law",
+    "pair-midpoint x displacement",
+    "pair-midpoint y displacement",
+    "pair-midpoint displacement magnitude",
+    "branch-specific frozen visibility regime"
+  ],
+  "claim_limits": [
+    "Pair-midpoint motion is an apparatus/projection nuisance diagnostic and is not absorbed into tracker error.",
+    "The expected radial law is a physics-constrained consistency reference, not image-by-image absolute position ground truth.",
+    "Only valid pair measurements are plotted; missing pair positions are not interpolated or connected."
+  ]
+}

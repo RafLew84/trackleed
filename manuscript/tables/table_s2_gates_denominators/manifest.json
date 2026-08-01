@@ -8,10 +8,10 @@
   },
   "schema_version": 1,
   "sources": {
-    "build_table.py": "c9cb111e6591861eae76385cf2df15f29cc8aa647a5c12afb6c90fceffe17770",
+    "build_table.py": "6df1656af784a27666c676fd0a9be40b1e5d57a37f0ea920dad3557297643303",
     "source_data/denominator_records.csv": "21d0510a9fce1bbd7e220ebb0aff260bd26ed50964ca60777ac062aaccbf4e3e",
     "source_data/gate_records.csv": "17410b0bdaee0c36291651793aba1a092cac18c014dc4267106daec6a2be412d",
-    "source_data/source_provenance.json": "14b6bfe16af6a571948ef9180298f5e3a6a221550b130f034fc029fd9a486156",
+    "source_data/source_provenance.json": "01c9c2a8ba7bb5946ad24bc07b383f1d9790adcbf3e1958b6ed0555eee74db0c",
     "source_data/upstream_contracts/controlled_translation_method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
     "source_data/upstream_contracts/executed_sources/cu_measurement_runner.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
     "source_data/upstream_contracts/executed_sources/energy_measurement_runner.py": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",

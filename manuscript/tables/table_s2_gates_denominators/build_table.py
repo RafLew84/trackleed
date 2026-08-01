@@ -120,6 +120,14 @@ def _validate_sha256(value: object, *, field: str) -> None:
         raise ValueError(f"Malformed SHA-256 in {field}: {digest}")
 
 
+def _validate_git_commit(value: object) -> None:
+    commit = str(value)
+    if len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
+        raise ValueError(f"Malformed Git commit: {commit}")
+
+
 def read_csv_dicts(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
@@ -209,8 +217,13 @@ def validate_provenance() -> dict[str, object]:
         "origin_sha256",
         "role",
     }
-    optional_keys = {"origin_required_at_build", "origin_lf_sha256"}
-    optional_origin_count = 0
+    optional_keys = {
+        "origin_commit",
+        "origin_required_at_build",
+        "origin_lf_sha256",
+    }
+    optional_run_workspace_count = 0
+    historical_origin_count = 0
     for source in sources:
         if (
             not isinstance(source, dict)
@@ -229,13 +242,31 @@ def validate_provenance() -> dict[str, object]:
                 or not source[text_key].strip()
             ):
                 raise ValueError(f"Malformed provenance field: {text_key}")
-        if not source.get("origin_required_at_build", True):
+        origin_required = source.get("origin_required_at_build", True)
+        if not origin_required:
             origin_parts = Path(str(source["origin_path"])).parts
-            if not origin_parts or origin_parts[0] != ".scratch":
-                raise ValueError(
-                    "Only .scratch run-workspace origins may be optional."
-                )
-            optional_origin_count += 1
+            if origin_parts and origin_parts[0] == ".scratch":
+                if "origin_commit" in source:
+                    raise ValueError(
+                        "Run-workspace origins cannot declare origin_commit."
+                    )
+                optional_run_workspace_count += 1
+            else:
+                origin_commit = source.get("origin_commit")
+                if not isinstance(origin_commit, str):
+                    raise ValueError(
+                        "Historical committed origins require origin_commit."
+                    )
+                _validate_git_commit(origin_commit)
+                if source.get("origin_lf_sha256") != source["frozen_sha256"]:
+                    raise ValueError(
+                        "Historical origin must match the frozen LF snapshot."
+                    )
+                historical_origin_count += 1
+        elif "origin_commit" in source:
+            raise ValueError(
+                "origin_commit is only valid for historical optional origins."
+            )
         _validate_sha256(source["frozen_sha256"], field="frozen_sha256")
         _validate_sha256(source["origin_sha256"], field="origin_sha256")
         if "origin_lf_sha256" in source:
@@ -273,10 +304,12 @@ def validate_provenance() -> dict[str, object]:
         else:
             origin_digest = sha256_file(origin_path)
             expected_origin_digest = source["origin_sha256"]
-        if origin_digest != expected_origin_digest:
+        if origin_digest != expected_origin_digest and "origin_commit" not in source:
             raise ValueError(f"Origin hash mismatch: {source['origin_path']}")
-    if optional_origin_count != 2:
+    if optional_run_workspace_count != 2:
         raise ValueError("Exactly two run-workspace origins must be optional.")
+    if historical_origin_count != 1:
+        raise ValueError("Exactly one committed origin must be history-pinned.")
     return loaded
 
 

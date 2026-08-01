@@ -1,0 +1,42 @@
+{
+  "figure": "Figure 4",
+  "schema_version": "1.0",
+  "sources": {
+    "independent_aggregate": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv",
+      "sha256": "5426c6dd5de7e1b5dbd0e84aac39833bb226c489f7a4ad9473c6aee034726392"
+    },
+    "independent_case_results": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/case_results.csv",
+      "sha256": "70d335cf5d811a39579d6b13bd835944b2c098081de1f90fe6bd9dd06a646f71"
+    },
+    "independent_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/summary.json",
+      "sha256": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61"
+    },
+    "representative_pair_dam4sam": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/trackers/dam4sam_pair_measurements.csv",
+      "sha256": "0b272dd3a31d54a11dec7c202bc9be577471a628c16915fde21818792744bb24"
+    },
+    "representative_pair_easyleed": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/easyleed/easyleed_pair_measurements.csv",
+      "sha256": "2ef4499dcad36a800a7be3c9d95262bbba402fc39da9d39a3b9e8d36cce00ff9"
+    },
+    "representative_pair_lk": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/lk_pair_measurements.csv",
+      "sha256": "7fd72ecd81093872569c4cea80cf02d0350e8b9dd30e1c86f8abf9c7a8df4276"
+    },
+    "representative_pair_locotrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/locotrack_pair_measurements.csv",
+      "sha256": "78244dc8dba5175b10f52ac46ff035a61de388029f03ca4e1a07beb6b8dc8193"
+    },
+    "representative_pair_ostrack": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/representatives/ostrack_pair_measurements.csv",
+      "sha256": "573d8f995ac771bb7be661590832919316ee60eef60ba61ac5e9537b4e81ae07"
+    },
+    "representative_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/scan_measurements.csv",
+      "sha256": "7acbbe4a9022a3b4f6848b4e5bab69722626d9680765201e6fd54c34661749d3"
+    }
+  }
+}

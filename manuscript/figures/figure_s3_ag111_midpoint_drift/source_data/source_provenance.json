@@ -1,0 +1,38 @@
+{
+  "figure": "Figure S3",
+  "schema_version": "1.0",
+  "sources": {
+    "scan_a_pair_1:frozen_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/scan_measurements.csv",
+      "sha256": "9831c4d2bdf78f65b2a0b8bfd03d783e139d43bc5bd296e22d2a22380206c5ae"
+    },
+    "scan_a_pair_1:physics_pair_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair1/pair_measurements.csv",
+      "sha256": "dd4356bea918493734be4a9dd4e9c19d5d21c85b4080b2ef327dcc867d9ddc2e"
+    },
+    "scan_a_pair_2:frozen_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/scan_measurements.csv",
+      "sha256": "7acbbe4a9022a3b4f6848b4e5bab69722626d9680765201e6fd54c34661749d3"
+    },
+    "scan_a_pair_2:physics_pair_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21/pair2/pair_measurements.csv",
+      "sha256": "d995b3855e123dc6fb45b1cc7c345600035ec3cd4971250bc60166f6eab823bc"
+    },
+    "scan_b_pair_1:frozen_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/scan_measurements.csv",
+      "sha256": "0431b7d15161277ab47f5e6f0ce3154cd5630cef3b55cf81762fda7f7bc3cf2d"
+    },
+    "scan_b_pair_1:physics_pair_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair1/pair_measurements.csv",
+      "sha256": "609d0e8e7076fe80f843a88c1515a2730d467a243bb35d22163f7332adc245d5"
+    },
+    "scan_b_pair_2:frozen_visibility_regimes": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/scan_measurements.csv",
+      "sha256": "e3ad7a2fd9235c84769caa262be7ac3e0a767142ec4b2787a682e5bd3344c763"
+    },
+    "scan_b_pair_2:physics_pair_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/26a21b/pair2/pair_measurements.csv",
+      "sha256": "7cfc9e6ec91db72734f347575e2a4e857da7515ddc7b4cf3bf69a2ac859d5c4e"
+    }
+  }
+}

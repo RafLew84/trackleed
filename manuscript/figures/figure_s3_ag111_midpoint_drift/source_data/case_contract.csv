@@ -1,0 +1,5 @@
+case_id,series,pair,frame_count,valid_pair_frames,visibility_branch_frames
+scan_a_pair_1,Scan A,pair 1,35,17,70
+scan_a_pair_2,Scan A,pair 2,35,20,70
+scan_b_pair_1,Scan B,pair 1,46,25,92
+scan_b_pair_2,Scan B,pair 2,46,27,92

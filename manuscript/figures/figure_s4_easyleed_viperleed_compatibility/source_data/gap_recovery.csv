@@ -1,0 +1,9 @@
+method,pair,gap_index,branch,gap_start_frame,gap_end_frame,gap_start_energy_ev,gap_end_energy_ev,gap_frame_count,common_fit_absent_all_gap_frames,recovery_frames,recovery_fit_valid,all_duplicate_recovery_frames_valid
+EasyLEED,P1,1,P1_B2,55,57,190.6,195.9,3,True,58,True,True
+EasyLEED,P1,2,P1_B2,62,66,209.3,219.8,5,True,67|68,True,True
+EasyLEED,P2,3,P2_B2,55,58,190.6,198.6,4,True,59,True,True
+EasyLEED,P2,4,P2_B2,61,66,206.6,219.8,6,True,67|68,True,True
+ViPErLEED,P1,1,P1_B2,55,57,190.6,195.9,3,True,58,True,True
+ViPErLEED,P1,2,P1_B2,62,66,209.3,219.8,5,True,67|68,True,True
+ViPErLEED,P2,3,P2_B2,55,58,190.6,198.6,4,True,59,True,True
+ViPErLEED,P2,4,P2_B2,61,66,206.6,219.8,6,True,67|68,True,True

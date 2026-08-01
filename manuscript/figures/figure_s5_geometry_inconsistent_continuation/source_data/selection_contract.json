@@ -1,0 +1,22 @@
+{
+  "accepted_fit_denominator_by_method": {
+    "dam4sam": 272,
+    "easyleed": 222,
+    "lk": 206,
+    "locotrack": 272,
+    "ostrack": 269
+  },
+  "branch_consistency_gate_px": 18.0,
+  "examples_are_ground_truth_identity_switches": false,
+  "geometry_inconsistent_count_by_method": {
+    "dam4sam": 36,
+    "easyleed": 4,
+    "lk": 14,
+    "locotrack": 36,
+    "ostrack": 34
+  },
+  "schema_version": "1.0",
+  "selection_rule": "For each method in the frozen display order, scan frozen cases in Scan A pair 1, Scan A pair 2, Scan B pair 1, Scan B pair 2 order and select the first frame/branch row that is an accepted Gaussian fit outside the 18 px branch-consistency gate.",
+  "selection_uses_error_magnitude": false,
+  "supports_tracker_ranking": false
+}

@@ -1,0 +1,47 @@
+{
+  "case_count": 4,
+  "claims_absolute_position_accuracy": false,
+  "code_sha256": {
+    "build_figure.py": "3f8623590d4192a8d8ec4fba8390198ea6d0ea551b82dfe63cad365700910db0",
+    "freeze_source_data.py": "f183125fca1d2f314de75b0703d9e1aab39c353faf08972815fa946d7a57e7e0",
+    "test_build_figure.py": "f17cfa2bbf981f574520602dddcfc2678aca27fe529baf0ee62fa5ef1c96bb13"
+  },
+  "contract_sha256": "7ffa53f4862d6b47abdbca3690830571bd161f042c95f6300a99af5249089b33",
+  "environment": {
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
+  },
+  "figure": "Figure S3",
+  "outputs": {
+    "pdf": {
+      "path": "output/pdf/figure_s3_ag111_midpoint_drift.pdf",
+      "sha256": "b9b8d3275505ed23a19f5c7ff607598a9432071f06224a37195360b45e8408b1"
+    },
+    "png": {
+      "path": "output/figure_s3_ag111_midpoint_drift.png",
+      "sha256": "3a64647f6db0e126060f4c02d5d57ca5c04c42bd5dfe82aaaf825cf74b398bd4"
+    }
+  },
+  "rendering": {
+    "figure_size_inches": [
+      7.2,
+      8.4
+    ],
+    "method_palette_used": false,
+    "missing_pair_policy": "not interpolated or connected",
+    "png_dpi": 400
+  },
+  "schema_version": "1.0",
+  "source_data_sha256": {
+    "source_data/case_contract.csv": "827954a6a4d133a5b5f903d485d17b16c2f0461af8ca883886c83ab76112a4cb",
+    "source_data/pair_measurements.csv": "ec90693fcf9cbf10bc2fe626f175694039e06fec383d7e054c674e74562c2506",
+    "source_data/source_provenance.json": "76ec64e30f1694697c404f7171f7ba63c27489972496d4a1ca2a6771747a0c0e",
+    "source_data/visibility_regimes.csv": "abce277d8ff2c8517ae73ae33f6d6dd54d744559fe5d84b725399aac7625a201"
+  },
+  "status": "completed",
+  "title": "Ag(111) pair-midpoint drift and apparatus/projection diagnostics",
+  "valid_pair_frame_count": 89,
+  "visibility_branch_frame_count": 324
+}

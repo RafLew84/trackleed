@@ -1,0 +1,42 @@
+{
+  "claims_proven_identity_switches": false,
+  "code_sha256": {
+    "build_figure.py": "86d2752da2988d923523793bcaea426bf59b5585bd378ba3f7ec1422e5bfbde8",
+    "freeze_source_data.py": "f2b1a4bc78d6b6eb361de72b9e6eca4b14ce7ac55008895e57f51f2c21301276",
+    "test_build_figure.py": "e8c9b132f0772fb059236a56875372a1d7fb11937892433f1e74b2087ff563a3"
+  },
+  "contract_sha256": "8ace0e817105527d659d366e7b9fd026917ab6782705eff2e6f3df91600b1726",
+  "environment": {
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
+  },
+  "example_count": 5,
+  "figure": "Figure S5",
+  "outputs": {
+    "pdf": {
+      "path": "output/pdf/figure_s5_geometry_inconsistent_continuation.pdf",
+      "sha256": "a8169f157f7366f461cf2cd5a68cac3e56b01653f2c82dc22ba5c29ada80bcbc"
+    },
+    "png": {
+      "path": "output/figure_s5_geometry_inconsistent_continuation.png",
+      "sha256": "fe98b02cc5e0d2045afe5ff5cb6e44501920b45cd5b163a560d84705e33bbddf"
+    }
+  },
+  "schema_version": "1.0",
+  "selection_rule": "For each method in the frozen display order, scan frozen cases in Scan A pair 1, Scan A pair 2, Scan B pair 1, Scan B pair 2 order and select the first frame/branch row that is an accepted Gaussian fit outside the 18 px branch-consistency gate.",
+  "source_data_sha256": {
+    "source_data/crops/dam4sam.png": "c7fe20b87f24230fdcef77892e0d40658b3f97fb13b8ab3ebed939281186b76c",
+    "source_data/crops/easyleed.png": "00e210fd6c86537de0dfdfd9885ee32f26a5b0245b29ea7b5b8c0126cf57041f",
+    "source_data/crops/lk.png": "2cecec7c771d2ae32d9b3b1217e4ab4bf9be2df1a58d72b1b6200364870ea7ba",
+    "source_data/crops/locotrack.png": "c7fe20b87f24230fdcef77892e0d40658b3f97fb13b8ab3ebed939281186b76c",
+    "source_data/crops/ostrack.png": "3e358378be0ea1c3235d6f32495ef1055a4ce9b92c03a443222afefcf2f34e81",
+    "source_data/example_records.csv": "368868e35e38ceb3feac135f917b6ef8eba50de9e62f93da139a288cae074bea",
+    "source_data/selection_contract.json": "b295468976e7707214ab7e99a7030f8665e259367ec396bcb9d43a093499a0c0",
+    "source_data/source_provenance.json": "da1cf2d4d411294e98c98441f38039177c99f9c9f0c18ffa074c0d642588ee50"
+  },
+  "status": "completed",
+  "supports_tracker_ranking": false,
+  "title": "Source-linked examples of geometry-inconsistent continuation"
+}

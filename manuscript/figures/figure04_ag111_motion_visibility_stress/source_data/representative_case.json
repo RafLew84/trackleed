@@ -1,0 +1,104 @@
+{
+  "archive_pair_id": "pair2",
+  "archive_series_id": "26a21",
+  "decision_checks": {
+    "coherent_pairwise_energy_law": true,
+    "known_transforms_recovered": true,
+    "natural_iv_gap_available": true
+  },
+  "energy_range_ev": [
+    40.0,
+    220.5
+  ],
+  "frame_count": 35,
+  "iv_gap_event_count": 7,
+  "reference_energy_ev": 188.5,
+  "reference_frame": 27,
+  "scientific_pair_label": "pair 2",
+  "scientific_series_label": "Scan A",
+  "selection_rule": "Order frozen cases by scientific series and pair identity; select the first case that passed the predeclared coherent-pairwise-energy-law check and contains at least one natural I(V) visibility gap. Do not inspect method outcomes.",
+  "selection_uses_method_outcomes": false,
+  "visibility_gaps": [
+    {
+      "branch": "B1",
+      "classification": "beam_onset_or_termination",
+      "end_energy_ev": 60.5,
+      "frame_count": 4,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null,
+      "start_energy_ev": 44.0
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 99.0,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 104.5,
+      "start_energy_ev": 99.0
+    },
+    {
+      "branch": "B1",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 161.0,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 166.5,
+      "start_energy_ev": 155.0
+    },
+    {
+      "branch": "B2",
+      "classification": "beam_onset_or_termination",
+      "end_energy_ev": 60.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": false,
+      "recovery_energy_ev": null,
+      "start_energy_ev": 55.0
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 71.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 77.0,
+      "start_energy_ev": 71.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 82.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 88.0,
+      "start_energy_ev": 82.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 149.5,
+      "frame_count": 1,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 155.0,
+      "start_energy_ev": 149.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 199.0,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 204.5,
+      "start_energy_ev": 193.5
+    },
+    {
+      "branch": "B2",
+      "classification": "iv_visibility_gap",
+      "end_energy_ev": 220.5,
+      "frame_count": 2,
+      "recovered_without_reinitialization": true,
+      "recovery_energy_ev": 220.5,
+      "start_energy_ev": 215.0
+    }
+  ]
+}
