@@ -45,6 +45,28 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             "not an independent replicate",
             rows[4]["independence_and_reporting_unit"],
         )
+        self.assertEqual(
+            [row["opportunity_set"] for row in rows],
+            [
+                (
+                    "2,804 spot and 1,402 pair opportunities per method "
+                    "(14,020 spot-method rows total)"
+                ),
+                (
+                    "96 spot and 48 pair evaluations per method "
+                    "(4 trials x 6 states)"
+                ),
+                (
+                    "221 baseline-visible branch opportunities and 24 "
+                    "evaluable gaps per method"
+                ),
+                (
+                    "182 baseline-visible branch opportunities and 13 "
+                    "evaluable gaps per method"
+                ),
+                "60 frozen branch opportunities per method; 4 gap checks",
+            ],
+        )
 
     def test_reader_facing_table_excludes_internal_archive_names(self) -> None:
         rendered = build_table.render_markdown(
@@ -55,7 +77,18 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
         self.assertNotIn("26a21", rendered)
         self.assertNotIn("26a24", rendered)
 
-    def test_markdown_states_nonindependence_and_has_seven_columns(self) -> None:
+    def test_reader_facing_table_uses_branch_consistent_recovery_term(self) -> None:
+        rendered = build_table.render_markdown(
+            build_table.load_and_validate_rows()
+        )
+
+        self.assertNotIn("post-gap identity recovery", rendered.lower())
+        self.assertEqual(
+            rendered.lower().count("post-gap branch-consistent recovery"),
+            2,
+        )
+
+    def test_markdown_states_nonindependence_and_has_eight_columns(self) -> None:
         rendered = build_table.render_markdown(
             build_table.load_and_validate_rows()
         )
@@ -82,21 +115,22 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
         self.assertEqual(len(table_lines), 7)
         self.assertEqual(
             {line.count("|") for line in table_lines},
-            {8},
+            {9},
         )
         self.assertEqual(
             table_lines[0],
             (
                 "| Scientific series label | Control variable/range | "
-                "Image count | Frozen spots/pairs | Evidence role | "
-                "Primary endpoint | Independence/replication unit |"
+                "Image count | Frozen spots/pairs | Opportunity set | "
+                "Evidence role | Primary observable | "
+                "Independence/replication unit |"
             ),
         )
 
     def test_provenance_uses_hash_checked_local_frozen_contracts(self) -> None:
         provenance = build_table.validate_provenance()
 
-        self.assertEqual(len(provenance["sources"]), 5)
+        self.assertEqual(len(provenance["sources"]), 6)
         for source in provenance["sources"]:
             frozen_path = build_table.TABLE_ROOT / source["frozen_path"]
             self.assertTrue(frozen_path.is_file())
@@ -160,7 +194,7 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             )
             self.assertIn("builder_sha256", manifest)
             self.assertEqual(len(manifest["outputs"]), 2)
-            self.assertEqual(len(manifest["source_data"]), 7)
+            self.assertEqual(len(manifest["source_data"]), 8)
 
             with (
                 output_directory / "table01_data_evidence_roles.csv"

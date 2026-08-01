@@ -18,12 +18,12 @@ and denominator.
 
 - `source_data/data_regimes.csv` is the frozen publication-facing table source.
 - `source_data/upstream_contracts/` contains byte-identical snapshots of the
-  five upstream contracts used to construct the table.
+  six upstream contracts used to construct the table.
 - `source_data/source_provenance.json` records each original path and hash
   alongside the committed snapshot path and hash. Rebuilding validates the
   local snapshots and does not require `.scratch`.
-- `build_table.py` validates the evidence-role structure and creates the
-  publication outputs.
+- `build_table.py` derives and validates each frozen opportunity set, validates
+  the evidence-role structure, and creates the publication outputs.
 - `output/table01_data_evidence_roles.csv` is the machine-readable table.
 - `output/table01_data_evidence_roles.md` is the exact block copied between the
   generated markers in Section 2.1 of the manuscript.

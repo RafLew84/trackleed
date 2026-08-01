@@ -277,8 +277,8 @@ def render_markdown(rows: list[dict[str, str]]) -> str:
     headers = [display_name for _, display_name in DISPLAY_COLUMNS]
     lines = [
         (
-            "**Table 2. Tracking methods and their reduction to the common "
-            "measurement contract.** The first five rows form the common "
+            "**Table 2. Methods mapped to the common measurement "
+            "contract.** The first five rows form the common "
             "strategy matrix. The controlled SAM2-family rows used "
             "byte-identical SAM2.1 Hiera Base+ checkpoint weights "
             f"(SHA-256 `{SHARED_SAM2_CHECKPOINT}`). Every available proposal "

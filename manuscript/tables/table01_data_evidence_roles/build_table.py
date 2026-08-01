@@ -27,8 +27,9 @@ SOURCE_COLUMNS = (
     "control_variable_and_range",
     "image_count",
     "frozen_spots_or_pairs",
+    "opportunity_set",
     "evidence_role",
-    "primary_endpoint",
+    "primary_observable",
     "independence_and_reporting_unit",
 )
 DISPLAY_COLUMNS = (
@@ -36,8 +37,9 @@ DISPLAY_COLUMNS = (
     ("control_variable_and_range", "Control variable/range"),
     ("image_count", "Image count"),
     ("frozen_spots_or_pairs", "Frozen spots/pairs"),
+    ("opportunity_set", "Opportunity set"),
     ("evidence_role", "Evidence role"),
-    ("primary_endpoint", "Primary endpoint"),
+    ("primary_observable", "Primary observable"),
     (
         "independence_and_reporting_unit",
         "Independence/replication unit",
@@ -60,6 +62,97 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _load_json(path: Path) -> dict[str, object]:
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError(f"Expected a JSON object in {path.name}.")
+    return loaded
+
+
+def _expected_opportunity_sets() -> tuple[str, ...]:
+    """Derive reader-facing opportunity sets from frozen upstream contracts."""
+
+    cu = _load_json(
+        FROZEN_SOURCE_DIRECTORY / "cu111_positive_control_manifest.json"
+    )
+    workload = cu.get("workload")
+    methods = cu.get("main_methods")
+    if not isinstance(workload, dict) or not isinstance(methods, list):
+        raise ValueError("Cu opportunity contract is missing.")
+    method_count = len(methods)
+    spot_rows = int(workload["automatic_gaussian_measurement_rows"])
+    pair_rows = int(workload["automatic_pair_endpoint_rows"])
+
+    translation = _load_json(
+        FROZEN_SOURCE_DIRECTORY / "controlled_translation_contract.json"
+    )
+    trials = translation.get("trials")
+    states = translation.get("translations_original_px")
+    spots = translation.get("spots")
+    pairs = translation.get("pairs")
+    if not all(
+        isinstance(value, list) for value in (trials, states, spots, pairs)
+    ):
+        raise ValueError("Controlled-translation opportunity contract is missing.")
+    trial_count = len(trials)
+    state_count = len(states)
+    translation_spots = trial_count * state_count * len(spots)
+    translation_pairs = trial_count * state_count * len(pairs)
+
+    energy = _load_json(
+        FROZEN_SOURCE_DIRECTORY / "independent_energy_scan_summary.json"
+    )
+    aggregate_methods = energy.get("aggregate_methods")
+    if not isinstance(aggregate_methods, dict):
+        raise ValueError("Energy-scan opportunity contract is missing.")
+    energy_counts = {
+        (int(record["visible_opportunities"]), int(record["evaluated_gaps"]))
+        for record in aggregate_methods.values()
+        if isinstance(record, dict)
+    }
+    if len(energy_counts) != 1:
+        raise ValueError("Energy-scan methods do not share one opportunity set.")
+    energy_opportunities, energy_gaps = next(iter(energy_counts))
+
+    family = _load_json(
+        FROZEN_SOURCE_DIRECTORY / "sam2_family_contract.json"
+    ).get("controlled_family")
+    if not isinstance(family, dict):
+        raise ValueError("SAM2-family opportunity contract is missing.")
+
+    external = _load_json(
+        FROZEN_SOURCE_DIRECTORY / "external_reference_summary.json"
+    )
+    gap_checks = str(external["branch_gap_checks"]).split("/", maxsplit=1)[0]
+
+    return (
+        (
+            f"{spot_rows // method_count:,} spot and "
+            f"{pair_rows // method_count:,} pair opportunities per method "
+            f"({spot_rows:,} spot-method rows total)"
+        ),
+        (
+            f"{translation_spots} spot and {translation_pairs} pair "
+            f"evaluations per method ({trial_count} trials x "
+            f"{state_count} states)"
+        ),
+        (
+            f"{energy_opportunities} baseline-visible branch opportunities "
+            f"and {energy_gaps} evaluable gaps per method"
+        ),
+        (
+            f"{int(family['visible_opportunities_per_method'])} "
+            "baseline-visible branch opportunities and "
+            f"{int(family['evaluated_gaps_per_method'])} "
+            "evaluable gaps per method"
+        ),
+        (
+            f"{int(external['branch_opportunities_per_method'])} frozen branch "
+            f"opportunities per method; {gap_checks} gap checks"
+        ),
+    )
+
+
 def load_and_validate_rows(
     source_path: Path = SOURCE_TABLE_PATH,
 ) -> list[dict[str, str]]:
@@ -77,6 +170,11 @@ def load_and_validate_rows(
         raise ValueError("Table 1 rows must retain the frozen order 1-5.")
     if tuple(row["row_type"] for row in rows) != EXPECTED_ROW_TYPES:
         raise ValueError("Table 1 row types do not match the frozen contract.")
+    if (
+        tuple(row["opportunity_set"] for row in rows)
+        != _expected_opportunity_sets()
+    ):
+        raise ValueError("Table 1 opportunity sets changed from frozen contracts.")
     if rows[1]["scientific_series_label"] != "Controlled translations":
         raise ValueError("The derived translation regime is missing.")
     if "not four acquisitions" not in rows[1][
@@ -166,8 +264,8 @@ def validate_provenance() -> dict[str, object]:
         SOURCE_PROVENANCE_PATH.read_text(encoding="utf-8")
     )
     sources = provenance.get("sources")
-    if not isinstance(sources, list) or len(sources) != 5:
-        raise ValueError("Source provenance must list five upstream contracts.")
+    if not isinstance(sources, list) or len(sources) != 6:
+        raise ValueError("Source provenance must list six upstream contracts.")
     for source in sources:
         if set(source) != {
             "frozen_path",

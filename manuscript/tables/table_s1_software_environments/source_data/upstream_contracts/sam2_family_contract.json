@@ -31,7 +31,7 @@
     "series_count": 1,
     "visible_opportunities_per_method": 182
   },
-  "figure": "Figure 4",
+  "figure": "Figure 5",
   "memory_strategies": {
     "dam4sam": "distractor-aware memory",
     "sam2": "vanilla SAM2 propagation",

@@ -36,7 +36,7 @@
     "source_data/environment_snapshots/sam2.json": "22d4b6254ba42b3391c3df2c468b1fe8142cb86b6ffab67a0ce0026f0afc5bef",
     "source_data/environment_snapshots/samurai.json": "c2d2c6b2156ba94dd08b7a8cb68e99e6342d655b07431ebfd639010347a5d11a",
     "source_data/environment_snapshots/viperleed-imagej.json": "e64540325636048157605336981c63f3680b31b1c5808a1e1d49803f893d6ac3",
-    "source_data/source_provenance.json": "73a0aa00d331cdb226ef58c55b7b37a636dd87e9b9050ee2655a00b771315aac",
+    "source_data/source_provenance.json": "4f2b6d0009b86500715918ebec7031dcddf75677f3d47734b0bb7192bf370d36",
     "source_data/system_record.json": "6b3d6c461f2c5d43f154355bfad2ddfe3215c2b1fc732d76b5e4f286a4171988",
     "source_data/upstream_contracts/controlled_translation_contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
     "source_data/upstream_contracts/domain_baselines_installation.md": "ed0b51236aae5b02cd1e840da6c554e37b86ad292d5eb4a00072ed97edb7b5e3",
@@ -50,7 +50,7 @@
     "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",
     "source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py": "d11818a491ed44aa045622d06f6ccc5b4f2d1acb577e02b76b1d758b473ac31c",
     "source_data/upstream_contracts/executed_sources/independent_energy_runner.py": "fc8e2aa3de8e1d7c24ad2d69c6bcb8c05151c9b8a540a1379134d1ba8bbb3eee",
-    "source_data/upstream_contracts/sam2_family_contract.json": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+    "source_data/upstream_contracts/sam2_family_contract.json": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
     "source_data/upstream_contracts/table02_methods.csv": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051"
   },
   "status": "completed",
@@ -84,9 +84,9 @@
     },
     {
       "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
-      "frozen_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "frozen_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
       "origin_path": "manuscript/tables/table02_tracking_methods_contract/source_data/upstream_contracts/sam2_family_contract.json",
-      "origin_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "origin_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
       "role": "controlled-family common checkpoint and configuration contract"
     },
     {

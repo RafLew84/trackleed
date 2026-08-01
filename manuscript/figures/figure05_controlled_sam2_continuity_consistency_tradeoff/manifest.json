@@ -1,0 +1,160 @@
+{
+  "caption_limits": [
+    "The comparison contains one energy-scan series and two disjoint frozen pairs.",
+    "It is controlled mechanism evidence, not a general ranking of SAM2-family methods.",
+    "Coverage, total and zero-delay recovery, geometry-inconsistent accepted fits, and conditional D(E) residuals must be shown together.",
+    "The representative gap is outcome-selected for explanation; quantitative claims use both pairs.",
+    "Conditional pair-distance residuals cannot replace coverage or recovery."
+  ],
+  "code_sha256": {
+    "build_figure.py": "98970a20ba280eff81973b0c85dc40043e59e00ac1b39b451275594d66e07caa",
+    "figure_contract.py": "96d7ebf12eda99409ee18dccc6d32378f922518962a532f4cbc255a35f3a2e2c",
+    "figure_render.py": "9130710634a629ce0ff5ace6154ad5932751be1405bc8c7bb7daf85bb6d6afd2",
+    "freeze_source_data.py": "1cc435c3477f673d1130f09edc31a2d46e3e85659b12c37c19d4b5615a2bde78",
+    "test_build_figure.py": "2743b2dea30e54a133e7ba08b147b404500a70f6b2a3df9ac06adae28686fe8d",
+    "test_freeze_source_data.py": "66fda3ce71d3e552da8ad9586609721ca7ab8f585774543cd65d0dd5595b0c32",
+    "test_source_contract.py": "a669c775df6d1aee0037f459a5d56b60a6a03a192e2bb2ea87fc0579ae7df8dc"
+  },
+  "contract_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+  "environment": {
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
+  },
+  "figure": "Figure 5",
+  "output_files": {
+    "pdf": "output/pdf/figure05_controlled_sam2_continuity_consistency_tradeoff.pdf",
+    "png": "output/figure05_controlled_sam2_continuity_consistency_tradeoff.png"
+  },
+  "outputs_sha256": {
+    "pdf": "d3a722989ff19beea5e2265ffca3df4be0facc19210a3ffd1a09a51ac7d0f367",
+    "png": "362380652bc8bc5d2e801ff89a04f7ac79ecedddf792f063623b69b597092142"
+  },
+  "rendering": {
+    "figure_size_inches": [
+      7.2,
+      9.0
+    ],
+    "font_family": "DejaVu Sans",
+    "font_file": "DejaVuSans.ttf",
+    "font_sizes_pt": {
+      "axis_label": 7.1,
+      "axis_title": 8.0,
+      "base": 7.1,
+      "card_header": 7.0,
+      "card_value": 6.2,
+      "legend": 6.0,
+      "minor_annotation": 5.6,
+      "panel_label": 9.2,
+      "tick_label": 6.3,
+      "value_annotation": 5.9
+    },
+    "method_palette": {
+      "dam4sam": "#009E73",
+      "sam2": "#0072B2",
+      "samurai": "#D55E00"
+    },
+    "panel_order": [
+      "representative_visibility_gap",
+      "coverage_by_pair",
+      "gap_recovery_by_pair",
+      "failure_cost_and_conditional_residual_by_pair",
+      "mechanistic_tradeoff_summary"
+    ],
+    "png_dimensions_px": [
+      2880,
+      3600
+    ],
+    "png_dpi": 400,
+    "representative_crop_normalization": {
+      "mode": "shared_linear",
+      "vmax": 48.0,
+      "vmin": 33.0
+    },
+    "representative_panel_states": {
+      "accepted_gaussian_centers": 5,
+      "native_proposals": 7,
+      "no_proposal_states": 5,
+      "outcome_selected_for_explanation": true,
+      "rejected_gaussian_centers": 2
+    }
+  },
+  "schema_version": "1.0",
+  "source_artifacts": {
+    "family_aggregate": {
+      "path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/sam2_family_tradeoff.csv",
+      "sha256": "ab53a6a9fdf75d9f4737231b7dc585bdddb7fbdf750373ba5eed0b12acfdb461"
+    },
+    "pair_1_baseline": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/summary.json",
+      "sha256": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db"
+    },
+    "pair_1_dam4sam_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/dam4sam_gap_recovery.csv",
+      "sha256": "d79ffcc7a43956639fc4550d9abef1cd911230216479d4de5186424d9ef4fcac"
+    },
+    "pair_1_dam4sam_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/dam4sam_measurements.csv",
+      "sha256": "b6749c663e562f4f42e7b2888a80f16b36130dfee36cc80b53bec0b5c80ac080"
+    },
+    "pair_1_sam2_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/sam2_gap_recovery.csv",
+      "sha256": "34a1cdd942ceb57432e04082a32822bbd30198fc65763deddd81134813f78c7e"
+    },
+    "pair_1_sam2_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/sam2_measurements.csv",
+      "sha256": "8fea8fcd3ebee5231d1a2d98d6bbe001b213791d99f265b6c023ea3c3bd29287"
+    },
+    "pair_1_samurai_gap_recovery": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/samurai_gap_recovery.csv",
+      "sha256": "c2263b77012f8b26fcf4862a1e251cbb8a833ebeea7e8a2a5e0fee5e005ec4a4"
+    },
+    "pair_1_samurai_measurements": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/samurai_measurements.csv",
+      "sha256": "fbaa944d6b6569d5582d84547fe5c32b7eac6bf36cd8ff58022efa6235083404"
+    },
+    "pair_1_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/trackers/comparison_summary.json",
+      "sha256": "9251f3feaec3f773ebe46b68a3fe75169a2a28179b9f1705aff436ac5ab1cb16"
+    },
+    "pair_2_baseline": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair2/summary.json",
+      "sha256": "3816a5657a3704135031d6093acbb966e27eccbbe546548bc94a9f428f07c6b4"
+    },
+    "pair_2_summary": {
+      "path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/pair2/trackers/comparison_summary.json",
+      "sha256": "8ab8576827aefa524469aa97a34450a0f122f6f2320dfd0891fba7422ab1f41d"
+    },
+    "representative_frame_160p9_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0044_T0000_E1609_C0000.tiff",
+      "sha256": "8b295ec121706cfffb352fe9c96ad1495b777e124910d4b04395e13c0327b73c"
+    },
+    "representative_frame_163p9_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0045_T0000_E1639_C0000.tiff",
+      "sha256": "5f2bd2608e0e333e36d082b74e53f6a425c885635e8a6da1ab0657cf2f094875"
+    },
+    "representative_frame_166p5_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0046_T0000_E1665_C0000.tiff",
+      "sha256": "989f5a9b40890617a811dba64710999960214e66fbdf14dd3c2e7b554d95d086"
+    },
+    "representative_frame_169p2_ev": {
+      "path": "data/26a24_ScanE/Ag111-3G_0047_T0000_E1692_C0000.tiff",
+      "sha256": "bd6010b5b32554250298c2a7ed131eefd2b9613d53562d8e52e3f6182d54e8a3"
+    }
+  },
+  "source_data_sha256": {
+    "source_data/crops/b1_160p9ev.tiff": "361ceb2558cfee5dc43561b7bb16f2a5f2bacf911534ae36f40ff292b38fc3a4",
+    "source_data/crops/b1_163p9ev.tiff": "24eabeee9da82d70f1ba88be5c5be5a81b2ce330637f226b22f8ee4e3e82c40d",
+    "source_data/crops/b1_166p5ev.tiff": "2e35764c1cffee313f5632dceda55abb6af668e2395f6cdd5f29a5a2e39a5078",
+    "source_data/crops/b1_169p2ev.tiff": "b3346dc974b878524e1a46d417482d173fdcb1ae0e8a2a0a6298de9be6d121f5",
+    "source_data/family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+    "source_data/family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+    "source_data/pair_seeds.csv": "9b3cb133e5d29e2487092a3d87e693c2b3a7d61128f5c8a08854796fba0727ba",
+    "source_data/representative_gap.json": "4833c2f2fb827bca82dac2dfa20919b88c62ca15205b30b77735723c4fdf8ed9",
+    "source_data/representative_gap_measurements.csv": "9ce5991f49d82542b969e8bd40a7f48c2df6edca9abc82b4d4bd9b80eb0714da",
+    "source_data/source_provenance.json": "0d0efa5666c021d1acc018cb886cb93146f8b9b69621cb9650f4c3199c74356b"
+  },
+  "status": "completed",
+  "title": "Controlled SAM2-family continuity-consistency trade-off"
+}

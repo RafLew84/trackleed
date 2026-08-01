@@ -19,7 +19,7 @@ SHARED_SAM2_CHECKPOINT = (
     "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5"
 )
 FAMILY_CONTRACT_SHA256 = (
-    "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c"
+    "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4"
 )
 
 
@@ -284,6 +284,20 @@ class SoftwareEnvironmentsTableTest(unittest.TestCase):
                 build_table.sha256_file(origin_path),
                 source["origin_sha256"],
             )
+
+    def test_controlled_family_contract_targets_final_figure_five(self) -> None:
+        provenance = json.loads(
+            build_table.SOURCE_PROVENANCE_PATH.read_text(encoding="utf-8")
+        )
+        source = next(
+            source
+            for source in provenance["sources"]
+            if source["frozen_path"].endswith("sam2_family_contract.json")
+        )
+        frozen_path = build_table.TABLE_ROOT / source["frozen_path"]
+        contract = json.loads(frozen_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(contract["figure"], "Figure 5")
 
     def test_artifact_is_deterministic_and_records_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

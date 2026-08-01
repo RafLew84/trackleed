@@ -1,4 +1,4 @@
-# Table 2: tracking methods and common output contract
+# Table 2: methods mapped to the common measurement contract
 
 This artifact builds the manuscript's tracking-method overview from one
 frozen source table. It preserves three distinct roles:

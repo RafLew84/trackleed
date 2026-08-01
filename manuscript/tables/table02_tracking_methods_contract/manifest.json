@@ -1,18 +1,18 @@
 {
-  "builder_sha256": "4798f6ad2f7614f53b8862ed28e36e9e88be242e3e4bb9117cdc0bbdb2891614",
+  "builder_sha256": "be03405cb9c831f19787ec6b22e289bdc6907eaf0af9767479d39d86bc5cdfbd",
   "outputs": {
     "table02_tracking_methods_contract.csv": "8795118f4d1134ac3840a2c88e1b0a317f21660db592b75358e1e54230542bab",
-    "table02_tracking_methods_contract.md": "f03f4dc94ec0afd11abb1bed8f6ee88e9e56231f928512ab21c1f3ddc355dfea"
+    "table02_tracking_methods_contract.md": "90fdef1aaa9d3929c669a38dedc928bd417a580f715f1d83fe072a2399f77a67"
   },
   "schema_version": "1.0",
   "source_data": {
     "source_data/methods.csv": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
-    "source_data/source_provenance.json": "b42e87eb5ce32b3af7d03fdf5a0cfc6960e5a16df716f618a848c9302a7bff83",
+    "source_data/source_provenance.json": "6e32b6586705be24653b288c218d91e6ffb3d5981488bc4bdc4082b8b2b6152d",
     "source_data/upstream_contracts/controlled_translation_contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
     "source_data/upstream_contracts/domain_baselines_installation.md": "5889523f9462399eecc14c3feed4ce26ede9d3571faf76ed967133ccdb1a77ee",
     "source_data/upstream_contracts/external_reference_contract.json": "9e2623e38db751357cdb753c2ae24b42e1b92e3b3b6aa32ea83b691d37ad6b8b",
     "source_data/upstream_contracts/five_method_run_manifest.json": "dd4ed8b6065c7029fa6439d8537cdc8660904d9d93be7e6c9051ae938e929316",
-    "source_data/upstream_contracts/sam2_family_contract.json": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c"
+    "source_data/upstream_contracts/sam2_family_contract.json": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4"
   },
   "status": "completed",
   "table_contract": {
@@ -42,9 +42,9 @@
     },
     {
       "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
-      "frozen_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
-      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/contract.json",
-      "origin_sha256": "ee579ab76263a3ee20c227f79f83bc1c1d6f26793718209a0b517f5e5131a60c",
+      "frozen_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+      "origin_path": "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/contract.json",
+      "origin_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
       "role": "controlled SAM2-family prompt, common checkpoint hash, proposal reduction, and reset policy"
     },
     {

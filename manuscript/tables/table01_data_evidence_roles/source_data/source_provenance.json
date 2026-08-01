@@ -29,6 +29,13 @@
       "role": "memory-analysis scan count and energy range"
     },
     {
+      "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
+      "frozen_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+      "origin_path": "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/contract.json",
+      "origin_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+      "role": "controlled SAM2-family visible-opportunity and evaluable-gap denominators"
+    },
+    {
       "frozen_path": "source_data/upstream_contracts/external_reference_summary.json",
       "frozen_sha256": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
       "origin_path": "manuscript/figures/figure03_independent_scane_stress/source_data/external_reference_summary.json",

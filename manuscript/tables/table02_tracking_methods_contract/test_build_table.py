@@ -97,6 +97,12 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
             build_table.load_and_validate_rows()
         )
 
+        self.assertTrue(
+            rendered.startswith(
+                "**Table 2. Methods mapped to the common measurement "
+                "contract.**"
+            )
+        )
         self.assertIn(
             "The controlled SAM2-family rows used byte-identical",
             rendered,
@@ -167,6 +173,28 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
                 build_table.sha256_file(frozen_path),
                 source["frozen_sha256"],
             )
+
+    def test_sam2_contract_targets_final_figure_five(self) -> None:
+        provenance = json.loads(
+            build_table.SOURCE_PROVENANCE_PATH.read_text(encoding="utf-8")
+        )
+        source = next(
+            source
+            for source in provenance["sources"]
+            if source["frozen_path"].endswith("sam2_family_contract.json")
+        )
+        frozen_path = build_table.TABLE_ROOT / source["frozen_path"]
+        contract = json.loads(frozen_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            source["origin_path"],
+            (
+                "manuscript/figures/"
+                "figure05_controlled_sam2_continuity_consistency_tradeoff/"
+                "contract.json"
+            ),
+        )
+        self.assertEqual(contract["figure"], "Figure 5")
 
     def test_artifact_is_deterministic_and_records_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

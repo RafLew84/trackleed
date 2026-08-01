@@ -1,18 +1,19 @@
 {
-  "builder_sha256": "3214031c6862bb20b7c5210d23a5e3569c34da20be24136fc83b047e2c3e67eb",
+  "builder_sha256": "441bdf0d99a927ec0652c6f8016234d5171d4de789a1d8669eb520bc46da0cd0",
   "outputs": {
-    "table01_data_evidence_roles.csv": "dac217f2960917a4fcaaeea85646db0aa360ec67e526e6502cf145d9fda8e00b",
-    "table01_data_evidence_roles.md": "3c2dccaef9daf6f4b1c4834c067a4176f2644678e960fbe99184136789bef51f"
+    "table01_data_evidence_roles.csv": "6f3463d1c3bb22ca0900a9eb2f2cb0756771a7f8ce2323a02064b468ce980562",
+    "table01_data_evidence_roles.md": "7afaff0e4a73f293de2162c2c860448605e7960be1db5cc932a87cc2e0fd397b"
   },
   "schema_version": "1.0",
   "source_data": {
-    "source_data/data_regimes.csv": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78",
-    "source_data/source_provenance.json": "32b0662bc7c55ab3d09f58a6fd0e3f80ac287c8a486f371a1ebebb73f18352f7",
+    "source_data/data_regimes.csv": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33",
+    "source_data/source_provenance.json": "df1eb8c4339aa465e870fc5567c3f6613c7ce9490954d9e1a9a4e538cc28c3db",
     "source_data/upstream_contracts/controlled_translation_contract.json": "94fa33f09d8a062a2b2a545e0aa8c7cb664cf0f6dc016e47513c79734291499f",
     "source_data/upstream_contracts/cu111_positive_control_manifest.json": "2f9da39094b3fe16da57d7e8db6725e05e6cf04d6fcd5178dc6a6e34cf3d1dd6",
     "source_data/upstream_contracts/external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
     "source_data/upstream_contracts/independent_energy_scan_summary.json": "72d792aebdfc576296931b51df2bda911567fb7c4e2d3087d764f48bc9ba1f61",
-    "source_data/upstream_contracts/memory_analysis_scan_summary.json": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db"
+    "source_data/upstream_contracts/memory_analysis_scan_summary.json": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db",
+    "source_data/upstream_contracts/sam2_family_contract.json": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4"
   },
   "status": "completed",
   "table_contract": {
@@ -50,6 +51,13 @@
       "origin_path": ".scratch/trackleed-physics-method-paper/prototypes/scane_tracer/output/summary.json",
       "origin_sha256": "88b1e3a7d3ca1d615932c18ed5b71c84fbfce407bee2df02e1170171156c17db",
       "role": "memory-analysis scan count and energy range"
+    },
+    {
+      "frozen_path": "source_data/upstream_contracts/sam2_family_contract.json",
+      "frozen_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+      "origin_path": "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/contract.json",
+      "origin_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
+      "role": "controlled SAM2-family visible-opportunity and evaluable-gap denominators"
     },
     {
       "frozen_path": "source_data/upstream_contracts/external_reference_summary.json",
