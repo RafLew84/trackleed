@@ -1,8 +1,9 @@
-# Table S6 — measurement sensitivity
+# Table S6 — measurement-window and capture-contract sensitivity
 
-Table S6 reports the complete 15-variant, five-method Ag(111) sensitivity
-assessment. The publication-facing Markdown shows method aggregates; the CSV
-retains all 375 full-precision method and case records.
+Table S6 reports the complete 15-variant, five-method Ag(111)
+measurement-window and capture-contract sensitivity. The publication-facing
+Markdown shows method aggregates; the CSV retains all 375 full-precision
+method and case records.
 
 Coverage and recovery retain their fixed denominators (`221` and `24`).
 Geometry inconsistency retains accepted-fit n, and pair-distance residuals

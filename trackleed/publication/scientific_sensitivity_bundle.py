@@ -1,4 +1,4 @@
-"""Publication bundle for measurement sensitivity and claim adjudication."""
+"""Publication bundle for sensitivity and scientific claim-boundary adjudication."""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ from trackleed.publication.scientific_sensitivity_sources import (
     freeze_sensitivity_source_data,
     read_json,
     sha256_file,
+    validate_sensitivity_source_data,
 )
 
 
@@ -176,6 +177,22 @@ def validate_sensitivity_publication_bundle(
     table_root, figure_root, adjudication_root, supplement_path = (
         _resolved_bundle_paths(workspace_root)
     )
+    origin_directory = (
+        workspace_root
+        / "manuscript"
+        / "scientific_panel"
+        / "output"
+        / "sensitivity"
+    )
+    for source_directory in (
+        table_root / "source_data",
+        figure_root / "source_data",
+        adjudication_root / "source_data",
+    ):
+        validate_sensitivity_source_data(
+            source_directory,
+            origin_directory=origin_directory,
+        )
     with TemporaryDirectory() as temporary:
         generated_root = Path(temporary)
         table_report = build_table_s6_artifact(

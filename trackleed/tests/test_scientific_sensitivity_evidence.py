@@ -15,6 +15,9 @@ from trackleed.publication.scientific_sensitivity_evidence import (
 from trackleed.publication.scientific_sensitivity_figure import (
     build_figure_s2_artifact,
 )
+from trackleed.publication.scientific_sensitivity_sources import (
+    validate_sensitivity_source_data,
+)
 from trackleed.publication.scientific_claim_adjudication import (
     build_claim_adjudication,
     confirm_claim_adjudication,
@@ -100,6 +103,33 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 build_table_s6(changed_source, root / "changed-output")
 
+    def test_acceptance_validation_requires_the_authenticated_origin(self) -> None:
+        with TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source"
+            shutil.copytree(TABLE_ROOT / "source_data", source)
+            provenance_path = source / "source_provenance.json"
+            provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+            provenance["sources"]["sensitivity_results.csv"][
+                "origin_sha256"
+            ] = "0" * 64
+            provenance_path.write_text(
+                json.dumps(provenance, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            validate_sensitivity_source_data(source)
+
+            with self.assertRaises(ValueError):
+                validate_sensitivity_source_data(
+                    source,
+                    origin_directory=(
+                        REPO_ROOT
+                        / "manuscript"
+                        / "scientific_panel"
+                        / "output"
+                        / "sensitivity"
+                    ),
+                )
+
     def test_table_s6_manifest_covers_sources_code_and_outputs(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -148,6 +178,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             self.assertEqual(report.ofat_variant_count, 6)
             self.assertEqual(report.method_count, 5)
             self.assertEqual(report.gate_audit_record_count, 25)
+            self.assertEqual(report.gate_margin_summary_record_count, 40)
             self.assertFalse(report.width_sensitivity_triggered)
             self.assertEqual(
                 {path.name for path in (root / "output").iterdir()},
@@ -166,7 +197,8 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     "recovery",
                     "geometry_inconsistency",
                     "conditional_pair_residual",
-                    "gate_margin_audit",
+                    "signed_gate_margins",
+                    "width_trigger_audit",
                 ],
             )
             self.assertEqual(manifest["fixed_denominators"], [221, 24])
@@ -247,6 +279,23 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             )
             self.assertFalse(boundary["central_contract_changed"])
             self.assertFalse(boundary["capture_basin_triggered"])
+            claim_rows = {
+                columns[1].strip(): columns
+                for line in (
+                    REPO_ROOT / "manuscript" / "claim-evidence-map.md"
+                ).read_text(encoding="utf-8").splitlines()
+                if line.startswith("| C")
+                for columns in [line.split("|")]
+            }
+            for claim_id, claim in by_id.items():
+                self.assertEqual(
+                    claim_rows[claim_id][2].strip(),
+                    claim["final_claim"],
+                )
+                self.assertEqual(
+                    claim_rows[claim_id][-2].strip().lower(),
+                    claim["decision"],
+                )
             self.assertEqual(
                 boundary["source_links"]["sensitivity_claim_evidence"][
                     "sha256"
@@ -356,6 +405,47 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 hashlib.sha256(
                     (output / "final_claim_boundary.json").read_bytes()
                 ).hexdigest(),
+            )
+
+    def test_confirmed_boundary_mismatch_does_not_rewrite_outputs(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "adjudication"
+            contract_path = root / "adjudication_contract.json"
+            shutil.copyfile(
+                ADJUDICATION_ROOT / "adjudication_contract.json",
+                contract_path,
+            )
+            arguments = {
+                "workspace_root": REPO_ROOT,
+                "contract_path": contract_path,
+                "sensitivity_source_directory": ADJUDICATION_ROOT / "source_data",
+                "metadata_directory": REPO_ROOT / "manuscript" / "experimental_metadata",
+                "claim_map_path": REPO_ROOT / "manuscript" / "claim-evidence-map.md",
+                "output_directory": output,
+            }
+            build_claim_adjudication(**arguments)
+            confirm_claim_adjudication(
+                output,
+                confirmed_by="publication author via test HITL checkpoint",
+                confirmed_date="2026-08-01",
+            )
+            before = {
+                path.name: path.read_bytes() for path in output.iterdir()
+            }
+            contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            contract["claims"][0]["final_claim"] += " Changed."
+            contract_path.write_text(
+                json.dumps(contract, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "Author checkpoint"):
+                build_claim_adjudication(**arguments)
+
+            self.assertEqual(
+                before,
+                {path.name: path.read_bytes() for path in output.iterdir()},
             )
 
     def test_publication_bundle_builds_only_supplementary_sensitivity_items(

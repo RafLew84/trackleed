@@ -1,4 +1,4 @@
-"""Final claim-boundary adjudication from metadata and sensitivity evidence."""
+"""Scientific claim-boundary adjudication from metadata and sensitivity evidence."""
 
 from __future__ import annotations
 
@@ -264,10 +264,11 @@ def validate_author_checkpoint(
 
 
 def _write_json(path: Path, value: dict[str, Any]) -> None:
-    path.write_text(
-        json.dumps(value, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    path.write_bytes(_json_bytes(value))
+
+
+def _json_bytes(value: dict[str, Any]) -> bytes:
+    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
 
 
 def _source_path(path: Path, workspace_root: Path) -> str:
@@ -317,11 +318,10 @@ def build_claim_adjudication(
         sensitivity_source_directory
     )
     decisions = Counter(str(claim["decision"]) for claim in claims)
-    output_directory.mkdir(parents=True, exist_ok=True)
     evidence_path = output_directory / "sensitivity_claim_evidence.json"
     boundary_path = output_directory / "final_claim_boundary.json"
     checkpoint_path = output_directory / "author_checkpoint.json"
-    _write_json(evidence_path, sensitivity_evidence)
+    evidence_bytes = _json_bytes(sensitivity_evidence)
     boundary = {
         "schema_version": 1,
         "scope": "final_scientific_claim_boundary",
@@ -351,12 +351,13 @@ def build_claim_adjudication(
             },
             "sensitivity_claim_evidence": {
                 "path": SENSITIVITY_EVIDENCE_ARTIFACT_PATH,
-                "sha256": sha256_file(evidence_path),
+                "sha256": hashlib.sha256(evidence_bytes).hexdigest(),
             },
         },
     }
-    _write_json(boundary_path, boundary)
-    boundary_sha256 = sha256_file(boundary_path)
+    boundary_bytes = _json_bytes(boundary)
+    boundary_sha256 = hashlib.sha256(boundary_bytes).hexdigest()
+    checkpoint_needs_write = False
     if checkpoint_path.is_file():
         checkpoint = read_json(checkpoint_path)
         recorded_sha256 = str(checkpoint.get("boundary_sha256"))
@@ -366,12 +367,18 @@ def build_claim_adjudication(
             and recorded_sha256 != boundary_sha256
         ):
             checkpoint = _pending_checkpoint(boundary_sha256)
-            _write_json(checkpoint_path, checkpoint)
+            checkpoint_needs_write = True
         else:
             _validate_checkpoint(checkpoint, boundary_sha256)
     else:
         checkpoint = _pending_checkpoint(boundary_sha256)
         _validate_checkpoint(checkpoint, boundary_sha256)
+        checkpoint_needs_write = True
+
+    output_directory.mkdir(parents=True, exist_ok=True)
+    evidence_path.write_bytes(evidence_bytes)
+    boundary_path.write_bytes(boundary_bytes)
+    if checkpoint_needs_write:
         _write_json(checkpoint_path, checkpoint)
 
     manifest = {

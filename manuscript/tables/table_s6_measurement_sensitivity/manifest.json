@@ -4,7 +4,7 @@
   "denominator_policy": "fixed reference opportunity sets with explicit variant-specific denominators for conditional outcomes",
   "implementation_sha256": {
     "trackleed/publication/scientific_sensitivity_evidence.py": "3ae126f6ac9b682c85dcab0a3bdcf9d95fef9a97eb1b4861f9e1f828258fa5d5",
-    "trackleed/publication/scientific_sensitivity_sources.py": "92601e96eac4426d63785a00c3841ef0a483c86a0cca28abe9df1be0226bd954"
+    "trackleed/publication/scientific_sensitivity_sources.py": "acd78ced6dd438c585a6c3ace44859ab47df7e14890bcc0c93a0e436431bea03"
   },
   "method_result_count": 75,
   "outputs_sha256": {
@@ -15,13 +15,14 @@
   "schema_version": 1,
   "source_data_sha256": {
     "gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
+    "gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
     "rejection_cause_counts.csv": "a1787bdcd3d129d8c5b23f744acb7bb0778e71d76737c61045ea3f04734d826c",
     "sensitivity_output_manifest.json": "41f55716c98be9ee1022a6f9be354e0c1d0cabbc600d65215aa8f4edf0761c9f",
     "sensitivity_provenance.json": "333ffe2f7a494067c94874eec368b6f26ebd2ad515b7cbbcf7e17249ca6bc632",
     "sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
     "sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
     "sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
-    "source_provenance.json": "72552eb903e56c33b1312ffec245cf8ec2508c1a02ab0b5da6e6a5298ff05a6e"
+    "source_provenance.json": "b37432ff2a76c6529825d132e538716f446fd38fc2ee8c828b36271035196c68"
   },
   "status": "completed",
   "table": "Table S6",

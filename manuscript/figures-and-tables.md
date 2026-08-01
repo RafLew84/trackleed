@@ -308,8 +308,9 @@ Final artifact:
 - **Figure S1:** all 24 frozen Cu diagnostic overlays.
 - **Figure S2 — generated and validated:** the nine-element ROI ×
   proposal-to-fit matrix, six one-factor-at-a-time perturbations, all four
-  denominator-aware outcomes, and the width gate-margin audit. This is the
-  sole sensitivity figure; Figure 2 has no sensitivity panel. Final artifact:
+  denominator-aware outcomes, signed central-contract gate margins, and the
+  width-trigger audit. This is the sole sensitivity figure; Figure 2 has no
+  sensitivity panel. Final artifact:
   [README](figures/figure_s2_measurement_sensitivity/README.md),
   [PNG](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.png),
   [PDF](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.pdf),

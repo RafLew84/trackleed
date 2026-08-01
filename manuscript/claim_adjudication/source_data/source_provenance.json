@@ -1,4 +1,16 @@
 {
+  "derived_sources": {
+    "gate_margin_summary.csv": {
+      "builder": {
+        "path": "trackleed/publication/scientific_sensitivity_sources.py",
+        "sha256": "acd78ced6dd438c585a6c3ace44859ab47df7e14890bcc0c93a0e436431bea03"
+      },
+      "derived_from": {
+        "evaluation_records.csv": "f16cec649c85e1cc4e30e6e8c04350853a34d9aacb33647937a9f1c466bb62e6"
+      },
+      "frozen_sha256": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984"
+    }
+  },
   "origin_required_at_build": false,
   "schema_version": 1,
   "sensitivity_id": "ag111_five_method_four_case_central_measurement_window_and_capture_contract_sensitivity",

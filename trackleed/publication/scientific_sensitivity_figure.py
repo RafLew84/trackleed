@@ -1,4 +1,4 @@
-"""Deterministic Figure S2 for Ag(111) measurement sensitivity."""
+"""Deterministic Figure S2 for measurement-window and capture-contract sensitivity."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from trackleed.analysis.scientific_sensitivity_records import (
 )
 from trackleed.analysis.scientific_tracer_records import read_csv
 from trackleed.publication.scientific_sensitivity_sources import (
+    GATE_MARGIN_SPECS,
+    GateMarginSummaryRecord,
     read_json,
     sha256_file,
     validate_sensitivity_source_data,
@@ -62,7 +64,8 @@ PANEL_ORDER = (
     "recovery",
     "geometry_inconsistency",
     "conditional_pair_residual",
-    "gate_margin_audit",
+    "signed_gate_margins",
+    "width_trigger_audit",
 )
 IMPLEMENTATION_PATHS = (
     Path("trackleed/publication/scientific_sensitivity_figure.py"),
@@ -77,6 +80,7 @@ class FigureS2Report:
     ofat_variant_count: int
     method_count: int
     gate_audit_record_count: int
+    gate_margin_summary_record_count: int
     width_sensitivity_triggered: bool
 
 
@@ -85,6 +89,7 @@ def _load_figure_sources(
 ) -> tuple[
     list[SensitivityResultRecord],
     list[WidthTriggerRecord],
+    list[GateMarginSummaryRecord],
     dict[str, Any],
 ]:
     validate_sensitivity_source_data(source_directory)
@@ -97,6 +102,10 @@ def _load_figure_sources(
         source_directory / "gate_margin_audit.csv",
         WidthTriggerRecord,
     )
+    _, gate_margins = read_csv(
+        source_directory / "gate_margin_summary.csv",
+        GateMarginSummaryRecord,
+    )
     summary = read_json(source_directory / "sensitivity_summary.json")
     result_keys = {(row["variant_id"], row["method"]) for row in method_results}
     if (
@@ -104,11 +113,21 @@ def _load_figure_sources(
         or result_keys
         != {(variant, method) for variant in VARIANT_ORDER for method in METHOD_ORDER}
         or len(audit) != 25
+        or len(gate_margins) != 40
+        or {
+            (row["method"], row["margin_id"])
+            for row in gate_margins
+        }
+        != {
+            (method, margin_id)
+            for method in METHOD_ORDER
+            for margin_id, *_ in GATE_MARGIN_SPECS
+        }
         or {row["scope"] for row in audit} != {"case", "method"}
         or set(summary.get("variants", {})) != set(VARIANT_ORDER)
     ):
         raise ValueError("Figure S2 source matrix changed")
-    return method_results, audit, summary
+    return method_results, audit, gate_margins, summary
 
 
 def _result_matrix(
@@ -193,6 +212,79 @@ def _render_heatmap(
     colorbar.ax.tick_params(labelsize=5.5)
 
 
+def _render_gate_margins(
+    figure: Any,
+    axis: Any,
+    rows: Sequence[GateMarginSummaryRecord],
+) -> None:
+    import numpy as np
+
+    margin_order = tuple(margin_id for margin_id, *_ in GATE_MARGIN_SPECS)
+    by_key = {(row["method"], row["margin_id"]): row for row in rows}
+    normalized = np.asarray(
+        [
+            [
+                by_key[(method, margin)]["p05"]
+                / by_key[(method, margin)]["normalizer"]
+                for margin in margin_order
+            ]
+            for method in METHOD_ORDER
+        ],
+        dtype=float,
+    )
+    image = axis.imshow(
+        np.clip(normalized, -1.0, 1.0),
+        aspect="auto",
+        cmap="RdBu",
+        vmin=-1.0,
+        vmax=1.0,
+    )
+    for y, method in enumerate(METHOD_ORDER):
+        for x, margin in enumerate(margin_order):
+            row = by_key[(method, margin)]
+            axis.text(
+                x,
+                y,
+                f"{row['p05']:.2g}\n{row['negative_count']}/{row['finite_margin_n']}",
+                ha="center",
+                va="center",
+                fontsize=4.2,
+                color="white" if abs(normalized[y, x]) > 0.55 else "#222222",
+            )
+    axis.set_xticks(range(len(margin_order)))
+    axis.set_xticklabels(
+        [
+            "proposal\nto fit",
+            "R²",
+            "amplitude",
+            "σx low",
+            "σx high",
+            "σy low",
+            "σy high",
+            "branch",
+        ]
+    )
+    axis.set_yticks(range(len(METHOD_ORDER)))
+    axis.set_yticklabels([METHOD_DISPLAY_NAMES[method] for method in METHOD_ORDER])
+    axis.set_title(
+        "Signed central-contract gate margins (P05; negative count / n)",
+        loc="left",
+        fontsize=7.2,
+    )
+    axis.text(
+        -0.08,
+        1.05,
+        "e",
+        transform=axis.transAxes,
+        fontsize=9.0,
+        fontweight="bold",
+    )
+    axis.tick_params(labelsize=5.2, length=0)
+    colorbar = figure.colorbar(image, ax=axis, fraction=0.035, pad=0.02)
+    colorbar.set_label("normalized signed P05 (clipped)", fontsize=5.5)
+    colorbar.ax.tick_params(labelsize=5.0)
+
+
 def _render_gate_audit(axis: Any, audit: Sequence[WidthTriggerRecord]) -> None:
     import numpy as np
 
@@ -231,14 +323,14 @@ def _render_gate_audit(axis: Any, audit: Sequence[WidthTriggerRecord]) -> None:
     axis.set_xticklabels([METHOD_DISPLAY_NAMES[method] for method in METHOD_ORDER])
     axis.set_ylabel("Candidate/rejection count")
     axis.set_title(
-        "Gate-margin audit: neither per-method materiality trigger activated",
+        "Width-trigger audit: neither per-method materiality trigger activated",
         loc="left",
         fontsize=8.0,
     )
     axis.text(
         -0.035,
         1.05,
-        "e",
+        "f",
         transform=axis.transAxes,
         fontsize=9.0,
         fontweight="bold",
@@ -255,7 +347,7 @@ def _render_gate_audit(axis: Any, audit: Sequence[WidthTriggerRecord]) -> None:
     )
     axis.spines[["top", "right"]].set_visible(False)
     axis.tick_params(labelsize=6.0)
-    axis.legend(frameon=False, ncol=2, fontsize=5.7, loc="upper left")
+    axis.legend(frameon=False, ncol=1, fontsize=5.2, loc="upper left")
 
 
 def render_figure_s2(
@@ -269,7 +361,9 @@ def render_figure_s2(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    rows, audit, summary = _load_figure_sources(source_directory.resolve())
+    rows, audit, gate_margins, summary = _load_figure_sources(
+        source_directory.resolve()
+    )
     figure = plt.figure(figsize=FIGURE_SIZE_INCHES, constrained_layout=True)
     grid = figure.add_gridspec(3, 2, height_ratios=(1.0, 1.0, 0.72))
     axes = [
@@ -328,7 +422,13 @@ def render_figure_s2(
         color_map="Purples",
         colorbar_label="median absolute residual [px]",
     )
-    _render_gate_audit(figure.add_subplot(grid[2, :]), audit)
+    bottom_grid = grid[2, :].subgridspec(1, 2, width_ratios=(1.35, 1.0))
+    _render_gate_margins(
+        figure,
+        figure.add_subplot(bottom_grid[0, 0]),
+        gate_margins,
+    )
+    _render_gate_audit(figure.add_subplot(bottom_grid[0, 1]), audit)
     figure.suptitle(
         "Measurement-window and capture-contract sensitivity",
         fontsize=10.0,
@@ -363,6 +463,7 @@ def render_figure_s2(
         ofat_variant_count=len(OFAT_VARIANTS),
         method_count=len(METHOD_ORDER),
         gate_audit_record_count=len(audit),
+        gate_margin_summary_record_count=len(gate_margins),
         width_sensitivity_triggered=width["decision"] == "run_all_width_contracts",
     )
 
@@ -390,6 +491,9 @@ def build_figure_s2_artifact(
         "ofat_variant_count": report.ofat_variant_count,
         "method_count": report.method_count,
         "gate_audit_record_count": report.gate_audit_record_count,
+        "gate_margin_summary_record_count": (
+            report.gate_margin_summary_record_count
+        ),
         "width_sensitivity_triggered": report.width_sensitivity_triggered,
         "fixed_denominators": [221, 24],
         "conditional_denominators": [
