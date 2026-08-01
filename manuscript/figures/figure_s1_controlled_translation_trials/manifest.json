@@ -11,12 +11,13 @@
     8.1
   ],
   "implementation_sha256": {
-    "trackleed/publication/controlled_translation_evidence.py": "0188e6d0837d47d7423b08ae6e2d6aedb2299bda6b22c9965c8be99cbfbe89fe",
-    "trackleed/publication/controlled_translation_figure_s1.py": "2cff39816f21f0af58536df06cda1135812ba73217cd8099130b8ae455d7aac7"
+    "trackleed/analysis/controlled_translation_evidence.py": "c76732412b9371be20dcd1130b66da611b5dfa145a1641788060cd74b4d3aa9d",
+    "trackleed/publication/controlled_translation_figure_s1.py": "d15bce56187d2e02aa550dd5eef67643a5b4dd88e5a13c6551754486cfaea327",
+    "trackleed/publication/controlled_translation_sources.py": "7e9366f276d500ec349d3d53c7b3e4601d7a16d47bacd6c9aa7f057863fa9fbe"
   },
   "outputs_sha256": {
-    "figure_s1_controlled_translation_trials.pdf": "648339a40c74239cf1c9ecb0da4309c406a3c85dbc41017d7fce0bc494eedb73",
-    "figure_s1_controlled_translation_trials.png": "5a9b427608e4884434fcbfd780345abda56c9199e45518f4aae9f77243ddcdfc"
+    "figure_s1_controlled_translation_trials.pdf": "d803273c5b6749550d21c0050755c7c2aaaa8d6060546bb24c7d7e99dee72911",
+    "figure_s1_controlled_translation_trials.png": "54aba52771abb21fbbc2f44ba3deb778833b8d1e3e37d795239ca1514c856bec"
   },
   "pair_record_count": 288,
   "panel_count": 12,

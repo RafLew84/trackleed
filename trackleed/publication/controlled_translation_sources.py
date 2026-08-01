@@ -1,14 +1,12 @@
-"""Reader-facing evidence derived from frozen controlled translations."""
+"""Freeze and authenticate the controlled-translation source package."""
 
 from __future__ import annotations
 
 import csv
 import hashlib
 import json
-import math
 from pathlib import Path
 import shutil
-import statistics
 from typing import Any, TypedDict
 
 
@@ -27,8 +25,6 @@ TRIAL_LABELS = {
     378: "post-plateau contraction minimum",
     700: "final cooled state",
 }
-SPOT_OPPORTUNITIES_PER_TRIAL = 20
-PAIR_OPPORTUNITIES_PER_TRIAL = 10
 SOURCE_FILE_MAP = {
     "contract.json": "contract.json",
     "equivariance_results.csv": "equivariance_results.csv",
@@ -36,29 +32,6 @@ SOURCE_FILE_MAP = {
     "method_summary.csv": "method_summary.csv",
     "manifest.json": "upstream_manifest.json",
 }
-
-
-class TrialOutcome(TypedDict):
-    source_frame_order: int
-    trial: str
-    temperature_c: int
-    method: str
-    display_method: str
-    role: str
-    available_proposal_count: int
-    spot_opportunity_n: int
-    proposal_coverage: str
-    accepted_measurement_count: int
-    measurement_coverage: str
-    conditional_measurement_error_n: int
-    measurement_error_median_px: float
-    measurement_error_p95_px: float
-    measurement_error_max_px: float
-    valid_pair_count: int
-    pair_opportunity_n: int
-    pair_coverage: str
-    conditional_pair_invariance_n: int
-    maximum_abs_delta_d_over_d_pp: float
 
 
 class ControlledTranslationSourceReport(TypedDict):
@@ -85,34 +58,6 @@ def read_json(path: Path) -> dict[str, Any]:
 def read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
-
-
-def as_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes"}
-
-
-def linear_percentile(values: list[float], percentile: float) -> float:
-    """Return the linearly interpolated percentile of nonempty values."""
-
-    if not values:
-        raise ValueError("A conditional percentile requires at least one value")
-    ordered = sorted(values)
-    position = (len(ordered) - 1) * percentile / 100.0
-    lower_index = math.floor(position)
-    upper_index = math.ceil(position)
-    if lower_index == upper_index:
-        return ordered[lower_index]
-    fraction = position - lower_index
-    return (
-        ordered[lower_index] * (1.0 - fraction)
-        + ordered[upper_index] * fraction
-    )
-
-
-def _fraction(numerator: int, denominator: int) -> str:
-    if denominator <= 0 or not 0 <= numerator <= denominator:
-        raise ValueError("Coverage requires 0 <= numerator <= denominator")
-    return f"{numerator}/{denominator}"
 
 
 def _validate_source_matrix(
@@ -190,6 +135,7 @@ def freeze_controlled_translation_source_data(
         )
         + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -282,114 +228,11 @@ def validate_controlled_translation_source_data(
     )
 
 
-def build_trial_outcomes(source_directory: Path) -> list[TrialOutcome]:
-    """Build one full-precision outcome row per source trial and method."""
-
-    source_directory = source_directory.resolve()
-    validate_controlled_translation_source_data(source_directory)
-    spot_rows = read_csv(source_directory / "equivariance_results.csv")
-    pair_rows = read_csv(source_directory / "pair_invariance.csv")
-    _validate_source_matrix(spot_rows, pair_rows)
-    display_names = {row["method"]: row["display_method"] for row in spot_rows}
-    roles = {row["method"]: row["role"] for row in spot_rows}
-    outcomes: list[TrialOutcome] = []
-    for trial in TRIAL_ORDER:
-        for method in METHOD_ORDER:
-            trial_spots = [
-                row
-                for row in spot_rows
-                if row["method"] == method
-                and int(row["source_frame_order"]) == trial
-                and as_bool(row["is_evaluation_step"])
-            ]
-            trial_pairs = [
-                row
-                for row in pair_rows
-                if row["method"] == method
-                and int(row["source_frame_order"]) == trial
-                and as_bool(row["is_evaluation_step"])
-            ]
-            if (
-                len(trial_spots) != SPOT_OPPORTUNITIES_PER_TRIAL
-                or len(trial_pairs) != PAIR_OPPORTUNITIES_PER_TRIAL
-            ):
-                raise ValueError(
-                    f"Controlled-translation opportunity set changed: {trial}/{method}"
-                )
-            measurement_errors = [
-                float(row["measurement_displacement_error_px"])
-                for row in trial_spots
-                if as_bool(row["fit_valid"])
-            ]
-            pair_changes = [
-                abs(float(row["delta_d_over_d_percent"]))
-                for row in trial_pairs
-                if as_bool(row["pair_valid"])
-            ]
-            if not measurement_errors or not pair_changes:
-                raise ValueError(
-                    f"Controlled-translation conditional outcome is empty: "
-                    f"{trial}/{method}"
-                )
-            proposal_count = sum(
-                as_bool(row["proposal_available"]) for row in trial_spots
-            )
-            measurement_count = len(measurement_errors)
-            pair_count = len(pair_changes)
-            outcomes.append(
-                TrialOutcome(
-                    source_frame_order=trial,
-                    trial=TRIAL_LABELS[trial],
-                    temperature_c=int(float(trial_spots[0]["temperature_c"])),
-                    method=method,
-                    display_method=display_names[method],
-                    role=roles[method],
-                    available_proposal_count=proposal_count,
-                    spot_opportunity_n=SPOT_OPPORTUNITIES_PER_TRIAL,
-                    proposal_coverage=_fraction(
-                        proposal_count,
-                        SPOT_OPPORTUNITIES_PER_TRIAL,
-                    ),
-                    accepted_measurement_count=measurement_count,
-                    measurement_coverage=_fraction(
-                        measurement_count,
-                        SPOT_OPPORTUNITIES_PER_TRIAL,
-                    ),
-                    conditional_measurement_error_n=measurement_count,
-                    measurement_error_median_px=statistics.median(
-                        measurement_errors
-                    ),
-                    measurement_error_p95_px=linear_percentile(
-                        measurement_errors,
-                        95.0,
-                    ),
-                    measurement_error_max_px=max(measurement_errors),
-                    valid_pair_count=pair_count,
-                    pair_opportunity_n=PAIR_OPPORTUNITIES_PER_TRIAL,
-                    pair_coverage=_fraction(
-                        pair_count,
-                        PAIR_OPPORTUNITIES_PER_TRIAL,
-                    ),
-                    conditional_pair_invariance_n=pair_count,
-                    maximum_abs_delta_d_over_d_pp=max(pair_changes),
-                )
-            )
-    if len(outcomes) != len(TRIAL_ORDER) * len(METHOD_ORDER):
-        raise ValueError("Controlled-translation trial matrix changed")
-    return outcomes
-
-
 __all__ = [
     "METHOD_ORDER",
-    "PAIR_OPPORTUNITIES_PER_TRIAL",
-    "SPOT_OPPORTUNITIES_PER_TRIAL",
     "TRIAL_LABELS",
     "TRIAL_ORDER",
-    "TrialOutcome",
-    "as_bool",
-    "build_trial_outcomes",
     "freeze_controlled_translation_source_data",
-    "linear_percentile",
     "read_csv",
     "sha256_file",
     "validate_controlled_translation_source_data",

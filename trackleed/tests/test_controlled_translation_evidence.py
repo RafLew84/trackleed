@@ -3,14 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 import csv
 import json
+import math
 import shutil
 from tempfile import TemporaryDirectory
 import unittest
 
-from trackleed.publication.controlled_translation_evidence import (
+from trackleed.analysis.controlled_translation_evidence import (
     build_trial_outcomes,
+    load_controlled_translation_evidence,
+)
+from trackleed.publication.controlled_translation_sources import (
     validate_controlled_translation_source_data,
 )
+from trackleed.publication import controlled_translation_figure_s1
 from trackleed.publication.controlled_translation_table import (
     build_table_s5_artifact,
 )
@@ -33,6 +38,27 @@ ORIGIN_DIRECTORY = (
 
 
 class ControlledTranslationEvidenceTests(unittest.TestCase):
+    def test_rejected_pair_steps_break_figure_s1_trajectories(self) -> None:
+        evidence = load_controlled_translation_evidence(SOURCE_DIRECTORY)
+        points = [
+            row
+            for row in evidence.pairs
+            if row.source_frame_order == 372
+            and row.method == "easyleed_kalman"
+            and row.pair == "3-5"
+            and row.is_evaluation_step
+        ]
+        points.sort(key=lambda row: row.translation_step)
+
+        values = controlled_translation_figure_s1._pair_invariance_values(
+            points
+        )
+
+        self.assertEqual([row.translation_step for row in points], [1, 2, 3, 4, 5])
+        self.assertTrue(math.isnan(values[2]))
+        self.assertTrue(math.isnan(values[3]))
+        self.assertFalse(math.isnan(values[4]))
+
     def test_figure_s1_contains_every_source_trial_and_diagnostic(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -146,40 +172,42 @@ class ControlledTranslationEvidenceTests(unittest.TestCase):
 
         self.assertEqual(len(rows), 24)
         self.assertEqual(
-            {int(row["source_frame_order"]) for row in rows},
+            {int(row.source_frame_order) for row in rows},
             {0, 372, 378, 700},
         )
-        self.assertTrue(all(row["spot_opportunity_n"] == 20 for row in rows))
-        self.assertTrue(all(row["pair_opportunity_n"] == 10 for row in rows))
+        self.assertTrue(
+            all(row.proposal_coverage.denominator == 20 for row in rows)
+        )
+        self.assertTrue(all(row.pair_coverage.denominator == 10 for row in rows))
         self.assertTrue(
             all(
-                row["conditional_measurement_error_n"]
-                == row["accepted_measurement_count"]
+                row.conditional_measurement_error_n
+                == row.measurement_coverage.numerator
                 for row in rows
             )
         )
         self.assertTrue(
             all(
-                row["conditional_pair_invariance_n"]
-                == row["valid_pair_count"]
+                row.conditional_pair_invariance_n
+                == row.pair_coverage.numerator
                 for row in rows
             )
         )
         low_temperature_locotrack = next(
             row
             for row in rows
-            if row["source_frame_order"] == 0
-            and row["method"] == "locotrack_base_offline"
+            if row.source_frame_order == 0
+            and row.method == "locotrack_base_offline"
         )
-        self.assertEqual(low_temperature_locotrack["available_proposal_count"], 20)
-        self.assertEqual(low_temperature_locotrack["accepted_measurement_count"], 20)
+        self.assertEqual(low_temperature_locotrack.proposal_coverage.numerator, 20)
+        self.assertEqual(low_temperature_locotrack.measurement_coverage.numerator, 20)
         self.assertAlmostEqual(
-            low_temperature_locotrack["measurement_error_median_px"],
+            low_temperature_locotrack.measurement_error_median_px,
             0.0031384264221719837,
         )
-        self.assertEqual(low_temperature_locotrack["valid_pair_count"], 10)
+        self.assertEqual(low_temperature_locotrack.pair_coverage.numerator, 10)
         self.assertAlmostEqual(
-            low_temperature_locotrack["maximum_abs_delta_d_over_d_pp"],
+            low_temperature_locotrack.maximum_abs_delta_d_over_d_pp,
             0.00018074382868849865,
         )
 

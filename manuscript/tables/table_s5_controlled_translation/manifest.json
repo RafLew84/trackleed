@@ -9,13 +9,14 @@
     "spot_step_opportunities_per_trial_method": 20
   },
   "implementation_sha256": {
-    "trackleed/publication/controlled_translation_evidence.py": "0188e6d0837d47d7423b08ae6e2d6aedb2299bda6b22c9965c8be99cbfbe89fe",
-    "trackleed/publication/controlled_translation_table.py": "f4cc453dd0651f6fb73db9d6c4a4ced0941507f055afac3a859127d4a13bbe0d"
+    "trackleed/analysis/controlled_translation_evidence.py": "c76732412b9371be20dcd1130b66da611b5dfa145a1641788060cd74b4d3aa9d",
+    "trackleed/publication/controlled_translation_sources.py": "7e9366f276d500ec349d3d53c7b3e4601d7a16d47bacd6c9aa7f057863fa9fbe",
+    "trackleed/publication/controlled_translation_table.py": "743ad906292a9ca564fe9443399eeb6716b8122c90274848a9207b0653daa7fb"
   },
   "method_count": 6,
   "outputs_sha256": {
     "table_s5_controlled_translation.csv": "4cd0dab2b9c176760494999db6e6039d8d171f03e45f05671d91c9c2aaad9ac8",
-    "table_s5_controlled_translation.md": "2baa719df186ab12c0c9e20c22dfeae97f7ec03a2851c3933a55d86c7c6728a3"
+    "table_s5_controlled_translation.md": "09921837b9755fe9cc1e321571d0f07b808ccd423537e24711dfc7f19e4522ac"
   },
   "row_count": 24,
   "schema_version": 1,

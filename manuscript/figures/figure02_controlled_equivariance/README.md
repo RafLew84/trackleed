@@ -38,7 +38,7 @@ estimator behavior, not absolute tracking accuracy or identity ground truth.
 
 - `build_figure.py` - compact build, manifest, and validation entry point.
 - `figure_contract.py` - frozen data contract and source-data preparation.
-- `figure_render.py` - deterministic five-panel renderer.
+- `figure_render.py` - deterministic four-panel renderer.
 - `test_build_figure.py` - tests for the frozen path and denominators.
 - `source_data/` - committed figure-level tables, representative crop, and
   provenance hashes.

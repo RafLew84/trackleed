@@ -7,16 +7,19 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-from trackleed.publication.controlled_translation_evidence import (
+from trackleed.analysis.controlled_translation_evidence import (
     TrialOutcome,
     build_trial_outcomes,
+)
+from trackleed.publication.controlled_translation_sources import (
     sha256_file,
     validate_controlled_translation_source_data,
 )
 
 
 IMPLEMENTATION_PATHS = (
-    Path("trackleed/publication/controlled_translation_evidence.py"),
+    Path("trackleed/analysis/controlled_translation_evidence.py"),
+    Path("trackleed/publication/controlled_translation_sources.py"),
     Path("trackleed/publication/controlled_translation_table.py"),
 )
 TABLE_S5_BEGIN = "<!-- BEGIN TABLE S5 -->"
@@ -36,11 +39,11 @@ def _write_csv(path: Path, rows: list[TrialOutcome]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=list(TrialOutcome.__annotations__),
+            fieldnames=list(rows[0].as_record()),
             lineterminator="\n",
         )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(row.as_record() for row in rows)
 
 
 def render_table_s5(rows: list[TrialOutcome]) -> str:
@@ -76,18 +79,18 @@ def render_table_s5(rows: list[TrialOutcome]) -> str:
             "{measurement} | {median:.4f} / {p95:.4f} / {maximum:.4f} "
             "(n={measurement_n}) | {pair} | {pair_max:.6f} "
             "(n={pair_n}) |".format(
-                trial=row["trial"],
-                temperature_c=row["temperature_c"],
-                method=row["display_method"],
-                proposal=row["proposal_coverage"],
-                measurement=row["measurement_coverage"],
-                median=row["measurement_error_median_px"],
-                p95=row["measurement_error_p95_px"],
-                maximum=row["measurement_error_max_px"],
-                measurement_n=row["conditional_measurement_error_n"],
-                pair=row["pair_coverage"],
-                pair_max=row["maximum_abs_delta_d_over_d_pp"],
-                pair_n=row["conditional_pair_invariance_n"],
+                trial=row.trial,
+                temperature_c=row.temperature_c,
+                method=row.display_method,
+                proposal=row.proposal_coverage.fraction,
+                measurement=row.measurement_coverage.fraction,
+                median=row.measurement_error_median_px,
+                p95=row.measurement_error_p95_px,
+                maximum=row.measurement_error_max_px,
+                measurement_n=row.conditional_measurement_error_n,
+                pair=row.pair_coverage.fraction,
+                pair_max=row.maximum_abs_delta_d_over_d_pp,
+                pair_n=row.conditional_pair_invariance_n,
             )
         )
     return "\n".join(lines) + "\n"
@@ -114,6 +117,7 @@ def build_table_s5_artifact(
     markdown_path.write_text(
         render_table_s5(rows),
         encoding="utf-8",
+        newline="\n",
     )
     manifest = {
         "schema_version": 1,
@@ -121,8 +125,8 @@ def build_table_s5_artifact(
         "table": "Table S5",
         "title": "Controlled-translation outcomes by source trial",
         "row_count": len(rows),
-        "trial_count": len({row["source_frame_order"] for row in rows}),
-        "method_count": len({row["method"] for row in rows}),
+        "trial_count": len({row.source_frame_order for row in rows}),
+        "method_count": len({row.method for row in rows}),
         "source_data_path": (
             source_directory.relative_to(workspace_root).as_posix()
         ),
@@ -157,9 +161,10 @@ def build_table_s5_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
-    trial_count = len({row["source_frame_order"] for row in rows})
-    method_count = len({row["method"] for row in rows})
+    trial_count = len({row.source_frame_order for row in rows})
+    method_count = len({row.method for row in rows})
     return TableS5Report(
         row_count=len(rows),
         trial_count=trial_count,
@@ -191,7 +196,11 @@ def synchronize_table_s5(
         )
     else:
         raise ValueError("Table S5 supplement markers changed")
-    supplementary_material_path.write_text(updated, encoding="utf-8")
+    supplementary_material_path.write_text(
+        updated,
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 __all__ = [

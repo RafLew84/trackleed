@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -14,18 +13,24 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
-from trackleed.publication.controlled_translation_evidence import (  # noqa: E402
+from trackleed.analysis.controlled_translation_evidence import (  # noqa: E402
+    ControlledTranslationEvidence,
+    PairObservation,
+    SpotObservation,
+    load_controlled_translation_evidence,
+)
+from trackleed.publication.controlled_translation_sources import (  # noqa: E402
     METHOD_ORDER,
     TRIAL_LABELS,
     TRIAL_ORDER,
-    as_bool,
     sha256_file,
     validate_controlled_translation_source_data,
 )
 
 
 IMPLEMENTATION_PATHS = (
-    Path("trackleed/publication/controlled_translation_evidence.py"),
+    Path("trackleed/analysis/controlled_translation_evidence.py"),
+    Path("trackleed/publication/controlled_translation_sources.py"),
     Path("trackleed/publication/controlled_translation_figure_s1.py"),
 )
 DIAGNOSTIC_ROWS = (
@@ -52,36 +57,31 @@ class FigureS1Report:
     pair_record_count: int
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
+def _display_names(rows: tuple[SpotObservation, ...]) -> dict[str, str]:
+    return {row.method: row.display_method for row in rows}
 
 
-def _display_names(rows: list[dict[str, str]]) -> dict[str, str]:
-    return {row["method"]: row["display_method"] for row in rows}
-
-
-def _trial_title(trial: int, rows: list[dict[str, str]]) -> str:
-    trial_rows = [row for row in rows if int(row["source_frame_order"]) == trial]
-    temperature = int(float(trial_rows[0]["temperature_c"]))
+def _trial_title(trial: int, rows: tuple[SpotObservation, ...]) -> str:
+    trial_rows = [row for row in rows if row.source_frame_order == trial]
+    temperature = trial_rows[0].temperature_c
     return f"{TRIAL_LABELS[trial]}\nsource frame {trial}; {temperature} deg C"
 
 
 def _plot_measurement_paths(
     axis: Any,
-    rows: list[dict[str, str]],
+    rows: tuple[SpotObservation, ...],
     trial: int,
 ) -> None:
-    trial_rows = [row for row in rows if int(row["source_frame_order"]) == trial]
+    trial_rows = [row for row in rows if row.source_frame_order == trial]
     commanded = [
         row
         for row in trial_rows
-        if row["method"] == "oracle_roi_control" and row["spot_id"] == "1"
+        if row.method == "oracle_roi_control" and row.spot_id == 1
     ]
-    commanded.sort(key=lambda row: int(row["translation_step"]))
+    commanded.sort(key=lambda row: row.translation_step)
     axis.plot(
-        [float(row["commanded_dx_original_px"]) for row in commanded],
-        [float(row["commanded_dy_original_px"]) for row in commanded],
+        [row.commanded_dx_px for row in commanded],
+        [row.commanded_dy_px for row in commanded],
         color="#111827",
         linewidth=2.0,
         linestyle=(0, (2, 2)),
@@ -91,26 +91,31 @@ def _plot_measurement_paths(
         zorder=5,
     )
     for method in METHOD_ORDER:
-        for spot_id in ("1", "3", "5", "6"):
+        for spot_id in (1, 3, 5, 6):
             path = [
                 row
                 for row in trial_rows
-                if row["method"] == method and row["spot_id"] == spot_id
+                if row.method == method and row.spot_id == spot_id
             ]
-            path.sort(key=lambda row: int(row["translation_step"]))
-            if not path or not as_bool(path[0]["fit_valid"]):
+            path.sort(key=lambda row: row.translation_step)
+            if (
+                not path
+                or not path[0].fit_valid
+                or path[0].gaussian_center_x_px is None
+                or path[0].gaussian_center_y_px is None
+            ):
                 continue
-            origin_x = float(path[0]["gaussian_center_x_original_px"])
-            origin_y = float(path[0]["gaussian_center_y_original_px"])
+            origin_x = path[0].gaussian_center_x_px
+            origin_y = path[0].gaussian_center_y_px
             x_values = [
-                float(row["gaussian_center_x_original_px"]) - origin_x
-                if as_bool(row["fit_valid"])
+                row.gaussian_center_x_px - origin_x
+                if row.fit_valid and row.gaussian_center_x_px is not None
                 else float("nan")
                 for row in path
             ]
             y_values = [
-                float(row["gaussian_center_y_original_px"]) - origin_y
-                if as_bool(row["fit_valid"])
+                row.gaussian_center_y_px - origin_y
+                if row.fit_valid and row.gaussian_center_y_px is not None
                 else float("nan")
                 for row in path
             ]
@@ -134,22 +139,22 @@ def _plot_measurement_paths(
 
 def _plot_native_vs_refined(
     axis: Any,
-    rows: list[dict[str, str]],
+    rows: tuple[SpotObservation, ...],
     trial: int,
 ) -> None:
     for method in METHOD_ORDER[:-1]:
         points = [
             row
             for row in rows
-            if int(row["source_frame_order"]) == trial
-            and row["method"] == method
-            and as_bool(row["is_evaluation_step"])
-            and row["native_displacement_error_px"]
-            and row["measurement_displacement_error_px"]
+            if row.source_frame_order == trial
+            and row.method == method
+            and row.is_evaluation_step
+            and row.native_displacement_error_px is not None
+            and row.measurement_displacement_error_px is not None
         ]
         axis.scatter(
-            [float(row["native_displacement_error_px"]) for row in points],
-            [float(row["measurement_displacement_error_px"]) for row in points],
+            [row.native_displacement_error_px for row in points],
+            [row.measurement_displacement_error_px for row in points],
             s=11,
             alpha=0.68,
             linewidths=0,
@@ -166,7 +171,7 @@ def _plot_native_vs_refined(
 
 def _plot_pair_invariance(
     axis: Any,
-    rows: list[dict[str, str]],
+    rows: tuple[PairObservation, ...],
     trial: int,
 ) -> None:
     invalid: list[tuple[int, str]] = []
@@ -175,16 +180,15 @@ def _plot_pair_invariance(
             points = [
                 row
                 for row in rows
-                if int(row["source_frame_order"]) == trial
-                and row["method"] == method
-                and row["pair"] == pair
-                and as_bool(row["is_evaluation_step"])
+                if row.source_frame_order == trial
+                and row.method == method
+                and row.pair == pair
+                and row.is_evaluation_step
             ]
-            points.sort(key=lambda row: int(row["translation_step"]))
-            valid = [row for row in points if as_bool(row["pair_valid"])]
+            points.sort(key=lambda row: row.translation_step)
             axis.plot(
-                [int(row["translation_step"]) for row in valid],
-                [abs(float(row["delta_d_over_d_percent"])) for row in valid],
+                [row.translation_step for row in points],
+                _pair_invariance_values(points),
                 color=COLORS[method],
                 alpha=0.58 if method != "oracle_roi_control" else 0.4,
                 linewidth=0.8,
@@ -192,9 +196,9 @@ def _plot_pair_invariance(
                 markersize=2.6,
             )
             invalid.extend(
-                (int(row["translation_step"]), method)
+                (row.translation_step, method)
                 for row in points
-                if not as_bool(row["pair_valid"])
+                if not row.pair_valid
             )
     for step, method in invalid:
         axis.scatter(step, 30.0, marker="x", s=16, color=COLORS[method])
@@ -205,9 +209,21 @@ def _plot_pair_invariance(
     axis.set_xlabel("translation step")
 
 
+def _pair_invariance_values(
+    points: list[PairObservation],
+) -> list[float]:
+    """Keep invalid steps as gaps instead of bridging the trajectory."""
+
+    return [
+        abs(row.delta_d_over_d_percent)
+        if row.pair_valid and row.delta_d_over_d_percent is not None
+        else float("nan")
+        for row in points
+    ]
+
+
 def _render_figure(
-    spot_rows: list[dict[str, str]],
-    pair_rows: list[dict[str, str]],
+    evidence: ControlledTranslationEvidence,
     png_path: Path,
     pdf_path: Path,
 ) -> None:
@@ -225,10 +241,10 @@ def _render_figure(
     )
     figure, axes = plt.subplots(3, 4, figsize=(10.5, 8.1), constrained_layout=False)
     for column, trial in enumerate(TRIAL_ORDER):
-        _plot_measurement_paths(axes[0, column], spot_rows, trial)
-        _plot_native_vs_refined(axes[1, column], spot_rows, trial)
-        _plot_pair_invariance(axes[2, column], pair_rows, trial)
-        axes[0, column].set_title(_trial_title(trial, spot_rows), pad=6)
+        _plot_measurement_paths(axes[0, column], evidence.spots, trial)
+        _plot_native_vs_refined(axes[1, column], evidence.spots, trial)
+        _plot_pair_invariance(axes[2, column], evidence.pairs, trial)
+        axes[0, column].set_title(_trial_title(trial, evidence.spots), pad=6)
     axes[0, 0].set_ylabel("relative y displacement [px]")
     axes[1, 0].set_ylabel("Gaussian-refined error [px]")
     axes[2, 0].set_ylabel("absolute Delta D/D [pp]")
@@ -259,7 +275,7 @@ def _render_figure(
         )
         axis.grid(color="#E5E7EB", linewidth=0.45, alpha=0.7)
 
-    names = _display_names(spot_rows)
+    names = _display_names(evidence.spots)
     handles = [
         Line2D([0], [0], color="#111827", linestyle=(0, (2, 2)), label="Commanded path")
     ]
@@ -320,12 +336,11 @@ def build_figure_s1_artifact(
     workspace_root = workspace_root.resolve()
     source_directory = source_directory.resolve()
     report = validate_controlled_translation_source_data(source_directory)
-    spot_rows = _read_csv(source_directory / "equivariance_results.csv")
-    pair_rows = _read_csv(source_directory / "pair_invariance.csv")
+    evidence = load_controlled_translation_evidence(source_directory)
     output_directory.mkdir(parents=True, exist_ok=True)
     png_path = output_directory / f"{OUTPUT_STEM}.png"
     pdf_path = output_directory / f"{OUTPUT_STEM}.pdf"
-    _render_figure(spot_rows, pair_rows, png_path, pdf_path)
+    _render_figure(evidence, png_path, pdf_path)
 
     panel_order = [
         f"{diagnostic}:{trial}"
@@ -369,6 +384,7 @@ def build_figure_s1_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return FigureS1Report(
         trial_count=int(report["trial_count"]),
