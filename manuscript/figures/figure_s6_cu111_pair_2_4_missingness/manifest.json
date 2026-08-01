@@ -1,0 +1,48 @@
+{
+  "amplitude_only_rejections": "24/24",
+  "caption_limits": [
+    "The saved YOLO proposal trajectory is outside the frozen five-method run.",
+    "The diagnostic does not demonstrate tracker identity loss or compare the five methods on spots 2 and 4.",
+    "The uncalibrated amplitude gate is a measurement-acceptance rule, not a physical I(V) observable."
+  ],
+  "caption_sha256": "1ebf6a2d94d2085e80d3cd02b7d5b3310dda3bc43d518bb624102aad8774aa77",
+  "code_sha256": {
+    "build_figure.py": "aaab40e89a96223a7ae39c6b2d6aba02f6cfd6556e4a1a8b09f69a2ce924a4b3",
+    "freeze_source_data.py": "59fe1b724c4b8c3f86157a3685307ae3961d06ff813969393959c652caa2f79b",
+    "test_build_figure.py": "028f8c313fdd9cb115db6394eb02ccffbbeb1d7801c2b0b8468ad19f4f79eced"
+  },
+  "contract_sha256": "eb7c24709cb92f253f3f100c1d8af88e4a625978d9aa860a61681c09a24cd367",
+  "environment": {
+    "python": "3.12.9"
+  },
+  "figure": "Figure S6",
+  "inside_five_method_run": false,
+  "output_files": {
+    "pdf": "output/pdf/figure_s6_cu111_pair_2_4_missingness.pdf",
+    "png": "output/figure_s6_cu111_pair_2_4_missingness.png"
+  },
+  "outputs_sha256": {
+    "pdf": "adabf59b61d1a16847d1a329b4a70d980c61df927fc8e3e199f96d235f16a212",
+    "png": "9fc7958d1d70a6e1746262664cfdbbcd6cb664fe9a0e5b9c281c42d72ef3baf9"
+  },
+  "rendering": {
+    "figure_size_inches": [
+      7.0,
+      4.5
+    ],
+    "font_family": "DejaVu Sans",
+    "missing_value_rendering": "explicit rejected-fit markers; no accepted endpoint is imputed",
+    "png_dpi": 400
+  },
+  "schema_version": "1.0",
+  "source_data_sha256": "fbf6cc8d825f8f24b527c64517d2bfb2672d65e742f4a2819eb91ba1a5769e4f",
+  "source_provenance": {
+    "evidence_role": "separate saved-proposal diagnostic",
+    "frozen_source_sha256": "fbf6cc8d825f8f24b527c64517d2bfb2672d65e742f4a2819eb91ba1a5769e4f",
+    "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-pairwise-delta-r/pair_2_4_fit_diagnostics.csv",
+    "origin_sha256": "d00536d4aefea46e8403635a33522106a76a0032355b2a9d2a6f3d619f332dfc"
+  },
+  "status": "completed",
+  "title": "Cu(111) pair 2-4 missingness diagnostic",
+  "tracking_proposal_present": "26/26"
+}

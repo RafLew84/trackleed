@@ -5,7 +5,7 @@ Status: generated and validated.
 ## Purpose
 
 Table S4 reports the exact method- and pair-specific values behind the three
-thermal-cycle landmarks summarized in Figure 5:
+thermal-cycle landmarks summarized in Figure 3:
 
 - the median of the predefined five-image 800 °C plateau;
 - the outcome-selected post-plateau minimum, which occurred in the common
@@ -20,9 +20,9 @@ absolute accuracy, an overall tracker ranking, or crystallographic anisotropy.
 ## Source contract
 
 The `source_data/` directory contains byte-identical committed snapshots of
-the validated Figure 5 endpoint summaries, cycle landmarks, and independent
+the validated Figure 3 endpoint summaries, cycle landmarks, and independent
 between-method spread calculation. `source_provenance.json` records and
-hash-checks both each local snapshot and its committed Figure 5 origin.
+hash-checks both each local snapshot and its committed Figure 3 origin.
 
 The relative endpoint is
 
@@ -56,4 +56,4 @@ From this directory:
 
 The builder refuses altered schemas, malformed or escaping provenance paths,
 hash mismatches, incomplete method–pair coverage, changed landmark roles, or
-endpoint extrema inconsistent with the independent Figure 5 spread table.
+endpoint extrema inconsistent with the independent Figure 3 spread table.

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "figure": "Figure S6",
+  "status": "source_contract_frozen",
+  "scientific_question": "Can a saved tracking proposal remain available while the common Gaussian position measurement is rejected?",
+  "evidence_role": "separate missingness diagnostic",
+  "pair": "2-4",
+  "tracking_source": "earlier saved YOLO proposal trajectory",
+  "inside_five_method_run": false,
+  "context_frame_start": 356,
+  "context_frame_end": 381,
+  "tracking_proposal_present_count": 26,
+  "rejected_fit_count": 24,
+  "missing_frame_start": 357,
+  "missing_frame_end": 380,
+  "failed_gate": "amplitude",
+  "amplitude_threshold": 0.05,
+  "interpretation": "A present tracking proposal does not guarantee an accepted quantitative Gaussian measurement.",
+  "limitations": [
+    "The saved YOLO proposal trajectory is outside the frozen five-method run.",
+    "The diagnostic does not demonstrate tracker identity loss or compare the five methods on spots 2 and 4.",
+    "The uncalibrated amplitude gate is a measurement-acceptance rule, not a physical I(V) observable."
+  ]
+}

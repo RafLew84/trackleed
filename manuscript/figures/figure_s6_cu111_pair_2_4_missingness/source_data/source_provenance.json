@@ -1,0 +1,10 @@
+{
+  "figure": "Figure S6",
+  "schema_version": "1.0",
+  "source": {
+    "evidence_role": "separate saved-proposal diagnostic",
+    "frozen_source_sha256": "fbf6cc8d825f8f24b527c64517d2bfb2672d65e742f4a2819eb91ba1a5769e4f",
+    "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-pairwise-delta-r/pair_2_4_fit_diagnostics.csv",
+    "origin_sha256": "d00536d4aefea46e8403635a33522106a76a0032355b2a9d2a6f3d619f332dfc"
+  }
+}

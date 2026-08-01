@@ -122,7 +122,13 @@ class Cu111EndpointTableTest(unittest.TestCase):
         provenance = build_table.validate_provenance()
 
         self.assertEqual(len(provenance["sources"]), 3)
+        self.assertIn("Figure 3", provenance["freeze_policy"])
         for source in provenance["sources"]:
+            self.assertTrue(
+                source["origin_path"].startswith(
+                    "manuscript/figures/figure03_cu111_physical_endpoint/"
+                )
+            )
             frozen = TABLE_ROOT / source["frozen_path"]
             origin = build_table.REPOSITORY_ROOT / source["origin_path"]
             self.assertTrue(frozen.is_file())

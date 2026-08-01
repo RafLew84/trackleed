@@ -1,0 +1,27 @@
+pair,tracking_source,inside_five_method_run,frame_id,temperature_c,energy_ev,tracking_proposal_present,exported_fit_present,refit_returned_parameters,r_squared_gate,amplitude_gate,center_gate,sigma_gate,refit_accepted,rejection_reason,r_squared,amplitude,amplitude_threshold
+2-4,earlier saved YOLO proposal trajectory,false,356,781,56,true,true,true,true,true,true,true,true,accepted,0.94096836291700003,0.052395414862500003,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,357,783,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93797217458799997,0.049333289083599997,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,358,786,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.94103716286600003,0.047231960910000002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,359,788,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.94388618392300005,0.048242056545000002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,360,790,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.929732695813,0.049031675776899999,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,361,792,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.91888868714399996,0.047302002510400003,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,362,794,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.94842044202999998,0.048219040147599999,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,363,797,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93968976827499995,0.045239369943599998,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,364,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.92099216945100004,0.042098556527299998,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,365,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.92370240409399995,0.040671094715000002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,366,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.92465915091899997,0.042692989395700001,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,367,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.94520059031400006,0.042726777584499998,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,368,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.95270257919000001,0.047132359213700001,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,369,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93680020106600004,0.046396110466900002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,370,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93939743884299998,0.046026915201000003,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,371,799,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93419239675800003,0.044768289280999997,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,372,800,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93107423666599998,0.0424876345209,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,373,800,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.92705626089100002,0.043767140096400002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,374,800,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.95250510504399999,0.043314399121300001,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,375,800,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93090872216099996,0.044060470485800002,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,376,800,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93421176959700003,0.047713240758999999,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,377,798,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93550741995599995,0.046432194900099998,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,378,797,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.92919374400999999,0.040623916369999999,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,379,796,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.94266629725200002,0.047601725176899999,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,380,794,56,true,false,true,true,false,true,true,false,amplitude_below_or_outside_threshold,0.93719546713900004,0.047776844264099998,0.050000000000000003
+2-4,earlier saved YOLO proposal trajectory,false,381,792,56,true,true,true,true,true,true,true,true,accepted,0.94809802562099998,0.0510854462413,0.050000000000000003

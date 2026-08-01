@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build supplementary Table S4 from the frozen Figure 5 endpoint contract."""
+"""Build supplementary Table S4 from the frozen Figure 3 endpoint contract."""
 
 from __future__ import annotations
 

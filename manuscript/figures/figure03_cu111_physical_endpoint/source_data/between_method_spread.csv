@@ -1,0 +1,9 @@
+pair,summary_point,reader_label,frame_order,minimum_method,minimum_value_percent,maximum_method,maximum_value_percent,spread_percentage_points,display_in_panel_d
+1-6,plateau,800 °C plateau,,ostrack_vitb_256_mae_ce,-0.68667558686359431,dam4sam_sam21pp_l,-0.6862444332467299,0.00043115361686441034,true
+1-6,post_plateau_minimum,Post-plateau minimum (797 °C),378,ostrack_vitb_256_mae_ce,-0.72648166522217839,dam4sam_sam21pp_l,-0.72619483528978401,0.00028682993239437238,true
+1-6,final,Final cooled state (92 °C),700,locotrack_base_offline,0.12160567538264111,dam4sam_sam21pp_l,0.12169083898372346,8.5163601082349771e-05,true
+1-6,entire_sequence_maximum,Maximum over complete sequence,482,ostrack_vitb_256_mae_ce,-0.41193972651270006,easyleed_kalman,-0.4102301102353767,0.0017096162773233559,false
+3-5,plateau,800 °C plateau,,ostrack_vitb_256_mae_ce,-1.5708332227921673,dam4sam_sam21pp_l,-1.5702998364059417,0.0005333863862255761,true
+3-5,post_plateau_minimum,Post-plateau minimum (797 °C),378,easyleed_kalman,-1.5801230095593755,ostrack_vitb_256_mae_ce,-1.5797946766401227,0.00032833291925271624,true
+3-5,final,Final cooled state (92 °C),700,dam4sam_sam21pp_l,-0.15247760709317104,lucas_kanade_skip_anchor,-0.15233848352844692,0.00013912356472411957,true
+3-5,entire_sequence_maximum,Maximum over complete sequence,297,ostrack_vitb_256_mae_ce,-1.2604937655558146,easyleed_kalman,-1.2582571600127546,0.002236605543060044,false
