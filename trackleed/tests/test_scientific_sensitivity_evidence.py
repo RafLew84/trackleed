@@ -16,6 +16,7 @@ from trackleed.publication.scientific_sensitivity_figure import (
     build_figure_s2_artifact,
 )
 from trackleed.publication.scientific_sensitivity_sources import (
+    freeze_sensitivity_source_data,
     validate_sensitivity_source_data,
 )
 from trackleed.publication.scientific_claim_adjudication import (
@@ -34,9 +35,7 @@ from trackleed.publication.scientific_sensitivity_paths import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = sensitivity_source_root(REPO_ROOT)
 TABLE_ROOT = REPO_ROOT / "manuscript" / "tables" / "table_s6_measurement_sensitivity"
-FIGURE_ROOT = (
-    REPO_ROOT / "manuscript" / "figures" / "figure_s2_measurement_sensitivity"
-)
+FIGURE_ROOT = REPO_ROOT / "manuscript" / "figures" / "figure_s2_measurement_sensitivity"
 ADJUDICATION_ROOT = REPO_ROOT / "manuscript" / "claim_adjudication"
 
 
@@ -87,14 +86,8 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             build_table_s6(SOURCE_ROOT, first_output)
             build_table_s6(SOURCE_ROOT, second_output)
             self.assertEqual(
-                {
-                    path.name: path.read_bytes()
-                    for path in first_output.iterdir()
-                },
-                {
-                    path.name: path.read_bytes()
-                    for path in second_output.iterdir()
-                },
+                {path.name: path.read_bytes() for path in first_output.iterdir()},
+                {path.name: path.read_bytes() for path in second_output.iterdir()},
             )
 
             changed_source = root / "changed-source"
@@ -114,9 +107,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             shutil.copytree(SOURCE_ROOT, source)
             provenance_path = source / "source_provenance.json"
             provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-            provenance["sources"]["sensitivity_results.csv"][
-                "origin_sha256"
-            ] = "0" * 64
+            provenance["sources"]["sensitivity_results.csv"]["origin_sha256"] = "0" * 64
             provenance_path.write_text(
                 json.dumps(provenance, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -135,6 +126,30 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     ),
                 )
 
+    def test_frozen_provenance_uses_portable_canonical_origin_paths(self) -> None:
+        provenance = json.loads(
+            (SOURCE_ROOT / "source_provenance.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(
+            {
+                record["origin_path"].rsplit("/", 1)[0]
+                for record in provenance["sources"].values()
+            },
+            {"manuscript/scientific_panel/output/sensitivity"},
+        )
+
+    def test_source_freeze_rejects_a_relocated_origin(self) -> None:
+        with TemporaryDirectory(dir=REPO_ROOT) as temporary:
+            relocated_origin = Path(temporary) / "sensitivity"
+
+            with self.assertRaisesRegex(ValueError, "canonical output"):
+                freeze_sensitivity_source_data(
+                    relocated_origin,
+                    Path(temporary) / "frozen",
+                    workspace_root=REPO_ROOT,
+                )
+
     def test_table_s6_manifest_covers_sources_code_and_outputs(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -147,9 +162,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             )
 
             self.assertEqual(report.result_count, 375)
-            manifest = json.loads(
-                (root / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["table"], "Table S6")
             self.assertEqual(manifest["status"], "completed")
             self.assertEqual(
@@ -192,9 +205,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     "figure_s2_measurement_sensitivity.pdf",
                 },
             )
-            manifest = json.loads(
-                (root / "manifest.json").read_text(encoding="utf-8")
-            )
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 manifest["panel_order"],
                 [
@@ -223,14 +234,8 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     root / f"{name}.json",
                 )
             self.assertEqual(
-                {
-                    path.name: path.read_bytes()
-                    for path in (root / "first").iterdir()
-                },
-                {
-                    path.name: path.read_bytes()
-                    for path in (root / "second").iterdir()
-                },
+                {path.name: path.read_bytes() for path in (root / "first").iterdir()},
+                {path.name: path.read_bytes() for path in (root / "second").iterdir()},
             )
 
             changed_source = root / "changed-source"
@@ -238,7 +243,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             audit_path = changed_source / "gate_margin_audit.csv"
             content = audit_path.read_text(encoding="utf-8")
             audit_path.write_text(
-                content.replace("method,,easyleed,313,5,16", "method,,easyleed,313,6,16", 1),
+                content.replace(
+                    "method,,easyleed,313,5,16", "method,,easyleed,313,6,16", 1
+                ),
                 encoding="utf-8",
             )
             with self.assertRaises(ValueError):
@@ -248,6 +255,40 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     root / "changed-output",
                     root / "changed-manifest.json",
                 )
+
+    def test_figure_s2_ignores_ambient_matplotlib_style(self) -> None:
+        import matplotlib
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build_figure_s2_artifact(
+                REPO_ROOT,
+                SOURCE_ROOT,
+                root / "baseline",
+                root / "baseline.json",
+            )
+            with matplotlib.rc_context(
+                {
+                    "axes.facecolor": "#ff00ff",
+                }
+            ):
+                build_figure_s2_artifact(
+                    REPO_ROOT,
+                    SOURCE_ROOT,
+                    root / "styled",
+                    root / "styled.json",
+                )
+
+            self.assertEqual(
+                {
+                    path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in (root / "baseline").iterdir()
+                },
+                {
+                    path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in (root / "styled").iterdir()
+                },
+            )
 
     def test_claim_adjudication_combines_metadata_and_sensitivity_constraints(
         self,
@@ -286,9 +327,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             self.assertFalse(boundary["capture_basin_triggered"])
             claim_rows = {
                 columns[1].strip(): columns
-                for line in (
-                    REPO_ROOT / "manuscript" / "claim-evidence-map.md"
-                ).read_text(encoding="utf-8").splitlines()
+                for line in (REPO_ROOT / "manuscript" / "claim-evidence-map.md")
+                .read_text(encoding="utf-8")
+                .splitlines()
                 if line.startswith("| C")
                 for columns in [line.split("|")]
             }
@@ -302,9 +343,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     claim["decision"],
                 )
             self.assertEqual(
-                boundary["source_links"]["sensitivity_claim_evidence"][
-                    "sha256"
-                ],
+                boundary["source_links"]["sensitivity_claim_evidence"]["sha256"],
                 hashlib.sha256(
                     (output / "sensitivity_claim_evidence.json").read_bytes()
                 ).hexdigest(),
@@ -329,7 +368,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 "workspace_root": REPO_ROOT,
                 "contract_path": ADJUDICATION_ROOT / "adjudication_contract.json",
                 "sensitivity_source_directory": SOURCE_ROOT,
-                "metadata_directory": REPO_ROOT / "manuscript" / "experimental_metadata",
+                "metadata_directory": REPO_ROOT
+                / "manuscript"
+                / "experimental_metadata",
                 "claim_map_path": REPO_ROOT / "manuscript" / "claim-evidence-map.md",
                 "output_directory": output,
             }
@@ -357,7 +398,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 "workspace_root": REPO_ROOT,
                 "contract_path": ADJUDICATION_ROOT / "adjudication_contract.json",
                 "sensitivity_source_directory": SOURCE_ROOT,
-                "metadata_directory": REPO_ROOT / "manuscript" / "experimental_metadata",
+                "metadata_directory": REPO_ROOT
+                / "manuscript"
+                / "experimental_metadata",
                 "claim_map_path": claim_map,
             }
             build_claim_adjudication(
@@ -386,7 +429,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 "workspace_root": REPO_ROOT,
                 "contract_path": ADJUDICATION_ROOT / "adjudication_contract.json",
                 "sensitivity_source_directory": SOURCE_ROOT,
-                "metadata_directory": REPO_ROOT / "manuscript" / "experimental_metadata",
+                "metadata_directory": REPO_ROOT
+                / "manuscript"
+                / "experimental_metadata",
                 "claim_map_path": REPO_ROOT / "manuscript" / "claim-evidence-map.md",
                 "output_directory": output,
             }
@@ -425,7 +470,9 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 "workspace_root": REPO_ROOT,
                 "contract_path": contract_path,
                 "sensitivity_source_directory": SOURCE_ROOT,
-                "metadata_directory": REPO_ROOT / "manuscript" / "experimental_metadata",
+                "metadata_directory": REPO_ROOT
+                / "manuscript"
+                / "experimental_metadata",
                 "claim_map_path": REPO_ROOT / "manuscript" / "claim-evidence-map.md",
                 "output_directory": output,
             }
@@ -435,9 +482,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 confirmed_by="publication author via test HITL checkpoint",
                 confirmed_date="2026-08-01",
             )
-            before = {
-                path.name: path.read_bytes() for path in output.iterdir()
-            }
+            before = {path.name: path.read_bytes() for path in output.iterdir()}
             contract = json.loads(contract_path.read_text(encoding="utf-8"))
             contract["claims"][0]["final_claim"] += " Changed."
             contract_path.write_text(
@@ -588,9 +633,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             if path.is_file() and "__pycache__" not in path.parts
         }
 
-        report = validate_sensitivity_publication_bundle(
-            workspace_root=REPO_ROOT
-        )
+        report = validate_sensitivity_publication_bundle(workspace_root=REPO_ROOT)
 
         self.assertEqual(report.table_s6.result_count, 375)
         self.assertEqual(report.figure_s2.variant_count, 15)

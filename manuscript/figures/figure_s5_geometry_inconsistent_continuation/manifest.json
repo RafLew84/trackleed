@@ -7,21 +7,21 @@
   },
   "contract_sha256": "fca8fa474c47bd4319e1c94a85c86527fd669e56f7ac7a99482181917d75b7f6",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "example_count": 5,
   "figure": "Figure S5",
   "outputs": {
     "pdf": {
       "path": "output/pdf/figure_s5_geometry_inconsistent_continuation.pdf",
-      "sha256": "a8169f157f7366f461cf2cd5a68cac3e56b01653f2c82dc22ba5c29ada80bcbc"
+      "sha256": "81f75cd052ba21659bab61994674e4c52c591a9377d5e1fdd01759e077657319"
     },
     "png": {
       "path": "output/figure_s5_geometry_inconsistent_continuation.png",
-      "sha256": "fe98b02cc5e0d2045afe5ff5cb6e44501920b45cd5b163a560d84705e33bbddf"
+      "sha256": "3259d502e5a78f534cf28f242e307e9ee9a8ad0a1013d55dfbf1d4c3de28a504"
     }
   },
   "schema_version": "1.0",

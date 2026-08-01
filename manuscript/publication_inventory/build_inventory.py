@@ -19,6 +19,23 @@ REPO_ROOT = INVENTORY_ROOT.parents[1]
 INVENTORY_PATH = INVENTORY_ROOT / "source_data" / "display_inventory.json"
 OUTPUT_PATH = INVENTORY_ROOT.parent / "figures-and-tables.md"
 MANIFEST_PATH = INVENTORY_ROOT / "manifest.json"
+SEMANTIC_MANIFEST_PATH = INVENTORY_ROOT / "semantic_manifest.json"
+
+SEMANTIC_OUTPUT_SUFFIXES = frozenset(
+    {".csv", ".json", ".md", ".tex", ".tsv", ".txt", ".yaml", ".yml"}
+)
+RENDERER_DEPENDENT_MANIFEST_KEYS = frozenset(
+    {
+        "environment",
+        "figure_size_inches",
+        "output_files",
+        "output_sha256",
+        "outputs",
+        "outputs_sha256",
+        "png_dpi",
+        "rendering",
+    }
+)
 
 EXPECTED_IDS = (
     "Figure 1",
@@ -207,9 +224,7 @@ def _manifest_digest_records(
 def _manifest_evidence(
     item: dict[str, Any],
 ) -> tuple[str, list[Path], list[tuple[str, str]]]:
-    manifest_paths = [
-        _resolve_repo_path(path) for path in item["manifest_paths"]
-    ]
+    manifest_paths = [_resolve_repo_path(path) for path in item["manifest_paths"]]
     texts: list[str] = []
     digest_records: list[tuple[str, str]] = []
     for path in manifest_paths:
@@ -286,15 +301,29 @@ def _bundle_fingerprint(records: dict[str, str]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _semantic_manifest_sha256(path: Path) -> str:
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    semantic = {
+        key: value
+        for key, value in manifest.items()
+        if key not in RENDERER_DEPENDENT_MANIFEST_KEYS
+    }
+    canonical = json.dumps(
+        semantic,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def bundle_test_commands(
     inventory: dict[str, Any],
 ) -> list[tuple[Path, tuple[str, ...]]]:
     """Return one unittest command per bundle test directory."""
 
     grouped: dict[Path, set[str]] = {}
-    sensitivity_path = (
-        "trackleed/tests/test_scientific_sensitivity_evidence.py"
-    )
+    sensitivity_path = "trackleed/tests/test_scientific_sensitivity_evidence.py"
     sensitivity_required = False
     for item in inventory["items"]:
         for relative_path in item["test_paths"]:
@@ -318,9 +347,7 @@ def run_bundle_contract_tests(inventory: dict[str, Any]) -> None:
     environment = os.environ.copy()
     current_python_path = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = os.pathsep.join(
-        part
-        for part in (str(REPO_ROOT), current_python_path)
-        if part
+        part for part in (str(REPO_ROOT), current_python_path) if part
     )
     for cwd, targets in bundle_test_commands(inventory):
         completed = subprocess.run(
@@ -352,14 +379,11 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
     if actual_ids != EXPECTED_IDS:
         raise ValueError("Items do not match the approved inventory.")
     alternate_caption_items = [
-        item.get("id", "unknown")
-        for item in items
-        if "caption_title" in item
+        item.get("id", "unknown") for item in items if "caption_title" in item
     ]
     if alternate_caption_items:
         raise ValueError(
-            "Alternate caption title is not allowed for "
-            f"{alternate_caption_items[0]}."
+            f"Alternate caption title is not allowed for {alternate_caption_items[0]}."
         )
     if approved_inventory_sha256(items) != APPROVED_INVENTORY_SHA256:
         raise ValueError("Items do not match the approved inventory.")
@@ -381,6 +405,7 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
     source_count = 0
     output_count = 0
     bundle_fingerprints: dict[str, str] = {}
+    semantic_bundles: dict[str, dict[str, object]] = {}
     all_builders_present = True
     all_tests_present = True
     all_rounding_rules_frozen = True
@@ -415,9 +440,7 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
             item["id"] in RECOVERY_DISPLAY_IDS
             and RECOVERY_TERM not in caption_text.casefold()
         ):
-            raise ValueError(
-                f"Exact recovery term is absent from {item['id']}."
-            )
+            raise ValueError(f"Exact recovery term is absent from {item['id']}.")
 
         rule_ids = item.get("rounding_rule_ids")
         valid_rules = (
@@ -429,9 +452,8 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
         if not valid_rules:
             raise ValueError(f"Invalid rounding contract for {item['id']}.")
         denominator_policy = item.get("denominator_policy")
-        denominator_is_explicit = (
-            isinstance(denominator_policy, str)
-            and bool(denominator_policy.strip())
+        denominator_is_explicit = isinstance(denominator_policy, str) and bool(
+            denominator_policy.strip()
         )
         all_denominator_policies_explicit &= denominator_is_explicit
         if not denominator_is_explicit:
@@ -451,9 +473,7 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
                 if color.lower() not in manifest_text
             }
             if missing_colors:
-                raise ValueError(
-                    f"Method palette is not manifested for {item['id']}."
-                )
+                raise ValueError(f"Method palette is not manifested for {item['id']}.")
         if item["placement"].endswith("figure"):
             missing_evidence = manifest_text + "\n" + caption_text.casefold()
             if not any(
@@ -493,13 +513,53 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
             path.relative_to(REPO_ROOT).as_posix(): sha256_file(path)
             for path in [builder_path, caption_path, *test_paths]
         }
-        records = (
-            source_hashes
-            | output_hashes
-            | manifest_hashes
-            | contract_hashes
-        )
+        records = source_hashes | output_hashes | manifest_hashes | contract_hashes
         bundle_fingerprints[item["id"]] = _bundle_fingerprint(records)
+        text_output_hashes = {
+            path.relative_to(REPO_ROOT).as_posix(): output_hashes[
+                path.relative_to(REPO_ROOT).as_posix()
+            ]
+            for path in outputs
+            if path.suffix.lower() in SEMANTIC_OUTPUT_SUFFIXES
+        }
+        semantic_records = (
+            source_hashes
+            | text_output_hashes
+            | contract_hashes
+            | {
+                f"semantic-manifest:{path.relative_to(REPO_ROOT).as_posix()}": (
+                    _semantic_manifest_sha256(path)
+                )
+                for path in manifest_paths
+            }
+        )
+        semantic_bundles[item["id"]] = {
+            "source_data_sha256": source_hashes,
+            "contracts_sha256": {
+                "builder": {
+                    builder_path.relative_to(REPO_ROOT).as_posix(): (
+                        sha256_file(builder_path)
+                    )
+                },
+                "caption": {
+                    caption_path.relative_to(REPO_ROOT).as_posix(): (
+                        sha256_file(caption_path)
+                    )
+                },
+                "validators": {
+                    path.relative_to(REPO_ROOT).as_posix(): sha256_file(path)
+                    for path in test_paths
+                },
+                "manifests": {
+                    path.relative_to(REPO_ROOT).as_posix(): (
+                        _semantic_manifest_sha256(path)
+                    )
+                    for path in manifest_paths
+                },
+            },
+            "text_outputs_sha256": text_output_hashes,
+            "semantic_fingerprint_sha256": _bundle_fingerprint(semantic_records),
+        }
         source_count += len(source_files)
         output_count += len(outputs)
 
@@ -514,10 +574,40 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
         "all_builders_present": all_builders_present,
         "all_tests_present": all_tests_present,
         "all_rounding_rules_frozen": all_rounding_rules_frozen,
-        "all_denominator_policies_explicit": (
-            all_denominator_policies_explicit
-        ),
+        "all_denominator_policies_explicit": (all_denominator_policies_explicit),
         "bundle_fingerprints": bundle_fingerprints,
+        "semantic_bundles": semantic_bundles,
+    }
+
+
+def semantic_inventory_manifest(
+    inventory: dict[str, Any],
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    """Return renderer-independent hashes for every final display bundle."""
+
+    body: dict[str, Any] = {
+        "schema_version": "1.0",
+        "status": "scientific-baseline-complete",
+        "inventory_contract_sha256": sha256_file(INVENTORY_PATH),
+        "excluded_renderer_dependent_manifest_keys": sorted(
+            RENDERER_DEPENDENT_MANIFEST_KEYS
+        ),
+        "excluded_binary_output_suffixes": [".pdf", ".png"],
+        "included_text_output_suffixes": sorted(SEMANTIC_OUTPUT_SUFFIXES),
+        "bundles": report["semantic_bundles"],
+    }
+    canonical = json.dumps(
+        body,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return {
+        **body,
+        "semantic_inventory_sha256": hashlib.sha256(
+            canonical.encode("utf-8")
+        ).hexdigest(),
     }
 
 
@@ -553,8 +643,7 @@ def render_inventory(inventory: dict[str, Any]) -> str:
             for method, color in inventory["method_palette"].items()
         )
         + ".",
-        "- Rounding rules: "
-        + " ".join(rules[rule_id] for rule_id in sorted(rules)),
+        "- Rounding rules: " + " ".join(rules[rule_id] for rule_id in sorted(rules)),
         "",
     ]
     for placement, heading in sections:
@@ -565,8 +654,7 @@ def render_inventory(inventory: dict[str, Any]) -> str:
             artifact_link = _relative_link(item["artifact_path"])
             caption_link = _relative_link(item["caption_path"])
             manifest_links = ", ".join(
-                f"[manifest]({_relative_link(path)})"
-                for path in item["manifest_paths"]
+                f"[manifest]({_relative_link(path)})" for path in item["manifest_paths"]
             )
             lines.extend(
                 [
@@ -593,6 +681,7 @@ def build_inventory_artifact(
     *,
     output_path: Path = OUTPUT_PATH,
     manifest_path: Path = MANIFEST_PATH,
+    semantic_manifest_path: Path = SEMANTIC_MANIFEST_PATH,
 ) -> dict[str, Any]:
     report = validate_inventory(inventory)
     rendered = render_inventory(inventory)
@@ -617,6 +706,16 @@ def build_inventory_artifact(
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    semantic_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    semantic_manifest_path.write_text(
+        json.dumps(
+            semantic_inventory_manifest(inventory, report),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     return manifest

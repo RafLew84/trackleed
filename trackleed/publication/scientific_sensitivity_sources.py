@@ -26,6 +26,7 @@ SOURCE_FILE_MAP = {
 }
 DERIVED_GATE_MARGIN_FILE = "gate_margin_summary.csv"
 DERIVATION_INPUTS = ("evaluation_records.csv",)
+CANONICAL_ORIGIN_DIRECTORY = "manuscript/scientific_panel/output/sensitivity"
 GATE_MARGIN_SPECS = (
     ("proposal_to_fit_margin_px", "proposal-to-fit", "px", 15.0),
     ("r_squared_margin", "R-squared", "dimensionless", 0.15),
@@ -71,9 +72,7 @@ def _validate_upstream_sensitivity_output(output_directory: Path) -> str:
     manifest_path = output_directory / "output_manifest.json"
     manifest = read_json(manifest_path)
     hashes = manifest.get("files_sha256")
-    if manifest.get("schema_version") != SCHEMA_VERSION or not isinstance(
-        hashes, dict
-    ):
+    if manifest.get("schema_version") != SCHEMA_VERSION or not isinstance(hashes, dict):
         raise ValueError("Sensitivity output manifest changed")
     for source_name in (*SOURCE_FILE_MAP, *DERIVATION_INPUTS):
         path = output_directory / source_name
@@ -82,10 +81,9 @@ def _validate_upstream_sensitivity_output(output_directory: Path) -> str:
         if source_name in hashes and sha256_file(path) != hashes[source_name]:
             raise ValueError(f"Sensitivity source hash changed: {source_name}")
     validation = read_json(output_directory / "validation_report.json")
-    if (
-        validation.get("fail_closed") is not True
-        or validation.get("output_manifest_sha256") != sha256_file(manifest_path)
-    ):
+    if validation.get("fail_closed") is not True or validation.get(
+        "output_manifest_sha256"
+    ) != sha256_file(manifest_path):
         raise ValueError("Sensitivity validation report changed")
     return str(manifest["sensitivity_id"])
 
@@ -108,8 +106,7 @@ def _gate_margin_summary_bytes(output_directory: Path) -> bytes:
         selected = [
             row
             for row in evaluations
-            if row["variant_id"] == "roi_48_proposal_15"
-            and row["method"] == method
+            if row["variant_id"] == "roi_48_proposal_15" and row["method"] == method
         ]
         for margin_id, label, unit, normalizer in GATE_MARGIN_SPECS:
             values = [
@@ -161,6 +158,16 @@ def freeze_sensitivity_source_data(
     output_directory = output_directory.resolve()
     destination_directory = destination_directory.resolve()
     workspace_root = workspace_root.resolve()
+    try:
+        origin_directory = output_directory.relative_to(workspace_root).as_posix()
+    except ValueError as exc:
+        raise ValueError(
+            "Sensitivity source origin must use the canonical output directory"
+        ) from exc
+    if origin_directory != CANONICAL_ORIGIN_DIRECTORY:
+        raise ValueError(
+            "Sensitivity source origin must use the canonical output directory"
+        )
     sensitivity_id = _validate_upstream_sensitivity_output(output_directory)
     destination_directory.mkdir(parents=True, exist_ok=True)
     for source_name, frozen_name in SOURCE_FILE_MAP.items():
@@ -170,7 +177,6 @@ def freeze_sensitivity_source_data(
         )
     gate_margin_path = destination_directory / DERIVED_GATE_MARGIN_FILE
     gate_margin_path.write_bytes(_gate_margin_summary_bytes(output_directory))
-    origin_directory = output_directory.relative_to(workspace_root).as_posix()
     sources = {
         frozen_name: {
             "frozen_sha256": sha256_file(destination_directory / frozen_name),
@@ -232,15 +238,15 @@ def validate_sensitivity_source_data(
         or set(sources) != expected_names
         or set(derived_sources) != {DERIVED_GATE_MARGIN_FILE}
         or actual_names
-        != expected_names
-        | {DERIVED_GATE_MARGIN_FILE, "source_provenance.json"}
+        != expected_names | {DERIVED_GATE_MARGIN_FILE, "source_provenance.json"}
     ):
         raise ValueError("Sensitivity source provenance changed")
     for frozen_name, record in sources.items():
-        if (
-            not isinstance(record, dict)
-            or set(record) != {"frozen_sha256", "origin_path", "origin_sha256"}
-        ):
+        if not isinstance(record, dict) or set(record) != {
+            "frozen_sha256",
+            "origin_path",
+            "origin_sha256",
+        }:
             raise ValueError(f"Sensitivity source record changed: {frozen_name}")
         path = source_directory / frozen_name
         if sha256_file(path) != record["frozen_sha256"]:
@@ -263,32 +269,27 @@ def validate_sensitivity_source_data(
     ):
         raise ValueError("Derived gate-margin source changed")
 
-    upstream_manifest = read_json(
-        source_directory / "sensitivity_output_manifest.json"
-    )
+    upstream_manifest = read_json(source_directory / "sensitivity_output_manifest.json")
     upstream_hashes = upstream_manifest.get("files_sha256")
-    if (
-        upstream_manifest.get("sensitivity_id") != provenance["sensitivity_id"]
-        or not isinstance(upstream_hashes, dict)
-    ):
+    if upstream_manifest.get("sensitivity_id") != provenance[
+        "sensitivity_id"
+    ] or not isinstance(upstream_hashes, dict):
         raise ValueError("Frozen sensitivity output manifest changed")
     for source_name, frozen_name in SOURCE_FILE_MAP.items():
         if source_name in upstream_hashes and (
             sha256_file(source_directory / frozen_name) != upstream_hashes[source_name]
         ):
-            raise ValueError(f"Frozen sensitivity source is not manifest-linked: {source_name}")
+            raise ValueError(
+                f"Frozen sensitivity source is not manifest-linked: {source_name}"
+            )
     validation = read_json(source_directory / "sensitivity_validation_report.json")
-    if (
-        validation.get("fail_closed") is not True
-        or validation.get("output_manifest_sha256")
-        != sha256_file(source_directory / "sensitivity_output_manifest.json")
-    ):
+    if validation.get("fail_closed") is not True or validation.get(
+        "output_manifest_sha256"
+    ) != sha256_file(source_directory / "sensitivity_output_manifest.json"):
         raise ValueError("Frozen sensitivity validation report changed")
     if origin_directory is not None:
         origin_directory = origin_directory.resolve()
-        origin_sensitivity_id = _validate_upstream_sensitivity_output(
-            origin_directory
-        )
+        origin_sensitivity_id = _validate_upstream_sensitivity_output(origin_directory)
         if origin_sensitivity_id != provenance["sensitivity_id"]:
             raise ValueError("Frozen sensitivity origin identity changed")
         for source_name, frozen_name in SOURCE_FILE_MAP.items():
@@ -302,23 +303,20 @@ def validate_sensitivity_source_data(
                     f"Frozen sensitivity source diverges from origin: {source_name}"
                 )
         for source_name in DERIVATION_INPUTS:
-            if (
-                derived_record["derived_from"][source_name]
-                != sha256_file(origin_directory / source_name)
+            if derived_record["derived_from"][source_name] != sha256_file(
+                origin_directory / source_name
             ):
-                raise ValueError(
-                    f"Gate-margin derivation input changed: {source_name}"
-                )
+                raise ValueError(f"Gate-margin derivation input changed: {source_name}")
         if (
-            (source_directory / DERIVED_GATE_MARGIN_FILE).read_bytes()
-            != _gate_margin_summary_bytes(origin_directory)
-        ):
+            source_directory / DERIVED_GATE_MARGIN_FILE
+        ).read_bytes() != _gate_margin_summary_bytes(origin_directory):
             raise ValueError("Derived gate-margin summary diverges from origin")
     return provenance
 
 
 __all__ = [
     "SOURCE_FILE_MAP",
+    "CANONICAL_ORIGIN_DIRECTORY",
     "DERIVED_GATE_MARGIN_FILE",
     "GATE_MARGIN_SPECS",
     "GateMarginSummaryRecord",

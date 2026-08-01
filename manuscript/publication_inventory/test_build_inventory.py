@@ -16,6 +16,7 @@ import build_inventory
 INVENTORY_ROOT = Path(__file__).resolve().parent
 INVENTORY_PATH = INVENTORY_ROOT / "source_data" / "display_inventory.json"
 DISPLAY_INDEX_PATH = INVENTORY_ROOT.parent / "figures-and-tables.md"
+SEMANTIC_MANIFEST_PATH = INVENTORY_ROOT / "semantic_manifest.json"
 MANUSCRIPT_PATH = INVENTORY_ROOT.parent / "manuscript.md"
 SUPPLEMENT_PATH = INVENTORY_ROOT.parent / "supplementary-material.md"
 
@@ -31,9 +32,7 @@ class PublicationInventoryTest(unittest.TestCase):
         self.assertEqual(report["placement_counts"]["supplementary_figure"], 6)
         self.assertEqual(report["placement_counts"]["supplementary_table"], 7)
         self.assertNotIn("Table 3", report["ids"])
-        self.assertTrue(
-            all("caption_title" not in item for item in inventory["items"])
-        )
+        self.assertTrue(all("caption_title" not in item for item in inventory["items"]))
 
     def test_every_bundle_has_a_verified_source_to_output_hash_chain(self) -> None:
         inventory = build_inventory.load_inventory(INVENTORY_PATH)
@@ -73,13 +72,19 @@ class PublicationInventoryTest(unittest.TestCase):
         for field, changed_value in (
             ("rounding_rule_ids", ["exact_counts"]),
             ("palette_policy", "Not applicable."),
-            ("test_paths", ["manuscript/publication_inventory/test_build_inventory.py"]),
+            (
+                "test_paths",
+                ["manuscript/publication_inventory/test_build_inventory.py"],
+            ),
         ):
             changed_contract = copy.deepcopy(inventory)
             changed_contract["items"][3][field] = changed_value
-            with self.subTest(field=field), self.assertRaisesRegex(
-                ValueError,
-                "approved inventory",
+            with (
+                self.subTest(field=field),
+                self.assertRaisesRegex(
+                    ValueError,
+                    "approved inventory",
+                ),
             ):
                 build_inventory.validate_inventory(changed_contract)
 
@@ -132,18 +137,14 @@ class PublicationInventoryTest(unittest.TestCase):
             supplement.index("<!-- BEGIN TABLE S7 -->"),
             supplement.index("<!-- END TABLE S6 -->"),
         )
-        allowed_figures = {
-            f"Figure {number}" for number in range(1, 6)
-        } | {f"Figure S{number}" for number in range(1, 7)}
+        allowed_figures = {f"Figure {number}" for number in range(1, 6)} | {
+            f"Figure S{number}" for number in range(1, 7)
+        }
         allowed_tables = {"Table 1", "Table 2"} | {
             f"Table S{number}" for number in range(1, 8)
         }
-        figure_references = set(
-            re.findall(r"\bFigure (?:S\d+|\d+[a-z]?)", manuscript)
-        )
-        table_references = set(
-            re.findall(r"\bTable (?:S\d+|\d+)", manuscript)
-        )
+        figure_references = set(re.findall(r"\bFigure (?:S\d+|\d+[a-z]?)", manuscript))
+        table_references = set(re.findall(r"\bTable (?:S\d+|\d+)", manuscript))
         self.assertLessEqual(figure_references, allowed_figures)
         self.assertLessEqual(table_references, allowed_tables)
 
@@ -157,8 +158,7 @@ class PublicationInventoryTest(unittest.TestCase):
             )
             for item in inventory["items"]
             for path in item["test_paths"]
-            if path
-            != "trackleed/tests/test_scientific_sensitivity_evidence.py"
+            if path != "trackleed/tests/test_scientific_sensitivity_evidence.py"
         }
         commanded_local_tests = {
             (cwd, target)
@@ -188,28 +188,59 @@ class PublicationInventoryTest(unittest.TestCase):
             root = Path(temporary_directory)
             first_index = root / "first.md"
             first_manifest = root / "first-manifest.json"
+            first_semantic_manifest = root / "first-semantic-manifest.json"
             second_index = root / "second.md"
             second_manifest = root / "second-manifest.json"
+            second_semantic_manifest = root / "second-semantic-manifest.json"
 
             first = build_inventory.build_inventory_artifact(
                 inventory,
                 output_path=first_index,
                 manifest_path=first_manifest,
+                semantic_manifest_path=first_semantic_manifest,
             )
             second = build_inventory.build_inventory_artifact(
                 inventory,
                 output_path=second_index,
                 manifest_path=second_manifest,
+                semantic_manifest_path=second_semantic_manifest,
             )
 
             self.assertEqual(first, second)
             self.assertEqual(first_index.read_bytes(), second_index.read_bytes())
             self.assertEqual(first_manifest.read_bytes(), second_manifest.read_bytes())
+            self.assertEqual(
+                first_semantic_manifest.read_bytes(),
+                second_semantic_manifest.read_bytes(),
+            )
             self.assertEqual(DISPLAY_INDEX_PATH.read_bytes(), first_index.read_bytes())
             self.assertEqual(
                 (INVENTORY_ROOT / "manifest.json").read_bytes(),
                 first_manifest.read_bytes(),
             )
+            self.assertEqual(
+                SEMANTIC_MANIFEST_PATH.read_bytes(),
+                first_semantic_manifest.read_bytes(),
+            )
+
+            semantic = json.loads(first_semantic_manifest.read_text(encoding="utf-8"))
+            self.assertEqual(
+                set(semantic["bundles"]), set(build_inventory.EXPECTED_IDS)
+            )
+            for bundle in semantic["bundles"].values():
+                self.assertTrue(bundle["source_data_sha256"])
+                self.assertEqual(
+                    set(bundle["contracts_sha256"]),
+                    {"builder", "caption", "manifests", "validators"},
+                )
+                self.assertTrue(bundle["contracts_sha256"]["validators"])
+                self.assertTrue(
+                    all(
+                        Path(path).suffix.lower()
+                        in build_inventory.SEMANTIC_OUTPUT_SUFFIXES
+                        for path in bundle["text_outputs_sha256"]
+                    )
+                )
 
             rendered = first_index.read_text(encoding="utf-8")
             headings = rendered.splitlines()
@@ -223,8 +254,7 @@ class PublicationInventoryTest(unittest.TestCase):
             )
             self.assertEqual(
                 sum(
-                    line.startswith("### Table ")
-                    and not line.startswith("### Table S")
+                    line.startswith("### Table ") and not line.startswith("### Table S")
                     for line in headings
                 ),
                 2,

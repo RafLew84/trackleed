@@ -12,20 +12,20 @@
   },
   "contract_sha256": "5cdf306d202ebfc3475e8ff233e1aff98df23c71d008ab8a0adbd5d6ac6f9753",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "figure": "Figure S4",
   "outputs": {
     "pdf": {
       "path": "output/pdf/figure_s4_easyleed_viperleed_compatibility.pdf",
-      "sha256": "17f40c1d601e4b6661ce1c4584b250376b7ad9fb3fa39cbdc97219b7ba2ac35d"
+      "sha256": "bde22c2e36c093fa8b9bff2bebff8b6312296331c977deaa566eb009a47029dd"
     },
     "png": {
       "path": "output/figure_s4_easyleed_viperleed_compatibility.png",
-      "sha256": "2513b79051f107e289d5653ad1c7221e0b3fa09bdeb63c8af7e633bf61a7e6e8"
+      "sha256": "790994d7cc63ce3edeeccb679ce744c54506a77c6ee360bad7a8e0ef5a118a46"
     }
   },
   "part_of_main_five_method_matrix": false,

@@ -10,6 +10,7 @@ import shutil
 import sys
 from typing import Sequence
 
+from manuscript.manuscript_contract import validate_manuscript_package
 from trackleed.publication.scientific_panel import (
     TracerValidationError,
     run_central_panel,
@@ -20,8 +21,16 @@ from trackleed.publication.scientific_sensitivity import (
     validate_sensitivity_output,
 )
 from trackleed.publication.scientific_sensitivity_bundle import (
-    build_sensitivity_publication_bundle,
     validate_sensitivity_publication_bundle,
+)
+from trackleed.publication.scientific_core import (
+    ScientificCoreValidationError,
+    validate_fingerprint,
+)
+from trackleed.publication.scientific_reconstruction import (
+    ScientificReconstructionError,
+    rebuild_reader_facing_artifacts,
+    validate_reader_facing_artifacts,
 )
 
 
@@ -70,10 +79,59 @@ def _remove_output(output: Path, workspace: Path, package: Path) -> None:
         shutil.rmtree(output)
 
 
+def _write_scientific_core_report(
+    output: Path,
+    results: dict[str, object],
+) -> None:
+    report_directory = output / "reconstruction_report"
+    report = {
+        "schema_version": 1,
+        "status": "scientific-baseline-complete",
+        "command": "python -m scripts.reconstruct_publication --clean --validate",
+        "execution_contract": {
+            "device": "cpu",
+            "headless": True,
+            "gui": False,
+            "gpu": False,
+            "model_checkpoints": False,
+            "tracker_inference": False,
+            "editorial_rendering": False,
+        },
+        "results": results,
+    }
+    report_directory.mkdir(parents=True, exist_ok=True)
+    (report_directory / "scientific_core_validation_report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    markdown = "\n".join(
+        (
+            "# Scientific-core validation report",
+            "",
+            "Status: `scientific-baseline-complete`.",
+            "",
+            "Command: `python -m scripts.reconstruct_publication --clean --validate`.",
+            "",
+            "The validated path is headless and CPU-only. It does not use the "
+            "GUI, GPU, model checkpoints, tracker inference, or editorial "
+            "document rendering.",
+            "",
+            "The machine-readable details are recorded in "
+            "`scientific_core_validation_report.json`.",
+            "",
+        )
+    )
+    (report_directory / "scientific_core_validation_report.md").write_text(
+        markdown,
+        encoding="utf-8",
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     workspace, package, output = _paths(arguments)
     sensitivity_output = output / "sensitivity"
+    scientific_core_root = workspace / "manuscript" / "scientific_core"
     try:
         if arguments.clean:
             _remove_output(output, workspace, package)
@@ -88,6 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 workspace_root=workspace,
                 sensitivity_output_directory=sensitivity_output,
             )
+            reader_facing_report = validate_reader_facing_artifacts(workspace)
         else:
             # Both runners validate their complete output before returning.
             central_report = run_central_panel(workspace, package, output)
@@ -96,33 +155,39 @@ def main(argv: Sequence[str] | None = None) -> int:
                 package,
                 sensitivity_output,
             )
-            publication_bundle_report = build_sensitivity_publication_bundle(
+            publication_bundle_report = validate_sensitivity_publication_bundle(
                 workspace_root=workspace,
                 sensitivity_output_directory=sensitivity_output,
             )
+            reader_facing_report = rebuild_reader_facing_artifacts(workspace)
+        manuscript_report = validate_manuscript_package(workspace / "manuscript")
+        scientific_core_report = validate_fingerprint(
+            workspace,
+            scientific_core_root / "fingerprint_contract.json",
+            scientific_core_root / "fingerprint.json",
+        )
+        results = {
+            "central_panel": asdict(central_report),
+            "measurement_window_and_capture_contract_sensitivity": asdict(
+                sensitivity_report
+            ),
+            "reader_facing_sensitivity_bundle": asdict(publication_bundle_report),
+            "reader_facing_artifacts": asdict(reader_facing_report),
+            "manuscript_contract": manuscript_report,
+            "scientific_core": asdict(scientific_core_report),
+        }
+        _write_scientific_core_report(output, results)
     except (
         FileExistsError,
         FileNotFoundError,
+        ScientificCoreValidationError,
+        ScientificReconstructionError,
         TracerValidationError,
         ValueError,
     ) as exc:
         print(f"publication reconstruction failed: {exc}", file=sys.stderr)
         return 2
-    print(
-        json.dumps(
-            {
-                "central_panel": asdict(central_report),
-                "measurement_window_and_capture_contract_sensitivity": asdict(
-                    sensitivity_report
-                ),
-                "reader_facing_sensitivity_bundle": asdict(
-                    publication_bundle_report
-                ),
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
+    print(json.dumps(results, indent=2, sort_keys=True))
     return 0
 
 

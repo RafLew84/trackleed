@@ -20,8 +20,7 @@ FIGURE_ROOT = Path(__file__).resolve().parent
 REPOSITORY_ROOT = FIGURE_ROOT.parents[2]
 SOURCE_DATA_DIRECTORY = FIGURE_ROOT / "source_data"
 ARTIFACT_ROOT = (
-    REPOSITORY_ROOT
-    / ".scratch/trackleed-physics-method-paper/artifacts/"
+    REPOSITORY_ROOT / ".scratch/trackleed-physics-method-paper/artifacts/"
     "cu111-tracker-evaluation-subset"
 )
 RUN_ROOT = ARTIFACT_ROOT / "runs/five-methods-v1"
@@ -131,9 +130,7 @@ def write_csv(path: Path, rows: Sequence[dict[str, object]]) -> None:
         )
         writer.writeheader()
         for row in rows:
-            writer.writerow(
-                {field: _csv_value(row.get(field)) for field in fields}
-            )
+            writer.writerow({field: _csv_value(row.get(field)) for field in fields})
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -183,10 +180,7 @@ def _resolve_native_payload(
         return candidate
     if method in {"lucas_kanade_skip_anchor", "easyleed_kalman"}:
         candidate = (
-            CPU_RUN_ROOT
-            / "native"
-            / method
-            / f"{method}_spot_{spot_id:02d}.npz"
+            CPU_RUN_ROOT / "native" / method / f"{method}_spot_{spot_id:02d}.npz"
         )
     if not candidate.is_file():
         raise FileNotFoundError(f"Missing native payload for {method}: {candidate}")
@@ -239,9 +233,7 @@ def _method_output(
         "comparison_category": metadata["comparison_category"],
         "native_representation": metadata["native_representation"],
         "archive_status": metadata["archive_status"],
-        "full_native_geometry_archived": metadata[
-            "full_native_geometry_archived"
-        ],
+        "full_native_geometry_archived": metadata["full_native_geometry_archived"],
         "native_payload_path": _portable_path(payload),
         "native_payload_sha256": sha256_file(payload),
         "native_geometry_artifact_path": (
@@ -252,15 +244,9 @@ def _method_output(
         "native_geometry_selector": method if targeted_geometry else "",
         "proposal_reduction_rule": native["proposal_reduction_rule"],
         "proposal_available": _as_bool(native["proposal_available"]),
-        "proposal_x_original_px": _as_float(
-            native["measurement_center_x_original_px"]
-        ),
-        "proposal_y_original_px": _as_float(
-            native["measurement_center_y_original_px"]
-        ),
-        "native_visibility_signal_name": native[
-            "native_visibility_signal_name"
-        ],
+        "proposal_x_original_px": _as_float(native["measurement_center_x_original_px"]),
+        "proposal_y_original_px": _as_float(native["measurement_center_y_original_px"]),
+        "native_visibility_signal_name": native["native_visibility_signal_name"],
         "native_visibility_signal": _as_optional_float(
             native["native_visibility_signal"]
         ),
@@ -315,9 +301,7 @@ def _load_comparison_contract(spot_id: int) -> dict[str, object]:
         expected_bbox_size,
     ):
         raise ValueError("Shared initialization bbox is not 48 x 48 pixels")
-    if _as_int(seed["seed_frame_order"]) != _as_int(
-        initialization["seed_frame_order"]
-    ):
+    if _as_int(seed["seed_frame_order"]) != _as_int(initialization["seed_frame_order"]):
         raise ValueError("Seed-frame contract mismatch")
 
     return {
@@ -335,15 +319,9 @@ def _load_comparison_contract(spot_id: int) -> dict[str, object]:
         "seed_frame_id": _as_int(seed["seed_frame_id"]),
         "seed_source": seed["seed_source"],
         "point_methods_receive": initialization["point_methods_receive"],
-        "box_and_mask_methods_receive": initialization[
-            "box_and_mask_methods_receive"
-        ],
-        "seed_center_x_original_px": _as_float(
-            seed["center_x_original_px"]
-        ),
-        "seed_center_y_original_px": _as_float(
-            seed["center_y_original_px"]
-        ),
+        "box_and_mask_methods_receive": initialization["box_and_mask_methods_receive"],
+        "seed_center_x_original_px": _as_float(seed["center_x_original_px"]),
+        "seed_center_y_original_px": _as_float(seed["center_y_original_px"]),
         "shared_bbox_x0_original_px": bbox_x0,
         "shared_bbox_y0_original_px": bbox_y0,
         "shared_bbox_x1_original_px": bbox_x1,
@@ -392,15 +370,10 @@ def _load_native_geometry() -> dict[str, object]:
         trajectory = geometry["methods"][method].get("trajectory_replay", {})
         if (
             trajectory.get("availability_matches_all_frames") is not True
-            or trajectory.get(
-                "reduced_center_matches_all_available_frames"
-            )
-            is not True
+            or trajectory.get("reduced_center_matches_all_available_frames") is not True
             or _as_int(trajectory.get("available_frame_count")) != 701
         ):
-            raise ValueError(
-                f"Targeted Figure 1 {method} trajectory replay changed"
-            )
+            raise ValueError(f"Targeted Figure 1 {method} trajectory replay changed")
     return geometry
 
 
@@ -436,9 +409,7 @@ def select_representative_case() -> dict[str, object]:
             frame_order=frame_order,
             spot_id=spot_id,
         )
-        outputs.append(
-            _method_output(method, native, measurement, spot_id=spot_id)
-        )
+        outputs.append(_method_output(method, native, measurement, spot_id=spot_id))
     if not all(row["proposal_available"] for row in outputs):
         raise ValueError("Representative case has an unavailable proposal")
     if not all(row["fit_valid"] for row in outputs):
@@ -474,9 +445,7 @@ def _max_pairwise_distance(
     x_field: str,
     y_field: str,
 ) -> float:
-    points = [
-        (_as_float(row[x_field]), _as_float(row[y_field])) for row in rows
-    ]
+    points = [(_as_float(row[x_field]), _as_float(row[y_field])) for row in rows]
     return max(
         math.hypot(first[0] - second[0], first[1] - second[1])
         for first, second in combinations(points, 2)
@@ -549,8 +518,8 @@ def _source_provenance(case: dict[str, object]) -> dict[str, object]:
     }
     for row in case["method_outputs"]:
         method = str(row["method"])
-        paths[f"native_payload_{method}"] = (
-            REPOSITORY_ROOT / str(row["native_payload_path"])
+        paths[f"native_payload_{method}"] = REPOSITORY_ROOT / str(
+            row["native_payload_path"]
         )
     return {
         "schema_version": "1.0",
@@ -568,9 +537,7 @@ def _source_provenance(case: dict[str, object]) -> dict[str, object]:
 def _source_data_hashes(figure_root: Path) -> dict[str, str]:
     source_data_directory = figure_root / "source_data"
     return {
-        f"source_data/{filename}": sha256_file(
-            source_data_directory / filename
-        )
+        f"source_data/{filename}": sha256_file(source_data_directory / filename)
         for filename in SOURCE_DATA_FILES
     }
 
@@ -680,8 +647,7 @@ def build(output_root: Path = FIGURE_ROOT) -> None:
         "status": "representative_case_frozen",
         "figure": "Figure 1",
         "code_sha256": {
-            filename: sha256_file(FIGURE_ROOT / filename)
-            for filename in CODE_FILES
+            filename: sha256_file(FIGURE_ROOT / filename) for filename in CODE_FILES
         },
         "source_artifacts": provenance["sources"],
         "source_data_sha256": _source_data_hashes(output_root),
@@ -718,9 +684,7 @@ def _validate_offline_integrity() -> tuple[dict[str, object], dict[str, object]]
         if not path.is_file() or sha256_file(path) != expected_hash:
             raise ValueError(f"Figure 1 source-data hash mismatch: {relative_path}")
 
-    rows = read_csv(
-        SOURCE_DATA_DIRECTORY / "representative_method_outputs.csv"
-    )
+    rows = read_csv(SOURCE_DATA_DIRECTORY / "representative_method_outputs.csv")
     if [row["method"] for row in rows] != list(METHOD_ORDER):
         raise ValueError("Figure 1 method order changed")
     if not all(_as_bool(row["proposal_available"]) for row in rows):
@@ -728,16 +692,15 @@ def _validate_offline_integrity() -> tuple[dict[str, object], dict[str, object]]
     if not all(_as_bool(row["fit_valid"]) for row in rows):
         raise ValueError("Figure 1 representative fit became invalid")
     geometry_archived = {
-        row["method"]: _as_bool(row["full_native_geometry_archived"])
-        for row in rows
+        row["method"]: _as_bool(row["full_native_geometry_archived"]) for row in rows
     }
     if not all(geometry_archived.values()):
         raise ValueError("Figure 1 native-geometry availability changed")
 
     initialization = json.loads(
-        (
-            SOURCE_DATA_DIRECTORY / "representative_initialization.json"
-        ).read_text(encoding="utf-8")
+        (SOURCE_DATA_DIRECTORY / "representative_initialization.json").read_text(
+            encoding="utf-8"
+        )
     )
     if initialization != contract.get("comparison_contract"):
         raise ValueError("Figure 1 shared-initialization contract mismatch")
@@ -748,9 +711,9 @@ def _validate_offline_integrity() -> tuple[dict[str, object], dict[str, object]]
     ):
         raise ValueError("Figure 1 common initialization changed")
     geometry = json.loads(
-        (
-            SOURCE_DATA_DIRECTORY / "representative_native_geometry.json"
-        ).read_text(encoding="utf-8")
+        (SOURCE_DATA_DIRECTORY / "representative_native_geometry.json").read_text(
+            encoding="utf-8"
+        )
     )
     if geometry != contract.get("native_geometry"):
         raise ValueError("Figure 1 native-geometry contract mismatch")
@@ -765,9 +728,7 @@ def _validate_upstream_sources(manifest: dict[str, object]) -> None:
     for name, source in manifest["source_artifacts"].items():
         path = REPOSITORY_ROOT / source["path"]
         if not path.is_file():
-            raise FileNotFoundError(
-                f"Missing upstream Figure 1 source {name}: {path}"
-            )
+            raise FileNotFoundError(f"Missing upstream Figure 1 source {name}: {path}")
         if sha256_file(path) != source["sha256"]:
             raise ValueError(f"Upstream Figure 1 source hash mismatch: {name}")
 
@@ -778,17 +739,38 @@ def _validate_deterministic_rebuild() -> None:
         "manifest.json",
         *(f"source_data/{filename}" for filename in SOURCE_DATA_FILES),
     ]
-    with tempfile.TemporaryDirectory(
-        prefix="trackleed-figure01-case-"
-    ) as temporary:
+    with tempfile.TemporaryDirectory(prefix="trackleed-figure01-case-") as temporary:
         rebuilt_root = Path(temporary) / "figure01_measurement_chain"
         build(rebuilt_root)
         for relative_path in relative_paths:
             committed = FIGURE_ROOT / relative_path
             rebuilt = rebuilt_root / relative_path
-            if not rebuilt.is_file() or sha256_file(rebuilt) != sha256_file(
-                committed
-            ):
+            if not rebuilt.is_file():
+                raise ValueError(
+                    f"Non-deterministic Figure 1 case rebuild: {relative_path}"
+                )
+            if relative_path == "source_data/representative_spot_crop.png":
+                from PIL import Image
+
+                with (
+                    Image.open(committed) as committed_image,
+                    Image.open(rebuilt) as rebuilt_image,
+                ):
+                    equivalent = (
+                        committed_image.mode == rebuilt_image.mode
+                        and committed_image.size == rebuilt_image.size
+                        and committed_image.tobytes() == rebuilt_image.tobytes()
+                    )
+            elif relative_path == "manifest.json":
+                committed_manifest = json.loads(committed.read_text(encoding="utf-8"))
+                rebuilt_manifest = json.loads(rebuilt.read_text(encoding="utf-8"))
+                png_key = "source_data/representative_spot_crop.png"
+                committed_manifest["source_data_sha256"].pop(png_key)
+                rebuilt_manifest["source_data_sha256"].pop(png_key)
+                equivalent = committed_manifest == rebuilt_manifest
+            else:
+                equivalent = sha256_file(rebuilt) == sha256_file(committed)
+            if not equivalent:
                 raise ValueError(
                     f"Non-deterministic Figure 1 case rebuild: {relative_path}"
                 )

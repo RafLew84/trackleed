@@ -22,14 +22,8 @@ MAIN_SECTIONS = (
 RESULT_SECTIONS = (
     "4.1 Controlled translations isolate measurement-chain behavior",
     "4.2 Cu(111) positive control establishes endpoint agreement",
-    (
-        "4.3 Independent Ag(111) scans separate availability from "
-        "conditional residuals"
-    ),
-    (
-        "4.4 Controlled SAM2 family exposes a continuity-consistency "
-        "trade-off"
-    ),
+    ("4.3 Independent Ag(111) scans separate availability from conditional residuals"),
+    ("4.4 Controlled SAM2 family exposes a continuity-consistency trade-off"),
     "4.5 Supporting compatibility and missingness checks",
 )
 METHOD_SECTIONS = (
@@ -84,32 +78,26 @@ def _numbered_main_sections(text: str) -> tuple[str, ...]:
 
 
 def _result_sections(text: str) -> tuple[str, ...]:
-    return tuple(
-        heading for heading in _headings(text, 3) if heading.startswith("4.")
-    )
+    return tuple(heading for heading in _headings(text, 3) if heading.startswith("4."))
 
 
 def _subsections(text: str, section_number: int) -> tuple[str, ...]:
     prefix = f"{section_number}."
     return tuple(
-        heading
-        for heading in _headings(text, 3)
-        if heading.startswith(prefix)
+        heading for heading in _headings(text, 3) if heading.startswith(prefix)
     )
 
 
 def validate_manuscript_package(manuscript_directory: Path) -> dict[str, object]:
     """Validate structure, terminology, placeholders, and claim boundaries."""
 
-    manuscript = (manuscript_directory / "manuscript.md").read_text(
-        encoding="utf-8"
-    )
+    manuscript = (manuscript_directory / "manuscript.md").read_text(encoding="utf-8")
     claim_map = (manuscript_directory / "claim-evidence-map.md").read_text(
         encoding="utf-8"
     )
-    supplement = (
-        manuscript_directory / "supplementary-material.md"
-    ).read_text(encoding="utf-8")
+    supplement = (manuscript_directory / "supplementary-material.md").read_text(
+        encoding="utf-8"
+    )
     errors: list[str] = []
 
     first_line = manuscript.splitlines()[0] if manuscript else ""
@@ -151,8 +139,7 @@ def validate_manuscript_package(manuscript_directory: Path) -> dict[str, object]
     ):
         if audit_detail in section_three:
             errors.append(
-                "Main Section 3 contains an SI-only audit detail: "
-                f"{audit_detail}"
+                f"Main Section 3 contains an SI-only audit detail: {audit_detail}"
             )
     if re.search(r"`[0-9a-f]{7,64}`", section_three):
         errors.append("Main Section 3 contains an SI-only revision or hash.")
@@ -191,6 +178,12 @@ def validate_manuscript_package(manuscript_directory: Path) -> dict[str, object]
     for anchor in REQUIRED_ANCHORS:
         if anchor not in manuscript:
             errors.append(f"Required numerical anchor is missing: {anchor}")
+
+    reconstruction_command = (
+        "python -m scripts.reconstruct_publication --clean --validate"
+    )
+    if reconstruction_command not in manuscript:
+        errors.append("The scientific reconstruction command is missing.")
 
     normalized_manuscript = manuscript.casefold()
     for claim in PROHIBITED_POSITIVE_CLAIMS:

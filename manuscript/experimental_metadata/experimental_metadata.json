@@ -14,7 +14,7 @@
           "basis": "frozen_first_party_record",
           "locator": "scientific_series_label and evidence_role columns",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -610,7 +610,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Cu(111) thermal-cycle positive control row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -634,7 +634,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Ag(111) energy-scan rows",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1002,7 +1002,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Cu(111) thermal-cycle positive control row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1038,7 +1038,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Ag(111) Scans A and B row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1076,7 +1076,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Ag(111) Scans A and B row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1108,7 +1108,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Ag(111) memory-analysis scan row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1220,7 +1220,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Restricted high-energy external reference row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,
@@ -1257,7 +1257,7 @@
           "basis": "frozen_first_party_record",
           "locator": "Cu(111) thermal-cycle positive control row",
           "source_path": "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv",
-          "source_sha256": "5616ef40cdcc9c79c6e526b690fb273b2420b43b7f9322ecad0cbb2145735d78"
+          "source_sha256": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33"
         }
       ],
       "reason": null,

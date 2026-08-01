@@ -46,9 +46,21 @@ class ScientificSensitivityTests(unittest.TestCase):
                 ),
                 patch(
                     "scripts.reconstruct_publication."
-                    "build_sensitivity_publication_bundle",
+                    "validate_sensitivity_publication_bundle",
                     return_value=object(),
-                ) as build_bundle,
+                ) as validate_bundle,
+                patch(
+                    "scripts.reconstruct_publication.rebuild_reader_facing_artifacts",
+                    return_value=object(),
+                ) as rebuild_displays,
+                patch(
+                    "scripts.reconstruct_publication.validate_manuscript_package",
+                    return_value={},
+                ) as validate_manuscript,
+                patch(
+                    "scripts.reconstruct_publication.validate_fingerprint",
+                    return_value=object(),
+                ) as validate_core,
                 patch("scripts.reconstruct_publication.asdict", return_value={}),
             ):
                 result = reconstruction_main(
@@ -64,9 +76,38 @@ class ScientificSensitivityTests(unittest.TestCase):
                 )
 
             self.assertEqual(result, 0)
-            build_bundle.assert_called_once_with(
+            validate_bundle.assert_called_once_with(
                 workspace_root=workspace,
                 sensitivity_output_directory=output / "sensitivity",
+            )
+            rebuild_displays.assert_called_once_with(workspace)
+            validate_manuscript.assert_called_once_with(workspace / "manuscript")
+            validate_core.assert_called_once_with(
+                workspace,
+                workspace
+                / "manuscript"
+                / "scientific_core"
+                / "fingerprint_contract.json",
+                workspace / "manuscript" / "scientific_core" / "fingerprint.json",
+            )
+            report_directory = output / "reconstruction_report"
+            validation_report = json.loads(
+                (report_directory / "scientific_core_validation_report.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                validation_report["status"],
+                "scientific-baseline-complete",
+            )
+            self.assertIn(
+                "scientific-baseline-complete",
+                (report_directory / "scientific_core_validation_report.md").read_text(
+                    encoding="utf-8"
+                ),
+            )
+            self.assertFalse(
+                (output / "scientific_core_validation_report.json").exists()
             )
 
     def test_reconstruction_validation_does_not_rewrite_publication_bundle(
@@ -92,10 +133,21 @@ class ScientificSensitivityTests(unittest.TestCase):
                     return_value=object(),
                 ) as validate_bundle,
                 patch(
-                    "scripts.reconstruct_publication."
-                    "build_sensitivity_publication_bundle",
+                    "scripts.reconstruct_publication.validate_reader_facing_artifacts",
                     return_value=object(),
-                ) as build_bundle,
+                ) as validate_displays,
+                patch(
+                    "scripts.reconstruct_publication.rebuild_reader_facing_artifacts",
+                    return_value=object(),
+                ) as rebuild_displays,
+                patch(
+                    "scripts.reconstruct_publication.validate_manuscript_package",
+                    return_value={},
+                ),
+                patch(
+                    "scripts.reconstruct_publication.validate_fingerprint",
+                    return_value=object(),
+                ),
                 patch("scripts.reconstruct_publication.asdict", return_value={}),
             ):
                 result = reconstruction_main(
@@ -115,7 +167,8 @@ class ScientificSensitivityTests(unittest.TestCase):
                 workspace_root=workspace,
                 sensitivity_output_directory=output / "sensitivity",
             )
-            build_bundle.assert_not_called()
+            validate_displays.assert_called_once_with(workspace)
+            rebuild_displays.assert_not_called()
 
     def test_triggered_width_sweep_reuses_central_and_evaluates_four_additions(
         self,

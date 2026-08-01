@@ -1,7 +1,7 @@
 {
   "author_checkpoint_status": "confirmed",
   "claim_count": 9,
-  "contract_sha256": "6fe6793b20aa5084d617585cddf79e4acc234acc6209707e154d4c0b155d72de",
+  "contract_sha256": "3e53cf471c45d3b2a6eff7f1355fb0274e9b01094722cc6ba9e0c14045a8328d",
   "decision_counts": {
     "narrowed": 5,
     "preserved": 4,
@@ -9,11 +9,11 @@
   },
   "implementation_sha256": {
     "trackleed/publication/scientific_claim_adjudication.py": "2d82f47ab55341a471724a52680a222f33100e0569c335bf6aa833c2e39306ee",
-    "trackleed/publication/scientific_sensitivity_sources.py": "acd78ced6dd438c585a6c3ace44859ab47df7e14890bcc0c93a0e436431bea03"
+    "trackleed/publication/scientific_sensitivity_sources.py": "92ca0ce3027152f701a7460d4447af0769d9fcb5ca7ad7ffbd26d9efe5f0396a"
   },
   "outputs_sha256": {
-    "author_checkpoint.json": "de20cd6b380577c083955ce2e15f30a07fff24ad8f1c02d9c9309ea15d496e9a",
-    "final_claim_boundary.json": "b31c58183833691348ba58d89a508972a88be231ad29206fab89b62a4acfe248",
+    "author_checkpoint.json": "c52ba6319d923a4eae1213a61555df1dfc75e8d1ea0d9f83a2c09fd8597e99a4",
+    "final_claim_boundary.json": "a0936878a982f2620f8efa9d889f9c35cdf2ab35890d467b95722e0f917cf22c",
     "sensitivity_claim_evidence.json": "16e35834c9b3efca2d716836f2567101095d0e63331cc82ed020bcc695f5e727"
   },
   "schema_version": 1,

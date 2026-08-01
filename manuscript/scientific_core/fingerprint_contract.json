@@ -1,0 +1,220 @@
+{
+  "components": [
+    {
+      "id": "manuscript",
+      "path": "manuscript/manuscript.md",
+      "roles": [
+        "final_prose",
+        "denominators",
+        "limitations"
+      ]
+    },
+    {
+      "id": "supplementary-material",
+      "path": "manuscript/supplementary-material.md",
+      "roles": [
+        "final_prose",
+        "si_inventory",
+        "denominators",
+        "limitations"
+      ]
+    },
+    {
+      "id": "claim-evidence-map",
+      "path": "manuscript/claim-evidence-map.md",
+      "roles": [
+        "claim_evidence_map",
+        "claim_boundaries",
+        "limitations"
+      ]
+    },
+    {
+      "id": "manuscript-validator",
+      "path": "manuscript/manuscript_contract.py",
+      "roles": [
+        "validators"
+      ]
+    },
+    {
+      "id": "display-inventory-contract",
+      "path": "manuscript/publication_inventory/source_data/display_inventory.json",
+      "roles": [
+        "displays",
+        "si_inventory",
+        "denominators"
+      ]
+    },
+    {
+      "id": "display-semantic-inventory",
+      "path": "manuscript/publication_inventory/semantic_manifest.json",
+      "roles": [
+        "builders",
+        "denominators",
+        "displays",
+        "si_inventory",
+        "source_data",
+        "validators"
+      ]
+    },
+    {
+      "id": "display-index",
+      "path": "manuscript/figures-and-tables.md",
+      "roles": [
+        "displays",
+        "si_inventory"
+      ]
+    },
+    {
+      "id": "baseline-package-manifest",
+      "path": "manuscript/scientific_baseline/package_manifest.json",
+      "roles": [
+        "source_data",
+        "denominators",
+        "provenance"
+      ]
+    },
+    {
+      "id": "measurement-contract",
+      "path": "manuscript/scientific_baseline/measurement_contract.json",
+      "roles": [
+        "central_outcomes",
+        "denominators"
+      ]
+    },
+    {
+      "id": "central-panel-authentication",
+      "path": "manuscript/scientific_panel_authentication.json",
+      "roles": [
+        "central_outcomes",
+        "provenance"
+      ]
+    },
+    {
+      "id": "tracer-authentication",
+      "path": "manuscript/scientific_tracer_authentication.json",
+      "roles": [
+        "central_outcomes",
+        "validators",
+        "provenance"
+      ]
+    },
+    {
+      "id": "sensitivity-source-provenance",
+      "path": "manuscript/source_data/measurement_sensitivity/source_provenance.json",
+      "roles": [
+        "source_data",
+        "sensitivity",
+        "denominators",
+        "provenance"
+      ]
+    },
+    {
+      "id": "sensitivity-summary",
+      "path": "manuscript/source_data/measurement_sensitivity/sensitivity_summary.json",
+      "roles": [
+        "sensitivity",
+        "central_outcomes",
+        "denominators"
+      ]
+    },
+    {
+      "id": "claim-boundary-manifest",
+      "path": "manuscript/claim_adjudication/output/manifest.json",
+      "roles": [
+        "claim_boundaries",
+        "sensitivity",
+        "provenance"
+      ]
+    },
+    {
+      "id": "final-claim-boundary",
+      "path": "manuscript/claim_adjudication/output/final_claim_boundary.json",
+      "roles": [
+        "claim_boundaries",
+        "denominators",
+        "limitations"
+      ]
+    },
+    {
+      "id": "experimental-metadata-manifest",
+      "path": "manuscript/experimental_metadata/package_manifest.json",
+      "roles": [
+        "claim_boundaries",
+        "provenance"
+      ]
+    },
+    {
+      "id": "reconstruction-entrypoint",
+      "path": "scripts/reconstruct_publication.py",
+      "roles": [
+        "builders",
+        "validators"
+      ]
+    },
+    {
+      "id": "fingerprint-freeze-entrypoint",
+      "path": "scripts/freeze_scientific_core.py",
+      "roles": [
+        "builders",
+        "validators"
+      ]
+    },
+    {
+      "id": "fingerprint-validator",
+      "path": "trackleed/publication/scientific_core.py",
+      "roles": [
+        "validators"
+      ]
+    },
+    {
+      "id": "reconstruction-orchestrator",
+      "path": "trackleed/publication/scientific_reconstruction.py",
+      "roles": [
+        "builders",
+        "validators"
+      ]
+    },
+    {
+      "id": "display-inventory-builder",
+      "path": "manuscript/publication_inventory/build_inventory.py",
+      "roles": [
+        "builders",
+        "validators"
+      ]
+    },
+    {
+      "id": "cpu-environment",
+      "path": "manuscript/scientific_core/cpu-environment.txt",
+      "roles": [
+        "provenance",
+        "validators"
+      ]
+    },
+    {
+      "id": "scientific-core-documentation",
+      "path": "manuscript/scientific_core/README.md",
+      "roles": [
+        "builders",
+        "validators",
+        "provenance"
+      ]
+    }
+  ],
+  "required_roles": [
+    "builders",
+    "central_outcomes",
+    "claim_boundaries",
+    "claim_evidence_map",
+    "denominators",
+    "displays",
+    "final_prose",
+    "limitations",
+    "provenance",
+    "sensitivity",
+    "si_inventory",
+    "source_data",
+    "validators"
+  ],
+  "schema_version": 1,
+  "status": "frozen"
+}

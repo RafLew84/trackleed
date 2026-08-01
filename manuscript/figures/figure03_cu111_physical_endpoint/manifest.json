@@ -8,7 +8,7 @@
     "The positive control does not establish an overall ranking of tracking strategies.",
     "The endpoint is descriptive for one constant-energy Cu(111) sequence and does not establish a calibrated thermal-expansion coefficient, phase transition, or structural mechanism."
   ],
-  "caption_sha256": "cdd2abaed8c91875c5589f6f1a77ed7bdda0117bffce3ee8e04a334c890635ea",
+  "caption_sha256": "1d38490ee1d341014a000ba729582d46dc8eecb287fbeee52f63b17c1dba955d",
   "code_sha256": {
     "build_figure.py": "037b0b5d2cb8f88cacb792376a658a86a6b4bdd643aa0202f674595715b2fba0",
     "figure_contract.py": "2df23b8c59f637d4603a0624987efdd23048e042604448bb6278bacafce47710",

@@ -1,8 +1,8 @@
 {
   "files_sha256": {
     "README.md": "ab30aa0afaf0f4ef5035cd9006e7f81a99231afeda692b48a7cb8c01890e1e2a",
-    "author_checkpoint.json": "9604ce90e441358473a211d649267bb51b0680981e17e4233af699b97deb00c0",
-    "experimental_metadata.json": "61128e11683028be81e76f711e0759ffc9d9b6a8229bbb68a364d79f5931f6ee",
+    "author_checkpoint.json": "680e8860264b3a7b9b8e3fa20798aab89be4fca7a4e39350c2abc92bb547bc61",
+    "experimental_metadata.json": "66020f0dc7e26402d2e52a5adbe511c1b8aa4c91a44fb341518ce0a4567bc291",
     "metadata_claim_constraints.json": "689cc9d09a8cb59e6ad125f17187a44cd3e27932b495136a795dcf81746606b4",
     "tiff_metadata_inventory.json": "1ded0fae83542245a3d61b8297e221bc2cff41c39a960b37ff63578973bfa212"
   },

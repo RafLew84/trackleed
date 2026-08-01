@@ -92,6 +92,21 @@ and evidence role.
   acquisition-metadata record, explicit unavailable fields, TIFF inventory and
   metadata-derived claim constraints; it is not used to infer the deferred
   reader-facing experimental description.
+- [`scientific_core/`](scientific_core/) - documented one-command headless CPU
+  reconstruction contract, pinned environment, semantic component contract,
+  and fail-closed `scientific-baseline-complete` fingerprint.
+
+## Reconstruct and validate the scientific core
+
+Run from the repository root in the pinned CPU environment:
+
+```text
+python -m scripts.reconstruct_publication --clean --validate
+```
+
+The command rebuilds the central result, sensitivity, source data, all twenty
+main/SI display bundles and manifests, then validates the manuscript and the
+frozen semantic fingerprint. It never refreshes the fingerprint automatically.
 
 ## Sources of truth
 

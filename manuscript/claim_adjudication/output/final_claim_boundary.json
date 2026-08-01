@@ -33,7 +33,7 @@
     {
       "claim_id": "C3",
       "decision": "narrowed",
-      "final_claim": "Across the two recorded Ag(111) energy sequences, the four case-based stress-test strata differentiate strategies through branch-consistent coverage, post-gap recovery, and geometry-inconsistent continuation under the tested measurement contracts.",
+      "final_claim": "Across the two recorded Ag(111) energy sequences, the four case-based stress-test strata differentiate strategies through branch-consistent coverage, post-gap branch-consistent recovery, and geometry-inconsistent continuation under the tested measurement contracts.",
       "metadata_constraint_ids": [
         "no_ag_scan_kinetics_or_calibrated_iv",
         "ag_series_not_controlled_population_replicates",
@@ -138,7 +138,7 @@
   "scope": "final_scientific_claim_boundary",
   "source_links": {
     "claim_evidence_map": {
-      "claim_inventory_sha256": "49def089e0fb6b408b06e808b7653e277956b30ae722c382b214f69cdb0e7332",
+      "claim_inventory_sha256": "ff4c0aa9e870f1ed1123bf3c9e933a938834dd3ffbd0dbaf7a8c1fc9d6324e40",
       "path": "manuscript/claim-evidence-map.md"
     },
     "metadata_claim_constraints": {

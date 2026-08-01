@@ -13,6 +13,31 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class ManuscriptContractTest(unittest.TestCase):
+    def _write_package(self, package: Path, manuscript: str) -> None:
+        source_directory = REPO_ROOT / "manuscript"
+        (package / "manuscript.md").write_text(manuscript, encoding="utf-8")
+        for filename in ("claim-evidence-map.md", "supplementary-material.md"):
+            (package / filename).write_text(
+                (source_directory / filename).read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+
+    def test_scientific_reconstruction_contract_is_required(self) -> None:
+        source_directory = REPO_ROOT / "manuscript"
+        manuscript = (source_directory / "manuscript.md").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as temporary:
+            package = Path(temporary)
+            self._write_package(
+                package,
+                manuscript.replace(
+                    "python -m scripts.reconstruct_publication --clean --validate",
+                    "a future reconstruction command",
+                ),
+            )
+
+            with self.assertRaisesRegex(ValueError, "reconstruction command"):
+                validate_manuscript_package(package)
+
     def test_reader_facing_package_matches_the_frozen_scientific_contract(
         self,
     ) -> None:
@@ -36,9 +61,7 @@ class ManuscriptContractTest(unittest.TestCase):
 
     def test_malformed_or_unauthorized_placeholder_is_rejected(self) -> None:
         source_directory = REPO_ROOT / "manuscript"
-        manuscript = (source_directory / "manuscript.md").read_text(
-            encoding="utf-8"
-        )
+        manuscript = (source_directory / "manuscript.md").read_text(encoding="utf-8")
 
         for marker in ("TODO[author]", "TODO[AUTHOR_NAME]", "TODO[AUTHOR"):
             with (
@@ -46,20 +69,7 @@ class ManuscriptContractTest(unittest.TestCase):
                 tempfile.TemporaryDirectory() as temporary,
             ):
                 package = Path(temporary)
-                (package / "manuscript.md").write_text(
-                    manuscript + "\n" + marker + "\n",
-                    encoding="utf-8",
-                )
-                for filename in (
-                    "claim-evidence-map.md",
-                    "supplementary-material.md",
-                ):
-                    (package / filename).write_text(
-                        (source_directory / filename).read_text(
-                            encoding="utf-8"
-                        ),
-                        encoding="utf-8",
-                    )
+                self._write_package(package, manuscript + "\n" + marker + "\n")
 
                 with self.assertRaisesRegex(
                     ValueError,

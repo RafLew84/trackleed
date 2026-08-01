@@ -184,7 +184,7 @@
     },
     "exporter": {
       "path": "manuscript/figures/figure01_measurement_chain/export_native_geometry.py",
-      "sha256": "da3912b9e7c9b567401ad69b4216e9106d2d5b87d8978887fb1175a2702e86d8"
+      "sha256": "90eea1ae297825089e4e2d91d90ccdb5be964277fa597b77d94b806269baf576"
     },
     "frozen_gpu_runner": {
       "path": ".scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/run_gpu_cu.py",

@@ -8,20 +8,20 @@
   },
   "contract_sha256": "9801369f175b15fa071d45caed0d3455fac2fcf0ea20dd4e6f7501333d3c4d72",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "figure": "Figure S3",
   "outputs": {
     "pdf": {
       "path": "output/pdf/figure_s3_ag111_midpoint_drift.pdf",
-      "sha256": "b9b8d3275505ed23a19f5c7ff607598a9432071f06224a37195360b45e8408b1"
+      "sha256": "31faef1abaae971e0ec5b3757c7eaad09e25f50488e8b6fb01926edea03c11fc"
     },
     "png": {
       "path": "output/figure_s3_ag111_midpoint_drift.png",
-      "sha256": "3a64647f6db0e126060f4c02d5d57ca5c04c42bd5dfe82aaaf825cf74b398bd4"
+      "sha256": "8dee98952cf3585cf3b0ad0c0ddb1dd064fc6555cc61f1a761dd4f2954735d47"
     }
   },
   "rendering": {

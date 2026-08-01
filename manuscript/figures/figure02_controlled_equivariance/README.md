@@ -4,7 +4,7 @@ Status: generated and validated.
 
 This directory is the publication artifact for the controlled response of the
 complete `proposal -> ROI -> Gaussian position` chain. Energy-scan geometry and
-measurement-window sensitivity are intentionally absent from Figure 2.
+measurement-contract perturbations are intentionally absent from Figure 2.
 
 ## Panels
 

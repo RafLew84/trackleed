@@ -33,8 +33,7 @@ from trackleed.analysis.publication_native_geometry import (  # noqa: E402
 
 SOURCE_DATA_DIRECTORY = FIGURE_ROOT / "source_data"
 ARTIFACT_ROOT = (
-    REPOSITORY_ROOT
-    / ".scratch/trackleed-physics-method-paper/artifacts/"
+    REPOSITORY_ROOT / ".scratch/trackleed-physics-method-paper/artifacts/"
     "cu111-tracker-evaluation-subset"
 )
 GPU_NATIVE_ROOT = ARTIFACT_ROOT / "runs/gpu-native-v1"
@@ -107,11 +106,7 @@ def _load_upstream_runner() -> ModuleType:
 
 
 def _archived_payload(method: str) -> dict[str, np.ndarray]:
-    path = (
-        GPU_NATIVE_ROOT
-        / method
-        / f"{method}_spot_{SPOT_ID:02d}.npz"
-    )
+    path = GPU_NATIVE_ROOT / method / f"{method}_spot_{SPOT_ID:02d}.npz"
     with np.load(path, allow_pickle=False) as data:
         return {name: np.asarray(data[name]) for name in data.files}
 
@@ -144,9 +139,7 @@ def _compare_with_archived_trajectory(
     comparison.update(
         {
             "archived_payload_path": (
-                path := GPU_NATIVE_ROOT
-                / method
-                / f"{method}_spot_{SPOT_ID:02d}.npz"
+                path := GPU_NATIVE_ROOT / method / f"{method}_spot_{SPOT_ID:02d}.npz"
             )
             .resolve()
             .relative_to(REPOSITORY_ROOT.resolve())
@@ -183,16 +176,10 @@ def _run_ostrack(
             backend_mode="subprocess",
             model_variant=str(settings["model_variant"]),
             device=str(settings["device"]),
-            representative_point_mode=str(
-                settings["representative_point_mode"]
-            ),
+            representative_point_mode=str(settings["representative_point_mode"]),
             inference_resolution=tuple(settings["inference_resolution"]),
-            initial_bbox_padding_px=float(
-                settings["initial_bbox_padding_px"]
-            ),
-            subprocess_timeout_sec=float(
-                settings["subprocess_timeout_seconds"]
-            ),
+            initial_bbox_padding_px=float(settings["initial_bbox_padding_px"]),
+            subprocess_timeout_sec=float(settings["subprocess_timeout_seconds"]),
         ),
         query_boxes_xyxy=query_boxes,
     )
@@ -225,9 +212,7 @@ def _run_ostrack(
         {
             "method": method,
             "display_method": "OSTrack",
-            "native_bbox_score": float(
-                result.bbox_scores[0, TARGET_FRAME_ORDER]
-            ),
+            "native_bbox_score": float(result.bbox_scores[0, TARGET_FRAME_ORDER]),
             "trajectory_replay": trajectory,
         }
     )
@@ -261,16 +246,10 @@ def _run_dam4sam(
             backend_mode="subprocess",
             tracker_name=str(settings["tracker_name"]),
             device=str(settings["device"]),
-            representative_point_mode=str(
-                settings["representative_point_mode"]
-            ),
+            representative_point_mode=str(settings["representative_point_mode"]),
             inference_resolution=tuple(settings["inference_resolution"]),
-            initial_bbox_padding_px=float(
-                settings["initial_bbox_padding_px"]
-            ),
-            subprocess_timeout_sec=float(
-                settings["subprocess_timeout_seconds"]
-            ),
+            initial_bbox_padding_px=float(settings["initial_bbox_padding_px"]),
+            subprocess_timeout_sec=float(settings["subprocess_timeout_seconds"]),
         ),
         query_boxes_xyxy=query_boxes,
     )
@@ -322,9 +301,7 @@ def _run_dam4sam(
             "mask_sha256": sha256_file(mask_path),
             "native_mask_score": (
                 float(result.mask_scores[0, TARGET_FRAME_ORDER])
-                if math.isfinite(
-                    float(result.mask_scores[0, TARGET_FRAME_ORDER])
-                )
+                if math.isfinite(float(result.mask_scores[0, TARGET_FRAME_ORDER]))
                 else None
             ),
             "trajectory_replay": trajectory,
@@ -343,11 +320,7 @@ def _write_replay_trajectory(
 ) -> Path:
     replay_path = output_directory / REPLAY_CSV_NAME
     retained_rows = (
-        [
-            row
-            for row in read_csv(replay_path)
-            if row["method"] != method
-        ]
+        [row for row in read_csv(replay_path) if row["method"] != method]
         if replay_path.is_file()
         else []
     )
@@ -363,9 +336,7 @@ def _write_replay_trajectory(
                 "method": method,
                 "frame_order": frame_order,
                 "frame_id": int(frame["frame_id"]),
-                "proposal_available": (
-                    "true" if is_available else "false"
-                ),
+                "proposal_available": ("true" if is_available else "false"),
                 "x_cache_px": (
                     format(float(tracks[frame_order, 0]), ".17g")
                     if is_available
@@ -402,14 +373,11 @@ def _base_payload(
         "frozen_gpu_runner": UPSTREAM_RUNNER_PATH,
         "exporter": Path(__file__).resolve(),
         "native_geometry_analysis": (
-            REPOSITORY_ROOT
-            / "trackleed/analysis/publication_native_geometry.py"
+            REPOSITORY_ROOT / "trackleed/analysis/publication_native_geometry.py"
         ),
     }.items():
         sources[name] = {
-            "path": path.resolve()
-            .relative_to(REPOSITORY_ROOT.resolve())
-            .as_posix(),
+            "path": path.resolve().relative_to(REPOSITORY_ROOT.resolve()).as_posix(),
             "sha256": sha256_file(path),
         }
     method_contracts = {}
@@ -418,13 +386,11 @@ def _base_payload(
         resource_key = RESOURCE_KEYS[method]
         resource = manifest["method_resources"][resource_key]
         method_contracts[method] = {
-            "method_configuration_sha256": manifest[
-                "method_configuration_sha256"
-            ][method],
-            "adapter_source": configuration["adapter_source"],
-            "adapter_source_sha256": configuration[
-                "adapter_source_sha256"
+            "method_configuration_sha256": manifest["method_configuration_sha256"][
+                method
             ],
+            "adapter_source": configuration["adapter_source"],
+            "adapter_source_sha256": configuration["adapter_source_sha256"],
             "checkpoint_path": resource["relative_path"],
             "checkpoint_sha256": resource["sha256"],
             "upstream_revision": configuration["upstream_revision"],
@@ -470,7 +436,7 @@ def _base_payload(
         "method_contracts": method_contracts,
         "sources": sources,
         "methods": {},
-}
+    }
 
 
 def export(methods: Sequence[str], output_directory: Path) -> None:
@@ -501,9 +467,7 @@ def export(methods: Sequence[str], output_directory: Path) -> None:
             "method_contracts",
             "sources",
         )
-        if all(
-            existing.get(key) == payload.get(key) for key in compatible_keys
-        ):
+        if all(existing.get(key) == payload.get(key) for key in compatible_keys):
             payload["methods"] = existing.get("methods", {})
 
     method_runners = {
@@ -536,9 +500,7 @@ def export(methods: Sequence[str], output_directory: Path) -> None:
         for method_payload in payload["methods"].values():
             method_payload["trajectory_replay"].update(
                 {
-                    "reexported_trajectory_path": (
-                        f"source_data/{REPLAY_CSV_NAME}"
-                    ),
+                    "reexported_trajectory_path": (f"source_data/{REPLAY_CSV_NAME}"),
                     "reexported_trajectory_sha256": replay_hash,
                 }
             )
@@ -549,8 +511,7 @@ def export(methods: Sequence[str], output_directory: Path) -> None:
         )
         write_json(output_json_path, payload)
         print(
-            f"[{method}] native geometry exported in "
-            f"{perf_counter() - started:.1f} s",
+            f"[{method}] native geometry exported in {perf_counter() - started:.1f} s",
             flush=True,
         )
 
@@ -583,9 +544,7 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
     }
     for field, expected in expected_replay_fields.items():
         if replay_contract.get(field) != expected:
-            raise ValueError(
-                f"Figure 1 native-geometry replay field changed: {field}"
-            )
+            raise ValueError(f"Figure 1 native-geometry replay field changed: {field}")
     seed_rows = [
         row
         for row in read_csv(ARTIFACT_ROOT / "seed_prompts.csv")
@@ -609,26 +568,29 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
         "seed_is_ground_truth": False,
     }
     if replay_contract.get("shared_initialization") != expected_initialization:
-        raise ValueError(
-            "Figure 1 native-geometry shared initialization changed"
-        )
+        raise ValueError("Figure 1 native-geometry shared initialization changed")
     for name, source in payload["sources"].items():
         source_path = REPOSITORY_ROOT / source["path"]
         if not source_path.is_file() or sha256_file(source_path) != source["sha256"]:
             raise ValueError(f"Native-geometry source hash mismatch: {name}")
     for method, contract in payload["method_contracts"].items():
-        for path_key, hash_key in (
-            ("adapter_source", "adapter_source_sha256"),
-            ("checkpoint_path", "checkpoint_sha256"),
+        adapter_path = REPOSITORY_ROOT / contract["adapter_source"]
+        if (
+            not adapter_path.is_file()
+            or sha256_file(adapter_path) != contract["adapter_source_sha256"]
         ):
-            source_path = REPOSITORY_ROOT / contract[path_key]
-            if (
-                not source_path.is_file()
-                or sha256_file(source_path) != contract[hash_key]
-            ):
-                raise ValueError(
-                    f"Native-geometry {method} {path_key} hash mismatch"
-                )
+            raise ValueError(f"Native-geometry {method} adapter_source hash mismatch")
+        checkpoint_path = Path(str(contract["checkpoint_path"]))
+        checkpoint_sha256 = str(contract["checkpoint_sha256"])
+        if (
+            checkpoint_path.is_absolute()
+            or ".." in checkpoint_path.parts
+            or len(checkpoint_sha256) != 64
+            or any(
+                character not in "0123456789abcdef" for character in checkpoint_sha256
+            )
+        ):
+            raise ValueError(f"Native-geometry {method} checkpoint declaration changed")
 
     replay_path = output_directory / REPLAY_CSV_NAME
     replay_hash = sha256_file(replay_path)
@@ -637,15 +599,9 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
     if len(replay_rows) != FRAME_COUNT * len(EXPORT_METHODS):
         raise ValueError("Figure 1 native-geometry replay row count changed")
     for method in EXPORT_METHODS:
-        method_rows = [
-            row for row in replay_rows if row["method"] == method
-        ]
-        if [int(row["frame_order"]) for row in method_rows] != list(
-            range(FRAME_COUNT)
-        ):
-            raise ValueError(
-                f"Figure 1 {method} replay frame order changed"
-            )
+        method_rows = [row for row in replay_rows if row["method"] == method]
+        if [int(row["frame_order"]) for row in method_rows] != list(range(FRAME_COUNT)):
+            raise ValueError(f"Figure 1 {method} replay frame order changed")
         if [int(row["frame_id"]) for row in method_rows] != [
             int(row["frame_id"]) for row in inference_rows
         ]:
@@ -682,17 +638,13 @@ def validate(output_directory: Path = SOURCE_DATA_DIRECTORY) -> None:
             else:
                 matches = actual == expected
             if not matches:
-                raise ValueError(
-                    f"Figure 1 {method} replay metric changed: {key}"
-                )
+                raise ValueError(f"Figure 1 {method} replay metric changed: {key}")
         if (
             recorded.get("reexported_trajectory_path")
             != f"source_data/{REPLAY_CSV_NAME}"
             or recorded.get("reexported_trajectory_sha256") != replay_hash
         ):
-            raise ValueError(
-                f"Figure 1 {method} replay trajectory hash changed"
-            )
+            raise ValueError(f"Figure 1 {method} replay trajectory hash changed")
 
     ostrack = payload["methods"][OSTRACK_METHOD]
     summarize_ostrack_bbox(

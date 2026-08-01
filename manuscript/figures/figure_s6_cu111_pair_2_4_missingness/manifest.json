@@ -13,7 +13,7 @@
   },
   "contract_sha256": "eb7c24709cb92f253f3f100c1d8af88e4a625978d9aa860a61681c09a24cd367",
   "environment": {
-    "python": "3.12.3"
+    "python": "3.12.9"
   },
   "figure": "Figure S6",
   "inside_five_method_run": false,
@@ -22,8 +22,8 @@
     "png": "output/figure_s6_cu111_pair_2_4_missingness.png"
   },
   "outputs_sha256": {
-    "pdf": "0044d9942347e2ce45863872ed092e470151256cc7ffae4bf37c8e6fccd0ee59",
-    "png": "94699e22e05bfc834f9eeb9d4dc6825f1fd76b85bf9d53ea62d64b10cd917be8"
+    "pdf": "435d18fddfb15da276a36d184171564799af60121b4882b9e15932a906d87635",
+    "png": "9fc7958d1d70a6e1746262664cfdbbcd6cb664fe9a0e5b9c281c42d72ef3baf9"
   },
   "rendering": {
     "figure_size_inches": [

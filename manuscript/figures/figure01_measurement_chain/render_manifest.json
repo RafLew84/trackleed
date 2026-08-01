@@ -13,7 +13,7 @@
     "python": "3.12.9"
   },
   "figure": "Figure 1",
-  "frozen_case_manifest_sha256": "3d60eb97c89710b6df8e8d7395e70ccebb7d702fbd343cfb0080903c70469b33",
+  "frozen_case_manifest_sha256": "a1c04ec3593d772ae6c1255017702a1fa7d305f93b8abbf7069e321d55dff600",
   "outputs_sha256": {
     "output/figure01_measurement_chain.png": "1f0a76ba6f676720a27ba271b7968e74be233e4778d736a5c39d52a272d31928",
     "output/pdf/figure01_measurement_chain.pdf": "6e6b10fb518ddee98371bd383bc5af21a41c6b3d984561066118babb8f443a20"
@@ -107,10 +107,10 @@
     "source_data/representative_dam4sam_mask_cache.png": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
     "source_data/representative_initialization.json": "9983277bda6488357fbe08575b659a13a2234b92cb9fb8b85468f87a0f380c15",
     "source_data/representative_method_outputs.csv": "4aba63b8168368984316fadf030e999a02e3f0482bb8fc0f3305d3463a33f244",
-    "source_data/representative_native_geometry.json": "6039a802e58609929cfa6266d0e7d19e608adcb1a721d834e965e11247c1b493",
+    "source_data/representative_native_geometry.json": "ce83d1a1d2459628cb4d0f82b9d64fbbd5db63145307888d0b241c77a36cd145",
     "source_data/representative_native_geometry_replay.csv": "6e94acf10f0ea7ef8a2580e19df401f64dd24d787b27a2304c8973321e51c5be",
     "source_data/representative_spot_crop.json": "fbefcd148a1536d5dfcc735ea8cbf280907eb77314407e611a3747a7069c7637",
-    "source_data/representative_spot_crop.png": "41887e76188f17acb6f87186e3b61825fc76524867d8afd03a2ae94367b666c9",
+    "source_data/representative_spot_crop.png": "370c35ee1c1ad8c909c6c4704321ed71b74ae2c9be02eaa2f515cd699dac454f",
     "source_data/source_provenance.json": "4cdb2dbe46e11f8bad60036bc0bb2808118a6b37c4b100c8b7aeafdbb721d244"
   },
   "status": "completed",

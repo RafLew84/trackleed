@@ -9,19 +9,19 @@
   "schema_version": 1,
   "sources": {
     "build_table.py": "614cc0b977e712888cda7922308fafc4e8e352ae4b066323a22df7a20836fd6e",
-    "source_data/denominator_records.csv": "008e9c1f4add3aa0afab439d69e6a9fa7cb34b3e3b7b71a2becfaede28811d7e",
-    "source_data/gate_records.csv": "17410b0bdaee0c36291651793aba1a092cac18c014dc4267106daec6a2be412d",
-    "source_data/source_provenance.json": "4560601b2d3404cd09b76189def9850164d42183eeff05fa934f763de5892ade",
-    "source_data/upstream_contracts/controlled_translation_method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
-    "source_data/upstream_contracts/executed_sources/cu_measurement_runner.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
-    "source_data/upstream_contracts/executed_sources/energy_measurement_runner.py": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
-    "source_data/upstream_contracts/executed_sources/peak_analyzer.py": "63eefc16dc73967a844b71e4357f6d1d2d0eb23a063025b9f41ea14cafaf81b7",
-    "source_data/upstream_contracts/external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
-    "source_data/upstream_contracts/family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
-    "source_data/upstream_contracts/family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
-    "source_data/upstream_contracts/five_method_run_contract.json": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
-    "source_data/upstream_contracts/method_evidence_matrix.csv": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
-    "source_data/upstream_contracts/pair_2_4_missingness_diagnostic.csv": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9"
+    "source_data\\denominator_records.csv": "008e9c1f4add3aa0afab439d69e6a9fa7cb34b3e3b7b71a2becfaede28811d7e",
+    "source_data\\gate_records.csv": "17410b0bdaee0c36291651793aba1a092cac18c014dc4267106daec6a2be412d",
+    "source_data\\source_provenance.json": "4560601b2d3404cd09b76189def9850164d42183eeff05fa934f763de5892ade",
+    "source_data\\upstream_contracts\\controlled_translation_method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
+    "source_data\\upstream_contracts\\executed_sources\\cu_measurement_runner.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
+    "source_data\\upstream_contracts\\executed_sources\\energy_measurement_runner.py": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
+    "source_data\\upstream_contracts\\executed_sources\\peak_analyzer.py": "63eefc16dc73967a844b71e4357f6d1d2d0eb23a063025b9f41ea14cafaf81b7",
+    "source_data\\upstream_contracts\\external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
+    "source_data\\upstream_contracts\\family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+    "source_data\\upstream_contracts\\family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+    "source_data\\upstream_contracts\\five_method_run_contract.json": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
+    "source_data\\upstream_contracts\\method_evidence_matrix.csv": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
+    "source_data\\upstream_contracts\\pair_2_4_missingness_diagnostic.csv": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9"
   },
   "title": "Gaussian gates, fixed opportunity sets and conditional denominators"
 }

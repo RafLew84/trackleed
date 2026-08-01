@@ -17,10 +17,10 @@
   },
   "contract_sha256": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "figure": "Figure 5",
   "output_files": {
@@ -28,8 +28,8 @@
     "png": "output/figure05_controlled_sam2_continuity_consistency_tradeoff.png"
   },
   "outputs_sha256": {
-    "pdf": "314ec3b13a6eb5f23dba46c2428804c639ff9805eab6538a6777b4d3fd8dfa90",
-    "png": "362380652bc8bc5d2e801ff89a04f7ac79ecedddf792f063623b69b597092142"
+    "pdf": "a5b8a329519a59adeef1920f25a9abf8fcc1742987fd754b10b3b0c35cbca0e0",
+    "png": "6ca5c89fe6d804f4b37c97df55da4e70d7a9621f891e4ee6204a706c609abe3a"
   },
   "rendering": {
     "figure_size_inches": [

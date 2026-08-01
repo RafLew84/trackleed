@@ -16,15 +16,15 @@
   },
   "contract_sha256": "7f43532dcc95c36f48ce952a75b4c1efbe4659e999dc446918b902f0766f4444",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "figure": "Figure 4",
   "outputs_sha256": {
-    "output/figure04_ag111_motion_visibility_stress.png": "6d277659b798ccdfef9f06af8f0f47f5fe4b6ed50b8bea539554046e06860cb0",
-    "output/pdf/figure04_ag111_motion_visibility_stress.pdf": "b4e08812a42f0ec2362d69fc73a2da27eec5308465cfcb31a8c06e8f978b5300"
+    "output/figure04_ag111_motion_visibility_stress.png": "d79f9ac1b3d3d2a2e44f945d2e0da0b39b4eb9eca6d76d9e1883e781af1ecdd6",
+    "output/pdf/figure04_ag111_motion_visibility_stress.pdf": "6c0bd77244d87c5850b0cd27d4bdbe34bae176ac27c2942ca984dd2fa6cf3aae"
   },
   "rendering": {
     "figure_size_inches": [

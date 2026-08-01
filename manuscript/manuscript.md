@@ -883,17 +883,25 @@ links remain necessary: the compact display tables are publication views of
 the frozen experiment outputs, not replacements for the complete per-image
 records.
 
-The public release is planned as two linked, versioned records: a data record
-containing the raw images, native tracker payloads, processed measurements, and
-figure source data, and a code record containing a small headless runner,
-artifact builders, validators, tests, and machine-readable environment
-records.
-The required reproduction path will start from the saved native tracker
-payloads and reconstruct proposal reduction, ROI placement, Gaussian
-measurements, physical endpoints, tables, and figures without the TrackLEED
-GUI, an inference GPU, or third-party checkpoint files. Full tracker inference
-will be documented as a separate optional path. Each required external
-checkpoint will be identified by its official source, variant, version or
+The scientific core is reconstructed and validated from the repository root by
+`python -m scripts.reconstruct_publication --clean --validate`. The command
+starts from the saved native tracker payloads, validates their frozen hashes and
+schemas, reconstructs proposal reduction, ROI placement, Gaussian measurements,
+the central result and sensitivity, rebuilds all main and supplementary tables
+and figures, and checks the final claim boundary. It runs headless in the frozen
+CPU environment without the TrackLEED GUI, an inference GPU, third-party
+checkpoint files, or tracker inference. The final validation step checks a
+semantic fingerprint covering the prose, claim--evidence map, source data,
+builders, validators, displays, Supplementary Information inventory, central
+outcomes, sensitivity, denominators, limitations, and claim boundaries. The
+command cannot update that fingerprint automatically.
+
+The public release remains planned as two linked, versioned records: a data
+record containing the raw images, native tracker payloads, processed
+measurements, and figure source data, and a code record containing the headless
+runner, artifact builders, validators, tests, and machine-readable environment
+records. Full tracker inference remains a separate optional path. Each required
+external checkpoint is identified by its official source, variant, version or
 upstream revision, and SHA-256 hash; checkpoint files will be redistributed
 only where their licenses permit.
 

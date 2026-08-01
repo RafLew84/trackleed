@@ -114,10 +114,7 @@ def _load_figure_sources(
         != {(variant, method) for variant in VARIANT_ORDER for method in METHOD_ORDER}
         or len(audit) != 25
         or len(gate_margins) != 40
-        or {
-            (row["method"], row["margin_id"])
-            for row in gate_margins
-        }
+        or {(row["method"], row["margin_id"]) for row in gate_margins}
         != {
             (method, margin_id)
             for method in METHOD_ORDER
@@ -224,8 +221,7 @@ def _render_gate_margins(
     normalized = np.asarray(
         [
             [
-                by_key[(method, margin)]["p05"]
-                / by_key[(method, margin)]["normalizer"]
+                by_key[(method, margin)]["p05"] / by_key[(method, margin)]["normalizer"]
                 for margin in margin_order
             ]
             for method in METHOD_ORDER
@@ -298,7 +294,9 @@ def _render_gate_audit(axis: Any, audit: Sequence[WidthTriggerRecord]) -> None:
     width_only = [row["width_only_rejection_count"] for row in rows]
     width_threshold = [row["width_only_rejection_threshold_count"] for row in rows]
     axis.bar(x - width / 2, near, width, color="#56B4E9", label="near width boundary")
-    axis.bar(x + width / 2, width_only, width, color="#CC79A7", label="width-only rejection")
+    axis.bar(
+        x + width / 2, width_only, width, color="#CC79A7", label="width-only rejection"
+    )
     axis.scatter(
         x - width / 2,
         near_threshold,
@@ -354,13 +352,22 @@ def render_figure_s2(
     source_directory: Path,
     output_directory: Path,
 ) -> FigureS2Report:
-    """Render Figure S2 from authenticated sensitivity source rows."""
+    """Render Figure S2 independently of ambient Matplotlib settings."""
 
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    with matplotlib.rc_context(matplotlib.rcParamsDefault):
+        return _render_figure_s2(source_directory, output_directory, plt)
+
+
+def _render_figure_s2(
+    source_directory: Path,
+    output_directory: Path,
+    plt: Any,
+) -> FigureS2Report:
     rows, audit, gate_margins, summary = _load_figure_sources(
         source_directory.resolve()
     )
@@ -491,9 +498,7 @@ def build_figure_s2_artifact(
         "ofat_variant_count": report.ofat_variant_count,
         "method_count": report.method_count,
         "gate_audit_record_count": report.gate_audit_record_count,
-        "gate_margin_summary_record_count": (
-            report.gate_margin_summary_record_count
-        ),
+        "gate_margin_summary_record_count": (report.gate_margin_summary_record_count),
         "width_sensitivity_triggered": report.width_sensitivity_triggered,
         "fixed_denominators": [221, 24],
         "conditional_denominators": [
