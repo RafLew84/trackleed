@@ -15,14 +15,14 @@ from matplotlib.lines import Line2D  # noqa: E402
 
 from trackleed.analysis.controlled_translation_evidence import (  # noqa: E402
     ControlledTranslationEvidence,
+    METHOD_ORDER,
     PairObservation,
     SpotObservation,
+    TRIAL_LABELS,
+    TRIAL_ORDER,
     load_controlled_translation_evidence,
 )
 from trackleed.publication.controlled_translation_sources import (  # noqa: E402
-    METHOD_ORDER,
-    TRIAL_LABELS,
-    TRIAL_ORDER,
     sha256_file,
     validate_controlled_translation_source_data,
 )

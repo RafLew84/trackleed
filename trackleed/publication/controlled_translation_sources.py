@@ -9,22 +9,12 @@ from pathlib import Path
 import shutil
 from typing import Any, TypedDict
 
-
-METHOD_ORDER = (
-    "locotrack_base_offline",
-    "ostrack_vitb_256_mae_ce",
-    "dam4sam_sam21pp_l",
-    "lucas_kanade_skip_anchor",
-    "easyleed_kalman",
-    "oracle_roi_control",
+from trackleed.analysis.controlled_translation_evidence import (
+    METHOD_ORDER,
+    PAIR_IDS,
+    TRIAL_ORDER,
 )
-TRIAL_ORDER = (0, 372, 378, 700)
-TRIAL_LABELS = {
-    0: "initial low-temperature state",
-    372: "800 deg C plateau onset",
-    378: "post-plateau contraction minimum",
-    700: "final cooled state",
-}
+
 SOURCE_FILE_MAP = {
     "contract.json": "contract.json",
     "equivariance_results.csv": "equivariance_results.csv",
@@ -55,7 +45,7 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def read_csv(path: Path) -> list[dict[str, str]]:
+def _read_csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
@@ -72,6 +62,8 @@ def _validate_source_matrix(
         int(row["source_frame_order"]) for row in spot_rows
     } != set(TRIAL_ORDER):
         raise ValueError("Controlled-translation trial inventory changed")
+    if {row["pair"] for row in pair_rows} != set(PAIR_IDS):
+        raise ValueError("Controlled-translation pair inventory changed")
 
 
 def _validate_upstream_output(origin_directory: Path) -> None:
@@ -203,8 +195,8 @@ def validate_controlled_translation_source_data(
     ):
         raise ValueError("Frozen controlled-translation contract is not linked")
 
-    spot_rows = read_csv(source_directory / "equivariance_results.csv")
-    pair_rows = read_csv(source_directory / "pair_invariance.csv")
+    spot_rows = _read_csv(source_directory / "equivariance_results.csv")
+    pair_rows = _read_csv(source_directory / "pair_invariance.csv")
     _validate_source_matrix(spot_rows, pair_rows)
     if origin_directory is not None:
         origin_directory = origin_directory.resolve()
@@ -229,11 +221,7 @@ def validate_controlled_translation_source_data(
 
 
 __all__ = [
-    "METHOD_ORDER",
-    "TRIAL_LABELS",
-    "TRIAL_ORDER",
     "freeze_controlled_translation_source_data",
-    "read_csv",
     "sha256_file",
     "validate_controlled_translation_source_data",
 ]

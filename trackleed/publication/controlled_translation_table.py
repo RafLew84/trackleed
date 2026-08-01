@@ -33,17 +33,44 @@ class TableS5Report:
     method_count: int
 
 
+def _trial_outcome_record(row: TrialOutcome) -> dict[str, int | float | str]:
+    """Serialize one analysis outcome into the stable Table S5 schema."""
+
+    return {
+        "source_frame_order": row.source_frame_order,
+        "trial": row.trial,
+        "temperature_c": row.temperature_c,
+        "method": row.method,
+        "display_method": row.display_method,
+        "role": row.role,
+        "available_proposal_count": row.proposal_coverage.numerator,
+        "spot_opportunity_n": row.proposal_coverage.denominator,
+        "proposal_coverage": row.proposal_coverage.fraction,
+        "accepted_measurement_count": row.measurement_coverage.numerator,
+        "measurement_coverage": row.measurement_coverage.fraction,
+        "conditional_measurement_error_n": row.conditional_measurement_error_n,
+        "measurement_error_median_px": row.measurement_error_median_px,
+        "measurement_error_p95_px": row.measurement_error_p95_px,
+        "measurement_error_max_px": row.measurement_error_max_px,
+        "valid_pair_count": row.pair_coverage.numerator,
+        "pair_opportunity_n": row.pair_coverage.denominator,
+        "pair_coverage": row.pair_coverage.fraction,
+        "conditional_pair_invariance_n": row.conditional_pair_invariance_n,
+        "maximum_abs_delta_d_over_d_pp": row.maximum_abs_delta_d_over_d_pp,
+    }
+
+
 def _write_csv(path: Path, rows: list[TrialOutcome]) -> None:
     if not rows:
         raise ValueError("Table S5 cannot be empty")
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=list(rows[0].as_record()),
+            fieldnames=list(_trial_outcome_record(rows[0])),
             lineterminator="\n",
         )
         writer.writeheader()
-        writer.writerows(row.as_record() for row in rows)
+        writer.writerows(_trial_outcome_record(row) for row in rows)
 
 
 def render_table_s5(rows: list[TrialOutcome]) -> str:

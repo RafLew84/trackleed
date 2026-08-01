@@ -9,9 +9,9 @@
     "spot_step_opportunities_per_trial_method": 20
   },
   "implementation_sha256": {
-    "trackleed/analysis/controlled_translation_evidence.py": "c76732412b9371be20dcd1130b66da611b5dfa145a1641788060cd74b4d3aa9d",
-    "trackleed/publication/controlled_translation_sources.py": "7e9366f276d500ec349d3d53c7b3e4601d7a16d47bacd6c9aa7f057863fa9fbe",
-    "trackleed/publication/controlled_translation_table.py": "743ad906292a9ca564fe9443399eeb6716b8122c90274848a9207b0653daa7fb"
+    "trackleed/analysis/controlled_translation_evidence.py": "4345c0d45164ad587f66e12be5b1007695bbc2cb698d2cdaea7dd31198166135",
+    "trackleed/publication/controlled_translation_sources.py": "d5243f66c6416a8158e4b7c949e66edd4ca24236460858bae2845e036411076f",
+    "trackleed/publication/controlled_translation_table.py": "ebdad560cbedff85164970a8d20a8a3b9191f22600532815c24abd1db25bac01"
   },
   "method_count": 6,
   "outputs_sha256": {

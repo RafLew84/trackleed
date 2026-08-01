@@ -2,20 +2,12 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 import math
 from pathlib import Path
 import statistics
 from typing import Literal, cast
-
-from trackleed.publication.controlled_translation_sources import (
-    METHOD_ORDER,
-    TRIAL_LABELS,
-    TRIAL_ORDER,
-    read_csv,
-    validate_controlled_translation_source_data,
-)
-
 
 MethodId = Literal[
     "locotrack_base_offline",
@@ -25,8 +17,25 @@ MethodId = Literal[
     "easyleed_kalman",
     "oracle_roi_control",
 ]
+PairId = Literal["1-6", "3-5"]
+PAIR_IDS: tuple[PairId, ...] = ("1-6", "3-5")
 SourceFrameOrder = Literal[0, 372, 378, 700]
 EvidenceRole = Literal["tracker", "oracle_control"]
+METHOD_ORDER: tuple[MethodId, ...] = (
+    "locotrack_base_offline",
+    "ostrack_vitb_256_mae_ce",
+    "dam4sam_sam21pp_l",
+    "lucas_kanade_skip_anchor",
+    "easyleed_kalman",
+    "oracle_roi_control",
+)
+TRIAL_ORDER: tuple[SourceFrameOrder, ...] = (0, 372, 378, 700)
+TRIAL_LABELS: dict[SourceFrameOrder, str] = {
+    0: "initial low-temperature state",
+    372: "800 deg C plateau onset",
+    378: "post-plateau contraction minimum",
+    700: "final cooled state",
+}
 SPOT_OPPORTUNITIES_PER_TRIAL = 20
 PAIR_OPPORTUNITIES_PER_TRIAL = 10
 
@@ -69,7 +78,7 @@ class SpotObservation:
 class PairObservation:
     method: MethodId
     source_frame_order: SourceFrameOrder
-    pair: str
+    pair: PairId
     translation_step: int
     is_evaluation_step: bool
     pair_valid: bool
@@ -103,45 +112,23 @@ class TrialOutcome:
     conditional_pair_invariance_n: int
     maximum_abs_delta_d_over_d_pp: float
 
-    def as_record(self) -> dict[str, int | float | str]:
-        """Return the stable, full-precision Table S5 record."""
-
-        return {
-            "source_frame_order": self.source_frame_order,
-            "trial": self.trial,
-            "temperature_c": self.temperature_c,
-            "method": self.method,
-            "display_method": self.display_method,
-            "role": self.role,
-            "available_proposal_count": self.proposal_coverage.numerator,
-            "spot_opportunity_n": self.proposal_coverage.denominator,
-            "proposal_coverage": self.proposal_coverage.fraction,
-            "accepted_measurement_count": self.measurement_coverage.numerator,
-            "measurement_coverage": self.measurement_coverage.fraction,
-            "conditional_measurement_error_n": (
-                self.conditional_measurement_error_n
-            ),
-            "measurement_error_median_px": self.measurement_error_median_px,
-            "measurement_error_p95_px": self.measurement_error_p95_px,
-            "measurement_error_max_px": self.measurement_error_max_px,
-            "valid_pair_count": self.pair_coverage.numerator,
-            "pair_opportunity_n": self.pair_coverage.denominator,
-            "pair_coverage": self.pair_coverage.fraction,
-            "conditional_pair_invariance_n": (
-                self.conditional_pair_invariance_n
-            ),
-            "maximum_abs_delta_d_over_d_pp": (
-                self.maximum_abs_delta_d_over_d_pp
-            ),
-        }
-
-
 def _as_bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes"}
 
 
 def _optional_float(value: str) -> float | None:
     return float(value) if value else None
+
+
+def _as_pair_id(value: str) -> PairId:
+    if value not in PAIR_IDS:
+        raise ValueError(f"Controlled-translation pair inventory changed: {value}")
+    return cast(PairId, value)
+
+
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    with path.open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
 
 
 def _linear_percentile(values: list[float], percentile: float) -> float:
@@ -166,9 +153,8 @@ def load_controlled_translation_evidence(
     """Parse the authenticated source tables into typed observations."""
 
     source_directory = source_directory.resolve()
-    validate_controlled_translation_source_data(source_directory)
-    spot_rows = read_csv(source_directory / "equivariance_results.csv")
-    pair_rows = read_csv(source_directory / "pair_invariance.csv")
+    spot_rows = _read_csv(source_directory / "equivariance_results.csv")
+    pair_rows = _read_csv(source_directory / "pair_invariance.csv")
     spots = tuple(
         SpotObservation(
             method=cast(MethodId, row["method"]),
@@ -208,7 +194,7 @@ def load_controlled_translation_evidence(
                 SourceFrameOrder,
                 int(row["source_frame_order"]),
             ),
-            pair=row["pair"],
+            pair=_as_pair_id(row["pair"]),
             translation_step=int(row["translation_step"]),
             is_evaluation_step=_as_bool(row["is_evaluation_step"]),
             pair_valid=_as_bool(row["pair_valid"]),
@@ -313,9 +299,14 @@ __all__ = [
     "Coverage",
     "EvidenceRole",
     "MethodId",
+    "METHOD_ORDER",
+    "PAIR_IDS",
     "PairObservation",
+    "PairId",
     "SourceFrameOrder",
     "SpotObservation",
+    "TRIAL_LABELS",
+    "TRIAL_ORDER",
     "TrialOutcome",
     "build_trial_outcomes",
     "load_controlled_translation_evidence",
