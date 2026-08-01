@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import json
 from pathlib import Path
@@ -10,9 +9,7 @@ import shutil
 from typing import Any, TypedDict
 
 from trackleed.analysis.controlled_translation_evidence import (
-    METHOD_ORDER,
-    PAIR_IDS,
-    TRIAL_ORDER,
+    load_controlled_translation_evidence,
 )
 
 SOURCE_FILE_MAP = {
@@ -43,27 +40,6 @@ def read_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"Controlled-translation JSON is not an object: {path}")
     return value
-
-
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    with path.open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
-
-
-def _validate_source_matrix(
-    spot_rows: list[dict[str, str]],
-    pair_rows: list[dict[str, str]],
-) -> None:
-    if len(spot_rows) != 576 or len(pair_rows) != 288:
-        raise ValueError("Controlled-translation source cardinality changed")
-    if {row["method"] for row in spot_rows} != set(METHOD_ORDER):
-        raise ValueError("Controlled-translation method inventory changed")
-    if {
-        int(row["source_frame_order"]) for row in spot_rows
-    } != set(TRIAL_ORDER):
-        raise ValueError("Controlled-translation trial inventory changed")
-    if {row["pair"] for row in pair_rows} != set(PAIR_IDS):
-        raise ValueError("Controlled-translation pair inventory changed")
 
 
 def _validate_upstream_output(origin_directory: Path) -> None:
@@ -195,9 +171,7 @@ def validate_controlled_translation_source_data(
     ):
         raise ValueError("Frozen controlled-translation contract is not linked")
 
-    spot_rows = _read_csv(source_directory / "equivariance_results.csv")
-    pair_rows = _read_csv(source_directory / "pair_invariance.csv")
-    _validate_source_matrix(spot_rows, pair_rows)
+    evidence = load_controlled_translation_evidence(source_directory)
     if origin_directory is not None:
         origin_directory = origin_directory.resolve()
         _validate_upstream_output(origin_directory)
@@ -213,10 +187,10 @@ def validate_controlled_translation_source_data(
                     f"{origin_name}"
                 )
     return ControlledTranslationSourceReport(
-        spot_record_count=len(spot_rows),
-        pair_record_count=len(pair_rows),
-        trial_count=len(TRIAL_ORDER),
-        method_count=len(METHOD_ORDER),
+        spot_record_count=len(evidence.spots),
+        pair_record_count=len(evidence.pairs),
+        trial_count=len({row.source_frame_order for row in evidence.spots}),
+        method_count=len({row.method for row in evidence.spots}),
     )
 
 

@@ -9,8 +9,8 @@
     "spot_step_opportunities_per_trial_method": 20
   },
   "implementation_sha256": {
-    "trackleed/analysis/controlled_translation_evidence.py": "4345c0d45164ad587f66e12be5b1007695bbc2cb698d2cdaea7dd31198166135",
-    "trackleed/publication/controlled_translation_sources.py": "d5243f66c6416a8158e4b7c949e66edd4ca24236460858bae2845e036411076f",
+    "trackleed/analysis/controlled_translation_evidence.py": "f0b9af7682463d37925b2c2060833af9843471bb6cf50867d1478cc2a167fdf7",
+    "trackleed/publication/controlled_translation_sources.py": "e95bc5fa7a1f117a2686ef4cc3def97419d8d87b23df45d9f666f2e36ebb4422",
     "trackleed/publication/controlled_translation_table.py": "ebdad560cbedff85164970a8d20a8a3b9191f22600532815c24abd1db25bac01"
   },
   "method_count": 6,

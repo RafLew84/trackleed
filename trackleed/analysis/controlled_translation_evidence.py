@@ -207,6 +207,14 @@ def load_controlled_translation_evidence(
         )
         for row in pair_rows
     )
+    if (
+        len(spots) != 576
+        or len(pairs) != 288
+        or {row.method for row in spots} != set(METHOD_ORDER)
+        or {row.source_frame_order for row in spots} != set(TRIAL_ORDER)
+        or {row.pair for row in pairs} != set(PAIR_IDS)
+    ):
+        raise ValueError("Controlled-translation evidence matrix changed")
     return ControlledTranslationEvidence(spots=spots, pairs=pairs)
 
 
