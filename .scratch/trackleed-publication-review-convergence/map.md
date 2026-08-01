@@ -76,6 +76,11 @@ eksperymentalnych.
   hierarchii contract → denominators → outcomes → capture effect, nagłówek
   `persistent spot association`, selektywną kompresję Discussion oraz krótsze
   podpisy Figures 1, 4 i 5 bez usunięcia sensitivity i claim boundaries.
+- [Reader-facing SI i czytelność display
+  items](issues/06-reader-facing-si-i-czytelnosc-display-items.md) — zatwierdzono
+  compact 75-row Table S6 z pełnoprecyzyjnymi CSV/XLSX, jeden numer Figure S2
+  rozłożony na `a–d` i `e–f (continued)` z mierzalnym legibility gate oraz
+  full-width Figure 5 z minimum 6 pt i 189-słowowym podpisem.
 - [Weryfikacja reconstruction seam i konsekwencji dla
   fingerprint](issues/07-weryfikacja-reconstruction-seam-i-fingerprint.md) —
   pełny CPU/headless build i 23-komponentowy fingerprint przechodzą w pinned,
