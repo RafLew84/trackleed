@@ -48,6 +48,7 @@ def _require_matching_file(expected: Path, actual: Path) -> None:
 def _validate_claim_manifest(
     workspace_root: Path,
     adjudication_root: Path,
+    adjudication_contract: Path,
     checkpoint_status: str,
 ) -> None:
     output_directory = adjudication_root / "output"
@@ -62,7 +63,7 @@ def _validate_claim_manifest(
         or manifest.get("status") != expected_status
         or manifest.get("author_checkpoint_status") != checkpoint_status
         or manifest.get("contract_sha256")
-        != sha256_file(adjudication_root / "adjudication_contract.json")
+        != sha256_file(adjudication_contract)
         or not isinstance(output_hashes, dict)
         or set(output_hashes)
         != {
@@ -138,11 +139,14 @@ def validate_sensitivity_publication_bundle(
     *,
     workspace_root: Path,
     sensitivity_output_directory: Path | None = None,
+    paths: SensitivityPublicationPaths | None = None,
 ) -> SensitivityPublicationBundleReport:
     """Validate committed reader-facing artifacts without rewriting them."""
 
     workspace_root = workspace_root.resolve()
-    paths = SensitivityPublicationPaths.for_workspace(workspace_root)
+    paths = (
+        paths or SensitivityPublicationPaths.for_workspace(workspace_root)
+    ).resolved()
     origin_directory = (
         sensitivity_output_directory
         or workspace_root
@@ -213,6 +217,7 @@ def validate_sensitivity_publication_bundle(
     _validate_claim_manifest(
         workspace_root,
         paths.adjudication_root,
+        paths.adjudication_contract,
         checkpoint_status,
     )
     table_markdown = (

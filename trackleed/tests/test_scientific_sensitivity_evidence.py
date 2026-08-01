@@ -522,6 +522,16 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             table_root = root / "table-s6"
             figure_root = root / "figure-s2"
             adjudication_root = root / "claim-adjudication"
+            paths = SensitivityPublicationPaths(
+                source_root=source_root,
+                table_root=table_root,
+                figure_root=figure_root,
+                adjudication_root=adjudication_root,
+                supplementary_material=supplement,
+                adjudication_contract=(
+                    ADJUDICATION_ROOT / "adjudication_contract.json"
+                ),
+            )
 
             build_sensitivity_publication_bundle(
                 workspace_root=REPO_ROOT,
@@ -532,16 +542,7 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     / "output"
                     / "sensitivity"
                 ),
-                paths=SensitivityPublicationPaths(
-                    source_root=source_root,
-                    table_root=table_root,
-                    figure_root=figure_root,
-                    adjudication_root=adjudication_root,
-                    supplementary_material=supplement,
-                    adjudication_contract=(
-                        ADJUDICATION_ROOT / "adjudication_contract.json"
-                    ),
-                ),
+                paths=paths,
             )
 
             self.assertTrue((source_root / "source_provenance.json").is_file())
@@ -562,6 +563,21 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     manifest["source_data_sha256"],
                     expected_source_hashes,
                 )
+            report = validate_sensitivity_publication_bundle(
+                workspace_root=REPO_ROOT,
+                sensitivity_output_directory=(
+                    REPO_ROOT
+                    / "manuscript"
+                    / "scientific_panel"
+                    / "output"
+                    / "sensitivity"
+                ),
+                paths=paths,
+            )
+            self.assertEqual(
+                report.claim_adjudication.author_checkpoint_status,
+                "pending",
+            )
 
     def test_committed_publication_bundle_validates_without_rewriting(self) -> None:
         artifact_roots = (SOURCE_ROOT, TABLE_ROOT, FIGURE_ROOT, ADJUDICATION_ROOT)
