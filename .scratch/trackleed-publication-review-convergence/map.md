@@ -70,6 +70,12 @@ eksperymentalnych.
   24-state inventory od stałych opportunity sets 80/40, przypisano conditional
   residuals do method-specific surviving `n` oraz przyjęto samowystarczalny
   Abstract bez odwołań do tabel, rysunków i Supplementary Information.
+- [Hierarchia wkładu i kompresja
+  tekstu](issues/05-hierarchia-wkladu-i-kompresja-tekstu.md) — zatwierdzono
+  244-słowowy Abstract contribution-first, Objective i contributions w
+  hierarchii contract → denominators → outcomes → capture effect, nagłówek
+  `persistent spot association`, selektywną kompresję Discussion oraz krótsze
+  podpisy Figures 1, 4 i 5 bez usunięcia sensitivity i claim boundaries.
 
 ## Not yet specified
 
