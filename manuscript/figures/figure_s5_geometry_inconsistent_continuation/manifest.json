@@ -1,11 +1,11 @@
 {
   "claims_proven_identity_switches": false,
   "code_sha256": {
-    "build_figure.py": "86d2752da2988d923523793bcaea426bf59b5585bd378ba3f7ec1422e5bfbde8",
+    "build_figure.py": "3f5324fcf50139d3c9928289fadf91c9fc43f48a101ce17fee043ab4441d8d5f",
     "freeze_source_data.py": "f2b1a4bc78d6b6eb361de72b9e6eca4b14ce7ac55008895e57f51f2c21301276",
     "test_build_figure.py": "e8c9b132f0772fb059236a56875372a1d7fb11937892433f1e74b2087ff563a3"
   },
-  "contract_sha256": "8ace0e817105527d659d366e7b9fd026917ab6782705eff2e6f3df91600b1726",
+  "contract_sha256": "fca8fa474c47bd4319e1c94a85c86527fd669e56f7ac7a99482181917d75b7f6",
   "environment": {
     "matplotlib": "3.10.7",
     "numpy": "2.2.6",
@@ -38,5 +38,5 @@
   },
   "status": "completed",
   "supports_tracker_ranking": false,
-  "title": "Source-linked examples of geometry-inconsistent continuation"
+  "title": "Geometry-inconsistent continuation examples"
 }

@@ -742,7 +742,7 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
         pdf_path,
         facecolor="white",
         metadata={
-            "Title": "Controlled SAM2-family continuity-consistency trade-off",
+            "Title": "Controlled SAM2-family continuity–consistency trade-off",
             "Author": "TrackLEED collaboration",
             "Subject": "Publication Figure 5",
             "Creator": "TrackLEED Figure 5 builder",

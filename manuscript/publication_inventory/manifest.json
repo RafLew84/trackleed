@@ -1,0 +1,63 @@
+{
+  "builder_sha256": "baeb80575e70d0d275d70b1abb345202c0dc0461e7795e29e0b2a29e152380cb",
+  "bundle_fingerprints": {
+    "Figure 1": "56e821839d2abf3c46943adfecae63ba5f7c98d2f553f3b504fcd6497573c16b",
+    "Figure 2": "98f6346609c88ff8b3d6087bdd98f430442dcc3e8808ff29e31ff0e589a7f4ec",
+    "Figure 3": "dd1639526dc73b899e500723a2993172516a23e2e895d7e36dc1dee0f4e5a508",
+    "Figure 4": "1c0741b73131690c304fc3e5027e9da65b165f2856d8c6212048c74a6596900b",
+    "Figure 5": "cd494ae27c4a663e303c818d28651f14455e238f9ac2accf0df52836b83a0da1",
+    "Figure S1": "6837d8cc13b091ebd63173220786285cd97199be263558055f1994ff91b33fd8",
+    "Figure S2": "b31f1c04de4d13014fb27229fd2f49be5b449d0ffa3535f3195c69e5992679f8",
+    "Figure S3": "9ec1882ba6f11f7222ae15be4a14b9a696ed4703cdf9aefd5bff087509d89486",
+    "Figure S4": "420eb455b20cec8ebc85e883c119e247978a11cd5d4d5c2c2cd05282a59cc36e",
+    "Figure S5": "74538e92a330a68c32b941d0a0172fe8880f45c5683bf045cfb8b6986c5476b1",
+    "Figure S6": "dfe1ebe07627a90c23c173af669ab3f00b01608fdc204d235a7a8bb1901ff0d7",
+    "Table 1": "3e620864fb700f21a3c6772fe7d82a41085e708fafadedbf30647b31a41268b8",
+    "Table 2": "0c255e77c5d03d82391f243fdd6e11431dfdc8983c031afe6a6bceb2914fdca3",
+    "Table S1": "d1719cb1fb2fa5d95edbbf9f693a59da222e45c7274c71f47086965e737a8a23",
+    "Table S2": "943d4059ea2ff8576c39260d71df40ff722aaf24ff9ecf84f3ef27ed57f73f17",
+    "Table S3": "26028deb5866ee6c163ea4518ed5c0e42ce4eec5848671f9975c243cc3f27a5d",
+    "Table S4": "4cd41db1ff1c609900bb4743e7f8ad546e9490e0006978cfbf53a091e36d044c",
+    "Table S5": "11d48da454b905e7eeae87a1a57d9dd7a1c49e99f5c43c0a3a8b9166627c0506",
+    "Table S6": "8f28f56b5f20c49ba0e370d1eec52789a4b8186c959d20c7b4aa23b52f7e8d09",
+    "Table S7": "c52e1569876a580d618b1fd363f5e4db0eb2aa60866031f191c0112aa879efbc"
+  },
+  "inventory_contract": {
+    "bundle_test_command_count": 19,
+    "default_cli_runs_bundle_contract_tests": true,
+    "ids": [
+      "Figure 1",
+      "Figure 2",
+      "Figure 3",
+      "Figure 4",
+      "Figure 5",
+      "Table 1",
+      "Table 2",
+      "Figure S1",
+      "Figure S2",
+      "Figure S3",
+      "Figure S4",
+      "Figure S5",
+      "Figure S6",
+      "Table S1",
+      "Table S2",
+      "Table S3",
+      "Table S4",
+      "Table S5",
+      "Table S6",
+      "Table S7"
+    ],
+    "obsolete_main_table_present": false,
+    "placement_counts": {
+      "main_figure": 5,
+      "main_table": 2,
+      "supplementary_figure": 6,
+      "supplementary_table": 7
+    },
+    "superseded_placements_present": false
+  },
+  "output_sha256": "0f0c07f809ea1b812e4a5f279dec41a660ae83b1e8bee98f904bfbc4b022a820",
+  "schema_version": "1.0",
+  "source_inventory_sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e",
+  "status": "completed"
+}

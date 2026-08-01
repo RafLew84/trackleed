@@ -1,4 +1,4 @@
-# Figure S1 - complete controlled-translation trials
+# Figure S1 — Controlled-translation detail
 
 Figure S1 shows the full diagnostic record for each of the four independently
 initialized source trials:

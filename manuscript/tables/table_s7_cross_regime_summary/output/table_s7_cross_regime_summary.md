@@ -1,4 +1,4 @@
-**Table 3. Quantitative summary across evidence regimes.** Each block answers a distinct validation question and retains its original denominators. Translation displacement errors are conditional on accepted Gaussian measurements, with coverage shown first. The energy-scan residual is conditional on jointly branch-consistent pair frames and is shown with its n. Cu endpoint deviations are agreement with the framewise five-method median, not absolute accuracy. DAM4SAM used sam21pp-L for Cu(111) and controlled translations, and sam21pp-B for the energy scans. No composite score or rank is calculated.
+**Table S7. Cross-regime numerical summary.** Each block answers a distinct validation question and retains its original denominators. The translation block uses 80 displaced-spot and 40 displaced-pair evaluation opportunities per method; the four initialization states reported in Table 1 are not displacement evaluations. Translation errors are conditional on accepted Gaussian measurements, with coverage shown first. The energy-scan residual is conditional on jointly branch-consistent pair frames and is shown with its n. Cu endpoint deviations are agreement with the framewise five-method median, not absolute accuracy. DAM4SAM used sam21pp-L for Cu(111) and controlled translations, and sam21pp-B for the energy scans. No composite score or rank is calculated.
 
 **Controlled translation**
 
@@ -22,7 +22,7 @@
 
 **Independent Ag(111) energy-scan stress test**
 
-| Method | Branch-consistent measurement coverage | Post-gap identity recovery | Geometry-inconsistent continuation | Conditional median pair-distance residual [px] (n) |
+| Method | Branch-consistent measurement coverage | Post-gap branch-consistent recovery | Geometry-inconsistent continuation | Conditional median pair-distance residual [px] (n) |
 |---|---|---|---|---|
 | LocoTrack | 217/221 (98.19%) | 23/24 (95.83%) | 36/272 (13.24%) | 1.837 (n=91) |
 | OSTrack | 216/221 (97.74%) | 21/24 (87.50%) | 34/269 (12.64%) | 1.770 (n=90) |

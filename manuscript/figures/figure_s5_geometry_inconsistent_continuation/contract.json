@@ -2,7 +2,7 @@
   "figure": "Figure S5",
   "schema_version": "1.0",
   "status": "source_contract_frozen",
-  "title": "Source-linked examples of geometry-inconsistent continuation",
+  "title": "Geometry-inconsistent continuation examples",
   "branch_consistency_gate_px": 18.0,
   "selection_rule": "For each method in the frozen display order, scan frozen cases in Scan A pair 1, Scan A pair 2, Scan B pair 1, Scan B pair 2 order and select the first frame/branch row that is an accepted Gaussian fit outside the 18 px branch-consistency gate.",
   "selection_uses_error_magnitude": false,

@@ -316,7 +316,7 @@ def build(
         "schema_version": "1.0",
         "status": "completed",
         "figure": "Figure S3",
-        "title": "Ag(111) pair-midpoint drift and apparatus/projection diagnostics",
+        "title": "Pair-midpoint drift and apparatus/projection diagnostics",
         "contract_sha256": sha256_file(CONTRACT_PATH),
         "code_sha256": _code_hashes(),
         "source_data_sha256": _source_hashes(),

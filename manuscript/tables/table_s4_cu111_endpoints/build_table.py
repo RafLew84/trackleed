@@ -425,8 +425,8 @@ def _display_percent(value: str) -> str:
 
 def render_markdown(rows: list[dict[str, str]]) -> str:
     caption = (
-        "**Table S4. Cu(111) pairwise relative spot-radius endpoints by "
-        "tracking method.** Values are ΔR/R = ΔD/D in percent after the "
+        "**Table S4. Cu(111) pairwise physical endpoints.** Values are "
+        "ΔR/R = ΔD/D in percent after the "
         "native proposal from each method entered the common Gaussian "
         "measurement. Every method produced 701/701 valid endpoints for each "
         "primary pair. The 800 °C plateau is the median of a predefined "

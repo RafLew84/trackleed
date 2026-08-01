@@ -79,6 +79,12 @@ class FigureS6Cu111MissingnessTest(unittest.TestCase):
             self.assertEqual(manifest["tracking_proposal_present"], "26/26")
             self.assertEqual(manifest["amplitude_only_rejections"], "24/24")
             self.assertFalse(manifest["inside_five_method_run"])
+            self.assertEqual(
+                manifest["source_data_sha256"][
+                    "source_data/source_provenance.json"
+                ],
+                build_figure.sha256_file(build_figure.PROVENANCE_PATH),
+            )
 
 
 if __name__ == "__main__":

@@ -307,7 +307,7 @@ def render_figure(
         pdf_path,
         facecolor="white",
         metadata={
-            "Title": "Cu(111) pair 2-4 missingness diagnostic",
+            "Title": "Cu pair 2–4 missingness diagnostic",
             "Author": "TrackLEED collaboration",
             "Subject": "Publication Figure S6",
             "Creator": "TrackLEED Figure S6 builder",
@@ -344,11 +344,18 @@ def build(
         "schema_version": "1.0",
         "status": "completed",
         "figure": "Figure S6",
-        "title": "Cu(111) pair 2-4 missingness diagnostic",
+        "title": "Cu pair 2–4 missingness diagnostic",
         "contract_sha256": sha256_file(CONTRACT_PATH),
         "caption_sha256": sha256_file(FIGURE_ROOT / "README.md"),
         "code_sha256": _code_hashes(),
-        "source_data_sha256": sha256_file(SOURCE_DATA_PATH),
+        "source_data_sha256": {
+            SOURCE_DATA_PATH.relative_to(FIGURE_ROOT).as_posix(): (
+                sha256_file(SOURCE_DATA_PATH)
+            ),
+            PROVENANCE_PATH.relative_to(FIGURE_ROOT).as_posix(): (
+                sha256_file(PROVENANCE_PATH)
+            ),
+        },
         "source_provenance": provenance["source"],
         "output_files": {
             name: path.relative_to(manifest_path.parent).as_posix()
@@ -364,7 +371,9 @@ def build(
             "figure_size_inches": list(FIGURE_SIZE_INCHES),
             "png_dpi": PNG_DPI,
             "font_family": FONT_FAMILY,
-            "missing_value_rendering": "explicit rejected-fit markers; no accepted endpoint is imputed",
+            "missing_value_rendering": (
+                "explicit rejected-fit markers; no accepted endpoint is imputed"
+            ),
         },
         "environment": {
             "python": platform.python_version(),
@@ -385,7 +394,15 @@ def validate(manifest_path: Path = MANIFEST_PATH) -> None:
         raise ValueError("Figure S6 caption hash mismatch")
     if manifest.get("code_sha256") != _code_hashes():
         raise ValueError("Figure S6 code hash mismatch")
-    if manifest.get("source_data_sha256") != sha256_file(SOURCE_DATA_PATH):
+    expected_source_hashes = {
+        SOURCE_DATA_PATH.relative_to(FIGURE_ROOT).as_posix(): (
+            sha256_file(SOURCE_DATA_PATH)
+        ),
+        PROVENANCE_PATH.relative_to(FIGURE_ROOT).as_posix(): (
+            sha256_file(PROVENANCE_PATH)
+        ),
+    }
+    if manifest.get("source_data_sha256") != expected_source_hashes:
         raise ValueError("Figure S6 source-data hash mismatch")
     load_and_validate_rows()
     validate_provenance()

@@ -2,16 +2,16 @@
   "artifact": "Supplementary Table S2",
   "outputs": {
     "table_s2_conditional_denominators.csv": "a3eb3ca2d3ebbed629abb47f7a3d36281502c5378acba8e526a685db678b554a",
-    "table_s2_fixed_denominators.csv": "c8d0966686a4443e082660fe2733e3d3ba750090f7d0a990e7a1b91031e56512",
+    "table_s2_fixed_denominators.csv": "68c98e59ea71c6c364d65cd7aa9251d8461418655f6e2e0381eaef63205fbb07",
     "table_s2_gaussian_gates.csv": "4f4dc512af57cc31e1cf37e19c4459ebaf5797921421e84fed931796f2d6d156",
-    "table_s2_gaussian_gates_validation_denominators.md": "b07917aba22110f6e79c0bbf64d6a88f6148204111a90c81064552aa8ba645b9"
+    "table_s2_gaussian_gates_validation_denominators.md": "96c96bf0ef89de3575a4a47acd58ba4bb1610f9f4282661e31d7ba2df8d34dc0"
   },
   "schema_version": 1,
   "sources": {
-    "build_table.py": "6df1656af784a27666c676fd0a9be40b1e5d57a37f0ea920dad3557297643303",
-    "source_data/denominator_records.csv": "21d0510a9fce1bbd7e220ebb0aff260bd26ed50964ca60777ac062aaccbf4e3e",
+    "build_table.py": "614cc0b977e712888cda7922308fafc4e8e352ae4b066323a22df7a20836fd6e",
+    "source_data/denominator_records.csv": "008e9c1f4add3aa0afab439d69e6a9fa7cb34b3e3b7b71a2becfaede28811d7e",
     "source_data/gate_records.csv": "17410b0bdaee0c36291651793aba1a092cac18c014dc4267106daec6a2be412d",
-    "source_data/source_provenance.json": "01c9c2a8ba7bb5946ad24bc07b383f1d9790adcbf3e1958b6ed0555eee74db0c",
+    "source_data/source_provenance.json": "4560601b2d3404cd09b76189def9850164d42183eeff05fa934f763de5892ade",
     "source_data/upstream_contracts/controlled_translation_method_metrics.csv": "aff376315fb8f2d9966ccb64386e63ddb25a192cbab0375b926aaced438f5418",
     "source_data/upstream_contracts/executed_sources/cu_measurement_runner.py": "c4f41ad5debdd5a6e932345553e3127570d83da08045682b8a9b3940efd55364",
     "source_data/upstream_contracts/executed_sources/energy_measurement_runner.py": "f14d8b96e23bcfe9bfa2db5f8e72f35b7e4a0fc16c19dd3022416c1abe7f5748",
@@ -23,5 +23,5 @@
     "source_data/upstream_contracts/method_evidence_matrix.csv": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
     "source_data/upstream_contracts/pair_2_4_missingness_diagnostic.csv": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9"
   },
-  "title": "Gaussian measurement gates and validation denominators"
+  "title": "Gaussian gates, fixed opportunity sets and conditional denominators"
 }

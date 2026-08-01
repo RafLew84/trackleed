@@ -7,9 +7,9 @@
     "Conditional pair-distance residuals cannot replace coverage or recovery."
   ],
   "code_sha256": {
-    "build_figure.py": "98970a20ba280eff81973b0c85dc40043e59e00ac1b39b451275594d66e07caa",
+    "build_figure.py": "61a297115a8734b2d63b69c4a31c5b6bb6931a6d10895a7b530ac6426a08f000",
     "figure_contract.py": "96d7ebf12eda99409ee18dccc6d32378f922518962a532f4cbc255a35f3a2e2c",
-    "figure_render.py": "9130710634a629ce0ff5ace6154ad5932751be1405bc8c7bb7daf85bb6d6afd2",
+    "figure_render.py": "1181fcff9c39025eccab00c29270983e49e210fb3a7a6114117479b91bcc58c1",
     "freeze_source_data.py": "1cc435c3477f673d1130f09edc31a2d46e3e85659b12c37c19d4b5615a2bde78",
     "test_build_figure.py": "2743b2dea30e54a133e7ba08b147b404500a70f6b2a3df9ac06adae28686fe8d",
     "test_freeze_source_data.py": "66fda3ce71d3e552da8ad9586609721ca7ab8f585774543cd65d0dd5595b0c32",
@@ -28,7 +28,7 @@
     "png": "output/figure05_controlled_sam2_continuity_consistency_tradeoff.png"
   },
   "outputs_sha256": {
-    "pdf": "d3a722989ff19beea5e2265ffca3df4be0facc19210a3ffd1a09a51ac7d0f367",
+    "pdf": "314ec3b13a6eb5f23dba46c2428804c639ff9805eab6538a6777b4d3fd8dfa90",
     "png": "362380652bc8bc5d2e801ff89a04f7ac79ecedddf792f063623b69b597092142"
   },
   "rendering": {
@@ -156,5 +156,5 @@
     "source_data/source_provenance.json": "0d0efa5666c021d1acc018cb886cb93146f8b9b69621cb9650f4c3199c74356b"
   },
   "status": "completed",
-  "title": "Controlled SAM2-family continuity-consistency trade-off"
+  "title": "Controlled SAM2-family continuity\u2013consistency trade-off"
 }

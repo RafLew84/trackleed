@@ -401,7 +401,7 @@ def render_figure(output_directory: Path) -> dict[str, Path]:
         pdf_path,
         facecolor="white",
         metadata={
-            "Title": "Controlled measurement-chain equivariance",
+            "Title": "Controlled estimator behavior",
             "Author": "TrackLEED collaboration",
             "Subject": "Publication Figure 2",
             "Creator": "TrackLEED Figure 2 builder",

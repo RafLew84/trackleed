@@ -1,396 +1,257 @@
-# Figures and tables
+# Final publication display inventory
 
-The display strategy follows the evidence ladder. Each figure should answer one
-scientific question and preserve denominators; no panel should imply a composite
-tracker ranking.
+This file is generated from the validated cross-regime inventory. It contains exactly five main figures, two main tables, Figures S1-S6, and Tables S1-S7. Historical artifact directories are not final display placements.
+
+## Shared rendering contract
+
+- Missing values: Missing or rejected measurements remain absent and are never interpolated or connected across gaps; fixed denominators retain every predefined opportunity.
+- Method palette: dam4sam `#009E73`, easyleed `#D55E00`, locotrack `#0072B2`, lucas_kanade `#CC79A7`, ostrack `#E69F00`.
+- Rounding rules: Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n. Diagram labels and exact counts are not converted into rounded estimates. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places. Counts and denominators are shown as exact integers in numerator/denominator form. Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Rates derived from exact counts are shown to 2 decimal places. Controlled-translation displacement errors are shown to 4 decimal places.
 
 ## Main figures
 
-### Figure 1 - Measurement chain and evidence ladder
+### Figure 1 — Measurement chain and evidence ladder
 
-**Question:** What is evaluated, and where is the physical position measured?
+Defines native proposal, shared Gaussian refinement, pairwise observable, and the evidence ladder before quantitative comparisons.
 
-**Status:** generated and validated.
+- Bundle: [figures/figure01_measurement_chain](figures/figure01_measurement_chain/README.md)
+- Caption/source display: [open](figures/figure01_measurement_chain/README.md)
+- Provenance: [manifest](figures/figure01_measurement_chain/manifest.json), [manifest](figures/figure01_measurement_chain/render_manifest.json)
+- Denominators: Conceptual display; downstream fixed and conditional denominators are defined in Tables 1 and S2.
+- Rounding: Diagram labels and exact counts are not converted into rounded estimates. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Unavailable native outputs are represented as unavailable, not imputed.
+- Palette: Native-output geometries use semantic encodings rather than a performance rank.
 
-Proposed panels:
+### Figure 2 — Controlled estimator behavior
 
-- **a.** Heterogeneous native outputs: point, bounding box, mask, optical-flow
-  point, and LEED-domain Kalman position.
-- **b.** Common conversion: tracking proposal -> `48 x 48` ROI -> elliptical
-  Gaussian-refined center.
-- **c.** Pairwise endpoint: two refined centers -> `D` -> `Delta D/D`.
-- **d.** Four evidence roles: Cu positive control, known translations, Ag(111)
-  energy-scan stress test, and SAM2-family memory analysis.
+Shows controlled translation paths, proposal-to-measurement behavior, measurement coverage, and pair invariance.
 
-Source: panels a-c assembled from the frozen representative image, empirical
-native geometry, and measurement table; panel d is a contract-level schematic.
-Primary claim: the tracker proposes where to measure; it does not directly define
-the final quantitative position.
+- Bundle: [figures/figure02_controlled_equivariance](figures/figure02_controlled_equivariance/README.md)
+- Caption/source display: [open](figures/figure02_controlled_equivariance/README.md)
+- Provenance: [manifest](figures/figure02_controlled_equivariance/manifest.json)
+- Denominators: Initialization states are separated from 80 displaced-spot and 40 displaced-pair evaluation opportunities per method.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Controlled-translation displacement errors are shown to 4 decimal places. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
+- Missing values: Rejected or unavailable measurements remain gaps and coverage is reported first.
+- Palette: Uses the frozen five-method colorblind-safe palette.
 
-Frozen representative source case:
+### Figure 3 — Propagation to the Cu(111) physical endpoint
 
-- [case README](figures/figure01_measurement_chain/README.md)
-- [contract](figures/figure01_measurement_chain/contract.json)
-- [shared initialization](figures/figure01_measurement_chain/source_data/representative_initialization.json)
-- [five-method source table](figures/figure01_measurement_chain/source_data/representative_method_outputs.csv)
-- [empirical native geometry](figures/figure01_measurement_chain/source_data/representative_native_geometry.json)
-- [DAM4SAM native mask](figures/figure01_measurement_chain/source_data/representative_dam4sam_mask_cache.png)
+Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread.
 
-The case freezes the same 701-image sequence, spot identity, Gaussian seed
-center, and shared 48 x 48 prompt box for all five methods; no correction or
-reinitialization is allowed.
+- Bundle: [figures/figure03_cu111_physical_endpoint](figures/figure03_cu111_physical_endpoint/README.md)
+- Caption/source display: [open](figures/figure03_cu111_physical_endpoint/README.md)
+- Provenance: [manifest](figures/figure03_cu111_physical_endpoint/manifest.json)
+- Denominators: Each method retains 2804/2804 Gaussian measurements and 701/701 endpoints for each primary pair.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
+- Missing values: Missing endpoints would remain missing; no gaps are present for the two primary pairs.
+- Palette: Uses the frozen five-method colorblind-safe palette.
 
-A targeted full-sequence replay supplies the empirical OSTrack bbox and
-DAM4SAM mask for this frozen case and reproduces their archived reduced
-trajectories over all 701 images. Panel a must render these empirical outputs
-from the frozen coordinates and pixels, without smoothing, redrawing, or
-substituting schematic geometry.
+### Figure 4 — Ag(111) motion and visibility-gap stress test
 
-Final artifact:
+Reports branch-consistent coverage, post-gap branch-consistent recovery, geometry inconsistency, and conditional residual in denominator-first order.
 
-- [artifact README and caption](figures/figure01_measurement_chain/README.md)
-- [PNG](figures/figure01_measurement_chain/output/figure01_measurement_chain.png)
-- [PDF](figures/figure01_measurement_chain/output/pdf/figure01_measurement_chain.pdf)
-- [render manifest](figures/figure01_measurement_chain/render_manifest.json)
+- Bundle: [figures/figure04_ag111_motion_visibility_stress](figures/figure04_ag111_motion_visibility_stress/README.md)
+- Caption/source display: [open](figures/figure04_ag111_motion_visibility_stress/README.md)
+- Provenance: [manifest](figures/figure04_ag111_motion_visibility_stress/manifest.json)
+- Denominators: Uses 221 visible opportunities, 24 evaluable gaps, accepted-fit denominators, and method-specific residual n.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
+- Missing values: Visibility gaps and rejected measurements are shown explicitly and are not connected.
+- Palette: Uses the frozen five-method colorblind-safe palette.
 
-### Figure 2 - Controlled measurement-chain equivariance
+### Figure 5 — Controlled SAM2-family continuity–consistency trade-off
 
-**Question:** Does the complete measurement chain recover a known displacement
-while retaining measurement availability and pair invariance?
+Provides a matched-weight, one-series mechanism comparison without extending it to a general strategy ranking.
 
-**Status:** generated and validated.
-
-Proposed panels:
-
-- **a.** Closed six-step translation path over one representative Cu image.
-- **b.** Native-proposal versus Gaussian-refined displacement error.
-- **c.** Gaussian measurement coverage for the five trackers.
-- **d.** Maximum absolute pairwise `Delta D/D` under common translation.
-
-Primary sources:
-
-- [equivariance results](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/equivariance_results.csv)
-- [pair invariance](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/pair_invariance.csv)
-- [controlled-translation method summary](../.scratch/trackleed-physics-method-paper/artifacts/controlled-translation-chain/method_summary.csv)
-
-Final artifact:
-
-- [artifact README](figures/figure02_controlled_equivariance/README.md)
-- [PNG](figures/figure02_controlled_equivariance/output/figure02_controlled_equivariance.png)
-- [PDF](figures/figure02_controlled_equivariance/output/pdf/figure02_controlled_equivariance.pdf)
-- [manifest](figures/figure02_controlled_equivariance/manifest.json)
-
-Required caption limitation: known translations assess measurement-chain
-equivariance, not absolute tracking accuracy or identity ground truth.
-
-### Figure 3 - Five-strategy Ag(111) energy-scan stress test
-
-**Question:** How do strategies differ under radial motion and true I(V)
-visibility gaps?
-
-**Status:** generated and validated.
-
-Proposed panels:
-
-- **a.** Expected energy-law trajectory with framewise cross-method median
-  pair distances, min-max whiskers, and the visibility regimes of both
-  branches.
-- **b.** Branch-consistent Gaussian measurement coverage, common denominator
-  `221`.
-- **c.** Post-gap recovery, common denominator `24`.
-- **d.** Geometry-inconsistent accepted fits over all accepted measurements.
-- **e.** Conditional median absolute pair-distance residual,
-  `|D_measured(E) - D_expected(E)|`, visually marked as conditional.
-- **f.** Visually separated external-reference inset for the frozen
-  EasyLEED/ViPErLEED high-energy comparison. Label its different whole-pattern
-  initialization contract and do not present ViPErLEED as a row in the common
-  five-method matrix.
-
-Primary source:
-
-- [independent energy-scan aggregate results](../.scratch/trackleed-physics-method-paper/artifacts/independent-scane-validation/aggregate_method_results.csv)
-- [EasyLEED/ViPErLEED external reference](../.scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/README.md)
-
-Caption requirement: coverage and recovery must appear before the conditional
-residual; the residual cannot be presented as an overall accuracy ranking. The
-external-reference inset uses a separate contract and denominator and is not part
-of the five-method ranking.
-
-Final artifact:
-
-- [artifact README and caption](figures/figure03_independent_scane_stress/README.md)
-- [PNG](figures/figure03_independent_scane_stress/output/figure03_independent_scane_stress.png)
-- [PDF](figures/figure03_independent_scane_stress/output/pdf/figure03_independent_scane_stress.pdf)
-- [manifest](figures/figure03_independent_scane_stress/manifest.json)
-
-### Figure 4 - Controlled SAM2-family memory trade-off
-
-**Question:** What changes when the memory strategy changes under identical
-checkpoint weights?
-
-**Status:** generated and validated.
-
-Proposed panels:
-
-- **a.** One representative visibility gap with SAM2, SAMURAI, and DAM4SAM
-  proposals and common Gaussian centers.
-- **b.** Coverage for the two frozen pairs.
-- **c.** Total and zero-delay gap recovery.
-- **d.** Geometry-inconsistent accepted fits and conditional pair-distance
-  residual `D(E)` (median and P95 with their conditional denominator).
-- **e.** Conceptual summary: continuity benefit versus false-persistence risk.
-
-Primary source:
-
-- [SAM2-family trade-off table](../.scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/sam2_family_tradeoff.csv)
-
-Caption limitation: one series and two pairs; mechanism evidence, not a general
-ranking.
-
-Frozen source contract:
-
-- [artifact README](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
-- [source contract](figures/figure04_controlled_sam2_memory_tradeoff/contract.json)
-- [frozen pair seeds](figures/figure04_controlled_sam2_memory_tradeoff/source_data/pair_seeds.csv)
-- [source provenance](figures/figure04_controlled_sam2_memory_tradeoff/source_data/source_provenance.json)
-
-Final artifact:
-
-- [artifact README and caption](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
-- [PNG](figures/figure04_controlled_sam2_memory_tradeoff/output/figure04_controlled_sam2_memory_tradeoff.png)
-- [PDF](figures/figure04_controlled_sam2_memory_tradeoff/output/pdf/figure04_controlled_sam2_memory_tradeoff.pdf)
-- [render manifest](figures/figure04_controlled_sam2_memory_tradeoff/manifest.json)
-
-### Figure 5 - Propagation to the Cu(111) physical endpoint
-
-**Question:** Do tracker-dependent proposal differences survive the common
-Gaussian refinement sufficiently to change pairwise `Delta R/R`?
-
-**Status:** generated and validated.
-
-Final panels:
-
-- **a.** Temperature profile and frozen reference/plateau/post-plateau
-  `Delta R/R` minimum/final windows.
-- **b.** Pair `1-6`: cross-method median `Delta R/R`, min-max envelope,
-  and magnified method-minus-median residuals.
-- **c.** Pair `3-5`: the same representation on the shared residual scale.
-- **d.** Between-method spread at the plateau, post-plateau `Delta R/R`
-  minimum, and final image.
-- **e.** Separate saved-YOLO-trajectory diagnostic for pair `2-4`: 24
-  amplitude-gate rejections despite available YOLO proposals. Mark this panel as
-  outside the five-method run.
-
-Primary sources:
-
-- [five-method Cu pair endpoints](../.scratch/trackleed-physics-method-paper/artifacts/cu111-tracker-evaluation-subset/runs/five-methods-v1/pair_endpoints.csv)
-- [Cu pairwise endpoint artifact](../.scratch/trackleed-physics-method-paper/artifacts/cu111-pairwise-delta-r/README.md)
-
-Caption limitations: the two primary pairs do not establish anisotropy; missing
-pair `2-4` measurements are not automatically tracker failures. Pair `2-4` uses
-the earlier saved YOLO proposals and must not imply that the five evaluated
-strategies were run on spots 2 and 4.
-
-Frozen source contract:
-
-- [artifact README and draft caption](figures/figure05_cu111_physical_endpoint/README.md)
-- [source contract](figures/figure05_cu111_physical_endpoint/contract.json)
-- [five-method run contract](figures/figure05_cu111_physical_endpoint/source_data/five_method_run_contract.json)
-- [thermal-cycle landmarks](figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv)
-- [five-method endpoint trajectories](figures/figure05_cu111_physical_endpoint/source_data/pair_endpoint_timeseries.csv)
-- [endpoint summaries](figures/figure05_cu111_physical_endpoint/source_data/endpoint_summaries.csv)
-- [between-method spread](figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv)
-- [separate pair 2-4 diagnostic](figures/figure05_cu111_physical_endpoint/source_data/pair_2_4_missingness_diagnostic.csv)
-- [source provenance](figures/figure05_cu111_physical_endpoint/source_data/source_provenance.json)
-
-Final artifact:
-
-- [artifact README and caption](figures/figure05_cu111_physical_endpoint/README.md)
-- [PNG](figures/figure05_cu111_physical_endpoint/output/figure05_cu111_physical_endpoint.png)
-- [PDF](figures/figure05_cu111_physical_endpoint/output/pdf/figure05_cu111_physical_endpoint.pdf)
-- [render manifest](figures/figure05_cu111_physical_endpoint/manifest.json)
+- Bundle: [figures/figure05_controlled_sam2_continuity_consistency_tradeoff](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/README.md)
+- Caption/source display: [open](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/README.md)
+- Provenance: [manifest](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/manifest.json)
+- Denominators: Coverage and post-gap branch-consistent recovery keep fixed opportunities; residuals retain method- and pair-specific conditional n.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
+- Missing values: Visibility gaps and invalid fits remain absent and contribute to fixed-denominator outcomes.
+- Palette: Uses frozen family-specific colors without a rank-like scale.
 
 ## Main tables
 
-### Table 1 - Data and evidence roles
+### Table 1 — Data and evidence roles
 
-**Status:** generated and validated.
+Defines data regimes, opportunity sets, evidence roles, observables, and independence units.
 
-Columns:
+- Bundle: [tables/table01_data_evidence_roles](tables/table01_data_evidence_roles/README.md)
+- Caption/source display: [open](tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md)
+- Provenance: [manifest](tables/table01_data_evidence_roles/manifest.json)
+- Denominators: Lists complete opportunity sets and separates initialization states from displacement evaluations.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Unavailable elements are described explicitly in the evidence-role contract.
+- Palette: Not applicable to a semantic table.
 
-- scientific series label;
-- control variable and range;
-- image count;
-- frozen spots/pairs;
-- evidence role;
-- primary endpoint;
-- independence/replication unit.
+### Table 2 — Methods mapped to the common measurement contract
 
-The five rows represent evidence roles, not five independent datasets.
-Controlled translations are derived from the Cu(111) sequence, and the
-restricted high-energy external reference is a subset of the memory-analysis
-scan with a separate initialization contract and denominator.
+Maps each method's native output and adapter into the shared estimator, availability, reset, and study-role contract.
 
-Final artifact:
+- Bundle: [tables/table02_tracking_methods_contract](tables/table02_tracking_methods_contract/README.md)
+- Caption/source display: [open](tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md)
+- Provenance: [manifest](tables/table02_tracking_methods_contract/manifest.json)
+- Denominators: Declares availability and reset rules that determine fixed opportunity outcomes downstream.
+- Rounding: Diagram labels and exact counts are not converted into rounded estimates.
+- Missing values: Unavailable native outputs remain unavailable under the common contract.
+- Palette: Not applicable to a semantic table.
 
-- [artifact README](tables/table01_data_evidence_roles/README.md)
-- [publication-facing CSV](tables/table01_data_evidence_roles/output/table01_data_evidence_roles.csv)
-- [manuscript Markdown](tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md)
-- [manifest](tables/table01_data_evidence_roles/manifest.json)
+## Supplementary figures
 
-### Table 2 - Tracking methods and common output contract
+### Figure S1 — Controlled-translation detail
 
-**Status:** generated and validated.
+Provides full per-trial paths, proposal-to-measurement diagnostics, and pair invariance.
 
-Inserted in Section 3 of
-[the working manuscript](manuscript.md#33-domain-specific-references).
-Columns:
+- Bundle: [figures/figure_s1_controlled_translation_trials](figures/figure_s1_controlled_translation_trials/README.md)
+- Caption/source display: [open](figures/figure_s1_controlled_translation_trials/README.md)
+- Provenance: [manifest](figures/figure_s1_controlled_translation_trials/manifest.json)
+- Denominators: Preserves 20 displaced-spot and 10 displaced-pair opportunities per trial and method.
+- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Missing proposals and measurements are shown as gaps without path interpolation.
+- Palette: Uses the frozen five-method palette plus a distinct oracle control.
 
-- panel;
-- method;
-- family/representation;
-- checkpoint or algorithm configuration;
-- initialization;
-- native availability/output;
-- reduction to proposal coordinate;
-- reset policy;
-- role in the study.
+### Figure S2 — Measurement-window and capture-contract sensitivity
 
-The table contains five main comparison rows, three controlled SAM2-family
-rows, and one visibly separate ViPErLEED external-reference row. The three
-controlled-family rows retain the same byte-identical SAM2.1 Hiera Base+
-checkpoint hash; exact revisions, configurations, and artifact hashes remain
-in the audit fields and manifest. A method-level executed-configuration hash
-is reported only where one was recorded; whole-contract hashes are retained
-solely as source-provenance hashes.
+Shows the predefined ROI/gate matrix, OFAT perturbations, gate margins, and the width-trigger decision.
 
-Final artifact:
+- Bundle: [figures/figure_s2_measurement_sensitivity](figures/figure_s2_measurement_sensitivity/README.md)
+- Caption/source display: [open](figures/figure_s2_measurement_sensitivity/README.md)
+- Provenance: [manifest](figures/figure_s2_measurement_sensitivity/manifest.json)
+- Denominators: Every variant retains 221 visible opportunities, 24 gaps, accepted-fit n, and method-specific pair-frame n.
+- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Undefined conditional metrics remain missing and are not promoted to fixed-denominator outcomes.
+- Palette: Uses the frozen method palette and gate-specific sensitivity normalizers.
 
-- [artifact README](tables/table02_tracking_methods_contract/README.md)
-- [publication-facing CSV](tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.csv)
-- [manuscript Markdown](tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md)
-- [manifest](tables/table02_tracking_methods_contract/manifest.json)
+### Figure S3 — Pair-midpoint drift and apparatus/projection diagnostics
 
-### Table 3 - Quantitative summary across evidence regimes
+Separates midpoint drift and apparatus/projection diagnostics from the main pair-distance stress test.
 
-**Status:** generated and validated.
+- Bundle: [figures/figure_s3_ag111_midpoint_drift](figures/figure_s3_ag111_midpoint_drift/README.md)
+- Caption/source display: [open](figures/figure_s3_ag111_midpoint_drift/README.md)
+- Provenance: [manifest](figures/figure_s3_ag111_midpoint_drift/manifest.json)
+- Denominators: Uses only jointly valid pair frames and retains case-specific visibility branches.
+- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Missing pairs are not interpolated or connected.
+- Palette: Method palette is intentionally not used for apparatus/projection diagnostics.
 
-Use selected columns from:
+### Figure S4 — EasyLEED–ViPErLEED compatibility
 
-- [cross-regime method evidence matrix](../.scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/method_evidence_matrix.csv)
+Provides the separate external-reference compatibility contract and its own denominator.
 
-Group headers:
+- Bundle: [figures/figure_s4_easyleed_viperleed_compatibility](figures/figure_s4_easyleed_viperleed_compatibility/README.md)
+- Caption/source display: [open](figures/figure_s4_easyleed_viperleed_compatibility/README.md)
+- Provenance: [manifest](figures/figure_s4_easyleed_viperleed_compatibility/manifest.json)
+- Denominators: External-reference opportunities remain separate from the common five-method matrix.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
+- Missing values: Unavailable common fits remain absent from compatibility statistics.
+- Palette: Uses distinct external-reference encodings, not a sixth common-matrix method color.
 
-- controlled translation;
-- Cu(111) positive control;
-- independent Ag(111) energy-scan stress test.
+### Figure S5 — Geometry-inconsistent continuation examples
 
-The publication table uses three vertically stacked blocks rather than one
-over-wide matrix. Each block retains its own denominators and metric semantics,
-including the surviving pair-frame count for the conditional energy-scan
-residual. The DAM4SAM checkpoint-size change between regimes is disclosed in
-the caption.
+Shows qualitative examples selected by a frozen rule and linked to their source rows.
 
-Do not add an overall score, rank column, or color scale suggesting one.
+- Bundle: [figures/figure_s5_geometry_inconsistent_continuation](figures/figure_s5_geometry_inconsistent_continuation/README.md)
+- Caption/source display: [open](figures/figure_s5_geometry_inconsistent_continuation/README.md)
+- Provenance: [manifest](figures/figure_s5_geometry_inconsistent_continuation/manifest.json)
+- Denominators: Qualitative examples remain attached to the accepted-fit denominators reported in Figure 4 and Table S2.
+- Rounding: Diagram labels and exact counts are not converted into rounded estimates.
+- Missing values: The selected examples preserve the original missing and accepted-fit state.
+- Palette: Example annotations identify methods without implying a rank.
 
-Final artifact:
+### Figure S6 — Cu pair 2–4 missingness diagnostic
 
-- [artifact README](tables/table03_cross_regime_summary/README.md)
-- [publication-facing CSV](tables/table03_cross_regime_summary/output/table03_quantitative_summary.csv)
-- [manuscript Markdown](tables/table03_cross_regime_summary/output/table03_quantitative_summary.md)
-- [manifest](tables/table03_cross_regime_summary/manifest.json)
+Keeps the pair 2-4 amplitude-driven missingness diagnostic outside the main five-method endpoint contract.
 
-## Supplementary display items
+- Bundle: [figures/figure_s6_cu111_pair_2_4_missingness](figures/figure_s6_cu111_pair_2_4_missingness/README.md)
+- Caption/source display: [open](figures/figure_s6_cu111_pair_2_4_missingness/README.md)
+- Provenance: [manifest](figures/figure_s6_cu111_pair_2_4_missingness/manifest.json)
+- Denominators: Uses its separate 24-candidate diagnostic denominator and is not pooled into the primary pairs.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places.
+- Missing values: Amplitude-only rejections remain explicit missing measurements.
+- Palette: Uses the frozen method palette only for proposals inside the diagnostic.
 
-- **Figure S1 — generated and validated:** complete paths and diagnostics for
-  all four independently initialized controlled-translation source trials.
-  Rows show the commanded and Gaussian-refined paths for every spot and
-  method, every available native-versus-refined displacement-error
-  observation, and both pair-invariance trajectories; crosses mark invalid
-  pairs. Known translations assess measurement-chain equivariance and
-  common-estimator behavior, not absolute tracking accuracy or identity
-  ground truth. Final artifact:
-  [README](figures/figure_s1_controlled_translation_trials/README.md),
-  [PNG](figures/figure_s1_controlled_translation_trials/output/figure_s1_controlled_translation_trials.png),
-  [PDF](figures/figure_s1_controlled_translation_trials/output/figure_s1_controlled_translation_trials.pdf),
-  and [manifest](figures/figure_s1_controlled_translation_trials/manifest.json).
-- **Figure S2 — generated and validated:** the nine-element ROI ×
-  proposal-to-fit matrix, six one-factor-at-a-time perturbations, all four
-  denominator-aware outcomes, signed central-contract gate margins, and the
-  width-trigger audit. This is the sole sensitivity figure; Figure 2 has no
-  sensitivity panel. Final artifact:
-  [README](figures/figure_s2_measurement_sensitivity/README.md),
-  [PNG](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.png),
-  [PDF](figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity.pdf),
-  and [manifest](figures/figure_s2_measurement_sensitivity/manifest.json).
-- **Figure S3:** native proposal error versus Gaussian-refined error for every
-  controlled translation.
-- **Figure S4:** EasyLEED/ViPErLEED high-energy external-reference overlays.
-- **Figure S5:** accepted but geometry-inconsistent continuation examples.
-- **Table S1 — generated and validated:** full versions, revisions,
-  checkpoint and runtime-artifact hashes, configuration and implementation
-  hashes, and retained execution environments. The table distinguishes
-  run-frozen configurations, post-run normalized configuration records
-  derived from archived executed sources, and package inventories captured
-  after the completed runs. Final artifact:
-  [README](tables/table_s1_software_environments/README.md),
-  [component CSV](tables/table_s1_software_environments/output/table_s1_components.csv),
-  [environment CSV](tables/table_s1_software_environments/output/table_s1_environments.csv),
-  [supplement Markdown](tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md),
-  and [manifest](tables/table_s1_software_environments/manifest.json).
-- **Table S2 — generated and validated:** Gaussian measurement gates, the
-  separate energy-branch consistency gate, all fixed opportunity denominators,
-  and every method-dependent conditional sample size. Final artifact:
-  [README](tables/table_s2_gates_denominators/README.md),
-  [gate CSV](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates.csv),
-  [fixed-denominator CSV](tables/table_s2_gates_denominators/output/table_s2_fixed_denominators.csv),
-  [conditional-denominator CSV](tables/table_s2_gates_denominators/output/table_s2_conditional_denominators.csv),
-  [supplement Markdown](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates_validation_denominators.md),
-  and [manifest](tables/table_s2_gates_denominators/manifest.json).
-- **Table S3 — generated and validated:** per-scan and per-pair energy-scan
-  coverage, post-gap identity recovery, geometry inconsistency, and
-  conditional residuals with their surviving denominators; leave-one-case-out
-  ranges for count-based outcomes are a sensitivity analysis, not confidence
-  intervals. Final artifact:
-  [README](tables/stratified_uncertainty/README.md),
-  [case CSV](tables/stratified_uncertainty/output/energy_scan_by_case.csv),
-  [leave-one-case-out CSV](tables/stratified_uncertainty/output/energy_scan_leave_one_case_out.csv),
-  [supplement Markdown](tables/stratified_uncertainty/output/table_s3_energy_scan_by_case.md),
-  and [manifest](tables/stratified_uncertainty/manifest.json).
-- **Table S4 — generated and validated:** exact Cu(111) plateau,
-  post-plateau `Delta R/R` minimum, and final cooled-state values for all five
-  methods and both primary pairs. Final artifact:
-  [README](tables/table_s4_cu111_endpoints/README.md),
-  [full-precision CSV](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.csv),
-  [supplement Markdown](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.md),
-  and [manifest](tables/table_s4_cu111_endpoints/manifest.json).
-- **Table S5 — generated and validated:** per-source-trial
-  controlled-translation proposal and measurement coverage, conditional
-  median/P95/maximum displacement error, pair coverage, and maximum absolute
-  `Delta D/D`, with explicit fixed and conditional denominators. Final
-  artifact:
-  [README](tables/table_s5_controlled_translation/README.md),
-  [full-precision CSV](tables/table_s5_controlled_translation/output/table_s5_controlled_translation.csv),
-  [supplement Markdown](tables/table_s5_controlled_translation/output/table_s5_controlled_translation.md),
-  and [manifest](tables/table_s5_controlled_translation/manifest.json).
-- **Table S6 — generated and validated:** all 375 full-precision method and
-  case results for the 15 sensitivity variants, with fixed opportunity
-  denominators and method- and variant-specific conditional n. Final artifact:
-  [README](tables/table_s6_measurement_sensitivity/README.md),
-  [full-precision CSV](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.csv),
-  [supplement Markdown](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md),
-  and [manifest](tables/table_s6_measurement_sensitivity/manifest.json).
+## Supplementary tables
 
-The finalized Table S3 is documented in the
-[stratified descriptive reporting artifact](tables/stratified_uncertainty/README.md),
-and Table S5 has a separate controlled-translation artifact.
+### Table S1 — Software, models, versions, hashes and environments
 
-## Asset policy
+Freezes software, model, configuration, checkpoint, and environment provenance.
 
-- Generate final figures from CSV/JSON sources, not screenshots of exploratory
-  notebooks.
-- Store each final figure together with its source-data table and build script.
-- Record dimensions, font sizes, color mapping, and output hash.
-- Use a colorblind-safe method palette consistently across all figures.
-- Show missingness explicitly; never connect across rejected fits without a marked
-  gap.
+- Bundle: [tables/table_s1_software_environments](tables/table_s1_software_environments/README.md)
+- Caption/source display: [open](tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md)
+- Provenance: [manifest](tables/table_s1_software_environments/manifest.json)
+- Denominators: Not a numerical-outcome table; provenance records are complete by declared environment role.
+- Rounding: Diagram labels and exact counts are not converted into rounded estimates.
+- Missing values: Unfrozen run-time fields are labeled by provenance status rather than inferred.
+- Palette: Not applicable.
+
+### Table S2 — Gaussian gates, fixed opportunity sets and conditional denominators
+
+Centralizes Gaussian gates, fixed opportunity sets, and every method-specific conditional denominator.
+
+- Bundle: [tables/table_s2_gates_denominators](tables/table_s2_gates_denominators/README.md)
+- Caption/source display: [open](tables/table_s2_gates_denominators/output/table_s2_gaussian_gates_validation_denominators.md)
+- Provenance: [manifest](tables/table_s2_gates_denominators/manifest.json)
+- Denominators: Every fixed outcome and conditional metric has an explicit unit, denominator, and surviving n.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally.
+- Missing values: Unavailable proposals and rejected fits remain inside fixed denominators.
+- Palette: Not applicable.
+
+### Table S3 — Ag(111) outcomes by scan–pair and leave-one-case-out
+
+Reports scan-pair strata and leave-one-case-out sensitivity without treating four cases as independent acquisitions.
+
+- Bundle: [tables/stratified_uncertainty](tables/stratified_uncertainty/README.md)
+- Caption/source display: [open](tables/stratified_uncertainty/output/table_s3_energy_scan_by_case.md)
+- Provenance: [manifest](tables/stratified_uncertainty/manifest.json)
+- Denominators: Coverage, post-gap branch-consistent recovery, accepted fits, and pair residuals retain their own case- and method-specific denominators.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
+- Missing values: Conditional residuals are omitted where no jointly branch-consistent pair frame survives.
+- Palette: Not applicable.
+
+### Table S4 — Cu(111) pairwise physical endpoints
+
+Provides full-precision pairwise endpoints at frozen thermal-cycle landmarks.
+
+- Bundle: [tables/table_s4_cu111_endpoints](tables/table_s4_cu111_endpoints/README.md)
+- Caption/source display: [open](tables/table_s4_cu111_endpoints/output/table_s4_cu111_endpoints.md)
+- Provenance: [manifest](tables/table_s4_cu111_endpoints/manifest.json)
+- Denominators: Every method-pair endpoint reports valid frames out of 701.
+- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
+- Missing values: A missing endpoint would remain blank with its valid-frame count.
+- Palette: Not applicable.
+
+### Table S5 — Controlled translations by source trial
+
+Retains full per-trial translation coverage, conditional errors, and pair invariance including the oracle control.
+
+- Bundle: [tables/table_s5_controlled_translation](tables/table_s5_controlled_translation/README.md)
+- Caption/source display: [open](tables/table_s5_controlled_translation/output/table_s5_controlled_translation.md)
+- Provenance: [manifest](tables/table_s5_controlled_translation/manifest.json)
+- Denominators: Each trial and method keeps 20 displaced-spot and 10 displaced-pair opportunities; conditional n is attached.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Controlled-translation displacement errors are shown to 4 decimal places. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
+- Missing values: Proposal and fit failures remain in the fixed denominators.
+- Palette: Not applicable.
+
+### Table S6 — Measurement-window and capture-contract sensitivity
+
+Reports all predefined sensitivity variants at full source precision without selecting a replacement configuration.
+
+- Bundle: [tables/table_s6_measurement_sensitivity](tables/table_s6_measurement_sensitivity/README.md)
+- Caption/source display: [open](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md)
+- Provenance: [manifest](tables/table_s6_measurement_sensitivity/manifest.json)
+- Denominators: Every variant retains fixed 221 and 24 opportunities plus accepted-fit and pair-frame conditional n.
+- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Missing values: Undefined conditional values remain absent and are never converted to zero.
+- Palette: Not applicable.
+
+### Table S7 — Cross-regime numerical summary
+
+Places the five-method numerical anchors side by side while preserving regime-specific evidence roles and denominators.
+
+- Bundle: [tables/table_s7_cross_regime_summary](tables/table_s7_cross_regime_summary/README.md)
+- Caption/source display: [open](tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.md)
+- Provenance: [manifest](tables/table_s7_cross_regime_summary/manifest.json)
+- Denominators: Each block retains its fixed opportunity set; every conditional error or residual follows coverage and carries its own n.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Controlled-translation displacement errors are shown to 4 decimal places. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
+- Missing values: Coverage exposes missing proposals and fits before conditional values.
+- Palette: No color scale, composite score, or rank is used.

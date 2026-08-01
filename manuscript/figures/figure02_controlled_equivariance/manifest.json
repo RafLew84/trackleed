@@ -1,21 +1,21 @@
 {
   "claim_limit": "Known translations test measurement-chain equivariance, not absolute tracking accuracy or identity ground truth.",
   "code_sha256": {
-    "build_figure.py": "c0a2ce48254c98dfa98d55ba3e6aaf5cb74ce3637e028a1d5031e68829af3974",
+    "build_figure.py": "1c5669e8547a51e138918134f2b59bf070007959c5f302339e8086a8244c75f4",
     "figure_contract.py": "84e4d23239074056a4a6cb9c4fb7d48f46e24eca738e8a98af24b074ca4cb2f6",
-    "figure_render.py": "f455d60f1957788f44bc63965c5a442986b4ea0ffc77d1d38eb428e5eb38989c",
+    "figure_render.py": "d2be9042e0694369b4aa9437903c5341ce58c7b9357c49a9245267d914dea008",
     "test_build_figure.py": "a0d0e49f166dbfeae0195059280545dbc3aa09b862895e6d0171eae67de87efb"
   },
   "environment": {
-    "matplotlib": "3.10.1",
-    "numpy": "2.2.5",
-    "pillow": "11.2.1",
-    "python": "3.12.9"
+    "matplotlib": "3.10.7",
+    "numpy": "2.2.6",
+    "pillow": "12.0.0",
+    "python": "3.12.3"
   },
   "figure": "Figure 2",
   "outputs_sha256": {
-    "output/figure02_controlled_equivariance.png": "54bef1178d5ecfcda12c59424b50ffb2bdc4a9fd5fc9fdd1aa72c5c8fcddd424",
-    "output/pdf/figure02_controlled_equivariance.pdf": "dff32d5ead2394ade61d52bafea67d95e56d3a92525d183378d5298c33075165"
+    "output/figure02_controlled_equivariance.png": "03987f9e6d4d5f33b2ad9dd665d075184e9de726ebfc944f59437109783d9c85",
+    "output/pdf/figure02_controlled_equivariance.pdf": "8073bd36dc9432634b14e6a3ad93fdc49b5b58f475d3b2fd84f82d9b80338707"
   },
   "panel_order": [
     "translation_path",
@@ -76,5 +76,5 @@
     "source_data/translation_path.csv": "921267e579f0d152e9a5de6d12d032b651f8d2329a58ee82195d8b66f10f7536"
   },
   "status": "completed",
-  "title": "Controlled measurement-chain equivariance"
+  "title": "Controlled estimator behavior"
 }

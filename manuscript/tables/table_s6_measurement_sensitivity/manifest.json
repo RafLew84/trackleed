@@ -3,13 +3,13 @@
   "case_result_count": 300,
   "denominator_policy": "fixed reference opportunity sets with explicit variant-specific denominators for conditional outcomes",
   "implementation_sha256": {
-    "trackleed/publication/scientific_sensitivity_evidence.py": "3ae126f6ac9b682c85dcab0a3bdcf9d95fef9a97eb1b4861f9e1f828258fa5d5",
+    "trackleed/publication/scientific_sensitivity_evidence.py": "be4d491ce865cb3a8856b99137ab2532f9971a5d51f5c4ae2fb9d07851ea2ea7",
     "trackleed/publication/scientific_sensitivity_sources.py": "acd78ced6dd438c585a6c3ace44859ab47df7e14890bcc0c93a0e436431bea03"
   },
   "method_result_count": 75,
   "outputs_sha256": {
     "table_s6_measurement_sensitivity.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
-    "table_s6_measurement_sensitivity.md": "2171e1f540284afa4ad819d7bddd9832cbbce38b5c2660b45279e176f8662508"
+    "table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
   },
   "result_count": 375,
   "schema_version": 1,

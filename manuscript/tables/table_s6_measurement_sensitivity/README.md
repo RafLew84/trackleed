@@ -1,4 +1,4 @@
-# Table S6 — measurement-window and capture-contract sensitivity
+# Table S6 — Measurement-window and capture-contract sensitivity
 
 Table S6 reports the complete 15-variant, five-method Ag(111)
 measurement-window and capture-contract sensitivity. The publication-facing

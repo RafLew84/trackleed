@@ -153,7 +153,8 @@ class StratifiedReportingTableTest(unittest.TestCase):
             "recovered / evaluable natural I(V) gaps",
             rendered,
         )
-        self.assertIn("post-gap identity recovery", rendered)
+        self.assertIn("post-gap branch-consistent recovery", rendered)
+        self.assertNotIn("identity recovery", rendered)
         self.assertIn(
             (
                 "accepted Gaussian fits more than 18 px from the expected "

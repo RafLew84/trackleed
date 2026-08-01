@@ -108,7 +108,7 @@ def build_manifest(
         "schema_version": "1.0",
         "status": "completed",
         "figure": "Figure 5",
-        "title": "Controlled SAM2-family continuity-consistency trade-off",
+        "title": "Controlled SAM2-family continuity–consistency trade-off",
         "contract_sha256": sha256_file(CONTRACT_PATH),
         "code_sha256": _code_hashes(),
         "source_artifacts": provenance["sources"],

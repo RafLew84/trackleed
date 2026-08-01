@@ -1,0 +1,34 @@
+{
+  "builder_sha256": "2e2b14c7dd94271f1e3079fb7ada3d74ea3a882618e34a3e451fed269ad19519",
+  "outputs": {
+    "table_s7_cross_regime_summary.csv": "9bf8c6df2be2622129273afaced9693a90a7a2f528c0c5d2b8f102df24fbf3b2",
+    "table_s7_cross_regime_summary.md": "82ad155c20a51498676b47800c14c5a162e396319b800704bacb3850b2c68c0d"
+  },
+  "schema_version": "1.0",
+  "source_data": {
+    "source_data/method_evidence_matrix.csv": "5d37a4e49c6357582bcbde727c4d1b9360d53a5c4b7dbe6a011b83e6c44db87a",
+    "source_data/source_provenance.json": "dded76c07454f0cf76043e95fc27bcf5930b6a67f95e03bd6f84cddd279defe8"
+  },
+  "status": "completed",
+  "table_contract": {
+    "block_count": 3,
+    "conditional_residual_keeps_pair_frame_n": true,
+    "dam4sam_cross_regime_variant_change_disclosed": true,
+    "method_count": 5,
+    "placement": "supplementary",
+    "ranking_policy": "no composite score, rank, or rank-like color scale",
+    "table": "Table S7",
+    "translation_displaced_pair_opportunities_per_method": 40,
+    "translation_displaced_spot_opportunities_per_method": 80,
+    "translation_initialization_states_are_not_evaluations": true
+  },
+  "upstream_sources": [
+    {
+      "frozen_path": "source_data/method_evidence_matrix.csv",
+      "frozen_sha256": "5d37a4e49c6357582bcbde727c4d1b9360d53a5c4b7dbe6a011b83e6c44db87a",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/method_evidence_matrix.csv",
+      "origin_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "role": "common five-method numerical evidence across controlled translations, Cu(111), and independent Ag(111) energy scans"
+    }
+  ]
+}

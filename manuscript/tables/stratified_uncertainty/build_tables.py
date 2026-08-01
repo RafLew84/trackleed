@@ -21,7 +21,7 @@ SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 SUPPLEMENT_S3_BEGIN_MARKER = "<!-- BEGIN TABLE S3 -->"
 SUPPLEMENT_S3_END_MARKER = "<!-- END TABLE S3 -->"
 SUPPLEMENT_S3_HEADING = (
-    "## Table S3 — stratified Ag(111) energy-scan outcomes"
+    "## Table S3 — Ag(111) outcomes by scan–pair and leave-one-case-out"
 )
 
 SCAN_LABELS = {
@@ -301,10 +301,11 @@ def render_energy_scan_markdown(
 ) -> str:
     lines = [
         (
-            "**Table S3. Stratified outcomes for the independent Ag(111) "
-            "energy-scan stress test.** Coverage is branch-consistent "
-            "measurements / baseline-visible opportunities; post-gap identity "
-            "recovery is recovered / evaluable natural I(V) gaps; geometry "
+            "**Table S3. Ag(111) outcomes by scan–pair and "
+            "leave-one-case-out.** Coverage is branch-consistent "
+            "measurements / baseline-visible opportunities; post-gap "
+            "branch-consistent recovery is recovered / evaluable natural I(V) "
+            "gaps; geometry "
             "inconsistency is accepted Gaussian fits more than 18 px from the "
             "expected branch / all accepted Gaussian fits across all "
             "visibility regimes. The conditional residual is the median "
@@ -319,7 +320,7 @@ def render_energy_scan_markdown(
         "",
         (
             "| Scan | Pair | Method | Branch-consistent coverage | Post-gap "
-            "identity recovery | Geometry-inconsistent accepted fits | "
+            "branch-consistent recovery | Geometry-inconsistent accepted fits | "
             "Conditional median absolute pair-distance residual [px] | "
             "Conditional n |"
         ),
@@ -345,7 +346,7 @@ def render_energy_scan_markdown(
             (
                 "Each of the four frozen scan–pair cases is omitted once. The "
                 "remaining three cases are pooled and only the count-based "
-                "coverage, post-gap identity recovery, and geometry-"
+                "coverage, post-gap branch-consistent recovery, and geometry-"
                 "inconsistency rates are recomputed. The displayed extrema "
                 "across the four omissions are a sensitivity check, not a "
                 "confidence interval. Conditional case-median residuals are "
@@ -353,7 +354,8 @@ def render_energy_scan_markdown(
             ),
             "",
             (
-                "| Method | Coverage range | Post-gap identity recovery range "
+                "| Method | Coverage range | Post-gap branch-consistent "
+                "recovery range "
                 "| Geometry-inconsistency range |"
             ),
             "|---|---:|---:|---:|",

@@ -1,4 +1,4 @@
-# Figure S6 - Cu(111) pair 2-4 missingness diagnostic
+# Figure S6 — Cu pair 2–4 missingness diagnostic
 
 Status: generated and validated.
 

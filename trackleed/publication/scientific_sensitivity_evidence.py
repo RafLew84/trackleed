@@ -87,8 +87,9 @@ def _render_table_s6(rows: list[SensitivityResultRecord]) -> str:
     method_rows = [row for row in rows if row["scope"] == "method"]
     lines = [
         (
-            "**Table S6. Measurement-window and capture-contract sensitivity "
-            "for the independent Ag(111) stress test.** Coverage uses the fixed "
+            "**Table S6. Measurement-window and capture-contract "
+            "sensitivity.** For the independent Ag(111) stress test, coverage "
+            "uses the fixed "
             "denominator 221 and post-gap branch-consistent recovery uses the "
             "fixed denominator 24. Geometry inconsistency is conditional on all "
             "accepted fits, while the pair-distance residual retains its method- "
@@ -236,7 +237,7 @@ def synchronize_table_s6(
     if (begin_count, end_count) == (0, 0):
         supplement = (
             supplement.rstrip()
-            + "\n\n## Table S6 — measurement-window and capture-contract sensitivity\n\n"
+            + "\n\n## Table S6 — Measurement-window and capture-contract sensitivity\n\n"
             + block
             + "\n"
         )

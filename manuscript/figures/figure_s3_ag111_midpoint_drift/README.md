@@ -1,4 +1,4 @@
-# Figure S3 — Ag(111) pair-midpoint drift and apparatus/projection diagnostics
+# Figure S3 — Pair-midpoint drift and apparatus/projection diagnostics
 
 Status: generated and validated.
 

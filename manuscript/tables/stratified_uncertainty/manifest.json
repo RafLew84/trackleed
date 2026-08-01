@@ -1,14 +1,14 @@
 {
-  "builder_sha256": "08387d85523a3aaa58a7ba49ab0c28254400208d633d10e9c3823fe54ec98add",
+  "builder_sha256": "41af8ed7daf5cb5c646c49dea7b39b88139295d62b0d94fa82a31aeab92f2a40",
   "outputs": {
     "energy_scan_by_case.csv": "116780231ce46c852146a64b6f57947363a68c1f6c32ee0ba02c56c54100f2eb",
     "energy_scan_leave_one_case_out.csv": "050fd3f89fa9f6703b0d39e582620f4a224430a0ba453f402ad459998d10e712",
-    "table_s3_energy_scan_by_case.md": "410842ab71bfb9a4281d901fea95705fc86029c1d14dbea2aa6c7dc4e45b57a6"
+    "table_s3_energy_scan_by_case.md": "e032f3f70a139d6d4aa809e14ea7964dbca310dfa0d368f66be487f8d8561c31"
   },
   "schema_version": "1.0",
   "source_data": {
     "source_data/energy_scan_case_results.csv": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48",
-    "source_data/source_provenance.json": "7424a27b808e9a0f1ffa7869d48305b85154f58112be02d993b3fc850b8f5e32"
+    "source_data/source_provenance.json": "d8cae89f04e994f4bd37df67761978330cfb56e0616c565928875932f7e1006c"
   },
   "status": "completed",
   "table_status": {

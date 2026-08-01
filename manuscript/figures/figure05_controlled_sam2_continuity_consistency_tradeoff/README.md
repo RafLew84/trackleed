@@ -1,4 +1,4 @@
-# Figure 5 - controlled SAM2-family continuity-consistency trade-off
+# Figure 5 — Controlled SAM2-family continuity–consistency trade-off
 
 Status: generated and validated.
 
@@ -11,7 +11,7 @@ Status: generated and validated.
 
 ## Caption
 
-**Figure 5. Controlled SAM2-family continuity-consistency trade-off under identical
+**Figure 5. Controlled SAM2-family continuity–consistency trade-off under identical
 checkpoint weights.** **a,** Four states around a natural B1 I(V) visibility
 gap in the controlled scan. SAM2, SAMURAI, and DAM4SAM receive the same
 single-object bbox seed; open circles denote native proposals, yellow plus

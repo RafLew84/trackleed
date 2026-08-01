@@ -349,7 +349,7 @@ def render(output_directory: Path) -> dict[str, Path]:
         pdf,
         facecolor="white",
         metadata={
-            "Title": "EasyLEED-ViPErLEED compatibility",
+            "Title": "EasyLEED–ViPErLEED compatibility",
             "Author": "TrackLEED collaboration",
             "Subject": "Supplementary Figure S4",
             "Creator": "TrackLEED Figure S4 builder",
@@ -390,7 +390,7 @@ def build(
         "schema_version": "1.0",
         "status": "completed",
         "figure": "Figure S4",
-        "title": "EasyLEED-ViPErLEED compatibility under the common Gaussian estimator",
+        "title": "EasyLEED–ViPErLEED compatibility",
         "contract_sha256": sha256_file(CONTRACT_PATH),
         "code_sha256": _code_hashes(),
         "source_data_sha256": _hashes(SOURCE_DATA_DIRECTORY),

@@ -27,6 +27,7 @@ UPSTREAM_DIRECTORY = SOURCE_DATA_DIRECTORY / "upstream_contracts"
 CAPTURE_SCRIPT_PATH = TABLE_ROOT / "capture_environments.py"
 OUTPUT_DIRECTORY = TABLE_ROOT / "output"
 MANIFEST_PATH = TABLE_ROOT / "manifest.json"
+SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 
 SUPPLEMENT_BEGIN_MARKER = "<!-- BEGIN TABLE S1 -->"
 SUPPLEMENT_END_MARKER = "<!-- END TABLE S1 -->"
@@ -801,8 +802,8 @@ def render_markdown(
     gpu = system["gpu"]
     lines = [
         (
-            "**Table S1. Software versions, revisions, frozen artifacts, "
-            "configuration hashes, and retained execution environments.** "
+            "**Table S1. Software, models, versions, hashes and "
+            "environments.** "
             "Software and model identities and the run-frozen records in "
             "blocks A and B come from the completed execution contracts. "
             "Where a method-level configuration was not frozen during a run, "
@@ -858,6 +859,28 @@ def extract_supplement_table(supplement: str) -> str:
     )
     end = supplement.index(SUPPLEMENT_END_MARKER, start)
     return supplement[start:end].strip("\n") + "\n"
+
+
+def sync_supplement_table(markdown: str) -> None:
+    """Replace the sole Table S1 marker block with generated Markdown."""
+
+    supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
+    if supplement.count(SUPPLEMENT_BEGIN_MARKER) != 1:
+        raise ValueError("Supplement must contain one Table S1 begin marker.")
+    if supplement.count(SUPPLEMENT_END_MARKER) != 1:
+        raise ValueError("Supplement must contain one Table S1 end marker.")
+    start = supplement.index(SUPPLEMENT_BEGIN_MARKER) + len(
+        SUPPLEMENT_BEGIN_MARKER
+    )
+    end = supplement.index(SUPPLEMENT_END_MARKER, start)
+    synchronized = (
+        supplement[:start]
+        + "\n"
+        + markdown.rstrip("\n")
+        + "\n"
+        + supplement[end:]
+    )
+    SUPPLEMENT_PATH.write_text(synchronized, encoding="utf-8")
 
 
 def validate_provenance() -> dict[str, object]:
@@ -1007,3 +1030,8 @@ def build_artifact(
 
 if __name__ == "__main__":
     build_artifact()
+    sync_supplement_table(
+        (
+            OUTPUT_DIRECTORY / "table_s1_versions_hashes_environments.md"
+        ).read_text(encoding="utf-8")
+    )

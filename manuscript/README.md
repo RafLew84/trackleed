@@ -42,16 +42,17 @@ describes the corresponding physical state or experimental role.
   1–8 and explicit placeholders for missing author, acquisition, and public
   release information.
 - [`supplementary-material.md`](supplementary-material.md) - working
-  supplementary document containing generated Tables S1–S5: software and
-  environments, measurement gates and denominators, stratified energy-scan
-  outcomes, Cu(111) pairwise physical endpoints, and controlled-translation
-  outcomes by source trial.
+  supplementary document containing generated Tables S1–S7.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
   manuscript's Pandoc-style citation keys.
 - [`claim-evidence-map.md`](claim-evidence-map.md) - permitted claims, numerical
   anchors, evidence sources, and limitations.
-- [`figures-and-tables.md`](figures-and-tables.md) - planned main and supplementary
-  display items.
+- [`figures-and-tables.md`](figures-and-tables.md) - generated final inventory
+  of exactly five main figures, two main tables, Figures S1–S6, and Tables
+  S1–S7.
+- [`publication_inventory/`](publication_inventory/) - cross-regime gate that
+  validates titles, roles, source/output hashes, builders, tests, rounding,
+  denominators, palette, and missing-value contracts for all final displays.
 - [`figures/`](figures/) - deterministic builders, source-data tables, manifests,
   and final publication assets.
 - [`tables/table01_data_evidence_roles/`](tables/table01_data_evidence_roles/) -
@@ -60,9 +61,10 @@ describes the corresponding physical state or experimental role.
 - [`tables/table02_tracking_methods_contract/`](tables/table02_tracking_methods_contract/) -
   deterministic tracking-method contract with five main strategies, a
   matched-weight SAM2-family control, and a separate whole-pattern reference.
-- [`tables/table03_cross_regime_summary/`](tables/table03_cross_regime_summary/) -
-  deterministic three-block summary of the common five-method results across
-  controlled translations, Cu(111), and independent Ag(111) energy scans.
+- [`tables/table_s7_cross_regime_summary/`](tables/table_s7_cross_regime_summary/) -
+  deterministic three-block supplementary summary of the common five-method
+  results across controlled translations, Cu(111), and independent Ag(111)
+  energy scans.
 - [`tables/table_s1_software_environments/`](tables/table_s1_software_environments/) -
   deterministic supplementary software/model inventory with run-frozen
   hashes and path-free snapshots of eight retained execution environments.
@@ -71,12 +73,15 @@ describes the corresponding physical state or experimental role.
   validation opportunities, and method-dependent conditional sample sizes.
 - [`tables/stratified_uncertainty/`](tables/stratified_uncertainty/) -
   finalized per-scan–pair Table S3 with leave-one-case-out sensitivity,
-  together with finalized per-trial controlled-translation Table S5,
   deterministic builder, and manifest.
 - [`tables/table_s4_cu111_endpoints/`](tables/table_s4_cu111_endpoints/) -
   deterministic Cu(111) method-by-pair endpoint table with full-precision
   source CSV, reader-facing supplement block, provenance hash chain, and
   manifest.
+- [`tables/table_s5_controlled_translation/`](tables/table_s5_controlled_translation/) -
+  controlled-translation outcomes by independently initialized source trial.
+- [`tables/table_s6_measurement_sensitivity/`](tables/table_s6_measurement_sensitivity/) -
+  full-precision measurement-window and capture-contract sensitivity results.
 - [`writing-checklist.md`](writing-checklist.md) - unresolved inputs and checks
   required before submission.
 - [`scientific_baseline/`](scientific_baseline/) - immutable input,

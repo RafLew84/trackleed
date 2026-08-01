@@ -1,4 +1,4 @@
-# Figure 2 - controlled measurement-chain equivariance
+# Figure 2 — Controlled estimator behavior
 
 Status: generated and validated.
 

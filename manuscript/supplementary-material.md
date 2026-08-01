@@ -4,12 +4,12 @@ This working supplement contains deterministic display items linked from the
 main manuscript. Internal archive identifiers and machine-specific paths are
 kept in committed provenance records rather than reader-facing tables.
 
-## Figure S1 — complete controlled-translation source trials
+## Figure S1 — Controlled-translation detail
 
 ![Complete controlled-translation trial paths and diagnostics](figures/figure_s1_controlled_translation_trials/output/figure_s1_controlled_translation_trials.png)
 
-**Figure S1. Complete controlled-translation paths and diagnostics by source
-trial.** Columns are the four independently initialized source states from one
+**Figure S1. Controlled-translation detail.** Columns are the four
+independently initialized source states from one
 Cu(111) series. The top row overlays the commanded path and every accepted
 Gaussian-refined spot path for all five trackers and the oracle ROI measurement
 control. The middle row retains every available native-versus-refined
@@ -19,10 +19,10 @@ conditional denominators are reported in Table S5. Known translations assess
 measurement-chain equivariance and common-estimator behavior, not absolute
 tracking accuracy or identity ground truth.
 
-## Table S1 — software, models, and execution environments
+## Table S1 — Software, models, versions, hashes and environments
 
 <!-- BEGIN TABLE S1 -->
-**Table S1. Software versions, revisions, frozen artifacts, configuration hashes, and retained execution environments.** Software and model identities and the run-frozen records in blocks A and B come from the completed execution contracts. Where a method-level configuration was not frozen during a run, block B instead reports a post-run normalized record derived from the archived executed source; the status column distinguishes these cases. The package inventories in block C were captured on 2026-07-29 after the completed runs from the retained local environments; they document the preserved runtimes, but this record does not establish bitwise reproducibility of GPU inference. The retained execution host was `Microsoft Windows NT 10.0.26200.0, 64-bit` with an NVIDIA GeForce RTX 4070 Laptop GPU (8188 MiB, driver 610.62).
+**Table S1. Software, models, versions, hashes and environments.** Software and model identities and the run-frozen records in blocks A and B come from the completed execution contracts. Where a method-level configuration was not frozen during a run, block B instead reports a post-run normalized record derived from the archived executed source; the status column distinguishes these cases. The package inventories in block C were captured on 2026-07-29 after the completed runs from the retained local environments; they document the preserved runtimes, but this record does not establish bitwise reproducibility of GPU inference. The retained execution host was `Microsoft Windows NT 10.0.26200.0, 64-bit` with an NVIDIA GeForce RTX 4070 Laptop GPU (8188 MiB, driver 610.62).
 
 **A. Software and model identity**
 
@@ -68,10 +68,10 @@ tracking accuracy or identity ground truth.
 | viperleed-imagej | ViPErLEED whole-pattern tracking | ImageJ 1.54u; OpenJDK 1.8.0_345; ViPErLEED ImageJ plugin 1.03 | not applicable | JVM/CPU | e64540325636048157605336981c63f3680b31b1c5808a1e1d49803f893d6ac3 |
 <!-- END TABLE S1 -->
 
-## Table S2 — Gaussian measurement gates and validation denominators
+## Table S2 — Gaussian gates, fixed opportunity sets and conditional denominators
 
 <!-- BEGIN TABLE S2 -->
-**Table S2. Gaussian measurement gates and validation denominators.** Block A lists the run-frozen acceptance contract and separates Gaussian acceptance from the subsequent energy-branch consistency classification. Block B retains every predefined opportunity in its fixed denominator, including unavailable proposals and rejected fits. Block C gives the method-dependent n used only for statistics conditional on available native outputs, accepted Gaussian measurements, or jointly branch-consistent pairs. Counts pool repeated observations of propagated trajectories; images, spot opportunities, pair images, and gaps are not statistically independent replicates.
+**Table S2. Gaussian gates, fixed opportunity sets and conditional denominators.** Block A lists the run-frozen acceptance contract and separates Gaussian acceptance from the subsequent energy-branch consistency classification. Block B retains every predefined opportunity in its fixed denominator, including unavailable proposals and rejected fits. Block C gives the method-dependent n used only for statistics conditional on available native outputs, accepted Gaussian measurements, or jointly branch-consistent pairs. Counts pool repeated observations of propagated trajectories; images, spot opportunities, pair images, and gaps are not statistically independent replicates.
 
 **A. Gaussian measurement and evaluation gates**
 
@@ -99,9 +99,9 @@ tracking accuracy or identity ground truth.
 | Cu(111) positive control | D_ref eligibility window | Fixed eligibility window | 10 per method–pair | initial pair–image opportunities | First 10 images; at least 8 valid pair distances required | Applied separately to every method–pair endpoint | This gate determines whether the relative endpoint exists. |
 | Cu(111) pair 2–4 diagnostic | Consecutive amplitude-only fit failures | Separate diagnostic | 24 | rejected Gaussian candidates | 24 consecutive proposal-present candidates; all passed R², center, and width gates but failed amplitude | Earlier saved YOLO proposal trajectory; outside the five-method matrix | Diagnostic count, not a denominator for comparing the five methods. |
 | Independent energy scans | Branch-consistent measurement coverage | Fixed opportunity | 221 | baseline-visible spot opportunities | Frozen tracker-independent baseline across four scan–pair cases | Two independently acquired series; four frozen scan–pair cases | Every method uses the same 221 opportunities. |
-| Independent energy scans | Post-gap identity recovery | Fixed opportunity | 24 | evaluable natural I(V) gaps | Baseline gaps bracketed by visible measurements on the same branch | Two independently acquired series; four frozen scan–pair cases | Every method uses the same 24 gaps. |
+| Independent energy scans | Post-gap branch-consistent recovery | Fixed opportunity | 24 | evaluable natural I(V) gaps | Baseline gaps bracketed by visible measurements on the same branch | Two independently acquired series; four frozen scan–pair cases | Every method uses the same 24 gaps. |
 | Controlled SAM2 family | Branch-consistent measurement coverage | Fixed opportunity | 182 | baseline-visible spot opportunities | Frozen baseline for two pairs in one memory-analysis scan | One series; two frozen pairs | Mechanism experiment, not a population ranking. |
-| Controlled SAM2 family | Post-gap identity recovery | Fixed opportunity | 13 | evaluable natural I(V) gaps | Baseline gaps bracketed by visible measurements on the same branch | One series; two frozen pairs | Mechanism experiment, not a population ranking. |
+| Controlled SAM2 family | Post-gap branch-consistent recovery | Fixed opportunity | 13 | evaluable natural I(V) gaps | Baseline gaps bracketed by visible measurements on the same branch | One series; two frozen pairs | Mechanism experiment, not a population ranking. |
 | Restricted external reference | Branch-image coverage | Fixed opportunity | 60 | branch–image opportunities | 15 images × 4 frozen branches | Subset of the memory-analysis scan; two pairs | 60 opportunities for EasyLEED and 60 for ViPErLEED. |
 | Restricted external reference | Predefined branch-gap checks | Fixed opportunity | 4 | branch-gap checks | One check for each frozen branch | Subset of the memory-analysis scan; two pairs | Compatibility check, not external position ground truth. |
 | Cu(111) frozen visual audit | Combined overlay review | Audit sample | 24 | combined overlays | 12 temporal quantiles + 12 temperature-cycle anchors selected independently of method output | One Cu(111) sequence | Audit only; not a metric denominator and not used to correct outcomes. |
@@ -121,14 +121,14 @@ tracking accuracy or identity ground truth.
 | Restricted external reference | Common-Gaussian center agreement | Conditional jointly accepted fits | jointly accepted common centers | EasyLEED–ViPErLEED=38 jointly accepted centers | Both native outputs yield an accepted common Gaussian center for the same branch image | Reported alongside fixed branch-image denominator 60 per method. |
 <!-- END TABLE S2 -->
 
-## Table S3 — stratified Ag(111) energy-scan outcomes
+## Table S3 — Ag(111) outcomes by scan–pair and leave-one-case-out
 
 <!-- BEGIN TABLE S3 -->
-**Table S3. Stratified outcomes for the independent Ag(111) energy-scan stress test.** Coverage is branch-consistent measurements / baseline-visible opportunities; post-gap identity recovery is recovered / evaluable natural I(V) gaps; geometry inconsistency is accepted Gaussian fits more than 18 px from the expected branch / all accepted Gaussian fits across all visibility regimes. The conditional residual is the median absolute pair-distance residual and is evaluated only when both branches are valid and branch-consistent, with its surviving pair-frame n shown separately. The four scan–pair cases are descriptive strata from two independently acquired scans, not four independent acquisitions.
+**Table S3. Ag(111) outcomes by scan–pair and leave-one-case-out.** Coverage is branch-consistent measurements / baseline-visible opportunities; post-gap branch-consistent recovery is recovered / evaluable natural I(V) gaps; geometry inconsistency is accepted Gaussian fits more than 18 px from the expected branch / all accepted Gaussian fits across all visibility regimes. The conditional residual is the median absolute pair-distance residual and is evaluated only when both branches are valid and branch-consistent, with its surviving pair-frame n shown separately. The four scan–pair cases are descriptive strata from two independently acquired scans, not four independent acquisitions.
 
 **A. Outcomes by frozen scan–pair case**
 
-| Scan | Pair | Method | Branch-consistent coverage | Post-gap identity recovery | Geometry-inconsistent accepted fits | Conditional median absolute pair-distance residual [px] | Conditional n |
+| Scan | Pair | Method | Branch-consistent coverage | Post-gap branch-consistent recovery | Geometry-inconsistent accepted fits | Conditional median absolute pair-distance residual [px] | Conditional n |
 |---|---|---|---:|---:|---:|---:|---:|
 | Scan A | pair 1 | LocoTrack | 44/44 | 5/5 | 9/57 | 1.983 | 18 |
 | Scan A | pair 1 | OSTrack | 44/44 | 5/5 | 9/58 | 1.822 | 19 |
@@ -153,9 +153,9 @@ tracking accuracy or identity ground truth.
 
 **B. Leave-one-case-out sensitivity**
 
-Each of the four frozen scan–pair cases is omitted once. The remaining three cases are pooled and only the count-based coverage, post-gap identity recovery, and geometry-inconsistency rates are recomputed. The displayed extrema across the four omissions are a sensitivity check, not a confidence interval. Conditional case-median residuals are not reaggregated.
+Each of the four frozen scan–pair cases is omitted once. The remaining three cases are pooled and only the count-based coverage, post-gap branch-consistent recovery, and geometry-inconsistency rates are recomputed. The displayed extrema across the four omissions are a sensitivity check, not a confidence interval. Conditional case-median residuals are not reaggregated.
 
-| Method | Coverage range | Post-gap identity recovery range | Geometry-inconsistency range |
+| Method | Coverage range | Post-gap branch-consistent recovery range | Geometry-inconsistency range |
 |---|---:|---:|---:|
 | LocoTrack | 97.4–98.8% | 94.1–100.0% | 12.6–13.5% |
 | OSTrack | 97.2–98.8% | 84.2–88.9% | 11.8–13.5% |
@@ -167,7 +167,7 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 ## Table S4 — Cu(111) pairwise physical endpoints
 
 <!-- BEGIN TABLE S4 -->
-**Table S4. Cu(111) pairwise relative spot-radius endpoints by tracking method.** Values are ΔR/R = ΔD/D in percent after the native proposal from each method entered the common Gaussian measurement. Every method produced 701/701 valid endpoints for each primary pair. The 800 °C plateau is the median of a predefined five-image interval. The post-plateau minimum was selected as the lowest value after that interval; it occurred in the common image acquired at 797 °C and is therefore outcome-selected. The final cooled state is the predefined final image acquired at 92 °C. D_ref is the median valid pair distance in the first ten images, with at least eight required. Cross-method concordance after common refinement is not external absolute accuracy or an overall tracker ranking. The two pairs come from one series, are not independent replicates, and do not establish crystallographic anisotropy.
+**Table S4. Cu(111) pairwise physical endpoints.** Values are ΔR/R = ΔD/D in percent after the native proposal from each method entered the common Gaussian measurement. Every method produced 701/701 valid endpoints for each primary pair. The 800 °C plateau is the median of a predefined five-image interval. The post-plateau minimum was selected as the lowest value after that interval; it occurred in the common image acquired at 797 °C and is therefore outcome-selected. The final cooled state is the predefined final image acquired at 92 °C. D_ref is the median valid pair distance in the first ten images, with at least eight required. Cross-method concordance after common refinement is not external absolute accuracy or an overall tracker ranking. The two pairs come from one series, are not independent replicates, and do not establish crystallographic anisotropy.
 
 | Pair | Method | Valid endpoints | 800 °C plateau median ΔR/R [%] | Post-plateau minimum (797 °C) ΔR/R [%] | Final cooled state (92 °C) ΔR/R [%] |
 |---|---|---:|---:|---:|---:|
@@ -183,10 +183,10 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 | 3–5 | EasyLEED | 701/701 | −1.570755 | −1.580123 | −0.152343 |
 <!-- END TABLE S4 -->
 
-## Table S5 — controlled translations by source trial
+## Table S5 — Controlled translations by source trial
 
 <!-- BEGIN TABLE S5 -->
-**Table S5. Controlled-translation outcomes by independently initialized source trial.** Each deterministic six-image trial contains one seed and five evaluation steps on the same closed path, providing 20 spot-step and 10 pair-step fixed opportunities per method. Displacement summaries are conditional on accepted Gaussian measurements; pair invariance is conditional on jointly valid pairs, and both conditional n values are shown. The four source trials are descriptive strata drawn from one Cu(111) series, not four independent acquisitions. The oracle ROI is a measurement control, not a tracker. Known translations assess measurement-chain equivariance and common-estimator behavior, not absolute tracking accuracy and not identity ground truth.
+**Table S5. Controlled translations by source trial.** Each deterministic six-image trial contains one seed and five evaluation steps on the same closed path, providing 20 spot-step and 10 pair-step fixed opportunities per method. Displacement summaries are conditional on accepted Gaussian measurements; pair invariance is conditional on jointly valid pairs, and both conditional n values are shown. The four source trials are descriptive strata drawn from one Cu(111) series, not four independent acquisitions. The oracle ROI is a measurement control, not a tracker. Known translations assess measurement-chain equivariance and common-estimator behavior, not absolute tracking accuracy and not identity ground truth.
 
 | Trial | T [deg C] | Method | Proposal / constructed-ROI coverage | Gaussian measurement coverage | Conditional median / P95 / max displacement error [px] (n) | Pair coverage | Max absolute Delta D/D [pp] (n) |
 |---|---:|---|---:|---:|---:|---:|---:|
@@ -216,10 +216,10 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 | final cooled state | 92 | Oracle ROI control | 20/20 | 20/20 | 0.0039 / 0.0084 / 0.0102 (n=20) | 10/10 | 0.000161 (n=10) |
 <!-- END TABLE S5 -->
 
-## Table S6 — measurement-window and capture-contract sensitivity
+## Table S6 — Measurement-window and capture-contract sensitivity
 
 <!-- BEGIN TABLE S6 -->
-**Table S6. Measurement-window and capture-contract sensitivity for the independent Ag(111) stress test.** Coverage uses the fixed denominator 221 and post-gap branch-consistent recovery uses the fixed denominator 24. Geometry inconsistency is conditional on all accepted fits, while the pair-distance residual retains its method- and variant-specific conditional n. Values below retain full source precision. No comparative rank or automatic configuration selection is implied.
+**Table S6. Measurement-window and capture-contract sensitivity.** For the independent Ag(111) stress test, coverage uses the fixed denominator 221 and post-gap branch-consistent recovery uses the fixed denominator 24. Geometry inconsistency is conditional on all accepted fits, while the pair-distance residual retains its method- and variant-specific conditional n. Values below retain full source precision. No comparative rank or automatic configuration selection is implied.
 
 | Variant | Family | Method | ROI [px] | Proposal-to-fit [px] | Branch tolerance [px] | R² minimum | Amplitude minimum | Coverage | Recovery | Geometry inconsistency | Conditional median / P95 residual [px] (n) |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -299,3 +299,39 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 | amplitude_multiplier_1p25 | amplitude_ofat | DAM4SAM | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
 | amplitude_multiplier_1p25 | amplitude_ofat | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 188/221 | 17/24 | 14/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
 <!-- END TABLE S6 -->
+
+## Table S7 — Cross-regime numerical summary
+
+<!-- BEGIN TABLE S7 -->
+**Table S7. Cross-regime numerical summary.** Each block answers a distinct validation question and retains its original denominators. The translation block uses 80 displaced-spot and 40 displaced-pair evaluation opportunities per method; the four initialization states reported in Table 1 are not displacement evaluations. Translation errors are conditional on accepted Gaussian measurements, with coverage shown first. The energy-scan residual is conditional on jointly branch-consistent pair frames and is shown with its n. Cu endpoint deviations are agreement with the framewise five-method median, not absolute accuracy. DAM4SAM used sam21pp-L for Cu(111) and controlled translations, and sam21pp-B for the energy scans. No composite score or rank is calculated.
+
+**Controlled translation**
+
+| Method | Proposal coverage | Measurement coverage | Median / P95 displacement error [px] | Pair coverage | Maximum absolute Delta D/D [pp] |
+|---|---|---|---|---|---|
+| LocoTrack | 80/80 (100.00%) | 80/80 (100.00%) | 0.0043 / 0.0130 | 40/40 (100.00%) | 0.001229 |
+| OSTrack | 80/80 (100.00%) | 80/80 (100.00%) | 0.0048 / 0.0168 | 40/40 (100.00%) | 0.001952 |
+| DAM4SAM | 80/80 (100.00%) | 80/80 (100.00%) | 0.0060 / 0.0154 | 40/40 (100.00%) | 0.001869 |
+| Lucas–Kanade | 76/80 (95.00%) | 76/80 (95.00%) | 0.0050 / 0.0127 | 36/40 (90.00%) | 0.001042 |
+| EasyLEED | 80/80 (100.00%) | 74/80 (92.50%) | 0.0265 / 0.3818 | 34/40 (85.00%) | 0.062943 |
+
+**Cu(111) positive control**
+
+| Method | Gaussian measurement coverage | Valid endpoints (pair 1-6; pair 3-5) | Median / maximum endpoint deviation [pp] |
+|---|---|---|---|
+| LocoTrack | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000004 / 0.000299 |
+| OSTrack | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000134 / 0.001752 |
+| DAM4SAM | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000242 / 0.001564 |
+| Lucas–Kanade | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000037 / 0.000462 |
+| EasyLEED | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000256 / 0.000949 |
+
+**Independent Ag(111) energy-scan stress test**
+
+| Method | Branch-consistent measurement coverage | Post-gap branch-consistent recovery | Geometry-inconsistent continuation | Conditional median pair-distance residual [px] (n) |
+|---|---|---|---|---|
+| LocoTrack | 217/221 (98.19%) | 23/24 (95.83%) | 36/272 (13.24%) | 1.837 (n=91) |
+| OSTrack | 216/221 (97.74%) | 21/24 (87.50%) | 34/269 (12.64%) | 1.770 (n=90) |
+| DAM4SAM | 216/221 (97.74%) | 23/24 (95.83%) | 36/272 (13.24%) | 1.788 (n=91) |
+| Lucas–Kanade | 188/221 (85.07%) | 17/24 (70.83%) | 14/206 (6.80%) | 1.764 (n=68) |
+| EasyLEED | 214/221 (96.83%) | 22/24 (91.67%) | 4/222 (1.80%) | 1.737 (n=84) |
+<!-- END TABLE S7 -->

@@ -72,7 +72,7 @@ def build_manifest(outputs: dict[str, Path]) -> dict[str, object]:
         "schema_version": "1.1",
         "status": "completed",
         "figure": "Figure 2",
-        "title": "Controlled measurement-chain equivariance",
+        "title": "Controlled estimator behavior",
         "panel_order": list(PANEL_ORDER),
         "code_sha256": _code_hashes(),
         "source_artifacts": provenance["sources"],

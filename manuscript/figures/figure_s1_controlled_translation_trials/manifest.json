@@ -12,12 +12,12 @@
   ],
   "implementation_sha256": {
     "trackleed/analysis/controlled_translation_evidence.py": "d64e2fb3e5e051e05c877d234aa29d24259b1bc4e9f1b0b1b09f3b9bd8d570e4",
-    "trackleed/publication/controlled_translation_figure_s1.py": "1aeaf7843f4b955601a09566267756ac6bd301d7f46c074347bc59c84c230a02",
+    "trackleed/publication/controlled_translation_figure_s1.py": "b7e00031c072cd1ca12a7833267a00a0fb27592ab23deffbc59cd346742c671d",
     "trackleed/publication/controlled_translation_sources.py": "e95bc5fa7a1f117a2686ef4cc3def97419d8d87b23df45d9f666f2e36ebb4422"
   },
   "outputs_sha256": {
-    "figure_s1_controlled_translation_trials.pdf": "d803273c5b6749550d21c0050755c7c2aaaa8d6060546bb24c7d7e99dee72911",
-    "figure_s1_controlled_translation_trials.png": "54aba52771abb21fbbc2f44ba3deb778833b8d1e3e37d795239ca1514c856bec"
+    "figure_s1_controlled_translation_trials.pdf": "4951a9a73b921815b6643724377b38d8732ef783ddd837f224b011b2df5cb449",
+    "figure_s1_controlled_translation_trials.png": "390fe609832698e65acb2c61ec5c66fe809603b2fee0e1808418f8e98d233dca"
   },
   "pair_record_count": 288,
   "panel_count": 12,
@@ -49,6 +49,6 @@
   },
   "spot_record_count": 576,
   "status": "completed",
-  "title": "Complete controlled-translation trial paths and diagnostics",
+  "title": "Controlled-translation detail",
   "trial_count": 4
 }

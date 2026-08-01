@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for main Table 3 and its manuscript copy."""
+"""Contract tests for Table S7 and its supplementary-material copy."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import build_table
 
 
 TABLE_ROOT = Path(__file__).resolve().parent
-MANUSCRIPT_PATH = TABLE_ROOT.parents[1] / "manuscript.md"
+SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 
 
 class CrossRegimeSummaryTableTest(unittest.TestCase):
@@ -74,7 +74,7 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
             "188/221 (85.07%)",
         )
         self.assertEqual(
-            energy_scan["post_gap_identity_recovery"],
+            energy_scan["branch_consistent_recovery"],
             "17/24 (70.83%)",
         )
         self.assertEqual(
@@ -114,7 +114,7 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
             rendered,
         )
         self.assertIn(
-            "Translation displacement errors are conditional",
+            "Translation errors are conditional",
             rendered,
         )
         self.assertIn(
@@ -172,8 +172,8 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
             self.assertEqual(
                 set(first_bytes),
                 {
-                    "table03_quantitative_summary.csv",
-                    "table03_quantitative_summary.md",
+                    "table_s7_cross_regime_summary.csv",
+                    "table_s7_cross_regime_summary.md",
                 },
             )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -181,6 +181,22 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
             self.assertEqual(manifest["status"], "completed")
             self.assertEqual(manifest["table_contract"]["method_count"], 5)
             self.assertEqual(manifest["table_contract"]["block_count"], 3)
+            self.assertEqual(
+                manifest["table_contract"]["placement"],
+                "supplementary",
+            )
+            self.assertEqual(
+                manifest["table_contract"][
+                    "translation_displaced_spot_opportunities_per_method"
+                ],
+                80,
+            )
+            self.assertEqual(
+                manifest["table_contract"][
+                    "translation_displaced_pair_opportunities_per_method"
+                ],
+                40,
+            )
             self.assertEqual(
                 manifest["table_contract"]["ranking_policy"],
                 "no composite score, rank, or rank-like color scale",
@@ -194,16 +210,16 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
             self.assertEqual(len(manifest["outputs"]), 2)
 
             with (
-                output_directory / "table03_quantitative_summary.csv"
+                output_directory / "table_s7_cross_regime_summary.csv"
             ).open(newline="", encoding="utf-8") as handle:
                 rows = list(csv.DictReader(handle))
             self.assertEqual(len(rows), 5)
             self.assertNotIn("score", {key.lower() for key in rows[0]})
             self.assertNotIn("rank", {key.lower() for key in rows[0]})
 
-    def test_manuscript_copy_matches_generated_markdown(self) -> None:
-        manuscript = MANUSCRIPT_PATH.read_text(encoding="utf-8")
-        table_block = build_table.extract_manuscript_table(manuscript)
+    def test_supplement_copy_matches_generated_markdown(self) -> None:
+        supplement = SUPPLEMENT_PATH.read_text(encoding="utf-8")
+        table_block = build_table.extract_supplement_table(supplement)
         rendered = build_table.render_markdown(
             build_table.build_blocks(
                 build_table.load_and_validate_source()
@@ -212,13 +228,11 @@ class CrossRegimeSummaryTableTest(unittest.TestCase):
 
         self.assertEqual(table_block, rendered)
         self.assertGreater(
-            manuscript.index(build_table.MANUSCRIPT_BEGIN_MARKER),
-            manuscript.index("### 5.3 Energy scans"),
+            supplement.index(build_table.SUPPLEMENT_BEGIN_MARKER),
+            supplement.index("<!-- END TABLE S6 -->"),
         )
-        self.assertLess(
-            manuscript.index(build_table.MANUSCRIPT_END_MARKER),
-            manuscript.index("### 5.4 Memory-aware strategies"),
-        )
+        self.assertEqual(supplement.count("<!-- BEGIN TABLE S7 -->"), 1)
+        self.assertEqual(supplement.count("<!-- END TABLE S7 -->"), 1)
 
 
 if __name__ == "__main__":

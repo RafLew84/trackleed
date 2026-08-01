@@ -333,7 +333,7 @@ def build(
         "schema_version": "1.0",
         "status": "completed",
         "figure": "Figure S5",
-        "title": "Source-linked examples of geometry-inconsistent continuation",
+        "title": "Geometry-inconsistent continuation examples",
         "contract_sha256": sha256_file(CONTRACT_PATH),
         "code_sha256": _code_hashes(),
         "source_data_sha256": _source_hashes(),

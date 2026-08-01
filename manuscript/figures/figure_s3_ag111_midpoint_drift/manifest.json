@@ -2,11 +2,11 @@
   "case_count": 4,
   "claims_absolute_position_accuracy": false,
   "code_sha256": {
-    "build_figure.py": "3f8623590d4192a8d8ec4fba8390198ea6d0ea551b82dfe63cad365700910db0",
+    "build_figure.py": "32a2ad2292667070dd51040f43c86c5c62dc71a4590768e8d8c1702150462ec6",
     "freeze_source_data.py": "f183125fca1d2f314de75b0703d9e1aab39c353faf08972815fa946d7a57e7e0",
     "test_build_figure.py": "f17cfa2bbf981f574520602dddcfc2678aca27fe529baf0ee62fa5ef1c96bb13"
   },
-  "contract_sha256": "7ffa53f4862d6b47abdbca3690830571bd161f042c95f6300a99af5249089b33",
+  "contract_sha256": "9801369f175b15fa071d45caed0d3455fac2fcf0ea20dd4e6f7501333d3c4d72",
   "environment": {
     "matplotlib": "3.10.7",
     "numpy": "2.2.6",
@@ -41,7 +41,7 @@
     "source_data/visibility_regimes.csv": "abce277d8ff2c8517ae73ae33f6d6dd54d744559fe5d84b725399aac7625a201"
   },
   "status": "completed",
-  "title": "Ag(111) pair-midpoint drift and apparatus/projection diagnostics",
+  "title": "Pair-midpoint drift and apparatus/projection diagnostics",
   "valid_pair_frame_count": 89,
   "visibility_branch_frame_count": 324
 }

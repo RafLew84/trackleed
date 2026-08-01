@@ -78,8 +78,8 @@ def render_table_s5(rows: list[TrialOutcome]) -> str:
 
     lines = [
         (
-            "**Table S5. Controlled-translation outcomes by independently "
-            "initialized source trial.** Each deterministic six-image trial "
+            "**Table S5. Controlled translations by source trial.** Each "
+            "deterministic six-image trial "
             "contains one seed and five evaluation steps on the same closed "
             "path, providing 20 spot-step and 10 pair-step fixed opportunities "
             "per method. Displacement summaries are conditional on accepted "
@@ -150,7 +150,7 @@ def build_table_s5_artifact(
         "schema_version": 1,
         "status": "completed",
         "table": "Table S5",
-        "title": "Controlled-translation outcomes by source trial",
+        "title": "Controlled translations by source trial",
         "row_count": len(rows),
         "trial_count": len({row.source_frame_order for row in rows}),
         "method_count": len({row.method for row in rows}),
@@ -217,7 +217,7 @@ def synchronize_table_s5(
     elif (begin_count, end_count) == (0, 0):
         updated = (
             supplement.rstrip()
-            + "\n\n## Table S5 - controlled translations by source trial\n\n"
+            + "\n\n## Table S5 — Controlled translations by source trial\n\n"
             + block
             + "\n"
         )

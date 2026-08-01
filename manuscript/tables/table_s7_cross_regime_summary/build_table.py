@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build main Table 3 without collapsing distinct evidence roles."""
+"""Build supplementary Table S7 without collapsing evidence roles."""
 
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ SOURCE_PROVENANCE_PATH = SOURCE_DATA_DIRECTORY / "source_provenance.json"
 OUTPUT_DIRECTORY = TABLE_ROOT / "output"
 MANIFEST_PATH = TABLE_ROOT / "manifest.json"
 
-MANUSCRIPT_BEGIN_MARKER = "<!-- BEGIN TABLE 3 -->"
-MANUSCRIPT_END_MARKER = "<!-- END TABLE 3 -->"
+SUPPLEMENT_BEGIN_MARKER = "<!-- BEGIN TABLE S7 -->"
+SUPPLEMENT_END_MARKER = "<!-- END TABLE S7 -->"
 
 EXPECTED_METHODS = (
     "locotrack",
@@ -217,7 +217,7 @@ def build_blocks(
                     _as_int(row, "scane_branch_consistent_measurements"),
                     visible_opportunities,
                 ),
-                "post_gap_identity_recovery": _count_with_rate(
+                "branch_consistent_recovery": _count_with_rate(
                     _as_int(row, "scane_recovered_gaps"),
                     evaluated_gaps,
                 ),
@@ -275,9 +275,12 @@ def render_markdown(
 
     lines = [
         (
-            "**Table 3. Quantitative summary across evidence regimes.** "
+            "**Table S7. Cross-regime numerical summary.** "
             "Each block answers a distinct validation question and retains "
-            "its original denominators. Translation displacement errors are "
+            "its original denominators. The translation block uses 80 "
+            "displaced-spot and 40 displaced-pair evaluation opportunities "
+            "per method; the four initialization states reported in Table 1 "
+            "are not displacement evaluations. Translation errors are "
             "conditional on accepted Gaussian measurements, with coverage "
             "shown first. The energy-scan residual is conditional on jointly "
             "branch-consistent pair frames and is shown with its n. Cu endpoint "
@@ -341,8 +344,8 @@ def render_markdown(
                     "Branch-consistent measurement coverage",
                 ),
                 (
-                    "post_gap_identity_recovery",
-                    "Post-gap identity recovery",
+                    "branch_consistent_recovery",
+                    "Post-gap branch-consistent recovery",
                 ),
                 (
                     "geometry_inconsistent_continuation",
@@ -359,18 +362,18 @@ def render_markdown(
     return "\n".join(lines) + "\n"
 
 
-def extract_manuscript_table(manuscript: str) -> str:
-    """Return the normalized generated block between Table 3 markers."""
+def extract_supplement_table(supplement: str) -> str:
+    """Return the normalized generated block between Table S7 markers."""
 
-    if manuscript.count(MANUSCRIPT_BEGIN_MARKER) != 1:
-        raise ValueError("Manuscript must contain one Table 3 begin marker.")
-    if manuscript.count(MANUSCRIPT_END_MARKER) != 1:
-        raise ValueError("Manuscript must contain one Table 3 end marker.")
-    start = manuscript.index(MANUSCRIPT_BEGIN_MARKER) + len(
-        MANUSCRIPT_BEGIN_MARKER
+    if supplement.count(SUPPLEMENT_BEGIN_MARKER) != 1:
+        raise ValueError("Supplement must contain one Table S7 begin marker.")
+    if supplement.count(SUPPLEMENT_END_MARKER) != 1:
+        raise ValueError("Supplement must contain one Table S7 end marker.")
+    start = supplement.index(SUPPLEMENT_BEGIN_MARKER) + len(
+        SUPPLEMENT_BEGIN_MARKER
     )
-    end = manuscript.index(MANUSCRIPT_END_MARKER, start)
-    return manuscript[start:end].strip("\n") + "\n"
+    end = supplement.index(SUPPLEMENT_END_MARKER, start)
+    return supplement[start:end].strip("\n") + "\n"
 
 
 def validate_provenance() -> dict[str, object]:
@@ -451,8 +454,8 @@ def flatten_blocks(
                 "Energy-scan branch-consistent measurement coverage": (
                     energy_scan["measurement_coverage"]
                 ),
-                "Energy-scan post-gap identity recovery": (
-                    energy_scan["post_gap_identity_recovery"]
+                "Energy-scan post-gap branch-consistent recovery": (
+                    energy_scan["branch_consistent_recovery"]
                 ),
                 "Energy-scan geometry-inconsistent continuation": (
                     energy_scan["geometry_inconsistent_continuation"]
@@ -469,7 +472,7 @@ def flatten_blocks(
 
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     if not rows:
-        raise ValueError("Cannot write an empty Table 3.")
+        raise ValueError("Cannot write an empty Table S7.")
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
@@ -491,18 +494,18 @@ def build_artifact(
     blocks = build_blocks(rows)
     output_directory.mkdir(parents=True, exist_ok=True)
     output_paths = {
-        "table03_quantitative_summary.csv": (
-            output_directory / "table03_quantitative_summary.csv"
+        "table_s7_cross_regime_summary.csv": (
+            output_directory / "table_s7_cross_regime_summary.csv"
         ),
-        "table03_quantitative_summary.md": (
-            output_directory / "table03_quantitative_summary.md"
+        "table_s7_cross_regime_summary.md": (
+            output_directory / "table_s7_cross_regime_summary.md"
         ),
     }
     _write_csv(
-        output_paths["table03_quantitative_summary.csv"],
+        output_paths["table_s7_cross_regime_summary.csv"],
         flatten_blocks(blocks),
     )
-    output_paths["table03_quantitative_summary.md"].write_text(
+    output_paths["table_s7_cross_regime_summary.md"].write_text(
         render_markdown(blocks),
         encoding="utf-8",
     )
@@ -511,8 +514,13 @@ def build_artifact(
         "schema_version": "1.0",
         "status": "completed",
         "table_contract": {
+            "placement": "supplementary",
+            "table": "Table S7",
             "method_count": 5,
             "block_count": 3,
+            "translation_displaced_spot_opportunities_per_method": 80,
+            "translation_displaced_pair_opportunities_per_method": 40,
+            "translation_initialization_states_are_not_evaluations": True,
             "ranking_policy": (
                 "no composite score, rank, or rank-like color scale"
             ),

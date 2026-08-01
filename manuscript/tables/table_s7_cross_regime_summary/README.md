@@ -1,6 +1,6 @@
-# Table 3: quantitative summary across evidence regimes
+# Table S7: cross-regime numerical summary
 
-This artifact builds the manuscript's main cross-regime quantitative table
+This artifact builds the supplementary cross-regime numerical table
 from a frozen five-method evidence matrix. One numbered table is rendered as
 three vertically stacked blocks because the regimes answer different
 questions and do not share one meaningful performance axis:
@@ -9,8 +9,9 @@ questions and do not share one meaningful performance axis:
   conditional displacement error, pair coverage, and pair invariance;
 - the Cu(111) positive control reports Gaussian-measurement and endpoint
   availability together with agreement against the framewise method median;
-- the independent Ag(111) energy scans report measurement coverage, post-gap
-  identity recovery, geometry-inconsistent continuation, and the conditional
+- the independent Ag(111) energy scans report measurement coverage,
+  post-gap branch-consistent recovery, geometry-inconsistent continuation, and
+  the conditional
   pair-distance residual with its surviving pair-frame count.
 
 No composite score, ranking, or rank-like color scale is produced. The caption
@@ -19,15 +20,16 @@ translations but `sam21pp-B` for the independent energy scans.
 
 ## Files
 
-- `source_data/method_evidence_matrix.csv` is a byte-identical committed
-  snapshot of the completed cross-regime evidence matrix.
+- `source_data/method_evidence_matrix.csv` is a value-preserving committed
+  snapshot of the completed cross-regime evidence matrix; provenance retains
+  both the original and normalized snapshot hashes.
 - `source_data/source_provenance.json` records the original and frozen paths
   and SHA-256 hashes.
 - `build_table.py` validates the common denominators and generates the outputs.
-- `output/table03_quantitative_summary.csv` provides one machine-readable row
+- `output/table_s7_cross_regime_summary.csv` provides one machine-readable row
   per method with regime-prefixed columns.
-- `output/table03_quantitative_summary.md` contains the exact block copied
-  between the generated markers after Section 5.3 of the manuscript.
+- `output/table_s7_cross_regime_summary.md` contains the exact block copied
+  between the generated markers in `supplementary-material.md`.
 - `manifest.json` records source, builder, contract, and output hashes.
 
 ## Rebuild and verify
@@ -40,5 +42,5 @@ From this directory:
 ```
 
 The tests verify the frozen numerical anchors, source hash, block structure,
-conditional denominators, deterministic outputs, and exact manuscript
+conditional denominators, deterministic outputs, and exact supplement
 synchronization.

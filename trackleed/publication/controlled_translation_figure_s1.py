@@ -292,7 +292,7 @@ def _render_figure(
         fontsize=6.6,
     )
     figure.suptitle(
-        "Figure S1 | Complete controlled-translation trial paths and diagnostics",
+        "Figure S1 | Controlled-translation detail",
         x=0.06,
         y=0.987,
         ha="left",
@@ -315,7 +315,7 @@ def _render_figure(
         pdf_path,
         dpi=300,
         metadata={
-            "Title": "Figure S1 controlled-translation trials",
+            "Title": "Controlled-translation detail",
             "Creator": "trackleed deterministic builder",
             "CreationDate": None,
             "ModDate": None,
@@ -351,7 +351,7 @@ def build_figure_s1_artifact(
         "schema_version": 1,
         "status": "completed",
         "figure": "Figure S1",
-        "title": "Complete controlled-translation trial paths and diagnostics",
+        "title": "Controlled-translation detail",
         "trial_count": report["trial_count"],
         "panel_count": len(panel_order),
         "panel_order": panel_order,

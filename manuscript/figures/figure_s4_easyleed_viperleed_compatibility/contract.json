@@ -2,7 +2,7 @@
   "figure": "Figure S4",
   "schema_version": "1.0",
   "status": "source_contract_frozen",
-  "title": "EasyLEED-ViPErLEED compatibility under the common Gaussian estimator",
+  "title": "EasyLEED–ViPErLEED compatibility",
   "methods": ["EasyLEED", "ViPErLEED"],
   "frame_count": 15,
   "branch_opportunities_per_method": 60,

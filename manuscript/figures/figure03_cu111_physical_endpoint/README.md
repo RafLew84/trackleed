@@ -1,4 +1,4 @@
-# Figure 3 - propagation to the Cu(111) physical endpoint
+# Figure 3 — Propagation to the Cu(111) physical endpoint
 
 Status: generated and validated.
 

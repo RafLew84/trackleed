@@ -20,7 +20,7 @@ one propagated trajectory as independent replicates.
 
 - `output/energy_scan_by_case.csv` and
   `output/table_s3_energy_scan_by_case.md` form the finalized Table S3,
-  preserving coverage, post-gap identity recovery, geometry inconsistency,
+  preserving coverage, post-gap branch-consistent recovery, geometry inconsistency,
   and conditional residuals for all 20 scan–pair–method cases. The generated
   Markdown is copied exactly between the Table S3 markers in
   `manuscript/supplementary-material.md`.

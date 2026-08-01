@@ -11,12 +11,12 @@
   "implementation_sha256": {
     "trackleed/analysis/controlled_translation_evidence.py": "d64e2fb3e5e051e05c877d234aa29d24259b1bc4e9f1b0b1b09f3b9bd8d570e4",
     "trackleed/publication/controlled_translation_sources.py": "e95bc5fa7a1f117a2686ef4cc3def97419d8d87b23df45d9f666f2e36ebb4422",
-    "trackleed/publication/controlled_translation_table.py": "ebdad560cbedff85164970a8d20a8a3b9191f22600532815c24abd1db25bac01"
+    "trackleed/publication/controlled_translation_table.py": "e62d69ef3f156f5808b0437f53d275c1e0b63e1c2afdae29b4e4ad6d97f62958"
   },
   "method_count": 6,
   "outputs_sha256": {
     "table_s5_controlled_translation.csv": "4cd0dab2b9c176760494999db6e6039d8d171f03e45f05671d91c9c2aaad9ac8",
-    "table_s5_controlled_translation.md": "09921837b9755fe9cc1e321571d0f07b808ccd423537e24711dfc7f19e4522ac"
+    "table_s5_controlled_translation.md": "ebc1e7faca26f747f24e415a8de51d1106aa3b60f7e75a423fb957d23b7fa338"
   },
   "row_count": 24,
   "schema_version": 1,
@@ -32,6 +32,6 @@
   },
   "status": "completed",
   "table": "Table S5",
-  "title": "Controlled-translation outcomes by source trial",
+  "title": "Controlled translations by source trial",
   "trial_count": 4
 }

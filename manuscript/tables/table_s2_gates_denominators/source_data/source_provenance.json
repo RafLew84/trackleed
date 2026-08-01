@@ -29,8 +29,8 @@
     {
       "frozen_path": "source_data/upstream_contracts/method_evidence_matrix.csv",
       "frozen_sha256": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
-      "origin_path": "manuscript/tables/table03_cross_regime_summary/source_data/method_evidence_matrix.csv",
-      "origin_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "origin_path": "manuscript/tables/table_s7_cross_regime_summary/source_data/method_evidence_matrix.csv",
+      "origin_sha256": "5d37a4e49c6357582bcbde727c4d1b9360d53a5c4b7dbe6a011b83e6c44db87a",
       "origin_lf_sha256": "a23f2ab3e301c072b3f23021236dad8f958c639ae9f8ac3bbfe64ddfdae1a04f",
       "role": "five-method fixed opportunities and method-dependent surviving counts"
     },
@@ -44,14 +44,14 @@
     {
       "frozen_path": "source_data/upstream_contracts/family_aggregate.csv",
       "frozen_sha256": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
-      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_aggregate.csv",
+      "origin_path": "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/family_aggregate.csv",
       "origin_sha256": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
       "role": "controlled SAM2-family fixed opportunities and method-dependent surviving counts"
     },
     {
       "frozen_path": "source_data/upstream_contracts/family_by_pair.csv",
       "frozen_sha256": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
-      "origin_path": "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_by_pair.csv",
+      "origin_path": "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/family_by_pair.csv",
       "origin_sha256": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
       "role": "pair-stratified controlled SAM2-family conditional residual counts"
     },
@@ -65,7 +65,7 @@
     {
       "frozen_path": "source_data/upstream_contracts/five_method_run_contract.json",
       "frozen_sha256": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
-      "origin_path": "manuscript/figures/figure05_cu111_physical_endpoint/source_data/five_method_run_contract.json",
+      "origin_path": "manuscript/figures/figure03_cu111_physical_endpoint/source_data/five_method_run_contract.json",
       "origin_sha256": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
       "role": "Cu(111) image, spot, pair, proposal, and accepted-fit counts"
     },

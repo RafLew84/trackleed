@@ -25,7 +25,7 @@ Under known translations, median full-chain displacement errors ranged from
 Cu(111) positive control, every method produced 2,804/2,804 accepted spot
 measurements and 701/701 valid endpoints for each primary pair. Across four
 frozen pairs in the two Ag(111) scans, branch-consistent coverage ranged from
-188/221 to 217/221 and post-gap recovery from 17/24 to 23/24, while
+188/221 to 217/221 and post-gap branch-consistent recovery from 17/24 to 23/24, while
 conditional median pair-distance residuals among jointly branch-consistent
 pair images spanned a narrow range of 1.737–1.837 px. In a supporting
 single-series, two-pair memory experiment, SAMURAI and DAM4SAM increased
@@ -133,7 +133,7 @@ method can have a small residual on the subset of images for which it returns
 a proposal and the fit passes all gates, yet lose many measurable spots or
 resume on an incompatible diffraction branch after a visibility gap. These
 events disappear if only successful measurements enter the denominator. The
-evaluation must therefore keep measurement coverage, post-gap recovery,
+evaluation must therefore keep measurement coverage, post-gap branch-consistent recovery,
 geometry-inconsistent continuation, and conditional position or pair-distance
 residuals as separate outcomes. Without an external image-by-image reference,
 such outcomes establish equivariance, reproducibility, and physical
@@ -145,7 +145,7 @@ This study evaluates how heterogeneous spot-tracking strategies affect a
 common quantitative LEED position measurement. We test the hypothesis that a
 shared Gaussian estimator suppresses method-specific proposal differences
 when the intended spot remains inside its capture region, whereas motion and
-visibility loss expose differences in measurement coverage, post-gap recovery,
+visibility loss expose differences in measurement coverage, post-gap branch-consistent recovery,
 and physically inconsistent continuation. We additionally test whether those
 differences remain visible in the pairwise physical endpoint
 \(\Delta R/R=\Delta D/D\). TrackLEED serves as the reference implementation
@@ -819,7 +819,7 @@ identity-ground-truth proof of a specific misassociation.
 
 LocoTrack, OSTrack, and DAM4SAM each returned a proposal and a valid common
 Gaussian measurement for all 80 evaluated spot opportunities (Figure 2;
-Table 3). Lucas--Kanade returned 76/80 proposals, all of which produced valid
+Table S7). Lucas--Kanade returned 76/80 proposals, all of which produced valid
 Gaussian measurements. EasyLEED returned 80/80 Kalman proposals, but six did
 not yield an accepted common fit, giving 74/80 measurement coverage. The
 corresponding pairwise endpoint coverage was 40/40 for LocoTrack, OSTrack, and
@@ -856,7 +856,7 @@ separately in Table S5.
 All five strategies completed the Cu(111) positive control without a missing
 proposal or rejected common fit: each method produced 2,804/2,804 Gaussian
 measurements, and each primary pair produced 701/701 valid \(\Delta R/R\)
-endpoints (Figure 5; Table 3). The largest separation between two native
+endpoints (Figure 3; Table S7). The largest separation between two native
 method proposals was 16.759 px, whereas the largest separation between the
 corresponding Gaussian-refined centers was 0.0502 px. At the endpoint level,
 the maximum between-method difference over the entire sequence was only
@@ -885,12 +885,12 @@ all 24 candidates satisfied the \(R^2\), center, and width gates and failed
 only the amplitude threshold. This result demonstrates that a missing
 quantitative endpoint can arise from insufficient spot intensity rather than
 loss of a tracking proposal. Pair 2--4 was not part of the five-method run,
-and the diagnostic was not used to compare the five strategies.
+and the diagnostic was not used to compare the five strategies (Figure S6).
 
 ### 5.3 Energy scans separate coverage, recovery, and geometric consistency
 
 The independent Ag(111) energy scans separated the strategies in outcomes that
-were absent from the Cu(111) positive control (Figure 3; Table 3). LocoTrack
+were absent from the Cu(111) positive control (Figure 4; Table S7). LocoTrack
 had 217/221 branch-consistent measurements (98.19% coverage), followed by
 OSTrack and DAM4SAM with 216/221 each (97.74%), EasyLEED with 214/221
 (96.83%), and Lucas--Kanade with 188/221 (85.07%). The denominators were
@@ -898,7 +898,7 @@ identical and included every baseline-visible opportunity, so the 33
 Lucas--Kanade measurements missing from the branch-consistent set were not
 discarded before comparison.
 
-Post-gap recovery produced a similar but non-identical ordering. LocoTrack and
+Post-gap branch-consistent recovery produced a similar but non-identical ordering. LocoTrack and
 DAM4SAM recovered 23/24 natural I(V) gaps (95.83%), EasyLEED recovered 22/24
 (91.67%), OSTrack recovered 21/24 (87.50%), and Lucas--Kanade recovered 17/24
 (70.83%). No method was manually reinitialized after a gap. The frozen
@@ -935,45 +935,11 @@ These ranges show how the pooled count summaries depend on any one predefined
 case; they are descriptive sensitivity results, not confidence intervals or
 population-level method rankings.
 
-<!-- BEGIN TABLE 3 -->
-**Table 3. Quantitative summary across evidence regimes.** Each block answers a distinct validation question and retains its original denominators. Translation displacement errors are conditional on accepted Gaussian measurements, with coverage shown first. The energy-scan residual is conditional on jointly branch-consistent pair frames and is shown with its n. Cu endpoint deviations are agreement with the framewise five-method median, not absolute accuracy. DAM4SAM used sam21pp-L for Cu(111) and controlled translations, and sam21pp-B for the energy scans. No composite score or rank is calculated.
-
-**Controlled translation**
-
-| Method | Proposal coverage | Measurement coverage | Median / P95 displacement error [px] | Pair coverage | Maximum absolute Delta D/D [pp] |
-|---|---|---|---|---|---|
-| LocoTrack | 80/80 (100.00%) | 80/80 (100.00%) | 0.0043 / 0.0130 | 40/40 (100.00%) | 0.001229 |
-| OSTrack | 80/80 (100.00%) | 80/80 (100.00%) | 0.0048 / 0.0168 | 40/40 (100.00%) | 0.001952 |
-| DAM4SAM | 80/80 (100.00%) | 80/80 (100.00%) | 0.0060 / 0.0154 | 40/40 (100.00%) | 0.001869 |
-| Lucas–Kanade | 76/80 (95.00%) | 76/80 (95.00%) | 0.0050 / 0.0127 | 36/40 (90.00%) | 0.001042 |
-| EasyLEED | 80/80 (100.00%) | 74/80 (92.50%) | 0.0265 / 0.3818 | 34/40 (85.00%) | 0.062943 |
-
-**Cu(111) positive control**
-
-| Method | Gaussian measurement coverage | Valid endpoints (pair 1-6; pair 3-5) | Median / maximum endpoint deviation [pp] |
-|---|---|---|---|
-| LocoTrack | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000004 / 0.000299 |
-| OSTrack | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000134 / 0.001752 |
-| DAM4SAM | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000242 / 0.001564 |
-| Lucas–Kanade | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000037 / 0.000462 |
-| EasyLEED | 2804/2804 (100.00%) | 701/701; 701/701 | 0.000256 / 0.000949 |
-
-**Independent Ag(111) energy-scan stress test**
-
-| Method | Branch-consistent measurement coverage | Post-gap identity recovery | Geometry-inconsistent continuation | Conditional median pair-distance residual [px] (n) |
-|---|---|---|---|---|
-| LocoTrack | 217/221 (98.19%) | 23/24 (95.83%) | 36/272 (13.24%) | 1.837 (n=91) |
-| OSTrack | 216/221 (97.74%) | 21/24 (87.50%) | 34/269 (12.64%) | 1.770 (n=90) |
-| DAM4SAM | 216/221 (97.74%) | 23/24 (95.83%) | 36/272 (13.24%) | 1.788 (n=91) |
-| Lucas–Kanade | 188/221 (85.07%) | 17/24 (70.83%) | 14/206 (6.80%) | 1.764 (n=68) |
-| EasyLEED | 214/221 (96.83%) | 22/24 (91.67%) | 4/222 (1.80%) | 1.737 (n=84) |
-<!-- END TABLE 3 -->
-
 ### 5.4 Memory-aware strategies show a continuity--consistency trade-off
 
 Under byte-identical SAM2.1 Base+ weights, vanilla SAM2 produced 126/182
 branch-consistent measurements (69.23% coverage) and recovered 9/13 natural
-I(V) gaps (69.23%; Figure 4). SAMURAI increased coverage to 181/182 (99.45%)
+I(V) gaps (69.23%; Figure 5). SAMURAI increased coverage to 181/182 (99.45%)
 and DAM4SAM to 179/182 (98.35%); both memory-aware variants recovered all
 13 gaps. The matched panel therefore associated the motion-aware and
 distractor-aware strategies with substantially greater continuity than the
@@ -995,7 +961,7 @@ pairs, not a general ranking of SAM2-derived trackers.
 
 EasyLEED and ViPErLEED each produced all 60 expected branch proposals over the
 15-image high-energy interval, despite using single-spot and whole-pattern
-initialization contracts, respectively (Figure 3f). For both methods, the
+initialization contracts, respectively (Figure S4). For both methods, the
 common Gaussian estimator accepted the same 38/60 branch measurements with
 the same per-branch counts: 13/15 and 7/15 for the two branches of pair 1, and
 13/15 and 5/15 for pair 2. Both methods also passed all four predefined
@@ -1217,7 +1183,7 @@ proposal from an out-of-image ROI, failed fit, rejected fit, and accepted
 measurement rather than dropping or interpolating missing values. For accepted
 fits, the stored fields include the proposal and Gaussian-refined coordinates,
 fit parameters and diagnostics, acceptance outcome, and the information needed
-to reconstruct pair distances, \(\Delta D/D=\Delta R/R\), post-gap identity
+to reconstruct pair distances, \(\Delta D/D=\Delta R/R\), post-gap branch-consistent
 recovery, and geometry-consistency outcomes. The completed Cu(111) run
 additionally links each reduced proposal to its saved native payload and records
 configuration, input-inventory, output-table, and summary hashes in its run
@@ -1267,7 +1233,7 @@ absolute tracking accuracy or spot-identity ground truth.
 Across four frozen pairs from two independently acquired Ag(111) energy scans,
 similar conditional pair-distance residuals, calculated only when both
 branches were valid and consistent with the expected geometry, coexisted with
-substantial differences in measurement coverage, post-gap recovery, and
+substantial differences in measurement coverage, post-gap branch-consistent recovery, and
 geometry-inconsistent continuation. The controlled SAM2-family experiment
 further showed, within one scan and two pairs, that increased continuity can
 accompany more frequent persistence outside the expected physical branch.

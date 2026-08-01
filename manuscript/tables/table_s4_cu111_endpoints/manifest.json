@@ -24,13 +24,13 @@
   },
   "outputs": {
     "table_s4_cu111_endpoints.csv": "93edae3056fb21df6e7a3ff68093bdf41fd1262a90ea95f96c16769052a738fa",
-    "table_s4_cu111_endpoints.md": "8525f5a7301cd89dfc9705351c1ffeeae58494a351d89a8fa98735e2aaa54741"
+    "table_s4_cu111_endpoints.md": "17358300176a64b7d728929df4130bca819dec3d28096582fca05eb9c4b8fe38"
   },
   "reporting_unit": "method\u2013pair within one Cu(111) thermal-cycle series",
   "row_count": 10,
   "schema_version": "1.0",
   "sources": {
-    "build_table.py": "7689ec72386eef2836ecf440d1e6ed017d0645d925dc70f16021ca27aafea18d",
+    "build_table.py": "de992b459a84053380d6e2f1cd9d3f14b651b31245f6cb0c26dccd6ef0b0a735",
     "source_data/between_method_spread.csv": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
     "source_data/cycle_landmarks.csv": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
     "source_data/endpoint_summaries.csv": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",

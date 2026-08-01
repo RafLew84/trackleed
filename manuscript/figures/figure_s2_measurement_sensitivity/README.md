@@ -1,4 +1,4 @@
-# Figure S2 — measurement-window and capture-contract sensitivity
+# Figure S2 — Measurement-window and capture-contract sensitivity
 
 Figure S2 is the sole sensitivity figure. Panels a–d show the nine-element
 ROI × proposal-to-fit matrix and six one-factor-at-a-time perturbations for

@@ -91,11 +91,51 @@ class GatesDenominatorsTableTest(unittest.TestCase):
             }
         }
 
-        self.assertEqual(fixed[("Controlled translations", "Spot proposal and Gaussian-measurement coverage")], "80")
-        self.assertEqual(fixed[("Controlled translations", "Pair coverage and pair-invariance endpoint")], "40")
-        self.assertEqual(fixed[("Cu(111) positive control", "Spot proposal and Gaussian-measurement coverage")], "2,804")
-        self.assertEqual(fixed[("Independent energy scans", "Post-gap identity recovery")], "24")
-        self.assertEqual(fixed[("Controlled SAM2 family", "Branch-consistent measurement coverage")], "182")
+        self.assertEqual(
+            fixed[
+                (
+                    "Controlled translations",
+                    "Spot proposal and Gaussian-measurement coverage",
+                )
+            ],
+            "80",
+        )
+        self.assertEqual(
+            fixed[
+                (
+                    "Controlled translations",
+                    "Pair coverage and pair-invariance endpoint",
+                )
+            ],
+            "40",
+        )
+        self.assertEqual(
+            fixed[
+                (
+                    "Cu(111) positive control",
+                    "Spot proposal and Gaussian-measurement coverage",
+                )
+            ],
+            "2,804",
+        )
+        self.assertEqual(
+            fixed[
+                (
+                    "Independent energy scans",
+                    "Post-gap branch-consistent recovery",
+                )
+            ],
+            "24",
+        )
+        self.assertEqual(
+            fixed[
+                (
+                    "Controlled SAM2 family",
+                    "Branch-consistent measurement coverage",
+                )
+            ],
+            "182",
+        )
         self.assertEqual(fixed[("Restricted external reference", "Branch-image coverage")], "60")
         self.assertEqual(fixed[("Cu(111) frozen visual audit", "Combined overlay review")], "24")
 

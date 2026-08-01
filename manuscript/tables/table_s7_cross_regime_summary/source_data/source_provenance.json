@@ -2,10 +2,10 @@
   "sources": [
     {
       "frozen_path": "source_data/method_evidence_matrix.csv",
-      "frozen_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
+      "frozen_sha256": "5d37a4e49c6357582bcbde727c4d1b9360d53a5c4b7dbe6a011b83e6c44db87a",
       "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/cross-regime-evidence-matrix/method_evidence_matrix.csv",
       "origin_sha256": "ed5bac0592f9e15c7b9f055d01f5cbbb4351c07720d0f57c58b362e9b277150b",
-      "role": "common five-method quantitative evidence across controlled translations, Cu(111), and independent Ag(111) energy scans"
+      "role": "common five-method numerical evidence across controlled translations, Cu(111), and independent Ag(111) energy scans"
     }
   ]
 }

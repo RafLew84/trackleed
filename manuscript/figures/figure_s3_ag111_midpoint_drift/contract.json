@@ -2,7 +2,7 @@
   "figure": "Figure S3",
   "schema_version": "1.0",
   "status": "source_contract_frozen",
-  "title": "Ag(111) pair-midpoint drift and apparatus/projection diagnostics",
+  "title": "Pair-midpoint drift and apparatus/projection diagnostics",
   "case_order": [
     "scan_a_pair_1",
     "scan_a_pair_2",

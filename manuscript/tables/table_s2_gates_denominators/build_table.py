@@ -23,7 +23,8 @@ SUPPLEMENT_PATH = TABLE_ROOT.parents[1] / "supplementary-material.md"
 SUPPLEMENT_BEGIN_MARKER = "<!-- BEGIN TABLE S2 -->"
 SUPPLEMENT_END_MARKER = "<!-- END TABLE S2 -->"
 SUPPLEMENT_HEADING = (
-    "## Table S2 — Gaussian measurement gates and validation denominators"
+    "## Table S2 — Gaussian gates, fixed opportunity sets and conditional "
+    "denominators"
 )
 
 GATE_COLUMNS = (
@@ -579,7 +580,7 @@ def render_markdown(
 ) -> str:
     fixed, conditional = partition_denominators(denominators)
     caption = (
-        "**Table S2. Gaussian measurement gates and validation "
+        "**Table S2. Gaussian gates, fixed opportunity sets and conditional "
         "denominators.** Block A lists the run-frozen acceptance contract and "
         "separates Gaussian acceptance from the subsequent energy-branch "
         "consistency classification. Block B retains every predefined "
@@ -680,7 +681,10 @@ def build_artifact(
     manifest = {
         "schema_version": 1,
         "artifact": "Supplementary Table S2",
-        "title": "Gaussian measurement gates and validation denominators",
+        "title": (
+            "Gaussian gates, fixed opportunity sets and conditional "
+            "denominators"
+        ),
         "sources": _source_hashes(provenance),
         "outputs": output_hashes,
     }

@@ -1,4 +1,4 @@
-# Figure 1 - measurement chain and evidence ladder
+# Figure 1 — Measurement chain and evidence ladder
 
 Status: generated and validated.
 
