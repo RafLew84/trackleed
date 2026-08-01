@@ -1,17 +1,17 @@
 # Manuscript workspace
 
-Status: complete narrative draft with explicit scientific and release
-placeholders. Sections 1–8 and the abstract are written as manuscript prose.
-Author information, selected acquisition metadata, and final repository,
-license, and DOI details remain unresolved.
+Status: venue-portable scientific revision with the final claim boundary.
+Sections 1–7 and the abstract are written as manuscript prose. The experimental
+description, author information, submission metadata, and release authorization
+are explicitly deferred.
 
 Working title:
 
-> Evaluating Spot-Tracking Strategies for Quantitative LEED Analysis
+> Evaluating Heterogeneous LEED Spot-Tracking Methods under a Common
+> Spot-Position Measurement Contract
 
-Primary target: *Surface Science*.  
-Backup target: *Computer Physics Communications* only if the software,
-performance, and public-runner evidence is strengthened.
+Target form: venue-portable methodological Research Paper. Journal-specific
+formatting and placement decisions are deferred to the submission adapter.
 
 ## Scope
 
@@ -32,15 +32,15 @@ the string `ScanE` should appear only inside literal archive identifiers,
 artifact paths, or filenames.
 
 Use **Scan A**, **Scan B**, and **memory-analysis scan** as the scientific
-series labels. Their archive identifiers are mapped once in Section 2 for
-traceability. Internal image numbers belong in manifests; reader-facing prose
-describes the corresponding physical state or experimental role.
+series labels. Archive identifiers and internal image numbers belong in
+provenance manifests; reader-facing prose describes only the scientific series
+and evidence role.
 
 ## Files
 
-- [`manuscript.md`](manuscript.md) - working manuscript with drafted Sections
-  1–8 and explicit placeholders for missing author, acquisition, and public
-  release information.
+- [`manuscript.md`](manuscript.md) - venue-portable manuscript with drafted
+  Sections 1–7 and explicit placeholders for deferred experimental, author,
+  submission, and release-authorization inputs.
 - [`supplementary-material.md`](supplementary-material.md) - working
   supplementary document containing generated Tables S1–S7.
 - [`references.bib`](references.bib) - primary-source bibliography used by the
@@ -88,9 +88,10 @@ describes the corresponding physical state or experimental role.
   opportunity and measurement-contract package for the principal Ag(111)
   reconstruction, including stored native proposals, `221/24` reference keys
   and read-only fail-closed validation.
-- [`experimental_metadata/`](experimental_metadata/) - author-confirmed,
-  source-linked acquisition-metadata record, explicit unavailable fields,
-  TIFF inventory and metadata-derived claim constraints.
+- [`experimental_metadata/`](experimental_metadata/) - retained source-linked
+  acquisition-metadata record, explicit unavailable fields, TIFF inventory and
+  metadata-derived claim constraints; it is not used to infer the deferred
+  reader-facing experimental description.
 
 ## Sources of truth
 
@@ -105,13 +106,13 @@ describes the corresponding physical state or experimental role.
 
 ## Drafting convention
 
-Use the following markers until the missing information is supplied:
+Only the following markers are authorized in the reader-facing package until
+the deferred information is supplied:
 
-- `TODO[AUTHOR]` - author or affiliation input;
-- `TODO[CITATION]` - literature citation required;
-- `TODO[DECISION]` - scientific or editorial choice still to be made;
-- `TODO[FIGURE]` - display item not yet assembled;
-- `TODO[TEXT]` - prose not yet drafted.
+- `TODO[EXPERIMENT]` - experimental-team description and approval;
+- `TODO[AUTHOR]` - author, affiliation, contribution, or acknowledgement input;
+- `TODO[SUBMISSION]` - journal-specific submission decision;
+- `TODO[RELEASE-AUTHORIZATION]` - legal or repository-release authorization.
 
 Numerical claims should be copied from a validated artifact, not recomputed in the
 manuscript. If an artifact changes, update the claim-evidence map before revising

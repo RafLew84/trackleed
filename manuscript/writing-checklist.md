@@ -3,7 +3,8 @@
 ## Inputs required from the authors
 
 - [ ] Final author order, affiliations, corresponding author, and ORCID IDs.
-- [ ] Instrument description and acquisition metadata that may be published.
+- [ ] Experimental-team text and approval for the deferred apparatus,
+      preparation, acquisition-condition, and parameter description.
 - [ ] Funding, facility, and computational-resource acknowledgements.
 - [ ] Code and data licenses.
 - [ ] Public repository/archive plan and DOI.
@@ -26,8 +27,10 @@
 
 ## Methods completeness
 
-- [x] Describe all frozen datasets, image counts, energies, temperatures, and pair
-      selections.
+- [ ] Insert the author-approved experimental description without inferring
+      conditions or parameters from retained metadata.
+- [x] State evidence roles, opportunity counts, and frozen pair selections
+      needed to interpret the validated outcomes.
 - [x] State that seeds are inputs and are not ground truth.
 - [x] Define proposal representations and the `48 x 48` common measurement ROI.
 - [x] Define the Gaussian model, acceptance gates, and missing-value policy.
@@ -48,25 +51,25 @@
 - [x] Keep coverage, recovery, geometry inconsistency, and conditional residual
       separate.
 - [x] Do not create a composite score or absolute-accuracy ranking.
-- [ ] Use one method color palette across every figure.
-- [ ] Mark rejected fits and visibility gaps explicitly.
+- [x] Use one method color palette across every figure.
+- [x] Mark rejected fits and visibility gaps explicitly.
 
 ## Claim-safety review
 
 - [x] Check every abstract and conclusion statement against
       `claim-evidence-map.md`.
-- [ ] Do not claim the first automated LEED tracker.
-- [ ] Do not call controlled equivariance absolute tracking accuracy.
-- [ ] Do not equate a missing Gaussian fit with a tracker failure.
-- [ ] Do not call tracker confidence a physical I(V) signal.
-- [ ] Do not infer structural transitions, anisotropy, or a thermal-expansion
+- [x] Do not claim the first automated LEED tracker.
+- [x] Do not call controlled equivariance absolute tracking accuracy.
+- [x] Do not equate a missing Gaussian fit with a tracker failure.
+- [x] Do not call tracker confidence a physical I(V) signal.
+- [x] Do not infer structural transitions, anisotropy, or a thermal-expansion
       coefficient from the current evidence.
-- [ ] Keep the SAM2-family result supporting rather than primary.
+- [x] Keep the SAM2-family result supporting rather than primary.
 
 ## Reproducibility package
 
-- [ ] Freeze final source-data tables for every figure.
-- [ ] Add deterministic figure builders and manifests.
+- [x] Freeze final source-data tables for every figure.
+- [x] Add deterministic figure builders and manifests.
 - [ ] Verify the headless reconstruction path from saved native predictions.
 - [x] Archive environment records and checkpoint hashes.
 - [ ] Validate the release package on a clean machine or environment.

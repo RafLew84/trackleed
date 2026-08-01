@@ -68,6 +68,49 @@ tracking accuracy or identity ground truth.
 | viperleed-imagej | ViPErLEED whole-pattern tracking | ImageJ 1.54u; OpenJDK 1.8.0_345; ViPErLEED ImageJ plugin 1.03 | not applicable | JVM/CPU | e64540325636048157605336981c63f3680b31b1c5808a1e1d49803f893d6ac3 |
 <!-- END TABLE S1 -->
 
+### Native proposal availability and preprocessing contract
+
+This reader-facing contract complements the identity and hash inventory in
+Table S1. Records labelled as post-run normalized in Table S1 were transcribed
+from the archived executed source and outputs; that status is not upgraded to
+a run-frozen method configuration.
+
+- **LocoTrack:** inference used the Base offline model on a 256 × 256 input.
+  For the independent energy scans, native availability combined the returned
+  occlusion logit \(o\) and expected-distance logit \(d\) as
+  \(P_{\mathrm{vis}}=[1-\operatorname{sigmoid}(o)]
+  [1-\operatorname{sigmoid}(d)]\), with \(P_{\mathrm{vis}}>0.5\) required.
+  In the Cu(111) and translation regimes every finite point was available and
+  this probability remained diagnostic only.
+- **OSTrack:** inference used the frozen 256-pixel configuration. A finite box
+  with positive width and height was available; its center was the proposal.
+  The native box score was retained but did not gate or weight the common fit.
+- **DAM4SAM and the controlled SAM2 family:** a finite nonempty mask was
+  available and its pixel centroid was the proposal. The controlled SAM2,
+  SAMURAI, and DAM4SAM paths used byte-identical checkpoint weights, the same
+  one-object box prompt, the same bidirectional image order, and no later
+  prompt or reset. Table S1 identifies the distinct DAM4SAM configurations
+  used across regimes.
+- **Lucas--Kanade:** the pyramidal skip-anchor implementation used a 41 × 41
+  window, maximum pyramid level 4, at most 50 iterations, convergence
+  tolerance 0.01, and minimum eigenvalue \(10^{-5}\). Native acceptance
+  required residual \(\leq30\) and forward--backward closure error \(\leq8\)
+  px; normalized cross-correlation and centroid recentering were disabled. For
+  the energy scans, each image was normalized to grayscale, high-pass filtered
+  by subtracting a Gaussian blur with \(\sigma=5\), processed by a white
+  top-hat with a disk of radius 5, renormalized, and converted to 8-bit input.
+  A rejected image remained missing and the last successful image and point
+  stayed as the later anchor without interpolation.
+- **EasyLEED:** the native energy-scan contract used a 12-pixel tracking radius,
+  input precision 2 px, native Gaussian \(R^2\) threshold 0.8, validation
+  parameter \(\gamma=8\), and window scaling. The exported finite Kalman
+  coordinate was the proposal; native intensity and internal Gaussian output
+  remained diagnostics and did not replace the common measurement.
+- **ViPErLEED:** the restricted compatibility check used the frozen
+  whole-pattern initialization recorded in Table S1. Its corresponding beam
+  coordinates were proposal inputs to the common estimator, not external
+  position ground truth.
+
 ## Table S2 — Gaussian gates, fixed opportunity sets and conditional denominators
 
 <!-- BEGIN TABLE S2 -->

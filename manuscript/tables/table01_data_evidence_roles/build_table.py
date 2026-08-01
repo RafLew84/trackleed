@@ -34,7 +34,6 @@ SOURCE_COLUMNS = (
 )
 DISPLAY_COLUMNS = (
     ("scientific_series_label", "Scientific series label"),
-    ("control_variable_and_range", "Control variable/range"),
     ("image_count", "Image count"),
     ("frozen_spots_or_pairs", "Frozen spots/pairs"),
     ("opportunity_set", "Opportunity set"),
@@ -205,11 +204,16 @@ def _markdown_cell(value: str) -> str:
 
 
 def display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    """Remove internal contract columns from the publication table."""
+    """Remove internal and deferred experimental fields from the table."""
 
     return [
         {
-            display_name: row[source_name]
+            display_name: (
+                "Same two pairs; four branch coordinates"
+                if source_name == "frozen_spots_or_pairs"
+                and row["row_type"] == "subset"
+                else row[source_name]
+            )
             for source_name, display_name in DISPLAY_COLUMNS
         }
         for row in rows

@@ -10,8 +10,9 @@ frozen source table. It preserves three distinct roles:
   initialization contract and denominator.
 
 The publication table shows the interfaces needed to understand the
-comparison, including each native availability rule and the common downstream
-measurement. Audit-only fields in the source table retain exact upstream
+comparison: method, native output, proposal adapter, native availability,
+shared downstream measurement, reset policy, and study role. Audit-only fields
+in the source table retain exact upstream
 revisions, software versions, checkpoint or plugin hashes, and executed
 configuration hashes where a separate hash was recorded. A whole-contract
 hash is never presented as a method-configuration hash. Detailed environments
@@ -19,8 +20,9 @@ belong in supplementary Table S1.
 
 ## Files
 
-- `source_data/methods.csv` is the frozen table source. It contains nine
-  publication-facing fields plus the row order and audit-only fields.
+- `source_data/methods.csv` is the frozen table source. Its reader-facing
+  output has seven contract fields; the source also retains panel,
+  initialization, configuration, row-order, and audit fields.
 - `source_data/upstream_contracts/` contains byte-identical snapshots of the
   five upstream records used to validate the rows.
 - `source_data/source_provenance.json` records the original and frozen paths

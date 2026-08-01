@@ -1,8 +1,8 @@
 # Table 1: data and evidence roles
 
-This artifact builds the manuscript's main data-regime table from one frozen,
-reader-facing source file. The table distinguishes four experimental regimes
-from five evidence roles:
+This artifact builds the manuscript's main data-regime table from one frozen
+source file. The reader-facing table distinguishes four evidence regimes from
+five evidence roles:
 
 - the controlled translations are derived from four source states in the
   Cu(111) sequence and are not four independent acquisitions;
@@ -12,7 +12,9 @@ from five evidence roles:
 This structure prevents the display from inflating the amount of independent
 evidence. It also keeps the EasyLEED/ViPErLEED reference separate from the
 common five-strategy matrix because it has a different initialization contract
-and denominator.
+and denominator. The retained source includes control-variable ranges for
+provenance, but the builder omits that field from the reader-facing output
+until the experimental team supplies and approves the complete description.
 
 ## Files
 
@@ -26,7 +28,7 @@ and denominator.
   the evidence-role structure, and creates the publication outputs.
 - `output/table01_data_evidence_roles.csv` is the machine-readable table.
 - `output/table01_data_evidence_roles.md` is the exact block copied between the
-  generated markers in Section 2.1 of the manuscript.
+  generated markers in Section 2.4 of the manuscript.
 - `manifest.json` records source, builder, and output hashes.
 
 ## Rebuild and verify

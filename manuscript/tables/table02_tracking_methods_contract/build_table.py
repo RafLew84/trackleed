@@ -39,14 +39,12 @@ SOURCE_COLUMNS = (
     "executed_configuration_sha256",
 )
 DISPLAY_COLUMNS = (
-    ("panel", "Panel"),
     ("method", "Method"),
-    ("family_representation", "Family/representation"),
-    ("configuration", "Checkpoint or algorithm configuration"),
-    ("initialization", "Initialization"),
-    ("native_output", "Native availability/output"),
-    ("proposal_coordinate", "Proposal coordinate"),
-    ("reset_policy", "Manual reset/correction"),
+    ("reader_native_output", "Native output"),
+    ("proposal_coordinate", "Proposal adapter"),
+    ("reader_native_availability", "Native availability"),
+    ("shared_downstream_measurement", "Shared downstream measurement"),
+    ("reset_policy", "Reset policy"),
     ("study_role", "Study role"),
 )
 EXPECTED_PANELS = (
@@ -67,6 +65,31 @@ EXPECTED_METHODS = (
 )
 SHARED_SAM2_CHECKPOINT = (
     "a2345aede8715ab1d5d31b4a509fb160c5a4af1970f199d9054ccfb746c004c5"
+)
+READER_NATIVE_OUTPUTS = (
+    "Point plus occlusion and expected-distance diagnostics",
+    "Bounding box plus native score",
+    "Binary mask plus native diagnostics",
+    "Optical-flow point plus residual and closure diagnostics",
+    "Kalman x,y plus native intensity and tracking radius",
+    "Binary mask",
+    "Binary mask plus motion-aware selection",
+    "Binary mask plus distractor-aware diagnostics",
+    "Whole-pattern beam coordinate",
+)
+READER_NATIVE_AVAILABILITY = (
+    "Finite point; energy scans also require the frozen native visibility gate",
+    "Finite positive-area box",
+    "Finite nonempty mask",
+    "Match passing the frozen native flow gates",
+    "Finite exported Kalman x,y",
+    "Finite nonempty mask",
+    "Finite nonempty mask",
+    "Finite nonempty mask",
+    "Finite pattern-associated coordinate for the corresponding beam",
+)
+SHARED_DOWNSTREAM_MEASUREMENT = (
+    "48 × 48 raw-image ROI → common elliptical-Gaussian position"
 )
 
 
@@ -238,9 +261,7 @@ def load_and_validate_rows(
         raise ValueError("Every evaluated path must prohibit manual resets.")
 
     reader_facing_text = "\n".join(
-        row[source_name]
-        for row in rows
-        for source_name, _ in DISPLAY_COLUMNS
+        value for row in display_rows(rows) for value in row.values()
     )
     if any(
         term in reader_facing_text
@@ -263,10 +284,20 @@ def display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
 
     return [
         {
-            display_name: row[source_name]
-            for source_name, display_name in DISPLAY_COLUMNS
+            "Method": row["method"],
+            "Native output": native_output,
+            "Proposal adapter": row["proposal_coordinate"],
+            "Native availability": native_availability,
+            "Shared downstream measurement": SHARED_DOWNSTREAM_MEASUREMENT,
+            "Reset policy": row["reset_policy"],
+            "Study role": row["study_role"],
         }
-        for row in rows
+        for row, native_output, native_availability in zip(
+            rows,
+            READER_NATIVE_OUTPUTS,
+            READER_NATIVE_AVAILABILITY,
+            strict=True,
+        )
     ]
 
 
@@ -279,16 +310,15 @@ def render_markdown(rows: list[dict[str, str]]) -> str:
         (
             "**Table 2. Methods mapped to the common measurement "
             "contract.** The first five rows form the common "
-            "strategy matrix. The controlled SAM2-family rows used "
-            "byte-identical SAM2.1 Hiera Base+ checkpoint weights "
-            f"(SHA-256 `{SHARED_SAM2_CHECKPOINT}`). Every available proposal "
-            "coordinate entered the same 48 × 48 raw-image measurement ROI "
-            "and TrackLEED two-dimensional elliptical-Gaussian estimator. "
+            "strategy matrix. The controlled SAM2-family rows used matched "
+            "checkpoint weights and a common prompt. Every available proposal "
+            "entered the same raw-image ROI and two-dimensional "
+            "elliptical-Gaussian position estimator. "
             "ViPErLEED is a separate whole-pattern external reference, not a "
-            "sixth row in the common five-method matrix. Full revisions, "
-            "available executed-configuration hashes, checkpoint hashes, and "
-            "execution environments are retained in the frozen artifact and "
-            "reported in Table S1."
+            "sixth row in the common five-method matrix. Exact versions, "
+            "revisions, configurations, thresholds, hashes, preprocessing, "
+            "and environments are reported in Table S1 and its accompanying "
+            "supplementary native-method contract."
         ),
         "",
         "| " + " | ".join(headers) + " |",

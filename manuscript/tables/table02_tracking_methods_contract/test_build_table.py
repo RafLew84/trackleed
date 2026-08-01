@@ -90,7 +90,7 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
             },
         )
 
-    def test_reader_table_has_nine_columns_and_separates_viperleed(
+    def test_reader_table_has_seven_contract_columns_and_separates_viperleed(
         self,
     ) -> None:
         rendered = build_table.render_markdown(
@@ -104,10 +104,10 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
             )
         )
         self.assertIn(
-            "The controlled SAM2-family rows used byte-identical",
+            "The controlled SAM2-family rows used matched",
             rendered,
         )
-        self.assertIn(SHARED_SAM2_CHECKPOINT, rendered)
+        self.assertNotIn(SHARED_SAM2_CHECKPOINT, rendered)
         self.assertIn(
             "ViPErLEED is a separate whole-pattern external reference",
             rendered,
@@ -117,21 +117,21 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
             rendered,
         )
         self.assertIn(
-            "same 48 × 48 raw-image measurement ROI",
+            "48 × 48 raw-image ROI",
             rendered,
         )
         self.assertIn(
-            "TrackLEED two-dimensional elliptical-Gaussian estimator",
+            "common elliptical-Gaussian position",
             rendered,
         )
         self.assertIn(
-            (
-                "energy scans additionally require combined native "
-                "visibility probability > 0.5"
-            ),
+            "energy scans also require the frozen native visibility gate",
             rendered,
         )
         self.assertIn("Finite exported Kalman x,y", rendered)
+        self.assertNotIn("Checkpoint or algorithm configuration", rendered)
+        self.assertNotIn("upstream revision", rendered.lower())
+        self.assertNotIn("Hiera Base+", rendered)
         self.assertNotIn("ScanE", rendered)
         self.assertNotIn("26a21", rendered)
         self.assertNotIn("26a24", rendered)
@@ -139,7 +139,15 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
             line for line in rendered.splitlines() if line.startswith("|")
         ]
         self.assertEqual(len(lines), 11)
-        self.assertEqual({line.count("|") for line in lines}, {10})
+        self.assertEqual({line.count("|") for line in lines}, {8})
+        self.assertEqual(
+            lines[0],
+            (
+                "| Method | Native output | Proposal adapter | "
+                "Native availability | Shared downstream measurement | "
+                "Reset policy | Study role |"
+            ),
+        )
 
     def test_publication_csv_excludes_internal_audit_columns(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -255,11 +263,11 @@ class TrackingMethodsContractTableTest(unittest.TestCase):
         )
         self.assertGreater(
             manuscript.index(build_table.MANUSCRIPT_BEGIN_MARKER),
-            manuscript.index("### 3.3 Domain-specific references"),
+            manuscript.index("### 3.3 LEED-domain references and reproducibility"),
         )
         self.assertLess(
             manuscript.index(build_table.MANUSCRIPT_END_MARKER),
-            manuscript.index("## 4. Validation protocol"),
+            manuscript.index("## 4. Results"),
         )
 
 

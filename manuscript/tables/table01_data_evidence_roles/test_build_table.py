@@ -88,7 +88,7 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             2,
         )
 
-    def test_markdown_states_nonindependence_and_has_eight_columns(self) -> None:
+    def test_markdown_defers_conditions_and_has_seven_columns(self) -> None:
         rendered = build_table.render_markdown(
             build_table.load_and_validate_rows()
         )
@@ -109,19 +109,23 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             "outside the common five-method matrix",
             rendered,
         )
+        self.assertNotIn("Control variable/range", rendered)
+        self.assertNotIn("10–800", rendered)
+        self.assertNotIn("40.0–220.5", rendered)
+        self.assertNotIn("18-beam", rendered)
         table_lines = [
             line for line in rendered.splitlines() if line.startswith("|")
         ]
         self.assertEqual(len(table_lines), 7)
         self.assertEqual(
             {line.count("|") for line in table_lines},
-            {9},
+            {8},
         )
         self.assertEqual(
             table_lines[0],
             (
-                "| Scientific series label | Control variable/range | "
-                "Image count | Frozen spots/pairs | Opportunity set | "
+                "| Scientific series label | Image count | "
+                "Frozen spots/pairs | Opportunity set | "
                 "Evidence role | Primary observable | "
                 "Independence/replication unit |"
             ),
@@ -212,9 +216,15 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             table_block,
             build_table.render_markdown(build_table.load_and_validate_rows()),
         )
-        self.assertLess(
+        self.assertGreater(
             manuscript.index(build_table.MANUSCRIPT_BEGIN_MARKER),
-            manuscript.index("### 2.2 Tracking proposal and measurement ROI"),
+            manuscript.index("### 2.4 Evidence roles and independence"),
+        )
+        self.assertLess(
+            manuscript.index(build_table.MANUSCRIPT_END_MARKER),
+            manuscript.index(
+                "## 3. Tracking strategies and reproducible comparison contract"
+            ),
         )
 
 
