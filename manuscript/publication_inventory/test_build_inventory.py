@@ -59,6 +59,10 @@ class PublicationInventoryTest(unittest.TestCase):
         )
         self.assertIn("compact reader-facing", table_s6["role"])
 
+        figure_5 = next(item for item in inventory["items"] if item["id"] == "Figure 5")
+        self.assertEqual(figure_5["placement"], "main_figure")
+        self.assertIn("full-width", figure_5["role"])
+
     def test_wrong_title_and_obsolete_placement_are_rejected(self) -> None:
         inventory = build_inventory.load_inventory(INVENTORY_PATH)
         wrong_title = copy.deepcopy(inventory)

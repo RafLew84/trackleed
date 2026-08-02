@@ -86,7 +86,7 @@
       "id": "Figure 5",
       "placement": "main_figure",
       "title": "Common Gaussian refinement preserves the Cu(111) pairwise relative spot-radius endpoint across proposal strategies",
-      "role": "Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread.",
+      "role": "Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread as a full-width main-text display.",
       "artifact_path": "manuscript/figures/figure05_cu111_physical_endpoint",
       "source_roots": ["manuscript/figures/figure05_cu111_physical_endpoint/source_data"],
       "manifest_paths": ["manuscript/figures/figure05_cu111_physical_endpoint/manifest.json"],

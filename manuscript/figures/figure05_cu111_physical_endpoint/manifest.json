@@ -7,20 +7,20 @@
     "The endpoint is descriptive for one constant-energy Cu(111) sequence and does not establish a thermal-expansion coefficient, phase transition, or structural mechanism."
   ],
   "code_sha256": {
-    "build_figure.py": "aa39199d8c864817d80f0246e5e88743e22ef6abca1b3019e96529bb60080989",
-    "figure_contract.py": "42b1fe83afd323b225f14d031925ea5b7d6cb1dbee76e23d0f148ceb3b37c4d1",
-    "figure_render.py": "8ead02ae5615b3960be8efdb531ec821961fc6179ecbdc9ab45b4ddae4185b02",
+    "build_figure.py": "be7f27580c7a245fe64378e697d65e3005a4b66c54d20a67697cc6a349bc3e75",
+    "figure_contract.py": "068347ed518a3e485ed92c5d247ce40c39f7abebcc2d367926a6339252df993b",
+    "figure_render.py": "f3a06272dd1387fbd7cc6024962601111cb4fe4464db07e93296a539f1374b3c",
     "freeze_source_data.py": "8e559fa18f090462c1ead9582ea3de8a84c38f04b14098327fc267e677e0f625",
-    "test_build_figure.py": "84c4359b7f8201f1a2e5dc100a32426b69c4272d0ff1909b2c919439938741ea",
+    "test_build_figure.py": "f9ab391e87f2a73791bc75c395c321a770a1294e4326b26c167cfd55b632e214",
     "test_freeze_source_data.py": "bf77c018227cf7e8b3b680b862c7053dba2554a5fa9da5d2f3166b2d47af1f43",
     "test_source_contract.py": "f76ea00b3430292c4f2a77a087ebef57620836b05cd9c0c30e4feb4824a2fae8"
   },
   "contract_sha256": "b163e85ac1ff2e53307a3292c5b0ea887bcbf599a2754ad2d87b5058cdeba663",
   "environment": {
-    "matplotlib": "3.10.7",
-    "numpy": "2.2.6",
-    "pillow": "12.0.0",
-    "python": "3.12.3"
+    "matplotlib": "3.10.1",
+    "numpy": "2.2.5",
+    "pillow": "11.2.1",
+    "python": "3.12.9"
   },
   "figure": "Figure 5",
   "output_files": {
@@ -28,8 +28,8 @@
     "png": "output/figure05_cu111_physical_endpoint.png"
   },
   "outputs_sha256": {
-    "pdf": "e45ab46c1881335b66a3c356d43b8d4ff4129fd453cd8c6c18160376f5d5fd23",
-    "png": "5bbca91b432149b7302d67e6b1749ea5e461a7e2ecd19fa1db921ce3ca9b0fef"
+    "pdf": "f8d398f06f85176751985df730358a1b6899ff7dbe81617a986065ee5d02b1d2",
+    "png": "007bdb14fea0643fbdf65e551fd13498c2c7198e284f0c41f083ae6fb50bc70e"
   },
   "rendering": {
     "between_method_spread": {
@@ -52,19 +52,19 @@
     },
     "figure_size_inches": [
       7.2,
-      9.0
+      9.4
     ],
     "font_family": "DejaVu Sans",
     "font_file": "DejaVuSans.ttf",
     "font_sizes_pt": {
-      "axis_label": 7.2,
-      "axis_title": 8.1,
-      "base": 7.2,
-      "legend": 6.0,
-      "minor_annotation": 5.7,
-      "panel_label": 9.2,
-      "tick_label": 6.4,
-      "value_annotation": 6.0
+      "axis_label": 8.0,
+      "axis_title": 9.0,
+      "base": 8.0,
+      "legend": 7.0,
+      "minor_annotation": 7.0,
+      "panel_label": 10.0,
+      "tick_label": 7.0,
+      "value_annotation": 7.0
     },
     "method_palette": {
       "dam4sam_sam21pp_l": "#009E73",
@@ -73,6 +73,8 @@
       "lucas_kanade_skip_anchor": "#CC79A7",
       "ostrack_vitb_256_mae_ce": "#E69F00"
     },
+    "minimum_effective_font_size_pt": 6.076,
+    "minimum_source_font_size_pt": 7.0,
     "panel_order": [
       "thermal_cycle_landmarks",
       "pair_1_6_endpoint",
@@ -80,9 +82,12 @@
       "between_method_endpoint_spread",
       "separate_pair_2_4_fit_missingness"
     ],
+    "pdf_vector_required": true,
+    "placement": "full_width_main_text",
+    "placement_width_inches": 6.25,
     "png_dimensions_px": [
       2880,
-      3600
+      3760
     ],
     "png_dpi": 400,
     "primary_run": {
@@ -121,7 +126,7 @@
       "tracking_roi_present_count": 26
     }
   },
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "source_artifacts": {
     "completed_run_manifest": {
       "evidence_role": "completed-run hash chain",

@@ -5,6 +5,7 @@ opencv-python
 matplotlib
 pandas
 Pillow
+pypdf
 tifffile
 imageio
 PyQt6

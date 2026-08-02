@@ -16,7 +16,8 @@ SOURCE_DATA_DIRECTORY = FIGURE_ROOT / "source_data"
 OUTPUT_DIRECTORY = FIGURE_ROOT / "output"
 FIGURE_BASENAME = "figure05_cu111_physical_endpoint"
 MANIFEST_PATH = FIGURE_ROOT / "manifest.json"
-FIGURE_SIZE_INCHES = (7.2, 9.0)
+FIGURE_SIZE_INCHES = (7.2, 9.4)
+PLACEMENT_WIDTH_INCHES = 6.25
 PNG_DPI = 400
 FONT_FAMILY = "DejaVu Sans"
 
@@ -71,15 +72,21 @@ ADVERSE_COLOR = "#A23B3B"
 ACCEPTED_COLOR = "#009E73"
 PAIR_COLORS = {"1-6": "#4C78A8", "3-5": "#E45756"}
 FONT_SIZES_PT = {
-    "base": 7.2,
-    "axis_title": 8.1,
-    "axis_label": 7.2,
-    "tick_label": 6.4,
-    "legend": 6.0,
-    "panel_label": 9.2,
-    "value_annotation": 6.0,
-    "minor_annotation": 5.7,
+    "base": 8.0,
+    "axis_title": 9.0,
+    "axis_label": 8.0,
+    "tick_label": 7.0,
+    "legend": 7.0,
+    "panel_label": 10.0,
+    "value_annotation": 7.0,
+    "minor_annotation": 7.0,
 }
+MINIMUM_SOURCE_FONT_SIZE_PT = min(FONT_SIZES_PT.values())
+MINIMUM_EFFECTIVE_FONT_SIZE_PT = (
+    MINIMUM_SOURCE_FONT_SIZE_PT
+    * PLACEMENT_WIDTH_INCHES
+    / FIGURE_SIZE_INCHES[0]
+)
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:

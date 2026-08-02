@@ -76,6 +76,12 @@ pominięte.
   codebook i `R48-P15*`, a fail-closed manifest potwierdza efektywny font
   6.076 pt i komórki co najmniej 8.670 × 6.081 mm;
   [dowody](artifacts/06-figure-s2-continued-legibility.md).
+- [I07 — Figure 5 full-width i legibility](issues/07-figure5-full-width.md)
+  — kompletna pięciopanelowa Figure 5 ma canvas 7.2 × 9.4 in, full-width
+  placement 6.25 in, zatwierdzone fonty 7.0–10.0 pt i minimum efektywne
+  6.076 pt; builder oraz parser PDF chronią 400-dpi PNG, wektorowy PDF,
+  MediaBox, panel order i niezmieniony caption I04;
+  [dowody](artifacts/07-figure5-full-width-legibility.md).
 
 ## Constraints
 

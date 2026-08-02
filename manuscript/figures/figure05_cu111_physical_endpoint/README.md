@@ -9,6 +9,14 @@ Status: generated and validated.
 - [render manifest](manifest.json)
 - [frozen source contract](contract.json)
 
+## Rendering contract
+
+Figure 5 remains one undivided full-width main-text display. Its source canvas
+is 7.2 × 9.4 in and the document placement width is 6.25 in. Source fonts
+are 7.0–10.0 pt, giving a minimum effective size of 6.076 pt at placement.
+The builder emits a vector-only PDF and a 400 dpi PNG; no panel or datum is
+removed to meet the legibility contract.
+
 ## Scientific question
 
 Do tracker-dependent proposal differences survive the common Gaussian

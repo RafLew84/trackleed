@@ -447,9 +447,13 @@ def _render_panel_d(
     axis.set_yticks(y_base)
     axis.set_yticklabels(point_labels)
     axis.set_xlabel(
-        r"Between-method range [$\times 10^{-3}$ percentage points]"
+        "Between-method range\n"
+        r"[$\times 10^{-3}$ percentage points]"
     )
-    axis.set_title("Endpoint spread after common Gaussian refinement", loc="left")
+    axis.set_title(
+        "Endpoint spread after common\nGaussian refinement",
+        loc="left",
+    )
     _panel_label(axis, "d", x=-0.16)
     _style_numeric_axis(axis, grid_axis="x")
     axis.legend(
@@ -464,18 +468,18 @@ def _render_panel_d(
         handletextpad=0.4,
     )
     axis.text(
-        0.015,
-        0.015,
+        0.98,
+        0.22,
         (
-            "Complete-sequence maximum: "
-            f"pair 1-6 = {sequence['1-6']:.6f}; "
+            "Full-sequence maximum [pp]\n"
+            f"pair 1-6 = {sequence['1-6']:.6f} pp\n"
             f"pair 3-5 = {sequence['3-5']:.6f} pp"
         ),
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
         color=NEUTRAL_COLOR,
-        ha="left",
-        va="bottom",
+        ha="right",
+        va="center",
         bbox={
             "facecolor": "white",
             "alpha": 0.82,
@@ -547,9 +551,13 @@ def _render_panel_e(
     axis.set_ylim(0.039, 0.054)
     axis.set_xticks((0.0, 72.0, 100.0))
     axis.set_xticklabels(("before", "800 °C plateau", "after"))
-    axis.set_xlabel("Local sequence around the intensity minimum")
+    axis.set_xlabel("Local sequence around\nthe intensity minimum")
     axis.set_ylabel("Gaussian amplitude")
-    axis.set_title("Separate pair 2-4 missing-fit diagnostic", loc="left")
+    axis.set_title(
+        "Separate pair 2-4 missing-fit diagnostic\n"
+        "(saved YOLO; outside the five-method run)",
+        loc="left",
+    )
     _panel_label(axis, "e", x=-0.15)
     _style_numeric_axis(axis)
 
@@ -570,19 +578,9 @@ def _render_panel_e(
     temperature_axis.spines["right"].set_color("#B5B5B5")
 
     axis.text(
-        0.98,
-        0.97,
-        "Saved YOLO trajectory - outside the five-method run",
-        transform=axis.transAxes,
-        fontsize=FONT_SIZES_PT["minor_annotation"],
-        color=NEUTRAL_COLOR,
-        ha="right",
-        va="top",
-    )
-    axis.text(
-        0.52,
-        0.88,
-        "proposal present 26/26\n24/24 rejected fits fail only amplitude gate",
+        0.50,
+        0.92,
+        "proposal present 26/26\n24/24 rejected fits\nfail only amplitude gate",
         transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
         fontweight="bold",
@@ -597,13 +595,14 @@ def _render_panel_e(
         },
     )
     axis.text(
-        97.5,
-        threshold + 0.00018,
+        0.98,
+        0.69,
         "amplitude threshold 0.05",
+        transform=axis.transAxes,
         fontsize=FONT_SIZES_PT["minor_annotation"],
         color="#222222",
         ha="right",
-        va="bottom",
+        va="top",
     )
 
 
@@ -650,13 +649,13 @@ def render_figure(output_directory: Path = OUTPUT_DIRECTORY) -> dict[str, Path]:
     grid = figure.add_gridspec(
         3,
         2,
-        height_ratios=(1.10, 1.82, 1.40),
+        height_ratios=(1.10, 1.82, 1.52),
         left=0.115,
         right=0.945,
         bottom=0.065,
         top=0.975,
-        hspace=0.48,
-        wspace=0.40,
+        hspace=0.56,
+        wspace=0.50,
     )
     axis_a = figure.add_subplot(grid[0, :])
     grid_b = grid[1, 0].subgridspec(

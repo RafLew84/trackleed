@@ -119,21 +119,21 @@
     "Figure 5": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/figures/figure05_cu111_physical_endpoint/build_figure.py": "aa39199d8c864817d80f0246e5e88743e22ef6abca1b3019e96529bb60080989"
+          "manuscript/figures/figure05_cu111_physical_endpoint/build_figure.py": "be7f27580c7a245fe64378e697d65e3005a4b66c54d20a67697cc6a349bc3e75"
         },
         "caption": {
-          "manuscript/figures/figure05_cu111_physical_endpoint/README.md": "c18b0b8fbc1c9f97377019bdeea5f1cdbd21d5a298c334ca42e1773e86248d52"
+          "manuscript/figures/figure05_cu111_physical_endpoint/README.md": "2c54eee9499fb674d9db2d7badc2cafd9e23751f44aacca8a9493ed384f58449"
         },
         "manifests": {
-          "manuscript/figures/figure05_cu111_physical_endpoint/manifest.json": "a4a2bd92ce6e184c75403c999cec05be1c916f190e612e800af1ec35e956d640"
+          "manuscript/figures/figure05_cu111_physical_endpoint/manifest.json": "4c2978d55d5f9b5fd7d10c174b30b106877c0405b0d3ea818f91cf304545b05b"
         },
         "validators": {
-          "manuscript/figures/figure05_cu111_physical_endpoint/test_build_figure.py": "84c4359b7f8201f1a2e5dc100a32426b69c4272d0ff1909b2c919439938741ea",
+          "manuscript/figures/figure05_cu111_physical_endpoint/test_build_figure.py": "f9ab391e87f2a73791bc75c395c321a770a1294e4326b26c167cfd55b632e214",
           "manuscript/figures/figure05_cu111_physical_endpoint/test_freeze_source_data.py": "bf77c018227cf7e8b3b680b862c7053dba2554a5fa9da5d2f3166b2d47af1f43",
           "manuscript/figures/figure05_cu111_physical_endpoint/test_source_contract.py": "f76ea00b3430292c4f2a77a087ebef57620836b05cd9c0c30e4feb4824a2fae8"
         }
       },
-      "semantic_fingerprint_sha256": "f71acfd2d813b2aef1b5917e4b3fea1012744a2f8d5aa8999428b5f5f2979cc1",
+      "semantic_fingerprint_sha256": "e59effb9c9f2f3faccb4a12933b6d4f1d81780e531dadee71e0cf88d5af3d010",
       "source_data_sha256": {
         "manuscript/figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
         "manuscript/figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
@@ -627,8 +627,8 @@
     ".yaml",
     ".yml"
   ],
-  "inventory_contract_sha256": "ed7e857dc8eb54ed5dfd606e13dd331fbca781c16908212f1358ee1eb452ad0a",
+  "inventory_contract_sha256": "fe70b93614315b0fe917436bd47a310836400f45455305bcfedb054743081ebb",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "fd6e521758c0b87de857348c054e1c99d2998e21b8999f06bb0179ef03a1c578",
+  "semantic_inventory_sha256": "cc7c26c7486c27fc20a949695890da174d94bd593136325694d7b754841c79b8",
   "status": "scientific-baseline-complete"
 }

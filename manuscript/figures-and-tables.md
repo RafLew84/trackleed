@@ -60,7 +60,7 @@ Provides a matched-weight, one-series mechanism comparison without extending it 
 
 ### Figure 5 — Common Gaussian refinement preserves the Cu(111) pairwise relative spot-radius endpoint across proposal strategies
 
-Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread.
+Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread as a full-width main-text display.
 
 - Bundle: [figures/figure05_cu111_physical_endpoint](figures/figure05_cu111_physical_endpoint/README.md)
 - Caption/source display: [open](figures/figure05_cu111_physical_endpoint/README.md)

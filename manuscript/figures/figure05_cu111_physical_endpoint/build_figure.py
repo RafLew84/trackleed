@@ -17,8 +17,11 @@ from figure_contract import (
     FONT_SIZES_PT,
     MANIFEST_PATH,
     METHOD_COLORS,
+    MINIMUM_EFFECTIVE_FONT_SIZE_PT,
+    MINIMUM_SOURCE_FONT_SIZE_PT,
     OUTPUT_DIRECTORY,
     PANEL_ORDER,
+    PLACEMENT_WIDTH_INCHES,
     PNG_DPI,
     SOURCE_DATA_DIRECTORY,
     load_between_method_spread,
@@ -38,6 +41,9 @@ CODE_FILES = (
     "test_build_figure.py",
     "test_freeze_source_data.py",
     "test_source_contract.py",
+)
+EXPECTED_PNG_DIMENSIONS = tuple(
+    round(dimension * PNG_DPI) for dimension in FIGURE_SIZE_INCHES
 )
 
 
@@ -75,6 +81,59 @@ def _relative_output_paths(
     }
 
 
+def _validate_rendered_outputs(outputs: dict[str, Path]) -> None:
+    from PIL import Image
+    from pypdf import PdfReader
+
+    with Image.open(outputs["png"]) as image:
+        if image.size != EXPECTED_PNG_DIMENSIONS or image.mode != "RGBA":
+            raise ValueError("Figure 5 PNG format contract mismatch")
+    pdf_path = outputs["pdf"]
+    if not pdf_path.read_bytes().startswith(b"%PDF"):
+        raise ValueError("Figure 5 PDF signature mismatch")
+    reader = PdfReader(pdf_path)
+    if len(reader.pages) != 1:
+        raise ValueError("Figure 5 PDF page-count contract mismatch")
+    page = reader.pages[0]
+    page_size_inches = (
+        float(page.mediabox.width) / 72.0,
+        float(page.mediabox.height) / 72.0,
+    )
+    if any(
+        abs(actual - expected) > 0.001
+        for actual, expected in zip(
+            page_size_inches, FIGURE_SIZE_INCHES, strict=True
+        )
+    ):
+        raise ValueError("Figure 5 PDF page-size contract mismatch")
+
+    visited: set[tuple[int, int]] = set()
+
+    def resources_contain_image(resources: object) -> bool:
+        resources = resources.get_object()
+        references = resources.get("/XObject")
+        if references is None:
+            return False
+        for reference in references.get_object().values():
+            identity = (
+                getattr(reference, "idnum", id(reference)),
+                getattr(reference, "generation", 0),
+            )
+            if identity in visited:
+                continue
+            visited.add(identity)
+            xobject = reference.get_object()
+            if xobject.get("/Subtype") == "/Image":
+                return True
+            nested = xobject.get("/Resources")
+            if nested is not None and resources_contain_image(nested):
+                return True
+        return False
+
+    if resources_contain_image(page["/Resources"]):
+        raise ValueError("Figure 5 PDF is not a vector-only rendering")
+
+
 def build_manifest(
     outputs: dict[str, Path],
     manifest_path: Path,
@@ -102,7 +161,7 @@ def build_manifest(
     }
     rejected = [row for row in diagnostic if not row["refit_accepted"]]
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "status": "completed",
         "figure": "Figure 5",
         "title": "Propagation to the Cu(111) physical endpoint",
@@ -116,11 +175,18 @@ def build_manifest(
         },
         "rendering": {
             "figure_size_inches": list(FIGURE_SIZE_INCHES),
+            "placement": "full_width_main_text",
+            "placement_width_inches": PLACEMENT_WIDTH_INCHES,
             "png_dpi": PNG_DPI,
+            "pdf_vector_required": True,
             "png_dimensions_px": dimensions,
             "font_family": FONT_FAMILY,
             "font_file": Path(font_manager.findfont(FONT_FAMILY)).name,
             "font_sizes_pt": FONT_SIZES_PT,
+            "minimum_source_font_size_pt": MINIMUM_SOURCE_FONT_SIZE_PT,
+            "minimum_effective_font_size_pt": round(
+                MINIMUM_EFFECTIVE_FONT_SIZE_PT, 3
+            ),
             "method_palette": METHOD_COLORS,
             "panel_order": list(PANEL_ORDER),
             "reader_facing_x_coordinate": "thermal-cycle progress percent",
@@ -191,6 +257,7 @@ def build(
 ) -> dict[str, Path]:
     validate_source_contract()
     outputs = render_figure(output_directory)
+    _validate_rendered_outputs(outputs)
     _write_json(manifest_path, build_manifest(outputs, manifest_path))
     return outputs
 
@@ -211,6 +278,19 @@ def validate(
         raise ValueError("Figure 5 panel-order manifest mismatch")
     if manifest["rendering"]["font_sizes_pt"] != FONT_SIZES_PT:
         raise ValueError("Figure 5 font-size manifest mismatch")
+    rendering = manifest["rendering"]
+    if (
+        rendering.get("figure_size_inches") != list(FIGURE_SIZE_INCHES)
+        or rendering.get("placement") != "full_width_main_text"
+        or rendering.get("placement_width_inches") != PLACEMENT_WIDTH_INCHES
+        or rendering.get("png_dpi") != PNG_DPI
+        or rendering.get("pdf_vector_required") is not True
+        or rendering.get("minimum_source_font_size_pt")
+        != MINIMUM_SOURCE_FONT_SIZE_PT
+        or rendering.get("minimum_effective_font_size_pt")
+        != round(MINIMUM_EFFECTIVE_FONT_SIZE_PT, 3)
+    ):
+        raise ValueError("Figure 5 legibility or placement contract mismatch")
     for relative_path, expected_hash in manifest["source_data_sha256"].items():
         path = FIGURE_ROOT / relative_path
         if not path.is_file() or sha256_file(path) != expected_hash:
@@ -222,6 +302,12 @@ def validate(
             or sha256_file(path) != manifest["outputs_sha256"][name]
         ):
             raise ValueError(f"Figure 5 output hash mismatch: {name}")
+
+    outputs = {
+        name: manifest_path.parent / relative_path
+        for name, relative_path in manifest["output_files"].items()
+    }
+    _validate_rendered_outputs(outputs)
 
     validate_source_contract()
     with tempfile.TemporaryDirectory(

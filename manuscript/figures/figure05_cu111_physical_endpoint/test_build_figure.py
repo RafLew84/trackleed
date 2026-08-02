@@ -111,17 +111,40 @@ class Figure5RenderContractTest(unittest.TestCase):
 
             self.assertEqual(set(outputs), {"png", "pdf"})
             with Image.open(outputs["png"]) as image:
-                self.assertEqual(image.size, (2880, 3600))
+                self.assertEqual(image.size, (2880, 3760))
                 self.assertEqual(image.mode, "RGBA")
-            self.assertTrue(outputs["pdf"].read_bytes().startswith(b"%PDF"))
+            pdf_bytes = outputs["pdf"].read_bytes()
+            self.assertTrue(pdf_bytes.startswith(b"%PDF"))
 
             manifest = json.loads(
                 (root / "manifest.json").read_text(encoding="utf-8")
             )
             self.assertEqual(manifest["status"], "completed")
             self.assertEqual(manifest["figure"], "Figure 5")
+            rendering = manifest["rendering"]
+            self.assertEqual(rendering["figure_size_inches"], [7.2, 9.4])
+            self.assertEqual(rendering["placement"], "full_width_main_text")
+            self.assertEqual(rendering["placement_width_inches"], 6.25)
+            self.assertEqual(rendering["png_dpi"], 400)
+            self.assertTrue(rendering["pdf_vector_required"])
+            self.assertGreaterEqual(
+                rendering["minimum_effective_font_size_pt"], 6.0
+            )
             self.assertEqual(
-                manifest["rendering"]["panel_order"],
+                rendering["font_sizes_pt"],
+                {
+                    "base": 8.0,
+                    "axis_title": 9.0,
+                    "axis_label": 8.0,
+                    "tick_label": 7.0,
+                    "legend": 7.0,
+                    "panel_label": 10.0,
+                    "value_annotation": 7.0,
+                    "minor_annotation": 7.0,
+                },
+            )
+            self.assertEqual(
+                rendering["panel_order"],
                 [
                     "thermal_cycle_landmarks",
                     "pair_1_6_endpoint",
@@ -130,6 +153,32 @@ class Figure5RenderContractTest(unittest.TestCase):
                     "separate_pair_2_4_fit_missingness",
                 ],
             )
+
+    def test_committed_bundle_matches_a_clean_rebuild(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="trackleed-figure05-clean-") as tmp:
+            root = Path(tmp)
+            build_figure.build(
+                output_directory=root / "output",
+                manifest_path=root / "manifest.json",
+            )
+
+            self.assertEqual(
+                (root / "manifest.json").read_bytes(),
+                build_figure.MANIFEST_PATH.read_bytes(),
+            )
+            rebuilt = {
+                path.relative_to(root / "output").as_posix(): path.read_bytes()
+                for path in (root / "output").rglob("*")
+                if path.is_file()
+            }
+            committed = {
+                path.relative_to(build_figure.OUTPUT_DIRECTORY).as_posix(): (
+                    path.read_bytes()
+                )
+                for path in build_figure.OUTPUT_DIRECTORY.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(rebuilt, committed)
 
     def test_manifest_audits_primary_run_spread_and_separate_diagnostic(
         self,
