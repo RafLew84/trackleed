@@ -301,19 +301,19 @@
     "Table 1": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/tables/table01_data_evidence_roles/build_table.py": "899d8cf47f5ab5373b5c87a9cb471a5e889b5016492d808e14a9cc2bcebd9f21"
+          "manuscript/tables/table01_data_evidence_roles/build_table.py": "17e522312fe6ed94ce8ee8fa6cdd6bcd67936406e7bd3441e5cf14e221d6387c"
         },
         "caption": {
-          "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "8c177c108981be9450209debb6dbe3b2538bf20a692a505abaa142d2171a2f76"
+          "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "a6d1c9ffb3d5ae8baa8af667d892c20fc4b385a9d28a36fdbe5fdd0e7fcd7b31"
         },
         "manifests": {
-          "manuscript/tables/table01_data_evidence_roles/manifest.json": "6afed424fad3b083f7ca0477850d8b095aba45a54b63407ca2e4652e49d1eaf6"
+          "manuscript/tables/table01_data_evidence_roles/manifest.json": "5525a184ab3634cf012116dab3c6cbeff403bb7fdd6a4214b307e31f7d1de29d"
         },
         "validators": {
-          "manuscript/tables/table01_data_evidence_roles/test_build_table.py": "01763badd92884860b1ffe28ebd49386e6570e0f2ac332776e38fb4f765d5be9"
+          "manuscript/tables/table01_data_evidence_roles/test_build_table.py": "774226a08a2244a9f55d2540784f1f1903d2d783b573861f86b84e444cfda675"
         }
       },
-      "semantic_fingerprint_sha256": "efd12c7e7ffec71f96e6c0d13b8c8d1f7f86d9abd971b0c0ae6f811edf368498",
+      "semantic_fingerprint_sha256": "db361886ebed5b4752c32a42e2c4fc22b8d17825aaaa3aadbe21cce054bcd7f5",
       "source_data_sha256": {
         "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33",
         "manuscript/tables/table01_data_evidence_roles/source_data/source_provenance.json": "df1eb8c4339aa465e870fc5567c3f6613c7ce9490954d9e1a9a4e538cc28c3db",
@@ -325,8 +325,8 @@
         "manuscript/tables/table01_data_evidence_roles/source_data/upstream_contracts/sam2_family_contract.json": "5ab073d630d8de5aab6ffed91d43c5abfa809a19f49e9a0a03d078c82b4d3dd4"
       },
       "text_outputs_sha256": {
-        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.csv": "2916b406cca6a03ee2c26f6cc8229a2e2abee0b2da5b9867ac04743ae8f4f571",
-        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "8c177c108981be9450209debb6dbe3b2538bf20a692a505abaa142d2171a2f76"
+        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.csv": "268d05d2b8d0d38bfef5b0b099ce9a9d58ca61d64494d6c0e4eea6bd653d37f3",
+        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "a6d1c9ffb3d5ae8baa8af667d892c20fc4b385a9d28a36fdbe5fdd0e7fcd7b31"
       }
     },
     "Table 2": {
@@ -623,6 +623,6 @@
   ],
   "inventory_contract_sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "506c6e83cc99df20524217898bed359a59e6ff7030f9070783b7330ddedf825f",
+  "semantic_inventory_sha256": "9e633fde9dd2b460d121e0cfa8843919963535c19dc6ddd71c457dc5f31efb95",
   "status": "scientific-baseline-complete"
 }

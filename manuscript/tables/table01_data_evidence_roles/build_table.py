@@ -16,9 +16,24 @@ SOURCE_PROVENANCE_PATH = SOURCE_DATA_DIRECTORY / "source_provenance.json"
 FROZEN_SOURCE_DIRECTORY = SOURCE_DATA_DIRECTORY / "upstream_contracts"
 OUTPUT_DIRECTORY = TABLE_ROOT / "output"
 MANIFEST_PATH = TABLE_ROOT / "manifest.json"
+MANUSCRIPT_PATH = TABLE_ROOT.parents[1] / "manuscript.md"
 
 MANUSCRIPT_BEGIN_MARKER = "<!-- BEGIN TABLE 1 -->"
 MANUSCRIPT_END_MARKER = "<!-- END TABLE 1 -->"
+CONTROLLED_TRANSLATION_DISPLAY_CONTRACT = {
+    "inventory": 24,
+    "spot_opportunities": 80,
+    "pair_opportunities": 40,
+    "seed_policy": "four seed states excluded",
+    "image_count": (
+        "24 digital image states: four source trials × "
+        "(one seed state + five displaced states)"
+    ),
+    "opportunity_set": (
+        "80 displaced-spot and 40 displaced-pair evaluation opportunities "
+        "per method after exclusion of four seed states"
+    ),
+}
 
 SOURCE_COLUMNS = (
     "order",
@@ -206,8 +221,9 @@ def _markdown_cell(value: str) -> str:
 def display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     """Remove internal and deferred experimental fields from the table."""
 
-    return [
-        {
+    displayed: list[dict[str, str]] = []
+    for row in rows:
+        display_row = {
             display_name: (
                 "Same two pairs; four branch coordinates"
                 if source_name == "frozen_spots_or_pairs"
@@ -216,8 +232,15 @@ def display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             )
             for source_name, display_name in DISPLAY_COLUMNS
         }
-        for row in rows
-    ]
+        if row["row_type"] == "derived_regime":
+            display_row["Image count"] = CONTROLLED_TRANSLATION_DISPLAY_CONTRACT[
+                "image_count"
+            ]
+            display_row["Opportunity set"] = (
+                CONTROLLED_TRANSLATION_DISPLAY_CONTRACT["opportunity_set"]
+            )
+        displayed.append(display_row)
+    return displayed
 
 
 def render_markdown(rows: list[dict[str, str]]) -> str:
@@ -259,6 +282,26 @@ def extract_manuscript_table(manuscript: str) -> str:
     )
     end = manuscript.index(MANUSCRIPT_END_MARKER, start)
     return manuscript[start:end].strip("\n") + "\n"
+
+
+def synchronize_manuscript_table(
+    manuscript_path: Path = MANUSCRIPT_PATH,
+) -> None:
+    """Replace the generated Table 1 block in the canonical manuscript."""
+
+    manuscript = manuscript_path.read_text(encoding="utf-8")
+    extract_manuscript_table(manuscript)
+    start = manuscript.index(MANUSCRIPT_BEGIN_MARKER) + len(
+        MANUSCRIPT_BEGIN_MARKER
+    )
+    end = manuscript.index(MANUSCRIPT_END_MARKER, start)
+    rendered = render_markdown(load_and_validate_rows()).rstrip("\n")
+    synchronized = manuscript[:start] + "\n" + rendered + "\n" + manuscript[end:]
+    manuscript_path.write_text(
+        synchronized,
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def validate_provenance() -> dict[str, object]:
@@ -339,6 +382,18 @@ def build_artifact(
             "controlled_translation_is_derived": True,
             "external_reference_is_subset": True,
             "ranking_policy": "no composite tracker ranking",
+            "controlled_translation_inventory": (
+                CONTROLLED_TRANSLATION_DISPLAY_CONTRACT["inventory"]
+            ),
+            "controlled_translation_spot_opportunities": (
+                CONTROLLED_TRANSLATION_DISPLAY_CONTRACT["spot_opportunities"]
+            ),
+            "controlled_translation_pair_opportunities": (
+                CONTROLLED_TRANSLATION_DISPLAY_CONTRACT["pair_opportunities"]
+            ),
+            "controlled_translation_seed_policy": (
+                CONTROLLED_TRANSLATION_DISPLAY_CONTRACT["seed_policy"]
+            ),
         },
         "source_data": {
             path.relative_to(TABLE_ROOT).as_posix(): sha256_file(path)
@@ -363,5 +418,10 @@ def build_artifact(
     return manifest
 
 
-if __name__ == "__main__":
+def main() -> None:
     build_artifact()
+    synchronize_manuscript_table()
+
+
+if __name__ == "__main__":
+    main()

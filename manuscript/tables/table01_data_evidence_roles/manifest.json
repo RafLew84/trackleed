@@ -1,8 +1,8 @@
 {
-  "builder_sha256": "899d8cf47f5ab5373b5c87a9cb471a5e889b5016492d808e14a9cc2bcebd9f21",
+  "builder_sha256": "17e522312fe6ed94ce8ee8fa6cdd6bcd67936406e7bd3441e5cf14e221d6387c",
   "outputs": {
-    "table01_data_evidence_roles.csv": "2916b406cca6a03ee2c26f6cc8229a2e2abee0b2da5b9867ac04743ae8f4f571",
-    "table01_data_evidence_roles.md": "8c177c108981be9450209debb6dbe3b2538bf20a692a505abaa142d2171a2f76"
+    "table01_data_evidence_roles.csv": "268d05d2b8d0d38bfef5b0b099ce9a9d58ca61d64494d6c0e4eea6bd653d37f3",
+    "table01_data_evidence_roles.md": "a6d1c9ffb3d5ae8baa8af667d892c20fc4b385a9d28a36fdbe5fdd0e7fcd7b31"
   },
   "schema_version": "1.0",
   "source_data": {
@@ -17,7 +17,11 @@
   },
   "status": "completed",
   "table_contract": {
+    "controlled_translation_inventory": 24,
     "controlled_translation_is_derived": true,
+    "controlled_translation_pair_opportunities": 40,
+    "controlled_translation_seed_policy": "four seed states excluded",
+    "controlled_translation_spot_opportunities": 80,
     "data_regime_count": 4,
     "external_reference_is_subset": true,
     "ranking_policy": "no composite tracker ranking",

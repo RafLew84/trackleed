@@ -10,33 +10,34 @@ TODO[AUTHOR]: author list, affiliations, corresponding author, ORCID identifiers
 
 ## Abstract
 
-Quantitative low-energy electron diffraction (LEED) analysis requires a
-measurement region to remain associated with its diffraction spot as the
-pattern moves and spot visibility changes. We evaluated how five heterogeneous
-tracking strategies affect a common position measurement rather than treating
-their native outputs as directly comparable positions. Each supplied a
-proposal to place a 48 × 48-pixel ROI; the reported spot center was obtained
-with the same two-dimensional Gaussian estimator.
+Quantitative low-energy electron diffraction (LEED) analysis requires
+persistent association between a measurement region and its target
+diffraction spot as patterns move and visibility changes. We compared five
+heterogeneous tracking strategies through a common position-measurement
+contract: each native output supplied a proposal for a 48 × 48-pixel ROI,
+and the same two-dimensional Gaussian estimator produced the reported spot
+position. Robustness was assessed with fixed opportunity sets for coverage
+and post-gap recovery, accepted-fit denominators for geometry inconsistency,
+and method-specific surviving \(n\) for conditional residuals.
+
 Validation combined known translations, a 701-image Cu(111) positive
-control, two independent Ag(111) energy scans with natural \(I(V)\) visibility
-gaps, and a controlled SAM2-family memory experiment.
-Under known translations, median full-chain displacement errors ranged from
-0.0043 to 0.0265 px with 92.5–100% Gaussian-measurement coverage. In the
-Cu(111) positive control, every method produced 2,804/2,804 accepted spot
-measurements and 701/701 valid endpoints for each primary pair. Across four
-frozen pairs in the two Ag(111) scans, branch-consistent coverage ranged from
-188/221 to 217/221 and post-gap branch-consistent recovery from 17/24 to 23/24, while
-conditional median pair-distance residuals among jointly branch-consistent
-pair images spanned a narrow range of 1.737–1.837 px. In a supporting
-single-series, two-pair memory experiment, SAMURAI and DAM4SAM increased
-coverage from 126/182 for SAM2 to 181/182 and 179/182, respectively, while
-also increasing geometry-inconsistent continuation; this mechanism result
-does not establish a general ranking. These experiments assess
-measurement-chain robustness rather than absolute tracking accuracy. The
-common Gaussian estimator strongly suppressed proposal differences when the
-intended spot remained inside its capture region; measurement coverage,
-post-gap branch-consistent recovery, and geometry-inconsistent continuation were more
-discriminating than conditional residuals alone.
+control, two independent Ag(111) energy scans with natural \(I(V)\) gaps,
+and a controlled SAM2-family memory experiment. Translation errors were
+0.0043–0.0265 px with 74/80–80/80 accepted measurements. All methods
+produced 2,804/2,804 Cu(111) measurements and 701/701 endpoints per primary
+pair. In the Ag(111) scans, coverage was 188/221–217/221, recovery
+17/24–23/24, and conditional median pair-distance residuals 1.737–1.837 px
+(\(n=68–91\)). SAMURAI and DAM4SAM increased coverage over SAM2 but also
+increased geometry-inconsistent continuation; this mechanism result is not
+a general ranking.
+
+Across 15 predeclared perturbations of ROI geometry and acceptance gates,
+absolute outcomes changed, but Lucas–Kanade retained the lowest coverage and
+the denominator-aware interpretation remained stable. The results assess
+measurement-chain robustness, not absolute tracking accuracy. Proposal
+differences were strongly suppressed when the target spot remained inside
+the common estimator's capture region, making this a supporting mechanism
+rather than the primary contribution.
 
 ## Keywords
 
@@ -45,7 +46,7 @@ Gaussian localization; visibility gaps; measurement robustness.
 
 ## 1. Introduction
 
-### 1.1 Quantitative LEED requires persistent spot identity
+### 1.1 Quantitative LEED requires persistent spot association
 
 Low-energy electron diffraction (LEED) probes the periodic structure of a
 surface through the energy-dependent diffraction of low-energy electrons
@@ -141,29 +142,35 @@ self-consistency rather than absolute tracking accuracy.
 
 ### 1.3 Study objective and contributions
 
-This study evaluates how heterogeneous spot-tracking strategies affect a
-common quantitative LEED position measurement. We test the hypothesis that a
-shared Gaussian estimator suppresses method-specific proposal differences
-when the intended spot remains inside its capture region, whereas motion and
-visibility loss expose differences in measurement coverage, post-gap branch-consistent recovery,
-and physically inconsistent continuation. We additionally test whether those
-differences remain visible in the pairwise physical endpoint
-\(\Delta R/R=\Delta D/D\). TrackLEED serves as the reference implementation
-and reproducibility vehicle for these experiments; the graphical application
-and its software feature set are not the subject of the study.
+This study evaluates whether heterogeneous spot-tracking strategies support
+an available and physically self-consistent quantitative LEED position under
+one common proposal-to-ROI-to-Gaussian measurement contract. The primary
+comparison keeps fixed opportunity sets for measurement coverage and
+post-gap branch-consistent recovery separate from accepted-fit geometry
+outcomes and conditional residuals with method-specific surviving \(n\). We
+then test whether native proposal differences are suppressed when the target
+spot remains inside the common estimator's capture region and whether the
+resulting measurements support the pairwise endpoint
+\(\Delta R/R=\Delta D/D\). TrackLEED is the reference implementation and
+reproducibility vehicle; its graphical application and feature set are not
+the subject of the study.
 
 The contributions are:
 
-1. A common proposal-to-ROI-to-Gaussian measurement contract for heterogeneous
-   point, bounding-box, mask, optical-flow, and LEED-domain trackers.
-2. A controlled equivariance test of the complete measurement chain under known
-   subpixel image translations.
-3. A five-strategy comparison on independent Ag(111) energy scans using common
-   denominators for visible measurement opportunities and natural I(V) gaps.
-4. A controlled SAM2/SAMURAI/DAM4SAM comparison of memory-aware propagation
-   strategies under byte-identical checkpoint weights.
-5. Propagation of tracker proposals to the pairwise physical endpoint
-   `Delta R/R = Delta D/D` in a 701-image constant-energy Cu(111) sequence.
+1. A common proposal-to-ROI-to-Gaussian position-measurement contract for
+   heterogeneous point, bounding-box, mask, optical-flow, and LEED-domain
+   trackers.
+2. A denominator-aware assessment that retains fixed opportunity sets for
+   coverage and recovery and outcome-specific surviving sets for conditional
+   geometry and residual statistics.
+3. Controlled and case-based evidence for measurement-chain equivariance,
+   endpoint agreement, motion and natural \(I(V)\)-gap robustness, and the
+   continuity–consistency trade-off.
+4. A predeclared 15-variant sensitivity analysis that tests whether the claim
+   boundary depends on measurement-window geometry or acceptance gates without
+   selecting an optimal contract.
+5. A mechanistic account of when the common Gaussian estimator suppresses
+   proposal differences inside its tested capture region.
 
 The four evidence regimes are assigned distinct evidential roles rather
 than pooled into one composite ranking. Controlled translations test
@@ -314,7 +321,7 @@ current manuscript.
 | Scientific series label | Image count | Frozen spots/pairs | Opportunity set | Evidence role | Primary observable | Independence/replication unit |
 |---|---|---|---|---|---|---|
 | Cu(111) thermal-cycle positive control | 701 acquired images | Spots 1, 3, 5, and 6; pairs 1–6 and 3–5 | 2,804 spot and 1,402 pair opportunities per method (14,020 spot-method rows total) | Positive control for agreement of the five strategy-to-measurement chains | ΔR/R = ΔD/D | One sequence, stratified by two frozen pairs; no population-level interval |
-| Controlled translations | 24 evaluation images (4 source states × 6 steps, including baseline) | Spots 1, 3, 5, and 6; pairs 1–6 and 3–5 | 96 spot and 48 pair evaluations per method (4 trials x 6 states) | Equivariance and pair invariance under a known image transform | Gaussian-refined displacement error; maximum absolute ΔD/D | Four separately initialized source trials from the Cu(111) sequence; not four acquisitions |
+| Controlled translations | 24 digital image states: four source trials × (one seed state + five displaced states) | Spots 1, 3, 5, and 6; pairs 1–6 and 3–5 | 80 displaced-spot and 40 displaced-pair evaluation opportunities per method after exclusion of four seed states | Equivariance and pair invariance under a known image transform | Gaussian-refined displacement error; maximum absolute ΔD/D | Four separately initialized source trials from the Cu(111) sequence; not four acquisitions |
 | Ag(111) energy-scan stress test, Scans A and B | 81 acquired images (35 + 46) | Two disjoint pairs (four spots) per scan | 221 baseline-visible branch opportunities and 24 evaluable gaps per method | Principal five-strategy test of radial motion and natural I(V) visibility gaps | Measurement coverage; post-gap branch-consistent recovery; geometry-inconsistent continuation; conditional absolute pair-distance residual | Two independent series, stratified by four frozen scan–pair cases |
 | Ag(111) memory-analysis scan | 69 acquired images | Two disjoint pairs (four spots) | 182 baseline-visible branch opportunities and 13 evaluable gaps per method | Controlled SAM2-family continuity–consistency mechanism test | Measurement coverage; post-gap branch-consistent recovery; geometry-inconsistent continuation; conditional D(E) residual | One series, stratified by two frozen pairs; supporting mechanism evidence |
 | Restricted high-energy external reference | 15-image subset of the memory-analysis scan | Same two pairs; four branch coordinates | 60 frozen branch opportunities per method; 4 gap checks | EasyLEED/ViPErLEED domain-contract compatibility under the common Gaussian estimator | Accepted-measurement coverage; EasyLEED–ViPErLEED common-center distance | Subset of the memory-analysis scan with a separate initialization contract and denominator; not an independent replicate and outside the common five-method matrix |
@@ -560,14 +567,14 @@ frozen radial branch; they do not constitute external ground-truth proof of a
 particular identity switch.
 
 Among images on which both pair branches survived all proposal, fit, and
-geometry gates, the median absolute pair-distance residuals occupied a narrow
-range: 1.737 px for EasyLEED, 1.764 px for Lucas--Kanade, 1.770 px for
-OSTrack, 1.788 px for DAM4SAM, and 1.837 px for LocoTrack. In particular,
-Lucas--Kanade had a conditional residual similar to the other methods while
-losing substantially more visible measurements and gap recoveries. Conditional
-distance quality therefore did not summarize measurement-chain robustness;
-coverage, recovery, and geometry-inconsistent continuation remained separate
-outcomes.
+geometry gates, the conditional median absolute pair-distance residuals
+occupied a narrow range: 1.737 px (n=84) for EasyLEED, 1.764 px (n=68) for
+Lucas--Kanade, 1.770 px (n=90) for OSTrack, 1.788 px (n=91) for DAM4SAM, and
+1.837 px (n=91) for LocoTrack. In particular, Lucas--Kanade had a conditional
+residual similar to the other methods while losing substantially more visible
+measurements and gap recoveries. Conditional distance quality therefore did
+not summarize measurement-chain robustness; coverage, recovery, and
+geometry-inconsistent continuation remained separate outcomes.
 
 The case-stratified results and leave-one-case-out analysis are reported in
 Table S3. Across omission of each frozen scan--pair case, coverage ranged from
@@ -580,7 +587,46 @@ These ranges show how the pooled count summaries depend on any one predefined
 case; they are descriptive sensitivity results, not confidence intervals or
 population-level method rankings.
 
-### 4.4 Controlled SAM2 family exposes a continuity-consistency trade-off
+### 4.4 Predeclared measurement-window and capture-contract sensitivity
+
+To test whether the Ag(111) conclusions depended on the central 48 × 48-pixel
+ROI and acceptance contract, we re-evaluated the stored tracker proposals
+under 15 predeclared measurement-window and capture-contract variants
+(Figure S2; Table S6). The set comprised nine ROI-side × proposal-to-fit
+combinations (32, 48, or 64 px × 12, 15, or 18 px), including the central
+48 px × 15 px contract, and paired one-factor perturbations of branch
+tolerance (12 or 24 px), the Gaussian \(R^2\) threshold (0.80 or 0.90), and
+the amplitude gate (0.75× or 1.25× its central value). Tracker inference and
+the reference opportunity sets were held fixed: coverage retained 221
+baseline-visible opportunities and recovery retained 24 evaluable natural
+\(I(V)\) gaps. Geometry inconsistency remained conditional on each variant's
+accepted fits, and pair-distance residuals retained their method- and
+variant-specific surviving \(n\).
+
+The perturbations changed absolute outcomes. Across all methods and variants,
+branch-consistent coverage spanned 170–221/221, post-gap branch-consistent
+recovery 17–24/24, geometry-inconsistency fractions 1/222–69/272
+(0.45–25.37%; accepted-fit denominators across all method–variant
+combinations, 187–286), and conditional median pair-distance residuals
+1.499 px (n=79)–1.939 px (n=99; pair-frame n across all combinations,
+54–104). The 64-pixel ROI and \(R^2=0.90\) variants reduced coverage for
+every method relative to the central contract, while changing branch
+tolerance altered geometry classification and the surviving residual set by
+construction. Both amplitude-gate perturbations reproduced the reported
+central outcomes. Despite these numerical changes, Lucas–Kanade retained the
+lowest coverage in every variant, and the central conclusion remained:
+conditional residuals cannot summarize robustness without fixed-denominator
+coverage and recovery, geometry-consistency outcomes, and their own surviving
+\(n\). These are sensitivity results for the tested contracts, not a parameter
+optimization or a comparative accuracy ranking.
+
+The predeclared width-materiality trigger was not activated. No method
+produced a width-only rejection, and the counts of fits near the width gate
+remained below their method-specific trigger thresholds. Width sensitivity
+was therefore not run, no alternate width contract was generated, and the
+central measurement contract was not changed.
+
+### 4.5 Controlled SAM2 family exposes a continuity-consistency trade-off
 
 Under byte-identical checkpoint weights, vanilla SAM2 produced 126/182
 branch-consistent measurements (69.23% coverage) and recovered 9/13 natural
@@ -602,7 +648,7 @@ trade-off rather than attributing the entire effect to one isolated memory
 component. The result is supporting mechanism evidence from one series and two
 pairs, not a general ranking of SAM2-derived trackers.
 
-### 4.5 Supporting compatibility and missingness checks
+### 4.6 Supporting compatibility and missingness checks
 
 EasyLEED and ViPErLEED each produced all 60 expected branch proposals over the
 15-image high-energy interval, despite using single-spot and whole-pattern
@@ -640,18 +686,9 @@ for strategy comparison nor treated as spot-identity ground truth.
 
 ### 5.1 Proposal quality and measurement quality
 
-The controlled translations and Cu(111) positive control show that the native
-tracker coordinate and the reported quantitative position are distinct stages
-of the measurement chain. Point, bounding-box, mask, optical-flow, and
-LEED-specific proposals could differ appreciably while still placing the
-intended diffraction spot inside the 48 × 48 pixel measurement ROI. Once that
-condition was met, the common Gaussian estimator fitted the same local
-diffraction feature and strongly reduced the effect of proposal placement. In
-the translation experiment, the method-wise median full-chain errors of
-0.0043--0.0265 px approached the 0.0053 px oracle-ROI level despite much larger
-native proposal errors. In the Cu(111) sequence, the largest native
-between-method separation was 16.759 px, whereas the largest separation
-between the corresponding Gaussian-refined centers was 0.0502 px.
+Across the controlled translations and Cu(111) positive control, the common
+estimator reduced much larger native proposal differences to closely agreeing
+refined positions when the intended spot remained inside its capture region.
 
 This convergence should not be interpreted as evidence that the trackers have
 equal absolute coordinate accuracy. The known-translation test subtracts each
@@ -676,15 +713,9 @@ outside that branch. Combining these outcomes into a single successful-frame
 error would remove the events that most directly determine whether a
 quantitative time or energy series remains usable.
 
-This selection effect is visible in the relation between coverage and the
-conditional pair-distance residual. Lucas--Kanade retained 188/221
-branch-consistent measurements and recovered 17/24 gaps, compared with
-214--217/221 measurements and 21--23/24 recoveries for the other strategies.
-Nevertheless, its median pair-distance residual on the surviving,
-branch-consistent pairs was 1.764 px and therefore lay inside the narrow
-1.737--1.837 px range of all five methods. Reporting only this conditional
-residual would make the methods appear more similar by excluding the
-measurements that were unavailable or inconsistent.
+Lucas–Kanade combined the lowest fixed-denominator coverage and recovery with
+a conditional residual inside the narrow five-method range; the residual alone
+therefore concealed unavailable or inconsistent measurements.
 
 Conversely, high proposal or fit availability does not by itself establish
 correct identity preservation. Accepted Gaussian fits outside the frozen
@@ -699,18 +730,25 @@ geometry-inconsistent fits relative to each method's accepted-fit count, and
 the residual distribution only for pairs whose two branches passed all
 proposal, fit, and geometry gates.
 
+The measurement-contract sensitivity qualifies rather than universalizes
+these conclusions. The common-estimator interpretation and the separation
+between fixed-denominator completeness and conditional residual quality
+survived all 15 predeclared variants, but the numerical envelopes changed
+with ROI geometry and acceptance gates. The central residual range is
+therefore not generalized to every contract: across the sensitivity set,
+medians spanned 1.499–1.939 px and retained method- and variant-specific
+\(n\). Likewise, Lucas–Kanade's consistently lowest coverage is a result for
+the four frozen case strata and tested contracts, not a population-level
+ranking. Sensitivity thus supports claims about denominator-aware
+measurement-chain robustness within the acquisition-closed case boundary;
+it does not select an optimal configuration or establish absolute tracking
+accuracy.
+
 ### 5.3 Visual persistence and physical consistency
 
-The controlled SAM2-family experiment gives a mechanistic example of this
-distinction. With byte-identical checkpoint weights and the same prompts,
-SAMURAI and DAM4SAM produced substantially greater measurement continuity than
-vanilla SAM2: both recovered all 13 evaluable gaps, whereas SAM2 recovered
-9/13. Coverage was 181/182 for SAMURAI and 179/182 for DAM4SAM, compared with
-126/182 for SAM2. The same variants also produced more accepted fits outside
-the expected branch: 36/236 for SAMURAI and 36/233 for DAM4SAM, compared with
-8/149 for SAM2. In this experiment, the strategies that most often preserved
-the desired association through weak visibility also more often persisted on
-a measurable feature outside the frozen physical branch.
+Under matched weights and prompts, the memory-aware variants increased
+continuity while also increasing continuation outside the frozen physical
+branch.
 
 This observation is particularly relevant to diffraction data because the
 temporary unmeasurability of a spot is often driven by the physical I(V)
@@ -732,17 +770,9 @@ one architectural operation.
 
 ### 5.4 Consequences for quantitative LEED observables
 
-The practical consequence of proposal behavior is determined by the
-downstream physical observable. In the Cu(111) positive control, all five
-strategies maintained complete Gaussian-measurement coverage and produced
-nearly identical pairwise \(\Delta R/R=\Delta D/D\) curves, including the
-high-temperature plateau, post-plateau minimum, and final cooled state. This
-agreement demonstrates that the endpoint can be insensitive to the native
-proposal representation when both members of a pair remain inside the
-estimator's capture region. It does not turn the Cu(111) sequence into a
-tracker benchmark; rather, the heterogeneous proposal mechanisms yielded
-mutually consistent endpoints in this particular easy positive-control
-sequence.
+Complete Cu(111) measurement coverage yielded mutually consistent pairwise
+endpoints across all five proposal strategies, demonstrating an easy positive
+control rather than a tracker benchmark.
 
 Pairwise distance is useful in both data regimes because it cancels a common
 translation of the observed pattern. In the energy scans, comparison with
@@ -805,14 +835,21 @@ reciprocal-lattice pattern. Their restricted high-energy comparison
 demonstrates compatibility with the common estimator, not equivalence of the
 native tracking contracts.
 
-Finally, the selected Gaussian gates, 48 × 48 ROI, seeds, and branch tolerance
-were frozen for this study but define the estimator capture region and can
-affect the observed balance between coverage and inconsistency. The present
-work does not test other ROI sizes, detector geometries, or a full structural
-LEED I(V) workflow. The Cu(111) endpoint is consequently limited to relative
-changes of the measured diffraction-pattern scale; it is not used to infer a
-thermal-expansion coefficient, structural transformation, or crystallographic
-anisotropy.
+Finally, the central Gaussian gates, 48 × 48-pixel ROI, seeds, and branch
+tolerance define the estimator capture contract and affect the observed
+balance between coverage and inconsistency. We tested 15 predeclared
+perturbations of ROI size, proposal-to-fit distance, branch tolerance,
+\(R^2\), and amplitude acceptance using stored proposals from the Ag(111)
+stress test. This local sensitivity is not parameter optimization, a full
+capture-basin map, or evidence for untested detector geometries and data
+regimes; its claims remain limited to the observed numerical envelopes and
+outcome-specific denominators. Width sensitivity was not run because the
+predeclared materiality trigger was not activated, not because width limits
+were shown to be irrelevant. The study also does not test a full structural
+LEED \(I(V)\) workflow. The Cu(111) endpoint is consequently limited to
+relative changes of the measured diffraction-pattern scale; it is not used
+to infer a thermal-expansion coefficient, structural transformation, or
+crystallographic anisotropy.
 
 ## 6. Conclusions
 
@@ -831,8 +868,9 @@ measurement coverage, post-gap branch-consistent recovery, and
 geometry-inconsistent continuation. The controlled SAM2-family experiment
 further showed, in one series and two pairs, that greater visual continuity can
 coexist with more persistence outside the expected physical branch.
-Conditional localization quality must therefore remain attached to its fixed
-opportunity denominator and physical-consistency outcomes.
+Conditional residuals must therefore be reported with their method-specific
+surviving n, alongside coverage and recovery evaluated on fixed opportunity
+sets and the corresponding geometry-consistency outcomes.
 
 The appropriate evaluation target for quantitative LEED is the complete chain
 from tracking proposal through the common measurement ROI and Gaussian-refined

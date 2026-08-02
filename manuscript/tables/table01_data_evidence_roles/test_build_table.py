@@ -88,6 +88,24 @@ class DataEvidenceRolesTableTest(unittest.TestCase):
             2,
         )
 
+    def test_reader_facing_translation_row_separates_inventory_from_results(
+        self,
+    ) -> None:
+        row = build_table.display_rows(build_table.load_and_validate_rows())[1]
+
+        self.assertEqual(
+            row["Image count"],
+            "24 digital image states: four source trials × "
+            "(one seed state + five displaced states)",
+        )
+        self.assertEqual(
+            row["Opportunity set"],
+            "80 displaced-spot and 40 displaced-pair evaluation opportunities "
+            "per method after exclusion of four seed states",
+        )
+        self.assertNotIn("96 spot", row["Opportunity set"])
+        self.assertNotIn("48 pair", row["Opportunity set"])
+
     def test_markdown_defers_conditions_and_has_seven_columns(self) -> None:
         rendered = build_table.render_markdown(
             build_table.load_and_validate_rows()

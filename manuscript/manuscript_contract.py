@@ -23,8 +23,9 @@ RESULT_SECTIONS = (
     "4.1 Controlled translations isolate measurement-chain behavior",
     "4.2 Cu(111) positive control establishes endpoint agreement",
     ("4.3 Independent Ag(111) scans separate availability from conditional residuals"),
-    ("4.4 Controlled SAM2 family exposes a continuity-consistency trade-off"),
-    "4.5 Supporting compatibility and missingness checks",
+    "4.4 Predeclared measurement-window and capture-contract sensitivity",
+    ("4.5 Controlled SAM2 family exposes a continuity-consistency trade-off"),
+    "4.6 Supporting compatibility and missingness checks",
 )
 METHOD_SECTIONS = (
     "2.1 Tracking proposal and common measurement ROI",
@@ -60,6 +61,42 @@ PROHIBITED_POSITIVE_CLAIMS = (
     "new physical discovery",
     "performs structural i(v) analysis",
 )
+APPROVED_ABSTRACT = r"""Quantitative low-energy electron diffraction (LEED) analysis requires
+persistent association between a measurement region and its target
+diffraction spot as patterns move and visibility changes. We compared five
+heterogeneous tracking strategies through a common position-measurement
+contract: each native output supplied a proposal for a 48 × 48-pixel ROI,
+and the same two-dimensional Gaussian estimator produced the reported spot
+position. Robustness was assessed with fixed opportunity sets for coverage
+and post-gap recovery, accepted-fit denominators for geometry inconsistency,
+and method-specific surviving \(n\) for conditional residuals.
+
+Validation combined known translations, a 701-image Cu(111) positive
+control, two independent Ag(111) energy scans with natural \(I(V)\) gaps,
+and a controlled SAM2-family memory experiment. Translation errors were
+0.0043–0.0265 px with 74/80–80/80 accepted measurements. All methods
+produced 2,804/2,804 Cu(111) measurements and 701/701 endpoints per primary
+pair. In the Ag(111) scans, coverage was 188/221–217/221, recovery
+17/24–23/24, and conditional median pair-distance residuals 1.737–1.837 px
+(\(n=68–91\)). SAMURAI and DAM4SAM increased coverage over SAM2 but also
+increased geometry-inconsistent continuation; this mechanism result is not
+a general ranking.
+
+Across 15 predeclared perturbations of ROI geometry and acceptance gates,
+absolute outcomes changed, but Lucas–Kanade retained the lowest coverage and
+the denominator-aware interpretation remained stable. The results assess
+measurement-chain robustness, not absolute tracking accuracy. Proposal
+differences were strongly suppressed when the target spot remained inside
+the common estimator's capture region, making this a supporting mechanism
+rather than the primary contribution."""
+
+
+def _normalized(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _section(text: str, start: str, end: str) -> str:
+    return text[text.index(start) + len(start) : text.index(end)]
 
 
 def _headings(text: str, level: int) -> tuple[str, ...]:
@@ -115,6 +152,65 @@ def validate_manuscript_package(manuscript_directory: Path) -> dict[str, object]
     method_sections = _subsections(manuscript, 2)
     if method_sections != METHOD_SECTIONS:
         errors.append("Section 2 differs from the approved measurement-chain order.")
+
+    abstract = _section(manuscript, "## Abstract", "## Keywords")
+    if _normalized(abstract) != _normalized(APPROVED_ABSTRACT):
+        errors.append("The Abstract differs from the approved 244-word text.")
+    abstract_words = re.findall(
+        r"[^\W_]+(?:[-–][^\W_]+)*", abstract, flags=re.UNICODE
+    )
+    if len(abstract_words) != 244:
+        errors.append("The approved Abstract must contain exactly 244 words.")
+    if re.search(r"\b(?:table|figure|supplementary)\b", abstract, re.IGNORECASE):
+        errors.append("The Abstract must not refer to tables, figures, or SI.")
+    association_heading = (
+        "### 1.1 Quantitative LEED requires persistent spot association"
+    )
+    if association_heading not in manuscript:
+        errors.append("Section 1.1 does not use the approved association framing.")
+
+    normalized_manuscript_text = _normalized(manuscript)
+    revised_content_anchors = (
+        "15 predeclared measurement-window and capture-contract variants",
+        "170–221/221",
+        "17–24/24",
+        "1/222–69/272",
+        "0.45–25.37%",
+        "187–286",
+        "1.499 px (n=79)–1.939 px (n=99;",
+        "54–104",
+        "not a parameter optimization or a comparative accuracy ranking",
+        "no alternate width contract was generated",
+        "1.737 px (n=84) for EasyLEED",
+        "1.764 px (n=68) for Lucas--Kanade",
+        "1.770 px (n=90) for OSTrack",
+        "1.788 px (n=91) for DAM4SAM",
+        "1.837 px (n=91) for LocoTrack",
+        (
+            "24 digital image states: four source trials × "
+            "(one seed state + five displaced states)"
+        ),
+        (
+            "80 displaced-spot and 40 displaced-pair evaluation opportunities "
+            "per method after exclusion of four seed states"
+        ),
+        (
+            "Sensitivity thus supports claims about denominator-aware "
+            "measurement-chain robustness within the acquisition-closed case "
+            "boundary"
+        ),
+        (
+            "Conditional residuals must therefore be reported with their "
+            "method-specific surviving n, alongside coverage and recovery evaluated "
+            "on fixed opportunity sets and the corresponding geometry-consistency "
+            "outcomes."
+        ),
+    )
+    for anchor in revised_content_anchors:
+        if anchor not in normalized_manuscript_text:
+            errors.append(f"Approved revised-content anchor is missing: {anchor}")
+    if "The present work does not test other ROI sizes" in manuscript:
+        errors.append("The superseded ROI-sensitivity limitation remains.")
 
     section_three = manuscript[
         manuscript.index(f"## {MAIN_SECTIONS[2]}") : manuscript.index(

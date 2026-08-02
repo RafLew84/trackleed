@@ -54,6 +54,11 @@ pominięte.
   uwierzytelnione wyjątki zachowują bajty, a clean Windows reconstruction
   przechodzi bez driftu końców linii i zatrzymuje się dopiero na niezmienionym
   historycznym fingerprintcie; [dowody](artifacts/02-publication-line-ending-contract.md).
+- [I03 — proza naukowa i mianowniki](issues/03-proza-naukowa-i-mianowniki.md)
+  — zatwierdzony Abstract, hierarchy, sensitivity, claim boundaries i
+  method-specific surviving `n` są kanoniczne; Table 1 rozdziela inventory 24
+  od fixed opportunity sets 80/40 bez zmiany frozen source data, a generowane
+  kopie i manifesty pochodzą z builderów; [dowody](artifacts/03-scientific-prose-denominator-semantics.md).
 
 ## Constraints
 
