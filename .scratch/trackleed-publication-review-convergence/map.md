@@ -1,7 +1,7 @@
 # Mapa konwergencji manuskryptu TrackLEED po audycie publikacja.md
 
 Label: `wayfinder:map`
-Status: `active`
+Status: `resolved`
 
 ## Destination
 
@@ -94,12 +94,16 @@ eksperymentalnych.
   reconstructions i audytu 100% stron kanonicznych main manuscript oraz SI;
   dopuszcza tylko cztery kategorie jawnych deferred placeholders i pozostaje
   odrębny od adaptera JAC, release candidate oraz `submission-ready`.
+- [Konsolidacja specyfikacji i handoff do
+  implementacji](issues/09-konsolidacja-specyfikacji-i-handoff-do-implementacji.md)
+  — decyzje 02–08 scalono w jeden source-of-truth, użytkownik zatwierdził
+  podział I01–I14, a osobny [workflow implementacyjny](../trackleed-publication-content-revision-implementation/map.md)
+  otrzymał PRD, zależności fail-closed, bramki HITL i właścicieli wszystkich
+  tekstów, display items, walidacji dokumentów oraz replacement fingerprintu.
 
 ## Not yet specified
 
-- Brak dodatkowego fog of war. Dokładny podział implementacji zostanie
-  określony dopiero po zamrożeniu wszystkich decyzji treściowych i
-  walidacyjnych na tej mapie.
+- Brak. Specyfikacja została przekazana do osobnego workflow implementacyjnego.
 
 ## Out of scope
 
