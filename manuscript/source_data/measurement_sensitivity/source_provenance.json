@@ -3,7 +3,7 @@
     "gate_margin_summary.csv": {
       "builder": {
         "path": "trackleed/publication/scientific_sensitivity_sources.py",
-        "sha256": "92ca0ce3027152f701a7460d4447af0769d9fcb5ca7ad7ffbd26d9efe5f0396a"
+        "sha256": "398eed1d34d2cefcbfd8354f33d6b8e904697f3f9ca18ba2f92557805310618a"
       },
       "derived_from": {
         "evaluation_records.csv": "f16cec649c85e1cc4e30e6e8c04350853a34d9aacb33647937a9f1c466bb62e6"

@@ -8,7 +8,7 @@
     "frozen/expected_pair_records.csv": "3cd977f08eb2e670948e670bb0232d0a28624a1e39e9b5aca4f931ad475dc8fa",
     "frozen/expected_summary.json": "346d8f079d48a041a72897bf4d553f2e3c2f3433f5eec703832e8eca26c21ee8",
     "frozen/frame_images.csv": "7630f1ddbf60b4ebe8906aed6899c8e6fcee05c5cf415bd5a2e73c8c9f735acf",
-    "frozen/tracer_contract.json": "3c937cd3fc29264d7456a82a8740cb639af2747840379073a1509eeed8e1c67a"
+    "frozen/tracer_contract.json": "3030e31d35c15e71f2d255317c90cc97e0e07bbc6fe266b0e35d13eb9a7f6501"
   },
   "immutable": true,
   "schema_version": 1,

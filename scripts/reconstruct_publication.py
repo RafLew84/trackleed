@@ -103,6 +103,7 @@ def _write_scientific_core_report(
     (report_directory / "scientific_core_validation_report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     markdown = "\n".join(
         (
@@ -124,6 +125,7 @@ def _write_scientific_core_report(
     (report_directory / "scientific_core_validation_report.md").write_text(
         markdown,
         encoding="utf-8",
+        newline="\n",
     )
 
 

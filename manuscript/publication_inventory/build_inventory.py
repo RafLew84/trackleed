@@ -686,7 +686,7 @@ def build_inventory_artifact(
     report = validate_inventory(inventory)
     rendered = render_inventory(inventory)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(rendered, encoding="utf-8")
+    output_path.write_text(rendered, encoding="utf-8", newline="\n")
     manifest: dict[str, Any] = {
         "schema_version": "1.0",
         "status": "completed",
@@ -707,6 +707,7 @@ def build_inventory_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     semantic_manifest_path.parent.mkdir(parents=True, exist_ok=True)
     semantic_manifest_path.write_text(
@@ -717,6 +718,7 @@ def build_inventory_artifact(
         )
         + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 

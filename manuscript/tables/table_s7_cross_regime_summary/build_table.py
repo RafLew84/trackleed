@@ -508,6 +508,7 @@ def build_artifact(
     output_paths["table_s7_cross_regime_summary.md"].write_text(
         render_markdown(blocks),
         encoding="utf-8",
+        newline="\n",
     )
 
     manifest: dict[str, object] = {
@@ -541,6 +542,7 @@ def build_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 

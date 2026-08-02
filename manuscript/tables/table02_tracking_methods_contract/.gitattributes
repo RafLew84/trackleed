@@ -1,2 +1,3 @@
 *.csv binary
+output/*.csv text eol=lf
 source_data/upstream_contracts/* binary

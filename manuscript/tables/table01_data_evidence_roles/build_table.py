@@ -327,6 +327,7 @@ def build_artifact(
     output_paths["table01_data_evidence_roles.md"].write_text(
         render_markdown(rows),
         encoding="utf-8",
+        newline="\n",
     )
 
     manifest: dict[str, object] = {
@@ -357,6 +358,7 @@ def build_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 

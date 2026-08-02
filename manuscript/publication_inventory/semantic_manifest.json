@@ -9,7 +9,7 @@
           "manuscript/figures/figure01_measurement_chain/README.md": "a39e309046896cd4ac6f55aaae1303cb7baeaf01a42e6bc6d74f54b8d5666518"
         },
         "manifests": {
-          "manuscript/figures/figure01_measurement_chain/manifest.json": "375b142842392669549e93cf3f638fc64aa41b8a171ca4e757007b2a05f55a37",
+          "manuscript/figures/figure01_measurement_chain/manifest.json": "19837decb63cc24eb7f4218b9ee63e30ff76a5580a5a410bc28889146537dca4",
           "manuscript/figures/figure01_measurement_chain/render_manifest.json": "5837bad79c87d5bd223394c1c391504d49cef7303159a286ec61cc779b5458ff"
         },
         "validators": {
@@ -18,12 +18,12 @@
           "manuscript/figures/figure01_measurement_chain/test_freeze_case.py": "ea721baefdddb2503f980d63dabc8854cc876c457af95f43e321d8fc690990df"
         }
       },
-      "semantic_fingerprint_sha256": "4be8f144a9878a6dea88808018fc086764bba4324ea57c279f24bc966ff22c5a",
+      "semantic_fingerprint_sha256": "2652b34e33ceb1835e7e830ea5a6433b022c8e8b81e2de5272ab9339c1b862a3",
       "source_data_sha256": {
         "manuscript/figures/figure01_measurement_chain/source_data/representative_dam4sam_mask_cache.png": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_initialization.json": "9983277bda6488357fbe08575b659a13a2234b92cb9fb8b85468f87a0f380c15",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_method_outputs.csv": "4aba63b8168368984316fadf030e999a02e3f0482bb8fc0f3305d3463a33f244",
-        "manuscript/figures/figure01_measurement_chain/source_data/representative_native_geometry.json": "763d2c5b37294ff2540cb39084540d91f4cb15d538cee8425ebf9a32b157afc1",
+        "manuscript/figures/figure01_measurement_chain/source_data/representative_native_geometry.json": "98b00e13e8b5b03b8a510d8d950cd28bfd5d838840ee6fa39909a77a7233b1f5",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_native_geometry_replay.csv": "6e94acf10f0ea7ef8a2580e19df401f64dd24d787b27a2304c8973321e51c5be",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_spot_crop.json": "fbefcd148a1536d5dfcc735ea8cbf280907eb77314407e611a3747a7069c7637",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_spot_crop.png": "370c35ee1c1ad8c909c6c4704321ed71b74ae2c9be02eaa2f515cd699dac454f",
@@ -178,13 +178,13 @@
           "manuscript/figures/figure_s2_measurement_sensitivity/README.md": "4588cedff2d159491e9d19b7fcda0cc681390452e4aa11cc297665cdfef1532a"
         },
         "manifests": {
-          "manuscript/figures/figure_s2_measurement_sensitivity/manifest.json": "3567842fa495b42c742e645a27e1f32d78dc903665019ed693ed6d06ae1e0014"
+          "manuscript/figures/figure_s2_measurement_sensitivity/manifest.json": "410527becae0ba8f57dbb3ccf68e256c0207312e0564c8c59f24e08ddef89854"
         },
         "validators": {
           "trackleed/tests/test_scientific_sensitivity_evidence.py": "ebda5ad81213e9812ce38258fbe15fca1153a6b9d7a24c961a4d444867ed8b46"
         }
       },
-      "semantic_fingerprint_sha256": "e8e1f8c59e9e6d529f12799c763f8cdabeaea0d5df611c4e632c9c5c95519392",
+      "semantic_fingerprint_sha256": "51d9806e65deeec2854757e92358537fd6b764527ab549cf635ea9af89744ec5",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -194,7 +194,7 @@
         "manuscript/source_data/measurement_sensitivity/sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
         "manuscript/source_data/measurement_sensitivity/sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
         "manuscript/source_data/measurement_sensitivity/sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
-        "manuscript/source_data/measurement_sensitivity/source_provenance.json": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+        "manuscript/source_data/measurement_sensitivity/source_provenance.json": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
       },
       "text_outputs_sha256": {}
     },
@@ -301,19 +301,19 @@
     "Table 1": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/tables/table01_data_evidence_roles/build_table.py": "ebee1ed05e7e0affec5299ff913c5ed4869402d58b862be3fba29a931c7175c6"
+          "manuscript/tables/table01_data_evidence_roles/build_table.py": "899d8cf47f5ab5373b5c87a9cb471a5e889b5016492d808e14a9cc2bcebd9f21"
         },
         "caption": {
-          "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "a13f477247dd7faab60b7a8b82dbde4a27e690c3242fbaeb1794d7f96a31f338"
+          "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "8c177c108981be9450209debb6dbe3b2538bf20a692a505abaa142d2171a2f76"
         },
         "manifests": {
-          "manuscript/tables/table01_data_evidence_roles/manifest.json": "48bbe025e820f560fca97be5e1e11d7547f10f59cc8a1d9e8d6ba60888da8665"
+          "manuscript/tables/table01_data_evidence_roles/manifest.json": "6afed424fad3b083f7ca0477850d8b095aba45a54b63407ca2e4652e49d1eaf6"
         },
         "validators": {
           "manuscript/tables/table01_data_evidence_roles/test_build_table.py": "01763badd92884860b1ffe28ebd49386e6570e0f2ac332776e38fb4f765d5be9"
         }
       },
-      "semantic_fingerprint_sha256": "5475ac55274c66f3389878927a2b8493437dde0d5450eb1e220d56d2047bec94",
+      "semantic_fingerprint_sha256": "efd12c7e7ffec71f96e6c0d13b8c8d1f7f86d9abd971b0c0ae6f811edf368498",
       "source_data_sha256": {
         "manuscript/tables/table01_data_evidence_roles/source_data/data_regimes.csv": "755190c5a7d2401e0db7030662a3c86792d7d166de583c9444526b8f66612f33",
         "manuscript/tables/table01_data_evidence_roles/source_data/source_provenance.json": "df1eb8c4339aa465e870fc5567c3f6613c7ce9490954d9e1a9a4e538cc28c3db",
@@ -326,25 +326,25 @@
       },
       "text_outputs_sha256": {
         "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.csv": "2916b406cca6a03ee2c26f6cc8229a2e2abee0b2da5b9867ac04743ae8f4f571",
-        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "a13f477247dd7faab60b7a8b82dbde4a27e690c3242fbaeb1794d7f96a31f338"
+        "manuscript/tables/table01_data_evidence_roles/output/table01_data_evidence_roles.md": "8c177c108981be9450209debb6dbe3b2538bf20a692a505abaa142d2171a2f76"
       }
     },
     "Table 2": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/tables/table02_tracking_methods_contract/build_table.py": "11675232e6f012b0f0dff7065d5402b28e8fa9ff352317c96af31ddae141a25b"
+          "manuscript/tables/table02_tracking_methods_contract/build_table.py": "c146c3d2859fcb07c5ece1b28a0daa124795638e028f3d81014ffce7fec718ce"
         },
         "caption": {
-          "manuscript/tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md": "aa1c6ff7c47bb560367dc6cf70fc4a11642a4cadedd5dbf00cf907e98fc72128"
+          "manuscript/tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md": "d77781f8da16b371a34b8e4c993940cba8da2ccbd5f021fd3a800812b0622e8a"
         },
         "manifests": {
-          "manuscript/tables/table02_tracking_methods_contract/manifest.json": "8da04f49245a07f2fb40fa04d501347c8542047b7dbfc0c7610cdf152a807e78"
+          "manuscript/tables/table02_tracking_methods_contract/manifest.json": "c89606b53ffccf6efef0d952b9d88609275f5d889a962c8b3e9d35420fff2871"
         },
         "validators": {
           "manuscript/tables/table02_tracking_methods_contract/test_build_table.py": "f592e09cbbbf73add52783b81fadd5775197e2523f47d7ce745f1676c86e5ca1"
         }
       },
-      "semantic_fingerprint_sha256": "07d324badeab3daa01254f614570a42d3ae6c7cf4b9f36081303323fcaba06f8",
+      "semantic_fingerprint_sha256": "4f022eb040eef8ace8185513bbaeca2aadc3baaf19859933c839034ce803bc15",
       "source_data_sha256": {
         "manuscript/tables/table02_tracking_methods_contract/source_data/methods.csv": "9ff9a67d6e9ecd09f1412897ad1870cea67c6af4f49a004ce646705d3fe24051",
         "manuscript/tables/table02_tracking_methods_contract/source_data/source_provenance.json": "6e32b6586705be24653b288c218d91e6ffb3d5981488bc4bdc4082b8b2b6152d",
@@ -356,25 +356,25 @@
       },
       "text_outputs_sha256": {
         "manuscript/tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.csv": "30cbe4f510021175e74a754711a460420152ec96041de05553203115af489302",
-        "manuscript/tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md": "aa1c6ff7c47bb560367dc6cf70fc4a11642a4cadedd5dbf00cf907e98fc72128"
+        "manuscript/tables/table02_tracking_methods_contract/output/table02_tracking_methods_contract.md": "d77781f8da16b371a34b8e4c993940cba8da2ccbd5f021fd3a800812b0622e8a"
       }
     },
     "Table S1": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/tables/table_s1_software_environments/build_table.py": "0e6f66477d71a1b41ceb57d49fe6ed0297079cf2eda6f2c67023fd6ba60b55ce"
+          "manuscript/tables/table_s1_software_environments/build_table.py": "9e11af62bdb9c57199b5ca073a766c7f76c63f05d7d80ecf65ab50d7ace42950"
         },
         "caption": {
-          "manuscript/tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md": "ece9350f738325b7bcfb8106e0379fd70ff3e91147d9a857741bc3070c82fbb7"
+          "manuscript/tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md": "f9883993f9c6a86c6e919c3eefc2f9dceef60191f1bb54af1b395e56aee4dd06"
         },
         "manifests": {
-          "manuscript/tables/table_s1_software_environments/manifest.json": "045f797503100b4e3793f9e34de65f906b35479eb7a644d8f97a35bcc2ea0853"
+          "manuscript/tables/table_s1_software_environments/manifest.json": "b6969d8c1f0037dbab8551f9fe16fd337e0104245f5217b1250970ec42c7a8a5"
         },
         "validators": {
           "manuscript/tables/table_s1_software_environments/test_build_table.py": "ce712c6b538c29fe328dda394141aa79a6080a4b7cae4cbae27ea783da0f573b"
         }
       },
-      "semantic_fingerprint_sha256": "25c8230bf483a2f498ea51d47e97ed82d907dc899ad4b0a380786caa9f5588a8",
+      "semantic_fingerprint_sha256": "61b725a4a0683a040875ad2bc596d77de1e5e0669d065efc82095efb1cef07e0",
       "source_data_sha256": {
         "manuscript/tables/table_s1_software_environments/source_data/component_records.csv": "fb36482619c7b7d95e243da95a640d692312f5dcecd9fa36bf98eaa7db1a8f04",
         "manuscript/tables/table_s1_software_environments/source_data/configuration_records/dam4sam-base-plus-controlled-family.json": "62e9316adac13b4b5fa72ec8b656668590d48bc150e387734373715b04b2b301",
@@ -414,7 +414,7 @@
       "text_outputs_sha256": {
         "manuscript/tables/table_s1_software_environments/output/table_s1_components.csv": "ea66c1065496deb7e4aaf64bed960067b62da27bf0ce1f71407e0f2526ed2a89",
         "manuscript/tables/table_s1_software_environments/output/table_s1_environments.csv": "929dee78c0c27d41b16d73937af95d3d7f0d3ba9a4d65ed6d9b96cb953689d32",
-        "manuscript/tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md": "ece9350f738325b7bcfb8106e0379fd70ff3e91147d9a857741bc3070c82fbb7"
+        "manuscript/tables/table_s1_software_environments/output/table_s1_versions_hashes_environments.md": "f9883993f9c6a86c6e919c3eefc2f9dceef60191f1bb54af1b395e56aee4dd06"
       }
     },
     "Table S2": {
@@ -544,16 +544,16 @@
           "manuscript/tables/table_s6_measurement_sensitivity/build_table.py": "54bf08b3b46d997a76e4f78b42f7ab60bc54e42ef05d9bbe3f10c01459a761a2"
         },
         "caption": {
-          "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "8955e49be22dfe713d8ee1e36d4647a1a8189e170bf9a84125a4f3df453471e6"
+          "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
         },
         "manifests": {
-          "manuscript/tables/table_s6_measurement_sensitivity/manifest.json": "fe0f46c08d1bc586a938ba934897fa3e412e56ebfc79d330cb1ff31e51534d60"
+          "manuscript/tables/table_s6_measurement_sensitivity/manifest.json": "a8a17775350d6c561443ffdfc8f25865b3521b550c5236b0225c13a47108c024"
         },
         "validators": {
           "trackleed/tests/test_scientific_sensitivity_evidence.py": "ebda5ad81213e9812ce38258fbe15fca1153a6b9d7a24c961a4d444867ed8b46"
         }
       },
-      "semantic_fingerprint_sha256": "befda67aad62c6c291695915085f844c62a75ba7fa7ecaedd6369e880fb87e51",
+      "semantic_fingerprint_sha256": "2788efba35d4ba9cedef95042c27f51abca93e9319e720e3632b823f86f125de",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -563,37 +563,37 @@
         "manuscript/source_data/measurement_sensitivity/sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
         "manuscript/source_data/measurement_sensitivity/sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
         "manuscript/source_data/measurement_sensitivity/sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
-        "manuscript/source_data/measurement_sensitivity/source_provenance.json": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+        "manuscript/source_data/measurement_sensitivity/source_provenance.json": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
       },
       "text_outputs_sha256": {
         "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
-        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "8955e49be22dfe713d8ee1e36d4647a1a8189e170bf9a84125a4f3df453471e6"
+        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
       }
     },
     "Table S7": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/tables/table_s7_cross_regime_summary/build_table.py": "2e2b14c7dd94271f1e3079fb7ada3d74ea3a882618e34a3e451fed269ad19519"
+          "manuscript/tables/table_s7_cross_regime_summary/build_table.py": "1fbebe489f3913263b29db14e2fd1d82a90d11127af59cbd11219a53218d98e9"
         },
         "caption": {
-          "manuscript/tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.md": "ee987349e7cc995188e4ebbd41a1fab530c61affd6d708c73d477bf6fd896ccb"
+          "manuscript/tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.md": "82ad155c20a51498676b47800c14c5a162e396319b800704bacb3850b2c68c0d"
         },
         "manifests": {
-          "manuscript/tables/table_s7_cross_regime_summary/manifest.json": "2d277e8b88223d11519ffcec9207ed258aadebc5b06e8f88e88064356ef19558"
+          "manuscript/tables/table_s7_cross_regime_summary/manifest.json": "5c72dc63e4df129771e91086c66172574a6d040ea733613a2bc0811b0017f270"
         },
         "validators": {
           "manuscript/tables/table_s7_cross_regime_summary/test_build_table.py": "fe092ab28b32b8c356e025b2a92f099eaf3211f7eb0d1150376624b67a6b5c97",
           "manuscript/tables/table_s7_cross_regime_summary/test_table_s7_contract.py": "1f963ace1320d299fb68f1ca2c0d0fca00386a3f57ad91abbbd54eebc66c9dff"
         }
       },
-      "semantic_fingerprint_sha256": "01a578cd2d54b35fcd440079ba835f70190cf68104e8668ee4e89d9cddca6e48",
+      "semantic_fingerprint_sha256": "e513e9df542f48e8dddb4d982fac5969a562134ad6aa04dcd4db1683923e4657",
       "source_data_sha256": {
         "manuscript/tables/table_s7_cross_regime_summary/source_data/method_evidence_matrix.csv": "5d37a4e49c6357582bcbde727c4d1b9360d53a5c4b7dbe6a011b83e6c44db87a",
         "manuscript/tables/table_s7_cross_regime_summary/source_data/source_provenance.json": "dded76c07454f0cf76043e95fc27bcf5930b6a67f95e03bd6f84cddd279defe8"
       },
       "text_outputs_sha256": {
         "manuscript/tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.csv": "9bf8c6df2be2622129273afaced9693a90a7a2f528c0c5d2b8f102df24fbf3b2",
-        "manuscript/tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.md": "ee987349e7cc995188e4ebbd41a1fab530c61affd6d708c73d477bf6fd896ccb"
+        "manuscript/tables/table_s7_cross_regime_summary/output/table_s7_cross_regime_summary.md": "82ad155c20a51498676b47800c14c5a162e396319b800704bacb3850b2c68c0d"
       }
     }
   },
@@ -623,6 +623,6 @@
   ],
   "inventory_contract_sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "70ff2793c7f2fbe107417e7e870f9123c065c752ac40f6bc17510492f1b827e2",
+  "semantic_inventory_sha256": "506c6e83cc99df20524217898bed359a59e6ff7030f9070783b7330ddedf825f",
   "status": "scientific-baseline-complete"
 }

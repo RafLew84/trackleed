@@ -12,8 +12,8 @@
   "gate_audit_record_count": 25,
   "gate_margin_summary_record_count": 40,
   "implementation_sha256": {
-    "trackleed/publication/scientific_sensitivity_figure.py": "8869d92fbbfd36283e94d93697beb8dc3d22ac5a62f109d71f13a8bd8ce4d34b",
-    "trackleed/publication/scientific_sensitivity_sources.py": "92ca0ce3027152f701a7460d4447af0769d9fcb5ca7ad7ffbd26d9efe5f0396a"
+    "trackleed/publication/scientific_sensitivity_figure.py": "7b23a49f1516c17498bfec9827a4564443a1092fa07061838f89322aaa61fbe1",
+    "trackleed/publication/scientific_sensitivity_sources.py": "398eed1d34d2cefcbfd8354f33d6b8e904697f3f9ca18ba2f92557805310618a"
   },
   "method_count": 5,
   "ofat_variant_count": 6,
@@ -49,7 +49,7 @@
     "sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
     "sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
     "sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
-    "source_provenance.json": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+    "source_provenance.json": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
   },
   "status": "completed",
   "title": "Measurement-window and capture-contract sensitivity",

@@ -161,6 +161,7 @@ def build_table_s6(
     (output_directory / "table_s6_measurement_sensitivity.md").write_text(
         _render_table_s6(rows),
         encoding="utf-8",
+        newline="\n",
     )
     return TableS6Report(
         result_count=len(rows),
@@ -215,6 +216,7 @@ def build_table_s6_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return report
 
@@ -247,7 +249,11 @@ def synchronize_table_s6(
         supplement = before + block + after
     else:
         raise ValueError("Table S6 supplement markers changed")
-    supplementary_material_path.write_text(supplement, encoding="utf-8")
+    supplementary_material_path.write_text(
+        supplement,
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 __all__ = [

@@ -49,6 +49,11 @@ pominięte.
   `docs/publication-status-contract.md`; routing domenowy nadaje mu
   pierwszeństwo przed ignorowanym `context.md`, a fail-closed test chroni
   definicje i routing bez zmiany bieżącego scientific-core fingerprintu.
+- [I02 — przenośny kontrakt LF](issues/02-przenosny-kontrakt-lf.md)
+  — repozytoryjny hash-bound text ma jednoznaczny checkout i zapis LF,
+  uwierzytelnione wyjątki zachowują bajty, a clean Windows reconstruction
+  przechodzi bez driftu końców linii i zatrzymuje się dopiero na niezmienionym
+  historycznym fingerprintcie; [dowody](artifacts/02-publication-line-ending-contract.md).
 
 ## Constraints
 

@@ -1,5 +1,5 @@
 {
-  "builder_sha256": "0e6f66477d71a1b41ceb57d49fe6ed0297079cf2eda6f2c67023fd6ba60b55ce",
+  "builder_sha256": "9e11af62bdb9c57199b5ca073a766c7f76c63f05d7d80ecf65ab50d7ace42950",
   "capture_script_sha256": "e391f2e1551cc442f78ff6363cd1778023562cbdb64c073e72af19eb76b8615f",
   "environment_snapshots": {
     "dam4sam.json": "1b14a78e06eff162d756fbbae9753f84371814d53639abc4275165aeb012147e",
@@ -14,7 +14,7 @@
   "outputs": {
     "table_s1_components.csv": "ea66c1065496deb7e4aaf64bed960067b62da27bf0ce1f71407e0f2526ed2a89",
     "table_s1_environments.csv": "929dee78c0c27d41b16d73937af95d3d7f0d3ba9a4d65ed6d9b96cb953689d32",
-    "table_s1_versions_hashes_environments.md": "ece9350f738325b7bcfb8106e0379fd70ff3e91147d9a857741bc3070c82fbb7"
+    "table_s1_versions_hashes_environments.md": "f9883993f9c6a86c6e919c3eefc2f9dceef60191f1bb54af1b395e56aee4dd06"
   },
   "schema_version": "1.1",
   "source_data": {
@@ -45,11 +45,6 @@
     "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_2.json": "0fa0728d5ccfd43d5f2a0c8a1bcca4516ed46268cc8c56a600993532f8a6bf5d",
     "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_3.json": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a",
     "source_data/upstream_contracts/executed_outputs/easyleed_independent_case_4.json": "26374559f657daae4bbbf02ddb3111663f6bcd96ce4bf42e9ad6f87575686f2a",
-    "source_data/upstream_contracts/executed_sources/__pycache__/controlled_family_runner.cpython-312.pyc": "1d1c4eada39465f7ca022e9989097644c4f48ea7cb5b78354064b07cc00b2713",
-    "source_data/upstream_contracts/executed_sources/__pycache__/easyleed_high_energy_runner.cpython-312.pyc": "bde638a783883be0707ad541daf09377cd29d4efb9cb23b016c8fe2f48896c31",
-    "source_data/upstream_contracts/executed_sources/__pycache__/easyleed_independent_analysis.cpython-312.pyc": "6a84797ac7f1c8dc7a7bae7f3049c8c35a63123cba6e9149fe9e6325004810de",
-    "source_data/upstream_contracts/executed_sources/__pycache__/easyleed_independent_runner.cpython-312.pyc": "a59dde0b581b9d3e5d403a7f2b3e993325bd78ba4b34a45fb7721aaf3b64d8a8",
-    "source_data/upstream_contracts/executed_sources/__pycache__/independent_energy_runner.cpython-312.pyc": "de9de6e341f84f1b00ed68eda0b2aa5abaa77557c85b4a7c683e8828be3d789a",
     "source_data/upstream_contracts/executed_sources/controlled_family_runner.py": "c95eb72343da954378e083233b943e79beed78328e3695dc71b4a5f51aaa9547",
     "source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py": "29ceb1e22e89a177a68c2af3f14ef6f331e2656daa83e71611dd4e9edcfbc23b",
     "source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py": "aea4de426b7c307d9230c3994ee88cc59579a95ae8bf0ce8079690e485f90933",

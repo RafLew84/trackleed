@@ -3,13 +3,13 @@
   "case_result_count": 300,
   "denominator_policy": "fixed reference opportunity sets with explicit variant-specific denominators for conditional outcomes",
   "implementation_sha256": {
-    "trackleed/publication/scientific_sensitivity_evidence.py": "be4d491ce865cb3a8856b99137ab2532f9971a5d51f5c4ae2fb9d07851ea2ea7",
-    "trackleed/publication/scientific_sensitivity_sources.py": "92ca0ce3027152f701a7460d4447af0769d9fcb5ca7ad7ffbd26d9efe5f0396a"
+    "trackleed/publication/scientific_sensitivity_evidence.py": "db3dab50526f6d32eca9f5a4f85528bf950db9bda3b1ad785126dd2238d19dd3",
+    "trackleed/publication/scientific_sensitivity_sources.py": "398eed1d34d2cefcbfd8354f33d6b8e904697f3f9ca18ba2f92557805310618a"
   },
   "method_result_count": 75,
   "outputs_sha256": {
     "table_s6_measurement_sensitivity.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
-    "table_s6_measurement_sensitivity.md": "8955e49be22dfe713d8ee1e36d4647a1a8189e170bf9a84125a4f3df453471e6"
+    "table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
   },
   "result_count": 375,
   "schema_version": 1,
@@ -22,7 +22,7 @@
     "sensitivity_results.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
     "sensitivity_summary.json": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
     "sensitivity_validation_report.json": "5bd128d4620a064f6ba4dff076e88666412a58b666d71f38595b66fdc6d8ab42",
-    "source_provenance.json": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+    "source_provenance.json": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
   },
   "status": "completed",
   "table": "Table S6",

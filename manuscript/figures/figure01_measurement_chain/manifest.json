@@ -5,7 +5,7 @@
     "test_export_native_geometry.py": "8b1d9c524d56a540721ad0e05fca93e4615b9f7826db6914d4ad54b1e4932d04",
     "test_freeze_case.py": "ea721baefdddb2503f980d63dabc8854cc876c457af95f43e321d8fc690990df"
   },
-  "contract_sha256": "98298fedf75cd3705ffd0c6505882321561984622fe51a015e9b705e814aeac0",
+  "contract_sha256": "ebc7091bc21249ebe29d0eed0baab9f45022591a3e819c4811e6b078b8f32877",
   "figure": "Figure 1",
   "schema_version": "1.0",
   "source_artifacts": {
@@ -62,7 +62,7 @@
     "source_data/representative_dam4sam_mask_cache.png": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
     "source_data/representative_initialization.json": "9983277bda6488357fbe08575b659a13a2234b92cb9fb8b85468f87a0f380c15",
     "source_data/representative_method_outputs.csv": "4aba63b8168368984316fadf030e999a02e3f0482bb8fc0f3305d3463a33f244",
-    "source_data/representative_native_geometry.json": "763d2c5b37294ff2540cb39084540d91f4cb15d538cee8425ebf9a32b157afc1",
+    "source_data/representative_native_geometry.json": "98b00e13e8b5b03b8a510d8d950cd28bfd5d838840ee6fa39909a77a7233b1f5",
     "source_data/representative_native_geometry_replay.csv": "6e94acf10f0ea7ef8a2580e19df401f64dd24d787b27a2304c8973321e51c5be",
     "source_data/representative_spot_crop.json": "fbefcd148a1536d5dfcc735ea8cbf280907eb77314407e611a3747a7069c7637",
     "source_data/representative_spot_crop.png": "370c35ee1c1ad8c909c6c4704321ed71b74ae2c9be02eaa2f515cd699dac454f",

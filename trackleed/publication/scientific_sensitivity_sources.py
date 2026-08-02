@@ -212,6 +212,7 @@ def freeze_sensitivity_source_data(
     (destination_directory / "source_provenance.json").write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return provenance
 

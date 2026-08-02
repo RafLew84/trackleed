@@ -880,7 +880,7 @@ def sync_supplement_table(markdown: str) -> None:
         + "\n"
         + supplement[end:]
     )
-    SUPPLEMENT_PATH.write_text(synchronized, encoding="utf-8")
+    SUPPLEMENT_PATH.write_text(synchronized, encoding="utf-8", newline="\n")
 
 
 def validate_provenance() -> dict[str, object]:
@@ -977,6 +977,7 @@ def build_artifact(
     output_paths["table_s1_versions_hashes_environments.md"].write_text(
         render_markdown(components, environments),
         encoding="utf-8",
+        newline="\n",
     )
 
     source_paths = sorted(
@@ -1024,6 +1025,7 @@ def build_artifact(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 
