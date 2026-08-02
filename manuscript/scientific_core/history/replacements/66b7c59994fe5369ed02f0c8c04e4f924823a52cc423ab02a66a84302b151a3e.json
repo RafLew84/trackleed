@@ -1,0 +1,299 @@
+{
+  "authorization": {
+    "path": "manuscript/scientific_core/replacement_authorization.json",
+    "sha256": "57337a25fbc5bd3b6402e4da72770231fa4d0208b128fe37f7c5f198476ab9ab"
+  },
+  "component_summary": {
+    "changed": 13,
+    "total": 23,
+    "unchanged": 10
+  },
+  "components": [
+    {
+      "id": "manuscript",
+      "path": "manuscript/manuscript.md",
+      "predecessor_sha256": "d32112afb313b997ecc20996fb5a5a2f7a8562dd902660bf21de722ef38bfc5b",
+      "roles": [
+        "final_prose",
+        "denominators",
+        "limitations"
+      ],
+      "status": "changed",
+      "successor_sha256": "ebb7b8627c1add431693e9bcc98af6758d3b5e2cf95a9475e74332c40c1cead0"
+    },
+    {
+      "id": "supplementary-material",
+      "path": "manuscript/supplementary-material.md",
+      "predecessor_sha256": "03d17fb7bc8966fce38d8917b8728d09031fb9846d27b6663119a9ea28f99209",
+      "roles": [
+        "final_prose",
+        "si_inventory",
+        "denominators",
+        "limitations"
+      ],
+      "status": "changed",
+      "successor_sha256": "ed586e984a0efb4e11d68277a0fe1f75ed460cbe017cf5f0e369e57e1c970dda"
+    },
+    {
+      "id": "claim-evidence-map",
+      "path": "manuscript/claim-evidence-map.md",
+      "predecessor_sha256": "b51186529b03e692c22a8cf50cf6e66a835101e8e167f045dfea132152196e00",
+      "roles": [
+        "claim_evidence_map",
+        "claim_boundaries",
+        "limitations"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "b51186529b03e692c22a8cf50cf6e66a835101e8e167f045dfea132152196e00"
+    },
+    {
+      "id": "manuscript-validator",
+      "path": "manuscript/manuscript_contract.py",
+      "predecessor_sha256": "042b94b40f5a1eb056e85b8a2700f682f1d65d9178ae8d882781b01c3f59dcb6",
+      "roles": [
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "418edc76ba766649c9c0201e67253727dd7b4c1302386f275c1fb8f3166b6733"
+    },
+    {
+      "id": "display-inventory-contract",
+      "path": "manuscript/publication_inventory/source_data/display_inventory.json",
+      "predecessor_sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e",
+      "roles": [
+        "displays",
+        "si_inventory",
+        "denominators"
+      ],
+      "status": "changed",
+      "successor_sha256": "fe70b93614315b0fe917436bd47a310836400f45455305bcfedb054743081ebb"
+    },
+    {
+      "id": "display-semantic-inventory",
+      "path": "manuscript/publication_inventory/semantic_manifest.json",
+      "predecessor_sha256": "8911e9bbe539e3180a95d2d904e8a60e81f8fef86f32a89417a17b9b7b846117",
+      "roles": [
+        "builders",
+        "denominators",
+        "displays",
+        "si_inventory",
+        "source_data",
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "566d10d7405ce42da7551996e282d45fcb403c45e9d0c84e994a3a75653b0e95"
+    },
+    {
+      "id": "display-index",
+      "path": "manuscript/figures-and-tables.md",
+      "predecessor_sha256": "94e6ae3d2a3b77cdcf9e35170dabbebd65182baaf4a816da80fd9a5da09ca63a",
+      "roles": [
+        "displays",
+        "si_inventory"
+      ],
+      "status": "changed",
+      "successor_sha256": "d8295af985545ed1e18249a7d432ebedab6f9babcc9f26fbd52d083b3714e584"
+    },
+    {
+      "id": "baseline-package-manifest",
+      "path": "manuscript/scientific_baseline/package_manifest.json",
+      "predecessor_sha256": "08804698ec55fe34b94117e7792cbdab3f7357ce0206f8a33c49778bfe31fe5f",
+      "roles": [
+        "source_data",
+        "denominators",
+        "provenance"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "08804698ec55fe34b94117e7792cbdab3f7357ce0206f8a33c49778bfe31fe5f"
+    },
+    {
+      "id": "measurement-contract",
+      "path": "manuscript/scientific_baseline/measurement_contract.json",
+      "predecessor_sha256": "b80751891329892032607da6c2b3860564dff80a7a051c00ae43bf6716b5d65e",
+      "roles": [
+        "central_outcomes",
+        "denominators"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "b80751891329892032607da6c2b3860564dff80a7a051c00ae43bf6716b5d65e"
+    },
+    {
+      "id": "central-panel-authentication",
+      "path": "manuscript/scientific_panel_authentication.json",
+      "predecessor_sha256": "63bdf065909d63c427a3559f59c0655e3be11110d60edbcdd1e6341d004d01c7",
+      "roles": [
+        "central_outcomes",
+        "provenance"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "63bdf065909d63c427a3559f59c0655e3be11110d60edbcdd1e6341d004d01c7"
+    },
+    {
+      "id": "tracer-authentication",
+      "path": "manuscript/scientific_tracer_authentication.json",
+      "predecessor_sha256": "b54e8d039299d9446a844abcfd82550faa35449a59c8dfa875a682142b106c75",
+      "roles": [
+        "central_outcomes",
+        "validators",
+        "provenance"
+      ],
+      "status": "changed",
+      "successor_sha256": "ad8cfe83b979197a184362ff261419e02f581cf54c9ba74a845b2304ce5cca72"
+    },
+    {
+      "id": "sensitivity-source-provenance",
+      "path": "manuscript/source_data/measurement_sensitivity/source_provenance.json",
+      "predecessor_sha256": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9",
+      "roles": [
+        "source_data",
+        "sensitivity",
+        "denominators",
+        "provenance"
+      ],
+      "status": "changed",
+      "successor_sha256": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
+    },
+    {
+      "id": "sensitivity-summary",
+      "path": "manuscript/source_data/measurement_sensitivity/sensitivity_summary.json",
+      "predecessor_sha256": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d",
+      "roles": [
+        "sensitivity",
+        "central_outcomes",
+        "denominators"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d"
+    },
+    {
+      "id": "claim-boundary-manifest",
+      "path": "manuscript/claim_adjudication/output/manifest.json",
+      "predecessor_sha256": "8f373e82c0e7a01a52cb2a70d7c814ca154756f0279b7ccb254b4f9b4fae845c",
+      "roles": [
+        "claim_boundaries",
+        "sensitivity",
+        "provenance"
+      ],
+      "status": "changed",
+      "successor_sha256": "76e41fc5fab2eaf00bc6c0063a4a5f486cbc243802ebeb265d0a35d567c21a6d"
+    },
+    {
+      "id": "final-claim-boundary",
+      "path": "manuscript/claim_adjudication/output/final_claim_boundary.json",
+      "predecessor_sha256": "a0936878a982f2620f8efa9d889f9c35cdf2ab35890d467b95722e0f917cf22c",
+      "roles": [
+        "claim_boundaries",
+        "denominators",
+        "limitations"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "a0936878a982f2620f8efa9d889f9c35cdf2ab35890d467b95722e0f917cf22c"
+    },
+    {
+      "id": "experimental-metadata-manifest",
+      "path": "manuscript/experimental_metadata/package_manifest.json",
+      "predecessor_sha256": "fc2cce6012f7c4e20a6b10e047f40a5b572c117c6b40ca722bd2071716e72343",
+      "roles": [
+        "claim_boundaries",
+        "provenance"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "fc2cce6012f7c4e20a6b10e047f40a5b572c117c6b40ca722bd2071716e72343"
+    },
+    {
+      "id": "reconstruction-entrypoint",
+      "path": "scripts/reconstruct_publication.py",
+      "predecessor_sha256": "457e4575e6a4814fd7e3b30e996f6aa8eab3639e51166b32ce7c1d06291d89f3",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "822f1f75ba8217f559dea2dd419b977f516967f899f33cb9fd8527764af53190"
+    },
+    {
+      "id": "fingerprint-freeze-entrypoint",
+      "path": "scripts/freeze_scientific_core.py",
+      "predecessor_sha256": "99465f8bcfe4aaae75a9a9a08f27a1ba9e2dc3e22600a26ef056c67d3d358e26",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "99465f8bcfe4aaae75a9a9a08f27a1ba9e2dc3e22600a26ef056c67d3d358e26"
+    },
+    {
+      "id": "fingerprint-validator",
+      "path": "trackleed/publication/scientific_core.py",
+      "predecessor_sha256": "e42d62873d604d3fd60659f66d73d9c215a8ce1b97d8ae5d00d53925090a46b6",
+      "roles": [
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "5ee5751e01c608d02251b00ce41a74d07e5a30eaef13491e29dfaf848920295d"
+    },
+    {
+      "id": "reconstruction-orchestrator",
+      "path": "trackleed/publication/scientific_reconstruction.py",
+      "predecessor_sha256": "5e7497eacc6e60cd2d6e5394a604a8626c17c89a4a20d26a71b906797e10b8f4",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "5e7497eacc6e60cd2d6e5394a604a8626c17c89a4a20d26a71b906797e10b8f4"
+    },
+    {
+      "id": "display-inventory-builder",
+      "path": "manuscript/publication_inventory/build_inventory.py",
+      "predecessor_sha256": "050a4c320853d4c99775daae9cbe2c005f68d2c4c195169ced08bdbf86cb200e",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "7b888ea704fcd358f74b5ef389a46b4cbc2735d5fa97e5ad7cc72a252237aadf"
+    },
+    {
+      "id": "cpu-environment",
+      "path": "manuscript/scientific_core/cpu-environment.txt",
+      "predecessor_sha256": "266d181852f1c88b41d93ae2f05e884f79cd0d137c99a10bf1cbf57010be7cb6",
+      "roles": [
+        "provenance",
+        "validators"
+      ],
+      "status": "changed",
+      "successor_sha256": "850d900f0f6da267c7a697d16e71f9597d00800c82501f6453ce998bb10182d0"
+    },
+    {
+      "id": "scientific-core-documentation",
+      "path": "manuscript/scientific_core/README.md",
+      "predecessor_sha256": "da6b47c0fc0c376f5d35db44783d55378447393dec54487fe9496aaab5c315c3",
+      "roles": [
+        "builders",
+        "validators",
+        "provenance"
+      ],
+      "status": "unchanged",
+      "successor_sha256": "da6b47c0fc0c376f5d35db44783d55378447393dec54487fe9496aaab5c315c3"
+    }
+  ],
+  "decision_record": {
+    "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/10-hitl-content-claim-boundary-decision.md",
+    "sha256": "0804ea3ebe7df06ae963c168974464221aad6b51a0782fa5cde4e43859bba054"
+  },
+  "implementation_commit": "38a0e6aa668c4a7751fb6661e94af6d58bea92bc",
+  "predecessor_fingerprint_sha256": "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff",
+  "reason": "User-approved final content, display semantics, limitations, denominators, and scientific claim boundary recorded by I10",
+  "reviewed_component_diff": {
+    "path": "manuscript/scientific_core/pre_rebaseline_report.json",
+    "sha256": "a04a4c83a4a2651357b21731395ea693443f8a0e81aa499c4c451a20dd23b3b9"
+  },
+  "runtime": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.9"
+  },
+  "schema_version": "1.0",
+  "status": "controlled-scientific-core-rebaseline",
+  "successor_fingerprint_sha256": "66b7c59994fe5369ed02f0c8c04e4f924823a52cc423ab02a66a84302b151a3e"
+}

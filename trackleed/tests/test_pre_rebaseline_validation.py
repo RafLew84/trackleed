@@ -41,6 +41,11 @@ class PreRebaselineValidationTests(unittest.TestCase):
         ))
         self.assertTrue(report["predecessor"]["bytes_preserved"])
         self.assertEqual(
+            report["predecessor"]["path"],
+            "manuscript/scientific_core/history/fingerprints/"
+            "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff.json",
+        )
+        self.assertEqual(
             report["mutation_policy"],
             {
                 "fingerprint_replaced": False,

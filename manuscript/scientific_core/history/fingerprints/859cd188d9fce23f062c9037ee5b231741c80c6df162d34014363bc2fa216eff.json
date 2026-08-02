@@ -1,0 +1,245 @@
+{
+  "components": [
+    {
+      "id": "manuscript",
+      "path": "manuscript/manuscript.md",
+      "roles": [
+        "final_prose",
+        "denominators",
+        "limitations"
+      ],
+      "sha256": "d32112afb313b997ecc20996fb5a5a2f7a8562dd902660bf21de722ef38bfc5b"
+    },
+    {
+      "id": "supplementary-material",
+      "path": "manuscript/supplementary-material.md",
+      "roles": [
+        "final_prose",
+        "si_inventory",
+        "denominators",
+        "limitations"
+      ],
+      "sha256": "03d17fb7bc8966fce38d8917b8728d09031fb9846d27b6663119a9ea28f99209"
+    },
+    {
+      "id": "claim-evidence-map",
+      "path": "manuscript/claim-evidence-map.md",
+      "roles": [
+        "claim_evidence_map",
+        "claim_boundaries",
+        "limitations"
+      ],
+      "sha256": "b51186529b03e692c22a8cf50cf6e66a835101e8e167f045dfea132152196e00"
+    },
+    {
+      "id": "manuscript-validator",
+      "path": "manuscript/manuscript_contract.py",
+      "roles": [
+        "validators"
+      ],
+      "sha256": "042b94b40f5a1eb056e85b8a2700f682f1d65d9178ae8d882781b01c3f59dcb6"
+    },
+    {
+      "id": "display-inventory-contract",
+      "path": "manuscript/publication_inventory/source_data/display_inventory.json",
+      "roles": [
+        "displays",
+        "si_inventory",
+        "denominators"
+      ],
+      "sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e"
+    },
+    {
+      "id": "display-semantic-inventory",
+      "path": "manuscript/publication_inventory/semantic_manifest.json",
+      "roles": [
+        "builders",
+        "denominators",
+        "displays",
+        "si_inventory",
+        "source_data",
+        "validators"
+      ],
+      "sha256": "8911e9bbe539e3180a95d2d904e8a60e81f8fef86f32a89417a17b9b7b846117"
+    },
+    {
+      "id": "display-index",
+      "path": "manuscript/figures-and-tables.md",
+      "roles": [
+        "displays",
+        "si_inventory"
+      ],
+      "sha256": "94e6ae3d2a3b77cdcf9e35170dabbebd65182baaf4a816da80fd9a5da09ca63a"
+    },
+    {
+      "id": "baseline-package-manifest",
+      "path": "manuscript/scientific_baseline/package_manifest.json",
+      "roles": [
+        "source_data",
+        "denominators",
+        "provenance"
+      ],
+      "sha256": "08804698ec55fe34b94117e7792cbdab3f7357ce0206f8a33c49778bfe31fe5f"
+    },
+    {
+      "id": "measurement-contract",
+      "path": "manuscript/scientific_baseline/measurement_contract.json",
+      "roles": [
+        "central_outcomes",
+        "denominators"
+      ],
+      "sha256": "b80751891329892032607da6c2b3860564dff80a7a051c00ae43bf6716b5d65e"
+    },
+    {
+      "id": "central-panel-authentication",
+      "path": "manuscript/scientific_panel_authentication.json",
+      "roles": [
+        "central_outcomes",
+        "provenance"
+      ],
+      "sha256": "63bdf065909d63c427a3559f59c0655e3be11110d60edbcdd1e6341d004d01c7"
+    },
+    {
+      "id": "tracer-authentication",
+      "path": "manuscript/scientific_tracer_authentication.json",
+      "roles": [
+        "central_outcomes",
+        "validators",
+        "provenance"
+      ],
+      "sha256": "b54e8d039299d9446a844abcfd82550faa35449a59c8dfa875a682142b106c75"
+    },
+    {
+      "id": "sensitivity-source-provenance",
+      "path": "manuscript/source_data/measurement_sensitivity/source_provenance.json",
+      "roles": [
+        "source_data",
+        "sensitivity",
+        "denominators",
+        "provenance"
+      ],
+      "sha256": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+    },
+    {
+      "id": "sensitivity-summary",
+      "path": "manuscript/source_data/measurement_sensitivity/sensitivity_summary.json",
+      "roles": [
+        "sensitivity",
+        "central_outcomes",
+        "denominators"
+      ],
+      "sha256": "d43bc64413204040452e5f7a5887ee563a0f567e295c96f77913d0cde1f8866d"
+    },
+    {
+      "id": "claim-boundary-manifest",
+      "path": "manuscript/claim_adjudication/output/manifest.json",
+      "roles": [
+        "claim_boundaries",
+        "sensitivity",
+        "provenance"
+      ],
+      "sha256": "8f373e82c0e7a01a52cb2a70d7c814ca154756f0279b7ccb254b4f9b4fae845c"
+    },
+    {
+      "id": "final-claim-boundary",
+      "path": "manuscript/claim_adjudication/output/final_claim_boundary.json",
+      "roles": [
+        "claim_boundaries",
+        "denominators",
+        "limitations"
+      ],
+      "sha256": "a0936878a982f2620f8efa9d889f9c35cdf2ab35890d467b95722e0f917cf22c"
+    },
+    {
+      "id": "experimental-metadata-manifest",
+      "path": "manuscript/experimental_metadata/package_manifest.json",
+      "roles": [
+        "claim_boundaries",
+        "provenance"
+      ],
+      "sha256": "fc2cce6012f7c4e20a6b10e047f40a5b572c117c6b40ca722bd2071716e72343"
+    },
+    {
+      "id": "reconstruction-entrypoint",
+      "path": "scripts/reconstruct_publication.py",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "sha256": "457e4575e6a4814fd7e3b30e996f6aa8eab3639e51166b32ce7c1d06291d89f3"
+    },
+    {
+      "id": "fingerprint-freeze-entrypoint",
+      "path": "scripts/freeze_scientific_core.py",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "sha256": "99465f8bcfe4aaae75a9a9a08f27a1ba9e2dc3e22600a26ef056c67d3d358e26"
+    },
+    {
+      "id": "fingerprint-validator",
+      "path": "trackleed/publication/scientific_core.py",
+      "roles": [
+        "validators"
+      ],
+      "sha256": "e42d62873d604d3fd60659f66d73d9c215a8ce1b97d8ae5d00d53925090a46b6"
+    },
+    {
+      "id": "reconstruction-orchestrator",
+      "path": "trackleed/publication/scientific_reconstruction.py",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "sha256": "5e7497eacc6e60cd2d6e5394a604a8626c17c89a4a20d26a71b906797e10b8f4"
+    },
+    {
+      "id": "display-inventory-builder",
+      "path": "manuscript/publication_inventory/build_inventory.py",
+      "roles": [
+        "builders",
+        "validators"
+      ],
+      "sha256": "050a4c320853d4c99775daae9cbe2c005f68d2c4c195169ced08bdbf86cb200e"
+    },
+    {
+      "id": "cpu-environment",
+      "path": "manuscript/scientific_core/cpu-environment.txt",
+      "roles": [
+        "provenance",
+        "validators"
+      ],
+      "sha256": "266d181852f1c88b41d93ae2f05e884f79cd0d137c99a10bf1cbf57010be7cb6"
+    },
+    {
+      "id": "scientific-core-documentation",
+      "path": "manuscript/scientific_core/README.md",
+      "roles": [
+        "builders",
+        "validators",
+        "provenance"
+      ],
+      "sha256": "da6b47c0fc0c376f5d35db44783d55378447393dec54487fe9496aaab5c315c3"
+    }
+  ],
+  "contract_sha256": "95c9aa9f22f9f0da79587dd81e78940aee54aced95cfa1c69a456935500b2a0a",
+  "fingerprint_sha256": "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff",
+  "required_roles": [
+    "builders",
+    "central_outcomes",
+    "claim_boundaries",
+    "claim_evidence_map",
+    "denominators",
+    "displays",
+    "final_prose",
+    "limitations",
+    "provenance",
+    "sensitivity",
+    "si_inventory",
+    "source_data",
+    "validators"
+  ],
+  "schema_version": 1,
+  "status": "scientific-baseline-complete"
+}

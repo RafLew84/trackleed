@@ -8,7 +8,7 @@
         "denominators",
         "limitations"
       ],
-      "sha256": "d32112afb313b997ecc20996fb5a5a2f7a8562dd902660bf21de722ef38bfc5b"
+      "sha256": "ebb7b8627c1add431693e9bcc98af6758d3b5e2cf95a9475e74332c40c1cead0"
     },
     {
       "id": "supplementary-material",
@@ -19,7 +19,7 @@
         "denominators",
         "limitations"
       ],
-      "sha256": "03d17fb7bc8966fce38d8917b8728d09031fb9846d27b6663119a9ea28f99209"
+      "sha256": "ed586e984a0efb4e11d68277a0fe1f75ed460cbe017cf5f0e369e57e1c970dda"
     },
     {
       "id": "claim-evidence-map",
@@ -37,7 +37,7 @@
       "roles": [
         "validators"
       ],
-      "sha256": "042b94b40f5a1eb056e85b8a2700f682f1d65d9178ae8d882781b01c3f59dcb6"
+      "sha256": "418edc76ba766649c9c0201e67253727dd7b4c1302386f275c1fb8f3166b6733"
     },
     {
       "id": "display-inventory-contract",
@@ -47,7 +47,7 @@
         "si_inventory",
         "denominators"
       ],
-      "sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e"
+      "sha256": "fe70b93614315b0fe917436bd47a310836400f45455305bcfedb054743081ebb"
     },
     {
       "id": "display-semantic-inventory",
@@ -60,7 +60,7 @@
         "source_data",
         "validators"
       ],
-      "sha256": "8911e9bbe539e3180a95d2d904e8a60e81f8fef86f32a89417a17b9b7b846117"
+      "sha256": "566d10d7405ce42da7551996e282d45fcb403c45e9d0c84e994a3a75653b0e95"
     },
     {
       "id": "display-index",
@@ -69,7 +69,7 @@
         "displays",
         "si_inventory"
       ],
-      "sha256": "94e6ae3d2a3b77cdcf9e35170dabbebd65182baaf4a816da80fd9a5da09ca63a"
+      "sha256": "d8295af985545ed1e18249a7d432ebedab6f9babcc9f26fbd52d083b3714e584"
     },
     {
       "id": "baseline-package-manifest",
@@ -107,7 +107,7 @@
         "validators",
         "provenance"
       ],
-      "sha256": "b54e8d039299d9446a844abcfd82550faa35449a59c8dfa875a682142b106c75"
+      "sha256": "ad8cfe83b979197a184362ff261419e02f581cf54c9ba74a845b2304ce5cca72"
     },
     {
       "id": "sensitivity-source-provenance",
@@ -118,7 +118,7 @@
         "denominators",
         "provenance"
       ],
-      "sha256": "4e9f37f58a344d4e2014445fa104bffbb2c48acc704941621110d8eb3f4310f9"
+      "sha256": "fcb189bd78c275657af634b753fc2dd005e7fa29e16649697270dad3ba763af8"
     },
     {
       "id": "sensitivity-summary",
@@ -138,7 +138,7 @@
         "sensitivity",
         "provenance"
       ],
-      "sha256": "8f373e82c0e7a01a52cb2a70d7c814ca154756f0279b7ccb254b4f9b4fae845c"
+      "sha256": "76e41fc5fab2eaf00bc6c0063a4a5f486cbc243802ebeb265d0a35d567c21a6d"
     },
     {
       "id": "final-claim-boundary",
@@ -166,7 +166,7 @@
         "builders",
         "validators"
       ],
-      "sha256": "457e4575e6a4814fd7e3b30e996f6aa8eab3639e51166b32ce7c1d06291d89f3"
+      "sha256": "822f1f75ba8217f559dea2dd419b977f516967f899f33cb9fd8527764af53190"
     },
     {
       "id": "fingerprint-freeze-entrypoint",
@@ -183,7 +183,7 @@
       "roles": [
         "validators"
       ],
-      "sha256": "e42d62873d604d3fd60659f66d73d9c215a8ce1b97d8ae5d00d53925090a46b6"
+      "sha256": "5ee5751e01c608d02251b00ce41a74d07e5a30eaef13491e29dfaf848920295d"
     },
     {
       "id": "reconstruction-orchestrator",
@@ -201,7 +201,7 @@
         "builders",
         "validators"
       ],
-      "sha256": "050a4c320853d4c99775daae9cbe2c005f68d2c4c195169ced08bdbf86cb200e"
+      "sha256": "7b888ea704fcd358f74b5ef389a46b4cbc2735d5fa97e5ad7cc72a252237aadf"
     },
     {
       "id": "cpu-environment",
@@ -210,7 +210,7 @@
         "provenance",
         "validators"
       ],
-      "sha256": "266d181852f1c88b41d93ae2f05e884f79cd0d137c99a10bf1cbf57010be7cb6"
+      "sha256": "850d900f0f6da267c7a697d16e71f9597d00800c82501f6453ce998bb10182d0"
     },
     {
       "id": "scientific-core-documentation",
@@ -224,7 +224,7 @@
     }
   ],
   "contract_sha256": "95c9aa9f22f9f0da79587dd81e78940aee54aced95cfa1c69a456935500b2a0a",
-  "fingerprint_sha256": "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff",
+  "fingerprint_sha256": "66b7c59994fe5369ed02f0c8c04e4f924823a52cc423ab02a66a84302b151a3e",
   "required_roles": [
     "builders",
     "central_outcomes",

@@ -105,6 +105,12 @@ pominięte.
   inputs i niepełne coverage, zachowuje historię oraz pełny 23-component link,
   a fingerprint podmienia atomowo jako ostatni krok; clean-clone `--check-only`
   wyliczył successor bez rebaseline; [dowody](artifacts/11-versioned-fingerprint-replacement-workflow.md).
+- [I12 — autoryzowany rebaseline i dwie rekonstrukcje](issues/12-rebaseline-i-rekonstrukcje.md)
+  — replacement zachował predecessora i utworzył successor `66b7c599…`; dwa
+  niezależne clean Windows checkouty z identycznym, uwierzytelnionym pakietem
+  lokalnych wejść przeszły pełny CPU/headless `--clean --validate`, zwróciły
+  bajtowo identyczne raporty i pozostały bez driftu;
+  [dowody](artifacts/12-authorized-rebaseline-reconstruction.md).
 
 ## Constraints
 

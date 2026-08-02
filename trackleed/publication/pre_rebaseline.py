@@ -126,20 +126,12 @@ def validate_pre_rebaseline(
     workspace_root = workspace_root.resolve()
     package = workspace_root / "manuscript" / "scientific_core"
     contract_path = package / "fingerprint_contract.json"
-    fingerprint_path = (
-        fingerprint_path.resolve()
-        if fingerprint_path is not None
-        else package / "fingerprint.json"
-    )
     expectation_path = (
         expectation_path.resolve()
         if expectation_path is not None
         else package / "pre_rebaseline_contract.json"
     )
     expectation = _load_json(expectation_path, "pre-rebaseline contract")
-    fingerprint = _load_json(fingerprint_path, "scientific-core fingerprint")
-    validate_predecessor_integrity(fingerprint, contract_path)
-
     if (
         expectation.get("schema_version") != "1.0"
         or expectation.get("status") != "approved-pre-rebaseline"
@@ -148,6 +140,41 @@ def validate_pre_rebaseline(
     expected_predecessor = expectation.get(
         "expected_predecessor_fingerprint_sha256"
     )
+    if (
+        not isinstance(expected_predecessor, str)
+        or len(expected_predecessor) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in expected_predecessor
+        )
+    ):
+        raise PreRebaselineValidationError(
+            "Expected predecessor fingerprint changed"
+        )
+
+    if fingerprint_path is not None:
+        fingerprint_path = fingerprint_path.resolve()
+        fingerprint = _load_json(fingerprint_path, "scientific-core fingerprint")
+    else:
+        current_path = package / "fingerprint.json"
+        current = _load_json(current_path, "scientific-core fingerprint")
+        if current.get("fingerprint_sha256") == expected_predecessor:
+            fingerprint_path = current_path
+            fingerprint = current
+        else:
+            validate_predecessor_integrity(current, contract_path)
+            fingerprint_path = (
+                package
+                / "history"
+                / "fingerprints"
+                / f"{expected_predecessor}.json"
+            )
+            fingerprint = _load_json(
+                fingerprint_path,
+                "archived predecessor fingerprint",
+            )
+
+    validate_predecessor_integrity(fingerprint, contract_path)
     if fingerprint.get("fingerprint_sha256") != expected_predecessor:
         raise PreRebaselineValidationError("Predecessor fingerprint changed")
 
