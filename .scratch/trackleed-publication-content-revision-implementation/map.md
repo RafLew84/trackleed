@@ -82,6 +82,11 @@ pominięte.
   6.076 pt; builder oraz parser PDF chronią 400-dpi PNG, wektorowy PDF,
   MediaBox, panel order i niezmieniony caption I04;
   [dowody](artifacts/07-figure5-full-width-legibility.md).
+- [I08 — kanoniczny builder i audit matematyki](issues/08-kanoniczny-builder-docx-pdf.md)
+  — jeden builder tworzy i manifestuje dokładnie cztery kanoniczne main/SI
+  DOCX/PDF; fail-closed audit wiąże AST Math z niepustym natywnym OMath i
+  per-expression round trip (main 64/64, SI 10/10, fallback 0), a dwa realne
+  eksporty Pandoc/Word są bitowo identyczne; [dowody](artifacts/08-canonical-docx-pdf-builder.md).
 
 ## Constraints
 

@@ -1,0 +1,26 @@
+{
+  "builder_version": "1.0.0",
+  "canonical_artifacts": {
+    "main": {
+      "docx": "output/trackleed_manuscript.docx",
+      "pdf": "output/trackleed_manuscript.pdf"
+    },
+    "supplementary_information": {
+      "docx": "output/trackleed_supplementary_information.docx",
+      "pdf": "output/trackleed_supplementary_information.pdf"
+    }
+  },
+  "damaged_math_allowlist": [],
+  "design": {
+    "mode": "existing-source transformation",
+    "policy": "Preserve the restrained Pandoc manuscript style; figures use the established 6.25 in review width."
+  },
+  "excluded_review_artifacts": [
+    "manuscript/review/trackleed_manuscript_review.docx",
+    "manuscript/review/trackleed_scientific_review.docx",
+    "manuscript/review/trackleed_supplementary_information.docx"
+  ],
+  "pandoc_reader": "markdown+tex_math_single_backslash",
+  "schema_version": "1.0",
+  "source_date": "2026-08-02"
+}

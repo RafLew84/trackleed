@@ -6,8 +6,10 @@ matplotlib
 pandas
 Pillow
 pypdf
+PyMuPDF
 tifffile
 imageio
+lxml
 PyQt6
 pyqtgraph
 PyOpenGL
