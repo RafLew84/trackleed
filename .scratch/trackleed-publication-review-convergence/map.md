@@ -87,6 +87,13 @@ eksperymentalnych.
   byte-preserving środowisku; zwykły clean checkout Windows ujawnia
   niejawny mix LF/CRLF, który trzeba usunąć przed kontrolowanym rebaseline zmian
   03–06.
+- [Zamrożenie Definition of Done rewizji
+  treści](issues/08-zamrozenie-definition-of-done-rewizji-tresci.md) — status
+  `content-revision-complete` wymaga wdrożenia decyzji 02–07, naprawy LF/CRLF,
+  autoryzowanego predecessor-to-successor rebaseline, dwóch clean
+  reconstructions i audytu 100% stron kanonicznych main manuscript oraz SI;
+  dopuszcza tylko cztery kategorie jawnych deferred placeholders i pozostaje
+  odrębny od adaptera JAC, release candidate oraz `submission-ready`.
 
 ## Not yet specified
 
