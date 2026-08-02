@@ -234,13 +234,13 @@ Retains full per-trial translation coverage, conditional errors, and pair invari
 
 ### Table S6 — Measurement-window and capture-contract sensitivity
 
-Reports all predefined sensitivity variants at full source precision without selecting a replacement configuration.
+Reports all predefined sensitivity variants in a compact reader-facing view while preserving full-precision exports, without selecting a replacement configuration.
 
 - Bundle: [tables/table_s6_measurement_sensitivity](tables/table_s6_measurement_sensitivity/README.md)
 - Caption/source display: [open](tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md)
 - Provenance: [manifest](tables/table_s6_measurement_sensitivity/manifest.json)
 - Denominators: Every variant retains fixed 221 and 24 opportunities plus accepted-fit and pair-frame conditional n.
-- Rounding: Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally. Counts and denominators are shown as exact integers in numerator/denominator form.
+- Rounding: Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n. Counts and denominators are shown as exact integers in numerator/denominator form. Machine-readable SI retains full source precision; any reader-facing summaries declare their formatting locally.
 - Missing values: Undefined conditional values remain absent and are never converted to zero.
 - Palette: Not applicable.
 

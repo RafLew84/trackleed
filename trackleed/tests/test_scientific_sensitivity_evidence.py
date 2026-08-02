@@ -7,6 +7,8 @@ from pathlib import Path
 import shutil
 from tempfile import TemporaryDirectory
 import unittest
+import xml.etree.ElementTree as ET
+import zipfile
 
 from trackleed.publication.scientific_sensitivity_evidence import (
     build_table_s6,
@@ -75,6 +77,128 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             self.assertIn("fixed denominator 24", rendered)
             self.assertIn("method- and variant-specific conditional n", rendered)
             self.assertNotIn("overall ranking", rendered.lower())
+
+    def test_table_s6_emits_compact_view_codebook_and_full_precision_exports(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            output = Path(temporary) / "output"
+
+            build_table_s6(SOURCE_ROOT, output)
+
+            with (output / "table_s6_method_aggregate_full_precision.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                aggregate_rows = list(csv.DictReader(handle))
+            with (output / "table_s6_measurement_sensitivity.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                canonical_rows = list(csv.DictReader(handle))
+            with (output / "table_s6_variant_codebook.csv").open(
+                newline="", encoding="utf-8"
+            ) as handle:
+                codebook_rows = list(csv.DictReader(handle))
+            self.assertEqual(len(aggregate_rows), 75)
+            self.assertEqual(len(canonical_rows), 375)
+            self.assertEqual(
+                aggregate_rows,
+                [row for row in canonical_rows if row["scope"] == "method"],
+            )
+            self.assertEqual(len(codebook_rows), 15)
+            self.assertEqual(
+                set(codebook_rows[0]),
+                {"variant_id", "reader_code", "meaning", "contract_change"},
+            )
+            self.assertEqual(
+                {row["reader_code"] for row in codebook_rows},
+                {
+                    "R32-P12",
+                    "R32-P15",
+                    "R32-P18",
+                    "R48-P12",
+                    "R48-P15*",
+                    "R48-P18",
+                    "R64-P12",
+                    "R64-P15",
+                    "R64-P18",
+                    "B12",
+                    "B24",
+                    "R2-80",
+                    "R2-90",
+                    "A0.75",
+                    "A1.25",
+                },
+            )
+            central_locotrack = next(
+                row
+                for row in aggregate_rows
+                if row["variant_id"] == "roi_48_proposal_15"
+                and row["method"] == "locotrack"
+            )
+            self.assertEqual(
+                central_locotrack["median_absolute_pair_distance_residual_px"],
+                "1.8366454823238882",
+            )
+
+            rendered = (output / "table_s6_measurement_sensitivity.md").read_text(
+                encoding="utf-8"
+            )
+            header = next(line for line in rendered.splitlines() if line.startswith("| Variant"))
+            self.assertEqual(header.count("|"), 8)
+            self.assertNotIn("| Family |", header)
+            self.assertEqual(
+                sum(line.startswith("| `") for line in rendered.splitlines()),
+                75,
+            )
+            self.assertIn("| `R48-P15*` | LocoTrack |", rendered)
+            self.assertIn("1.837 / 5.973 (`n=91`)", rendered)
+            self.assertNotIn("roi_48_proposal_15", rendered)
+            self.assertIn("**Variant codebook.**", rendered)
+            self.assertIn(
+                "`R32-P12`: ROI 32 px; proposal-to-fit 12 px.", rendered
+            )
+            self.assertIn("`R2-80`: R² minimum 0.80.", rendered)
+            self.assertIn(
+                '<!-- table-s6-row-style reader_code="R48-P15*" '
+                'fill="#EAF2F8" non_color_marker="*" -->',
+                rendered,
+            )
+
+            workbook_path = output / "table_s6_measurement_sensitivity.xlsx"
+            with zipfile.ZipFile(workbook_path) as archive:
+                workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+                namespace = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+                sheet_names = [
+                    sheet.attrib["name"]
+                    for sheet in workbook.findall("m:sheets/m:sheet", namespace)
+                ]
+                self.assertEqual(sheet_names, ["method_aggregate", "case_records"])
+                method_sheet = ET.fromstring(archive.read("xl/worksheets/sheet1.xml"))
+                case_sheet = ET.fromstring(archive.read("xl/worksheets/sheet2.xml"))
+                self.assertEqual(
+                    len(method_sheet.findall("m:sheetData/m:row", namespace)), 76
+                )
+                self.assertEqual(
+                    len(case_sheet.findall("m:sheetData/m:row", namespace)), 301
+                )
+                numeric_cell = method_sheet.find(
+                    "m:sheetData/m:row[@r='2']/m:c[@r='H2']", namespace
+                )
+                self.assertIsNotNone(numeric_cell)
+                self.assertNotIn("t", numeric_cell.attrib)
+                ordinary_cell = method_sheet.find(
+                    "m:sheetData/m:row[@r='2']/m:c[@r='A2']", namespace
+                )
+                central_cell = method_sheet.find(
+                    "m:sheetData/m:row[@r='22']/m:c[@r='A22']", namespace
+                )
+                self.assertIsNotNone(ordinary_cell)
+                self.assertIsNotNone(central_cell)
+                self.assertNotEqual(
+                    ordinary_cell.attrib.get("s"), central_cell.attrib.get("s")
+                )
+                self.assertIsNone(method_sheet.find(".//m:f", namespace))
+                self.assertIsNone(case_sheet.find(".//m:f", namespace))
 
     def test_table_s6_is_deterministic_and_rejects_changed_source_data(
         self,
@@ -164,12 +288,17 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             self.assertEqual(report.result_count, 375)
             manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["table"], "Table S6")
+            self.assertEqual(manifest["schema_version"], 2)
             self.assertEqual(manifest["status"], "completed")
+            self.assertEqual(manifest["xlsx_generator"]["package"], "XlsxWriter")
             self.assertEqual(
                 set(manifest["outputs_sha256"]),
                 {
+                    "table_s6_method_aggregate_full_precision.csv",
                     "table_s6_measurement_sensitivity.csv",
                     "table_s6_measurement_sensitivity.md",
+                    "table_s6_measurement_sensitivity.xlsx",
+                    "table_s6_variant_codebook.csv",
                 },
             )
             self.assertEqual(
@@ -179,6 +308,29 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     "trackleed/publication/scientific_sensitivity_sources.py",
                 },
             )
+
+    def test_committed_table_s6_matches_a_clean_rebuild(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build_table_s6_artifact(
+                REPO_ROOT,
+                SOURCE_ROOT,
+                root / "output",
+                root / "manifest.json",
+            )
+
+            self.assertEqual(
+                (root / "manifest.json").read_bytes(),
+                (TABLE_ROOT / "manifest.json").read_bytes(),
+            )
+            rebuilt = {
+                path.name: path.read_bytes() for path in (root / "output").iterdir()
+            }
+            committed = {
+                path.name: path.read_bytes()
+                for path in (TABLE_ROOT / "output").iterdir()
+            }
+            self.assertEqual(rebuilt, committed)
 
     def test_figure_s2_covers_matrix_ofat_outcomes_and_gate_audit(self) -> None:
         with TemporaryDirectory() as temporary:

@@ -1,5 +1,5 @@
 {
-  "builder_sha256": "c21688cccb9a03865e3e23ee56165c2e1da7d6d1537024d58318aed5c9283219",
+  "builder_sha256": "a7884f2debce1ee98e7b6d6fbfe711e681694ecee0aeb4e8361198dca8b00bb6",
   "bundle_fingerprints": {
     "Figure 1": "910993ed02299304828ca22924ebaecf96c5496d8dbf64b0695625c9ae80c684",
     "Figure 2": "475987ffce08708c1720faac1277d786257bcd9cd68eeb816aa32812f5c071ac",
@@ -7,7 +7,7 @@
     "Figure 4": "d1b723cc7013470b815780993c3f3f8b769daef50f0fc180aa9a7f07bc7de468",
     "Figure 5": "41739b50a4a5420c5408689524242620b85e86797b15b04d26e0717a57990da9",
     "Figure S1": "fe6ef9a65f83b279d392a16f1f1f3c945497b6a2c91ca997d30145ab1e8d33ee",
-    "Figure S2": "84535bdc9f1b81f2db2c686199e6244328257d54e6a1e3ea7d702ff5f7e937ff",
+    "Figure S2": "a4bc6c51ca206a12b6401dad3b0e896db1b1eee3d822ac873d7f52ffd08f821a",
     "Figure S3": "4b15a1353000e999bf48c02bf69551ca5ff1dcfe15983e7d20c0b9b79e2d465f",
     "Figure S4": "4d83255f276915d20a375c26be8749f25960ba9428cba261c8606515558f8847",
     "Figure S5": "1cdfe26873b3c65efde7ed82e509ab48155cc8cebf248bdab7e7280feb951704",
@@ -19,7 +19,7 @@
     "Table S3": "26028deb5866ee6c163ea4518ed5c0e42ce4eec5848671f9975c243cc3f27a5d",
     "Table S4": "4cd41db1ff1c609900bb4743e7f8ad546e9490e0006978cfbf53a091e36d044c",
     "Table S5": "11d48da454b905e7eeae87a1a57d9dd7a1c49e99f5c43c0a3a8b9166627c0506",
-    "Table S6": "3bd1c80a47ebc9a53b4b1872ba61fae36c7eef01c9196f84ff8359b214fa8ec8",
+    "Table S6": "5ca26f103294e110476769ffc691cd11a4410a745d36701658eb4a18de30c9b4",
     "Table S7": "50ffd3f4aa3027a98fc9bb0a94d084505951aa3fced2c913f420c8b06581f889"
   },
   "inventory_contract": {
@@ -56,8 +56,8 @@
     },
     "superseded_placements_present": false
   },
-  "output_sha256": "1cb71dcb75af2ff2c9b0d6cb89cfc29f6e33ccb7b5e88028f8e18f1470ced35a",
+  "output_sha256": "a6b7163daa3e10310e06568c431db7e780922464e269df592abd51dc9c97bcab",
   "schema_version": "1.0",
-  "source_inventory_sha256": "9d51c14e46914cacb08ee01a1c76f262b1388891e345ca75611311b70763cba3",
+  "source_inventory_sha256": "dd47e1e42e7212817026e7ac6a938bbd2ad9dcccebf8fc6bf50f15edd87ed097",
   "status": "completed"
 }

@@ -185,10 +185,10 @@
           "manuscript/figures/figure_s2_measurement_sensitivity/manifest.json": "410527becae0ba8f57dbb3ccf68e256c0207312e0564c8c59f24e08ddef89854"
         },
         "validators": {
-          "trackleed/tests/test_scientific_sensitivity_evidence.py": "ebda5ad81213e9812ce38258fbe15fca1153a6b9d7a24c961a4d444867ed8b46"
+          "trackleed/tests/test_scientific_sensitivity_evidence.py": "5a915b074a5488805a01290f31e2bb377274bce7c61afd230d9084745fc98780"
         }
       },
-      "semantic_fingerprint_sha256": "51d9806e65deeec2854757e92358537fd6b764527ab549cf635ea9af89744ec5",
+      "semantic_fingerprint_sha256": "5feed99e29e9bcc9137a9497fea9e30203e3ecf28fb9e5800384715bd9c1ef24",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -548,16 +548,16 @@
           "manuscript/tables/table_s6_measurement_sensitivity/build_table.py": "54bf08b3b46d997a76e4f78b42f7ab60bc54e42ef05d9bbe3f10c01459a761a2"
         },
         "caption": {
-          "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
+          "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "f446a8a56c1d64115fbf5b3cd4a63022ae65258d0919c61c0b17f84169795c5b"
         },
         "manifests": {
-          "manuscript/tables/table_s6_measurement_sensitivity/manifest.json": "a8a17775350d6c561443ffdfc8f25865b3521b550c5236b0225c13a47108c024"
+          "manuscript/tables/table_s6_measurement_sensitivity/manifest.json": "e3a19be42db6e10be207689c497113b36dc3e0738dfeaac1492e2d4a694c7ab9"
         },
         "validators": {
-          "trackleed/tests/test_scientific_sensitivity_evidence.py": "ebda5ad81213e9812ce38258fbe15fca1153a6b9d7a24c961a4d444867ed8b46"
+          "trackleed/tests/test_scientific_sensitivity_evidence.py": "5a915b074a5488805a01290f31e2bb377274bce7c61afd230d9084745fc98780"
         }
       },
-      "semantic_fingerprint_sha256": "2788efba35d4ba9cedef95042c27f51abca93e9319e720e3632b823f86f125de",
+      "semantic_fingerprint_sha256": "d38d8b019ec903bf17d3877b93ee800ef520870678a1eebf59cfb80a3ade018a",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -571,7 +571,9 @@
       },
       "text_outputs_sha256": {
         "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.csv": "5941410f0f912f856f0f8a826a972009155720aed6b8ca290cd31e79a268257e",
-        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "218ed4ac8b8439bf79ab0325a70400885772d98349f85139f21c20768dbab7e7"
+        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_measurement_sensitivity.md": "f446a8a56c1d64115fbf5b3cd4a63022ae65258d0919c61c0b17f84169795c5b",
+        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_method_aggregate_full_precision.csv": "ab96ae7cb430dc975c4a998a298cdf9022f4b46c196211ba58e583ab30409c4d",
+        "manuscript/tables/table_s6_measurement_sensitivity/output/table_s6_variant_codebook.csv": "6572df0a77c723e181b70902029aa2c490be08a5d6d95069eb4c3f559cbe9207"
       }
     },
     "Table S7": {
@@ -625,8 +627,8 @@
     ".yaml",
     ".yml"
   ],
-  "inventory_contract_sha256": "9d51c14e46914cacb08ee01a1c76f262b1388891e345ca75611311b70763cba3",
+  "inventory_contract_sha256": "dd47e1e42e7212817026e7ac6a938bbd2ad9dcccebf8fc6bf50f15edd87ed097",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "e51630477994b323ea5f5d6ff6959361152b6db80b1ef34ebb54006868955829",
+  "semantic_inventory_sha256": "0de0fd7f12b47bdc3636e6345f52498e36e52354030ec9b024848f94a5d1ac0b",
   "status": "scientific-baseline-complete"
 }

@@ -52,6 +52,13 @@ class PublicationInventoryTest(unittest.TestCase):
         self.assertTrue(report["all_rounding_rules_frozen"])
         self.assertTrue(report["all_denominator_policies_explicit"])
 
+        table_s6 = next(item for item in inventory["items"] if item["id"] == "Table S6")
+        self.assertEqual(
+            table_s6["rounding_rule_ids"],
+            ["ag_residual_px_3dp", "exact_counts", "full_precision_si"],
+        )
+        self.assertIn("compact reader-facing", table_s6["role"])
+
     def test_wrong_title_and_obsolete_placement_are_rejected(self) -> None:
         inventory = build_inventory.load_inventory(INVENTORY_PATH)
         wrong_title = copy.deepcopy(inventory)

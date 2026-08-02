@@ -60,7 +60,7 @@ EXPECTED_IDS = (
     "Table S7",
 )
 APPROVED_INVENTORY_SHA256 = (
-    "89ecac9fd38e1873246fe680bdf5c62bb72f1841051ac0ec67b32aba6fb5cab2"
+    "660f41190b844b2b3a7bf54698582258d82b136d72572fcecf91ab9fa938e013"
 )
 EXPECTED_PLACEMENT_COUNTS = {
     "main_figure": 5,
@@ -102,6 +102,11 @@ SENSITIVITY_TEST_TARGETS = (
     (
         "trackleed.tests.test_scientific_sensitivity_evidence."
         "ScientificSensitivityEvidenceTests."
+        "test_table_s6_emits_compact_view_codebook_and_full_precision_exports"
+    ),
+    (
+        "trackleed.tests.test_scientific_sensitivity_evidence."
+        "ScientificSensitivityEvidenceTests."
         "test_table_s6_is_deterministic_and_rejects_changed_source_data"
     ),
     (
@@ -113,6 +118,11 @@ SENSITIVITY_TEST_TARGETS = (
         "trackleed.tests.test_scientific_sensitivity_evidence."
         "ScientificSensitivityEvidenceTests."
         "test_table_s6_manifest_covers_sources_code_and_outputs"
+    ),
+    (
+        "trackleed.tests.test_scientific_sensitivity_evidence."
+        "ScientificSensitivityEvidenceTests."
+        "test_committed_table_s6_matches_a_clean_rebuild"
     ),
     (
         "trackleed.tests.test_scientific_sensitivity_evidence."

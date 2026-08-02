@@ -64,6 +64,12 @@ pominięte.
   caveats są chronione fail-closed; inventory i Results używają zatwierdzonego
   review numbering, a index i semantic manifests pochodzą z buildera bez
   zmiany danych lub paneli; [dowody](artifacts/04-canonical-figure-captions.md).
+- [I05 — Table S6 i eksporty pełnoprecyzyjne](issues/05-table-s6-i-eksporty.md)
+  — compact 75-row/seven-column reader view, 15-code human-readable codebook i
+  kontrolowane zaokrąglenie pochodzą z jednego buildera; niezmieniony 375-row
+  canonical CSV ma pełnoprecyzyjny 75-row companion oraz deterministyczny XLSX
+  `method_aggregate`/`case_records`, a manifest i inventory wiążą cały hash
+  chain; [dowody](artifacts/05-table-s6-full-precision-exports.md).
 
 ## Constraints
 

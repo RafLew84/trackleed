@@ -13,3 +13,4 @@ PyOpenGL
 ultralytics
 torch
 torchvision
+XlsxWriter

@@ -262,85 +262,105 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 ## Table S6 — Measurement-window and capture-contract sensitivity
 
 <!-- BEGIN TABLE S6 -->
-**Table S6. Measurement-window and capture-contract sensitivity.** For the independent Ag(111) stress test, coverage uses the fixed denominator 221 and post-gap branch-consistent recovery uses the fixed denominator 24. Geometry inconsistency is conditional on all accepted fits, while the pair-distance residual retains its method- and variant-specific conditional n. Values below retain full source precision. No comparative rank or automatic configuration selection is implied.
+**Table S6. Measurement-window and capture-contract sensitivity.** For the independent Ag(111) stress test, coverage uses the fixed denominator 221 and post-gap branch-consistent recovery uses the fixed denominator 24. Geometry inconsistency is conditional on all accepted fits, while the pair-distance residual retains its method- and variant-specific conditional n. Reader-facing residuals are rounded to three decimals; full-precision values remain in the accompanying CSV and XLSX exports. No comparative rank or automatic configuration selection is implied. The asterisk marks only the frozen central contract.
 
-| Variant | Family | Method | ROI [px] | Proposal-to-fit [px] | Branch tolerance [px] | R² minimum | Amplitude minimum | Coverage | Recovery | Geometry inconsistency | Conditional median / P95 residual [px] (n) |
-|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| roi_32_proposal_12 | roi_x_proposal_to_fit | EasyLEED | 32 | 12.0 | 18.0 | 0.85 | 0.012 | 209/221 | 21/24 | 2/223 | 1.6267150806055497 / 3.6593837069934345 (n=93) |
-| roi_32_proposal_12 | roi_x_proposal_to_fit | LocoTrack | 32 | 12.0 | 18.0 | 0.85 | 0.012 | 220/221 | 24/24 | 38/286 | 1.776224722766358 / 5.7587664749654985 (n=103) |
-| roi_32_proposal_12 | roi_x_proposal_to_fit | OSTrack | 32 | 12.0 | 18.0 | 0.85 | 0.012 | 212/221 | 21/24 | 36/275 | 1.6908525469921187 / 5.5908812023816035 (n=95) |
-| roi_32_proposal_12 | roi_x_proposal_to_fit | DAM4SAM | 32 | 12.0 | 18.0 | 0.85 | 0.012 | 217/221 | 24/24 | 38/285 | 1.7551570449774374 / 5.783637141506516 (n=102) |
-| roi_32_proposal_12 | roi_x_proposal_to_fit | Lucas-Kanade | 32 | 12.0 | 18.0 | 0.85 | 0.012 | 190/221 | 17/24 | 14/215 | 1.6780759632256377 / 3.9896525834825782 (n=77) |
-| roi_32_proposal_15 | roi_x_proposal_to_fit | EasyLEED | 32 | 15.0 | 18.0 | 0.85 | 0.012 | 212/221 | 21/24 | 4/234 | 1.6267150806055497 / 3.6593837069934345 (n=93) |
-| roi_32_proposal_15 | roi_x_proposal_to_fit | LocoTrack | 32 | 15.0 | 18.0 | 0.85 | 0.012 | 220/221 | 24/24 | 38/286 | 1.776224722766358 / 5.7587664749654985 (n=103) |
-| roi_32_proposal_15 | roi_x_proposal_to_fit | OSTrack | 32 | 15.0 | 18.0 | 0.85 | 0.012 | 215/221 | 21/24 | 36/279 | 1.7113164963940335 / 5.567045449790486 (n=99) |
-| roi_32_proposal_15 | roi_x_proposal_to_fit | DAM4SAM | 32 | 15.0 | 18.0 | 0.85 | 0.012 | 217/221 | 24/24 | 38/285 | 1.7551570449774374 / 5.783637141506516 (n=102) |
-| roi_32_proposal_15 | roi_x_proposal_to_fit | Lucas-Kanade | 32 | 15.0 | 18.0 | 0.85 | 0.012 | 190/221 | 17/24 | 14/215 | 1.6780759632256377 / 3.9896525834825782 (n=77) |
-| roi_32_proposal_18 | roi_x_proposal_to_fit | EasyLEED | 32 | 18.0 | 18.0 | 0.85 | 0.012 | 212/221 | 21/24 | 4/239 | 1.6267150806055497 / 3.6593837069934345 (n=93) |
-| roi_32_proposal_18 | roi_x_proposal_to_fit | LocoTrack | 32 | 18.0 | 18.0 | 0.85 | 0.012 | 220/221 | 24/24 | 38/286 | 1.776224722766358 / 5.7587664749654985 (n=103) |
-| roi_32_proposal_18 | roi_x_proposal_to_fit | OSTrack | 32 | 18.0 | 18.0 | 0.85 | 0.012 | 216/221 | 22/24 | 36/280 | 1.7223217063427114 / 5.561086511642707 (n=100) |
-| roi_32_proposal_18 | roi_x_proposal_to_fit | DAM4SAM | 32 | 18.0 | 18.0 | 0.85 | 0.012 | 217/221 | 24/24 | 38/285 | 1.7551570449774374 / 5.783637141506516 (n=102) |
-| roi_32_proposal_18 | roi_x_proposal_to_fit | Lucas-Kanade | 32 | 18.0 | 18.0 | 0.85 | 0.012 | 190/221 | 17/24 | 14/215 | 1.6780759632256377 / 3.9896525834825782 (n=77) |
-| roi_48_proposal_12 | roi_x_proposal_to_fit | EasyLEED | 48 | 12.0 | 18.0 | 0.85 | 0.012 | 206/221 | 21/24 | 2/209 | 1.6501646559723326 / 3.661697985862128 (n=82) |
-| roi_48_proposal_12 | roi_x_proposal_to_fit | LocoTrack | 48 | 12.0 | 18.0 | 0.85 | 0.012 | 217/221 | 23/24 | 36/272 | 1.8366454823238882 / 5.973206417649465 (n=91) |
-| roi_48_proposal_12 | roi_x_proposal_to_fit | OSTrack | 48 | 12.0 | 18.0 | 0.85 | 0.012 | 211/221 | 20/24 | 34/262 | 1.7369320320182169 / 5.650432172024203 (n=84) |
-| roi_48_proposal_12 | roi_x_proposal_to_fit | DAM4SAM | 48 | 12.0 | 18.0 | 0.85 | 0.012 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
-| roi_48_proposal_12 | roi_x_proposal_to_fit | Lucas-Kanade | 48 | 12.0 | 18.0 | 0.85 | 0.012 | 188/221 | 17/24 | 14/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
-| roi_48_proposal_15 | roi_x_proposal_to_fit | EasyLEED | 48 | 15.0 | 18.0 | 0.85 | 0.012 | 214/221 | 22/24 | 4/222 | 1.7367102643215162 / 3.718843442381691 (n=84) |
-| roi_48_proposal_15 | roi_x_proposal_to_fit | LocoTrack | 48 | 15.0 | 18.0 | 0.85 | 0.012 | 217/221 | 23/24 | 36/272 | 1.8366454823238882 / 5.973206417649465 (n=91) |
-| roi_48_proposal_15 | roi_x_proposal_to_fit | OSTrack | 48 | 15.0 | 18.0 | 0.85 | 0.012 | 216/221 | 21/24 | 34/269 | 1.769749564042172 / 5.937326048535333 (n=90) |
-| roi_48_proposal_15 | roi_x_proposal_to_fit | DAM4SAM | 48 | 15.0 | 18.0 | 0.85 | 0.012 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
-| roi_48_proposal_15 | roi_x_proposal_to_fit | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.85 | 0.012 | 188/221 | 17/24 | 14/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
-| roi_48_proposal_18 | roi_x_proposal_to_fit | EasyLEED | 48 | 18.0 | 18.0 | 0.85 | 0.012 | 219/221 | 22/24 | 6/237 | 1.8366452839015892 / 5.594865330972504 (n=90) |
-| roi_48_proposal_18 | roi_x_proposal_to_fit | LocoTrack | 48 | 18.0 | 18.0 | 0.85 | 0.012 | 217/221 | 23/24 | 36/272 | 1.8366454823238882 / 5.973206417649465 (n=91) |
-| roi_48_proposal_18 | roi_x_proposal_to_fit | OSTrack | 48 | 18.0 | 18.0 | 0.85 | 0.012 | 218/221 | 22/24 | 35/273 | 1.8223422561807183 / 5.9374877496368725 (n=93) |
-| roi_48_proposal_18 | roi_x_proposal_to_fit | DAM4SAM | 48 | 18.0 | 18.0 | 0.85 | 0.012 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
-| roi_48_proposal_18 | roi_x_proposal_to_fit | Lucas-Kanade | 48 | 18.0 | 18.0 | 0.85 | 0.012 | 192/221 | 18/24 | 14/212 | 1.834648061627263 / 5.569101753620451 (n=73) |
-| roi_64_proposal_12 | roi_x_proposal_to_fit | EasyLEED | 64 | 12.0 | 18.0 | 0.85 | 0.012 | 184/221 | 20/24 | 2/187 | 1.5498194989487502 / 3.581807134168525 (n=65) |
-| roi_64_proposal_12 | roi_x_proposal_to_fit | LocoTrack | 64 | 12.0 | 18.0 | 0.85 | 0.012 | 199/221 | 23/24 | 36/254 | 1.8831318146568492 / 6.2999301201550475 (n=77) |
-| roi_64_proposal_12 | roi_x_proposal_to_fit | OSTrack | 64 | 12.0 | 18.0 | 0.85 | 0.012 | 191/221 | 20/24 | 34/241 | 1.725091507169509 / 6.009009375987748 (n=67) |
-| roi_64_proposal_12 | roi_x_proposal_to_fit | DAM4SAM | 64 | 12.0 | 18.0 | 0.85 | 0.012 | 197/221 | 23/24 | 36/252 | 1.7769156445918952 / 6.370625681759837 (n=75) |
-| roi_64_proposal_12 | roi_x_proposal_to_fit | Lucas-Kanade | 64 | 12.0 | 18.0 | 0.85 | 0.012 | 170/221 | 17/24 | 14/188 | 1.7736015437714059 / 5.170699494667861 (n=54) |
-| roi_64_proposal_15 | roi_x_proposal_to_fit | EasyLEED | 64 | 15.0 | 18.0 | 0.85 | 0.012 | 192/221 | 21/24 | 4/200 | 1.634037525585427 / 3.6851830886002626 (n=67) |
-| roi_64_proposal_15 | roi_x_proposal_to_fit | LocoTrack | 64 | 15.0 | 18.0 | 0.85 | 0.012 | 199/221 | 23/24 | 36/254 | 1.8831318146568492 / 6.2999301201550475 (n=77) |
-| roi_64_proposal_15 | roi_x_proposal_to_fit | OSTrack | 64 | 15.0 | 18.0 | 0.85 | 0.012 | 196/221 | 21/24 | 34/248 | 1.7545865525480622 / 6.4365867060998365 (n=73) |
-| roi_64_proposal_15 | roi_x_proposal_to_fit | DAM4SAM | 64 | 15.0 | 18.0 | 0.85 | 0.012 | 197/221 | 23/24 | 36/252 | 1.7769156445918952 / 6.370625681759837 (n=75) |
-| roi_64_proposal_15 | roi_x_proposal_to_fit | Lucas-Kanade | 64 | 15.0 | 18.0 | 0.85 | 0.012 | 170/221 | 17/24 | 14/188 | 1.7736015437714059 / 5.170699494667861 (n=54) |
-| roi_64_proposal_18 | roi_x_proposal_to_fit | EasyLEED | 64 | 18.0 | 18.0 | 0.85 | 0.012 | 197/221 | 21/24 | 5/213 | 1.7776908131589835 / 5.726705709996485 (n=73) |
-| roi_64_proposal_18 | roi_x_proposal_to_fit | LocoTrack | 64 | 18.0 | 18.0 | 0.85 | 0.012 | 199/221 | 23/24 | 36/254 | 1.8831318146568492 / 6.2999301201550475 (n=77) |
-| roi_64_proposal_18 | roi_x_proposal_to_fit | OSTrack | 64 | 18.0 | 18.0 | 0.85 | 0.012 | 198/221 | 22/24 | 35/252 | 1.8138657005661116 / 6.329407723400038 (n=76) |
-| roi_64_proposal_18 | roi_x_proposal_to_fit | DAM4SAM | 64 | 18.0 | 18.0 | 0.85 | 0.012 | 197/221 | 23/24 | 36/252 | 1.7769156445918952 / 6.370625681759837 (n=75) |
-| roi_64_proposal_18 | roi_x_proposal_to_fit | Lucas-Kanade | 64 | 18.0 | 18.0 | 0.85 | 0.012 | 172/221 | 18/24 | 14/192 | 1.8823051623614901 / 5.9684275263467 (n=57) |
-| branch_tolerance_12 | branch_tolerance_ofat | EasyLEED | 48 | 15.0 | 12.0 | 0.85 | 0.012 | 206/221 | 20/24 | 16/222 | 1.6501646559723326 / 3.661697985862128 (n=82) |
-| branch_tolerance_12 | branch_tolerance_ofat | LocoTrack | 48 | 15.0 | 12.0 | 0.85 | 0.012 | 203/221 | 20/24 | 69/272 | 1.5504961118749634 / 3.567750839508653 (n=79) |
-| branch_tolerance_12 | branch_tolerance_ofat | OSTrack | 48 | 15.0 | 12.0 | 0.85 | 0.012 | 204/221 | 20/24 | 64/269 | 1.5265635388866485 / 3.542023936804128 (n=81) |
-| branch_tolerance_12 | branch_tolerance_ofat | DAM4SAM | 48 | 15.0 | 12.0 | 0.85 | 0.012 | 202/221 | 20/24 | 69/272 | 1.4988461207997261 / 3.5479638677671232 (n=79) |
-| branch_tolerance_12 | branch_tolerance_ofat | Lucas-Kanade | 48 | 15.0 | 12.0 | 0.85 | 0.012 | 183/221 | 17/24 | 23/206 | 1.7359143955889067 / 3.5547768479332973 (n=66) |
-| branch_tolerance_24 | branch_tolerance_ofat | EasyLEED | 48 | 15.0 | 24.0 | 0.85 | 0.012 | 214/221 | 22/24 | 1/222 | 1.7890107473935473 / 5.433272691524464 (n=87) |
-| branch_tolerance_24 | branch_tolerance_ofat | LocoTrack | 48 | 15.0 | 24.0 | 0.85 | 0.012 | 217/221 | 23/24 | 19/272 | 1.9386438331731597 / 7.67020708841212 (n=99) |
-| branch_tolerance_24 | branch_tolerance_ofat | OSTrack | 48 | 15.0 | 24.0 | 0.85 | 0.012 | 216/221 | 21/24 | 19/269 | 1.828923468649748 / 7.033831472977113 (n=96) |
-| branch_tolerance_24 | branch_tolerance_ofat | DAM4SAM | 48 | 15.0 | 24.0 | 0.85 | 0.012 | 216/221 | 23/24 | 19/272 | 1.8725509739514337 / 7.670203690602453 (n=99) |
-| branch_tolerance_24 | branch_tolerance_ofat | Lucas-Kanade | 48 | 15.0 | 24.0 | 0.85 | 0.012 | 188/221 | 17/24 | 9/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
-| r_squared_0p80 | r_squared_ofat | EasyLEED | 48 | 15.0 | 18.0 | 0.8 | 0.012 | 214/221 | 22/24 | 4/230 | 1.6501646559723326 / 3.6935608502433044 (n=92) |
-| r_squared_0p80 | r_squared_ofat | LocoTrack | 48 | 15.0 | 18.0 | 0.8 | 0.012 | 221/221 | 24/24 | 37/286 | 1.834130048881775 / 5.77925816923481 (n=104) |
-| r_squared_0p80 | r_squared_ofat | OSTrack | 48 | 15.0 | 18.0 | 0.8 | 0.012 | 217/221 | 22/24 | 34/278 | 1.7432474944041587 / 5.725331719227924 (n=99) |
-| r_squared_0p80 | r_squared_ofat | DAM4SAM | 48 | 15.0 | 18.0 | 0.8 | 0.012 | 217/221 | 24/24 | 37/281 | 1.788179181553403 / 5.832321486899693 (n=99) |
-| r_squared_0p80 | r_squared_ofat | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.8 | 0.012 | 190/221 | 17/24 | 14/215 | 1.7328652907616515 / 3.900752751308463 (n=77) |
-| r_squared_0p90 | r_squared_ofat | EasyLEED | 48 | 15.0 | 18.0 | 0.9 | 0.012 | 194/221 | 21/24 | 4/202 | 1.5694047107091365 / 3.65593743398715 (n=69) |
-| r_squared_0p90 | r_squared_ofat | LocoTrack | 48 | 15.0 | 18.0 | 0.9 | 0.012 | 200/221 | 23/24 | 36/255 | 1.8366454823238882 / 6.221266792272805 (n=79) |
-| r_squared_0p90 | r_squared_ofat | OSTrack | 48 | 15.0 | 18.0 | 0.9 | 0.012 | 195/221 | 21/24 | 34/247 | 1.7432474944041587 / 6.436595755551291 (n=73) |
-| r_squared_0p90 | r_squared_ofat | DAM4SAM | 48 | 15.0 | 18.0 | 0.9 | 0.012 | 196/221 | 23/24 | 36/251 | 1.788179181553403 / 6.364790459861306 (n=75) |
-| r_squared_0p90 | r_squared_ofat | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.9 | 0.012 | 170/221 | 17/24 | 14/188 | 1.788483767682294 / 5.106880685325345 (n=55) |
-| amplitude_multiplier_0p75 | amplitude_ofat | EasyLEED | 48 | 15.0 | 18.0 | 0.85 | 0.009000000000000001 | 214/221 | 22/24 | 4/222 | 1.7367102643215162 / 3.718843442381691 (n=84) |
-| amplitude_multiplier_0p75 | amplitude_ofat | LocoTrack | 48 | 15.0 | 18.0 | 0.85 | 0.009000000000000001 | 217/221 | 23/24 | 36/272 | 1.8366454823238882 / 5.973206417649465 (n=91) |
-| amplitude_multiplier_0p75 | amplitude_ofat | OSTrack | 48 | 15.0 | 18.0 | 0.85 | 0.009000000000000001 | 216/221 | 21/24 | 34/269 | 1.769749564042172 / 5.937326048535333 (n=90) |
-| amplitude_multiplier_0p75 | amplitude_ofat | DAM4SAM | 48 | 15.0 | 18.0 | 0.85 | 0.009000000000000001 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
-| amplitude_multiplier_0p75 | amplitude_ofat | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.85 | 0.009000000000000001 | 188/221 | 17/24 | 14/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
-| amplitude_multiplier_1p25 | amplitude_ofat | EasyLEED | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 214/221 | 22/24 | 4/222 | 1.7367102643215162 / 3.718843442381691 (n=84) |
-| amplitude_multiplier_1p25 | amplitude_ofat | LocoTrack | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 217/221 | 23/24 | 36/272 | 1.8366454823238882 / 5.973206417649465 (n=91) |
-| amplitude_multiplier_1p25 | amplitude_ofat | OSTrack | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 216/221 | 21/24 | 34/269 | 1.769749564042172 / 5.937326048535333 (n=90) |
-| amplitude_multiplier_1p25 | amplitude_ofat | DAM4SAM | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 216/221 | 23/24 | 36/272 | 1.788179181553403 / 5.973203407546521 (n=91) |
-| amplitude_multiplier_1p25 | amplitude_ofat | Lucas-Kanade | 48 | 15.0 | 18.0 | 0.85 | 0.015 | 188/221 | 17/24 | 14/206 | 1.763723634049228 / 4.441505301861808 (n=68) |
+**Variant codebook.**
+
+- `R32-P12`: ROI 32 px; proposal-to-fit 12 px.
+- `R32-P15`: ROI 32 px; proposal-to-fit 15 px.
+- `R32-P18`: ROI 32 px; proposal-to-fit 18 px.
+- `R48-P12`: ROI 48 px; proposal-to-fit 12 px.
+- `R48-P15*`: frozen central contract.
+- `R48-P18`: ROI 48 px; proposal-to-fit 18 px.
+- `R64-P12`: ROI 64 px; proposal-to-fit 12 px.
+- `R64-P15`: ROI 64 px; proposal-to-fit 15 px.
+- `R64-P18`: ROI 64 px; proposal-to-fit 18 px.
+- `B12`: branch tolerance 12 px.
+- `B24`: branch tolerance 24 px.
+- `R2-80`: R² minimum 0.80.
+- `R2-90`: R² minimum 0.90.
+- `A0.75`: amplitude gate multiplier 0.75.
+- `A1.25`: amplitude gate multiplier 1.25.
+
+<!-- table-s6-row-style reader_code="R48-P15*" fill="#EAF2F8" non_color_marker="*" -->
+
+| Variant | Method | Contract change | Coverage | Recovery | Geometry inconsistency | Conditional median / P95 [px] (`n`) |
+|---|---|---|---:|---:|---:|---:|
+| `R32-P12` | EasyLEED | R32, P12; B18, R2-85, A1.00 | 209/221 | 21/24 | 2/223 | 1.627 / 3.659 (`n=93`) |
+| `R32-P12` | LocoTrack | R32, P12; B18, R2-85, A1.00 | 220/221 | 24/24 | 38/286 | 1.776 / 5.759 (`n=103`) |
+| `R32-P12` | OSTrack | R32, P12; B18, R2-85, A1.00 | 212/221 | 21/24 | 36/275 | 1.691 / 5.591 (`n=95`) |
+| `R32-P12` | DAM4SAM | R32, P12; B18, R2-85, A1.00 | 217/221 | 24/24 | 38/285 | 1.755 / 5.784 (`n=102`) |
+| `R32-P12` | Lucas–Kanade | R32, P12; B18, R2-85, A1.00 | 190/221 | 17/24 | 14/215 | 1.678 / 3.990 (`n=77`) |
+| `R32-P15` | EasyLEED | R32, P15; B18, R2-85, A1.00 | 212/221 | 21/24 | 4/234 | 1.627 / 3.659 (`n=93`) |
+| `R32-P15` | LocoTrack | R32, P15; B18, R2-85, A1.00 | 220/221 | 24/24 | 38/286 | 1.776 / 5.759 (`n=103`) |
+| `R32-P15` | OSTrack | R32, P15; B18, R2-85, A1.00 | 215/221 | 21/24 | 36/279 | 1.711 / 5.567 (`n=99`) |
+| `R32-P15` | DAM4SAM | R32, P15; B18, R2-85, A1.00 | 217/221 | 24/24 | 38/285 | 1.755 / 5.784 (`n=102`) |
+| `R32-P15` | Lucas–Kanade | R32, P15; B18, R2-85, A1.00 | 190/221 | 17/24 | 14/215 | 1.678 / 3.990 (`n=77`) |
+| `R32-P18` | EasyLEED | R32, P18; B18, R2-85, A1.00 | 212/221 | 21/24 | 4/239 | 1.627 / 3.659 (`n=93`) |
+| `R32-P18` | LocoTrack | R32, P18; B18, R2-85, A1.00 | 220/221 | 24/24 | 38/286 | 1.776 / 5.759 (`n=103`) |
+| `R32-P18` | OSTrack | R32, P18; B18, R2-85, A1.00 | 216/221 | 22/24 | 36/280 | 1.722 / 5.561 (`n=100`) |
+| `R32-P18` | DAM4SAM | R32, P18; B18, R2-85, A1.00 | 217/221 | 24/24 | 38/285 | 1.755 / 5.784 (`n=102`) |
+| `R32-P18` | Lucas–Kanade | R32, P18; B18, R2-85, A1.00 | 190/221 | 17/24 | 14/215 | 1.678 / 3.990 (`n=77`) |
+| `R48-P12` | EasyLEED | R48, P12; B18, R2-85, A1.00 | 206/221 | 21/24 | 2/209 | 1.650 / 3.662 (`n=82`) |
+| `R48-P12` | LocoTrack | R48, P12; B18, R2-85, A1.00 | 217/221 | 23/24 | 36/272 | 1.837 / 5.973 (`n=91`) |
+| `R48-P12` | OSTrack | R48, P12; B18, R2-85, A1.00 | 211/221 | 20/24 | 34/262 | 1.737 / 5.650 (`n=84`) |
+| `R48-P12` | DAM4SAM | R48, P12; B18, R2-85, A1.00 | 216/221 | 23/24 | 36/272 | 1.788 / 5.973 (`n=91`) |
+| `R48-P12` | Lucas–Kanade | R48, P12; B18, R2-85, A1.00 | 188/221 | 17/24 | 14/206 | 1.764 / 4.442 (`n=68`) |
+| `R48-P15*` | EasyLEED | central: R48, P15, B18, R2-85, A1.00 | 214/221 | 22/24 | 4/222 | 1.737 / 3.719 (`n=84`) |
+| `R48-P15*` | LocoTrack | central: R48, P15, B18, R2-85, A1.00 | 217/221 | 23/24 | 36/272 | 1.837 / 5.973 (`n=91`) |
+| `R48-P15*` | OSTrack | central: R48, P15, B18, R2-85, A1.00 | 216/221 | 21/24 | 34/269 | 1.770 / 5.937 (`n=90`) |
+| `R48-P15*` | DAM4SAM | central: R48, P15, B18, R2-85, A1.00 | 216/221 | 23/24 | 36/272 | 1.788 / 5.973 (`n=91`) |
+| `R48-P15*` | Lucas–Kanade | central: R48, P15, B18, R2-85, A1.00 | 188/221 | 17/24 | 14/206 | 1.764 / 4.442 (`n=68`) |
+| `R48-P18` | EasyLEED | R48, P18; B18, R2-85, A1.00 | 219/221 | 22/24 | 6/237 | 1.837 / 5.595 (`n=90`) |
+| `R48-P18` | LocoTrack | R48, P18; B18, R2-85, A1.00 | 217/221 | 23/24 | 36/272 | 1.837 / 5.973 (`n=91`) |
+| `R48-P18` | OSTrack | R48, P18; B18, R2-85, A1.00 | 218/221 | 22/24 | 35/273 | 1.822 / 5.937 (`n=93`) |
+| `R48-P18` | DAM4SAM | R48, P18; B18, R2-85, A1.00 | 216/221 | 23/24 | 36/272 | 1.788 / 5.973 (`n=91`) |
+| `R48-P18` | Lucas–Kanade | R48, P18; B18, R2-85, A1.00 | 192/221 | 18/24 | 14/212 | 1.835 / 5.569 (`n=73`) |
+| `R64-P12` | EasyLEED | R64, P12; B18, R2-85, A1.00 | 184/221 | 20/24 | 2/187 | 1.550 / 3.582 (`n=65`) |
+| `R64-P12` | LocoTrack | R64, P12; B18, R2-85, A1.00 | 199/221 | 23/24 | 36/254 | 1.883 / 6.300 (`n=77`) |
+| `R64-P12` | OSTrack | R64, P12; B18, R2-85, A1.00 | 191/221 | 20/24 | 34/241 | 1.725 / 6.009 (`n=67`) |
+| `R64-P12` | DAM4SAM | R64, P12; B18, R2-85, A1.00 | 197/221 | 23/24 | 36/252 | 1.777 / 6.371 (`n=75`) |
+| `R64-P12` | Lucas–Kanade | R64, P12; B18, R2-85, A1.00 | 170/221 | 17/24 | 14/188 | 1.774 / 5.171 (`n=54`) |
+| `R64-P15` | EasyLEED | R64, P15; B18, R2-85, A1.00 | 192/221 | 21/24 | 4/200 | 1.634 / 3.685 (`n=67`) |
+| `R64-P15` | LocoTrack | R64, P15; B18, R2-85, A1.00 | 199/221 | 23/24 | 36/254 | 1.883 / 6.300 (`n=77`) |
+| `R64-P15` | OSTrack | R64, P15; B18, R2-85, A1.00 | 196/221 | 21/24 | 34/248 | 1.755 / 6.437 (`n=73`) |
+| `R64-P15` | DAM4SAM | R64, P15; B18, R2-85, A1.00 | 197/221 | 23/24 | 36/252 | 1.777 / 6.371 (`n=75`) |
+| `R64-P15` | Lucas–Kanade | R64, P15; B18, R2-85, A1.00 | 170/221 | 17/24 | 14/188 | 1.774 / 5.171 (`n=54`) |
+| `R64-P18` | EasyLEED | R64, P18; B18, R2-85, A1.00 | 197/221 | 21/24 | 5/213 | 1.778 / 5.727 (`n=73`) |
+| `R64-P18` | LocoTrack | R64, P18; B18, R2-85, A1.00 | 199/221 | 23/24 | 36/254 | 1.883 / 6.300 (`n=77`) |
+| `R64-P18` | OSTrack | R64, P18; B18, R2-85, A1.00 | 198/221 | 22/24 | 35/252 | 1.814 / 6.329 (`n=76`) |
+| `R64-P18` | DAM4SAM | R64, P18; B18, R2-85, A1.00 | 197/221 | 23/24 | 36/252 | 1.777 / 6.371 (`n=75`) |
+| `R64-P18` | Lucas–Kanade | R64, P18; B18, R2-85, A1.00 | 172/221 | 18/24 | 14/192 | 1.882 / 5.968 (`n=57`) |
+| `B12` | EasyLEED | R48, P15; B12, R2-85, A1.00 | 206/221 | 20/24 | 16/222 | 1.650 / 3.662 (`n=82`) |
+| `B12` | LocoTrack | R48, P15; B12, R2-85, A1.00 | 203/221 | 20/24 | 69/272 | 1.550 / 3.568 (`n=79`) |
+| `B12` | OSTrack | R48, P15; B12, R2-85, A1.00 | 204/221 | 20/24 | 64/269 | 1.527 / 3.542 (`n=81`) |
+| `B12` | DAM4SAM | R48, P15; B12, R2-85, A1.00 | 202/221 | 20/24 | 69/272 | 1.499 / 3.548 (`n=79`) |
+| `B12` | Lucas–Kanade | R48, P15; B12, R2-85, A1.00 | 183/221 | 17/24 | 23/206 | 1.736 / 3.555 (`n=66`) |
+| `B24` | EasyLEED | R48, P15; B24, R2-85, A1.00 | 214/221 | 22/24 | 1/222 | 1.789 / 5.433 (`n=87`) |
+| `B24` | LocoTrack | R48, P15; B24, R2-85, A1.00 | 217/221 | 23/24 | 19/272 | 1.939 / 7.670 (`n=99`) |
+| `B24` | OSTrack | R48, P15; B24, R2-85, A1.00 | 216/221 | 21/24 | 19/269 | 1.829 / 7.034 (`n=96`) |
+| `B24` | DAM4SAM | R48, P15; B24, R2-85, A1.00 | 216/221 | 23/24 | 19/272 | 1.873 / 7.670 (`n=99`) |
+| `B24` | Lucas–Kanade | R48, P15; B24, R2-85, A1.00 | 188/221 | 17/24 | 9/206 | 1.764 / 4.442 (`n=68`) |
+| `R2-80` | EasyLEED | R48, P15; B18, R2-80, A1.00 | 214/221 | 22/24 | 4/230 | 1.650 / 3.694 (`n=92`) |
+| `R2-80` | LocoTrack | R48, P15; B18, R2-80, A1.00 | 221/221 | 24/24 | 37/286 | 1.834 / 5.779 (`n=104`) |
+| `R2-80` | OSTrack | R48, P15; B18, R2-80, A1.00 | 217/221 | 22/24 | 34/278 | 1.743 / 5.725 (`n=99`) |
+| `R2-80` | DAM4SAM | R48, P15; B18, R2-80, A1.00 | 217/221 | 24/24 | 37/281 | 1.788 / 5.832 (`n=99`) |
+| `R2-80` | Lucas–Kanade | R48, P15; B18, R2-80, A1.00 | 190/221 | 17/24 | 14/215 | 1.733 / 3.901 (`n=77`) |
+| `R2-90` | EasyLEED | R48, P15; B18, R2-90, A1.00 | 194/221 | 21/24 | 4/202 | 1.569 / 3.656 (`n=69`) |
+| `R2-90` | LocoTrack | R48, P15; B18, R2-90, A1.00 | 200/221 | 23/24 | 36/255 | 1.837 / 6.221 (`n=79`) |
+| `R2-90` | OSTrack | R48, P15; B18, R2-90, A1.00 | 195/221 | 21/24 | 34/247 | 1.743 / 6.437 (`n=73`) |
+| `R2-90` | DAM4SAM | R48, P15; B18, R2-90, A1.00 | 196/221 | 23/24 | 36/251 | 1.788 / 6.365 (`n=75`) |
+| `R2-90` | Lucas–Kanade | R48, P15; B18, R2-90, A1.00 | 170/221 | 17/24 | 14/188 | 1.788 / 5.107 (`n=55`) |
+| `A0.75` | EasyLEED | R48, P15; B18, R2-85, A0.75 (threshold 0.009) | 214/221 | 22/24 | 4/222 | 1.737 / 3.719 (`n=84`) |
+| `A0.75` | LocoTrack | R48, P15; B18, R2-85, A0.75 (threshold 0.009) | 217/221 | 23/24 | 36/272 | 1.837 / 5.973 (`n=91`) |
+| `A0.75` | OSTrack | R48, P15; B18, R2-85, A0.75 (threshold 0.009) | 216/221 | 21/24 | 34/269 | 1.770 / 5.937 (`n=90`) |
+| `A0.75` | DAM4SAM | R48, P15; B18, R2-85, A0.75 (threshold 0.009) | 216/221 | 23/24 | 36/272 | 1.788 / 5.973 (`n=91`) |
+| `A0.75` | Lucas–Kanade | R48, P15; B18, R2-85, A0.75 (threshold 0.009) | 188/221 | 17/24 | 14/206 | 1.764 / 4.442 (`n=68`) |
+| `A1.25` | EasyLEED | R48, P15; B18, R2-85, A1.25 (threshold 0.015) | 214/221 | 22/24 | 4/222 | 1.737 / 3.719 (`n=84`) |
+| `A1.25` | LocoTrack | R48, P15; B18, R2-85, A1.25 (threshold 0.015) | 217/221 | 23/24 | 36/272 | 1.837 / 5.973 (`n=91`) |
+| `A1.25` | OSTrack | R48, P15; B18, R2-85, A1.25 (threshold 0.015) | 216/221 | 21/24 | 34/269 | 1.770 / 5.937 (`n=90`) |
+| `A1.25` | DAM4SAM | R48, P15; B18, R2-85, A1.25 (threshold 0.015) | 216/221 | 23/24 | 36/272 | 1.788 / 5.973 (`n=91`) |
+| `A1.25` | Lucas–Kanade | R48, P15; B18, R2-85, A1.25 (threshold 0.015) | 188/221 | 17/24 | 14/206 | 1.764 / 4.442 (`n=68`) |
 <!-- END TABLE S6 -->
 
 ## Table S7 — Cross-regime numerical summary
