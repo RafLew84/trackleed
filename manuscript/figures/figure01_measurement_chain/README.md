@@ -19,28 +19,23 @@ separately in `render_manifest.json`.
 ## Caption
 
 **Figure 1. Tracking proposal, common position measurement, and evidence
-ladder.** **a,** Empirical native outputs of the five tracking strategies for
-the same diffraction spot in the final image of the fixed-energy Cu(111)
-thermal sequence (56 eV, 92 °C): the LocoTrack point, OSTrack bounding box,
-DAM4SAM binary mask, Lucas-Kanade optical-flow point, and EasyLEED Kalman
-position. The case was selected from the acquisition metadata without
-inspecting tracker behavior; all methods used the same image sequence, spot,
-and seed and received no correction or reinitialization. The OSTrack box and
-the unsmoothed DAM4SAM mask are the frozen empirical native geometries.
-**b,** Each native output is reduced to a proposal coordinate that centers an
-identically sized `48 x 48` pixel measurement ROI. A common elliptical
-two-dimensional Gaussian fit to the raw pixels supplies the quantitative spot
-position. In this explanatory case, the maximum separation among the five
-proposal coordinates is 5.60 pixels and that among the five Gaussian centers
-is 0.0023 pixels; these values were not used for case selection and do not rank
-the methods. **c,** Two Gaussian-refined positions define the pair distance
-\(D_t\) and its normalized change \(\Delta D/D\). Common image translation
-cancels in the pair distance, whereas non-rigid distortion does not.
-**d,** The Cu(111) thermal sequence, known translations, Ag(111) energy scans,
-and controlled SAM2 family serve as a positive control, equivariance test,
-motion-plus-I(V)-gap stress test, and memory-mechanism analysis, respectively.
-These regimes answer separate questions with separate denominators rather than
-forming a composite tracker ranking.
+ladder.** **a,** Native outputs of five strategies for the same Cu(111) spot:
+LocoTrack point, OSTrack box, DAM4SAM mask, Lucas–Kanade optical-flow point,
+and EasyLEED Kalman position. The view is the final image of the 701-image
+fixed-energy thermal cycle at 56 eV and 92 °C. The metadata-selected case used
+one sequence, spot, and seed without correction or reinitialization and was
+selected without inspecting tracker behavior; the empirical OSTrack box and
+unsmoothed DAM4SAM mask are retained. **b,** Each native output is reduced to
+a proposal coordinate centering the common 48 × 48-pixel ROI; one elliptical
+Gaussian fit to the raw pixels supplies the reported position. Proposal
+centers differ by at most 5.60 px and refined centers by 0.0023 px in this
+explanatory case, which was not selected from tracker outcomes and does not
+rank methods. **c,** Two refined positions define pair distance \(D_t\) and
+\(\Delta D/D\); common translation cancels, whereas non-rigid distortion does
+not. **d,** Controlled translations, Cu(111), independent Ag(111) scans, and
+the controlled SAM2 family test equivariance, endpoint agreement, motion plus
+natural \(I(V)\) gaps, and a memory mechanism, respectively. They retain
+separate denominators and do not form a composite ranking.
 
 ## Selection
 

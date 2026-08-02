@@ -69,29 +69,24 @@ five-method run and must be visually labelled as a separate diagnostic.
 
 ## Caption
 
-**Figure 5. Tracker proposal differences do not materially alter the Cu(111)
-pairwise relative spot-radius endpoint after common Gaussian refinement.**
-**a,** Temperature profile of the 701-image, constant-energy thermal cycle
-with reader-facing reference, 800 °C plateau, post-plateau minimum, and final
-cooled-state landmarks; frame identifiers are retained only in the source
-metadata. **b,c,** Pairwise `Delta R/R = Delta D/D` for pairs 1-6 and 3-5,
-respectively, after proposals from LocoTrack, OSTrack, DAM4SAM,
-Lucas-Kanade, and EasyLEED were passed through the same Gaussian estimator.
-The upper axes show the cross-method median and min-max envelope; the lower
-axes magnify each method's deviation from the median in `10^-3` percentage
-points using a shared scale. Every method produced 701/701 valid endpoints
-for each pair. **d,**
-Between-method endpoint range at the predefined plateau, the common
-post-plateau minimum, and the final cooled state. Maximum separation over the
-complete sequence was 0.001710 percentage points for pair 1-6 and 0.002237
-percentage points for pair 3-5. **e,** Separate saved-YOLO-trajectory
-diagnostic for pair 2-4. A proposal remained present throughout the displayed
-context, while 24 consecutive Gaussian fits failed only the amplitude gate.
-This panel demonstrates that proposal availability and quantitative
-measurement availability are distinct; it neither demonstrates tracker
-identity loss nor compares the five methods on spots 2 and 4. The two primary
-pairs do not establish crystallographic anisotropy, a thermal-expansion
-coefficient, a phase transition, or a structural mechanism.
+**Figure 5. Common Gaussian refinement preserves the Cu(111) pairwise
+relative spot-radius endpoint across proposal strategies.** **a,** Temperature
+profile of the 701-image constant-energy cycle with reference, 800 °C
+plateau, post-plateau minimum, and final cooled state; frame identifiers remain
+in source metadata. **b,c,** Pairwise \(\Delta R/R=\Delta D/D\) for pairs 1–6
+and 3–5 after five proposal strategies enter the same estimator. Upper axes
+show the cross-method median and range; lower axes magnify deviations from the
+median in \(10^{-3}\) percentage points on a shared scale. Every method yields
+701/701 endpoints per pair. Common image translation cancels in pair distance,
+whereas non-rigid distortion does not. **d,** Between-method endpoint range at
+the three predefined landmarks; maxima over the sequence are 0.001710 and
+0.002237 percentage points. **e,** Separate saved-YOLO diagnostic for pair
+2–4: proposals remain present throughout the displayed context while 24
+consecutive Gaussian fits fail only the amplitude gate. This distinguishes
+proposal from measurement availability; it does not show identity loss or
+compare the five methods on that pair. The two primary pairs do not establish
+crystallographic anisotropy, thermal expansion, phase transition, or a
+structural mechanism.
 
 ## Frozen source package
 

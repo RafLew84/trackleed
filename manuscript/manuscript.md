@@ -516,7 +516,7 @@ separately in Table S5.
 All five strategies completed the Cu(111) positive control without a missing
 proposal or rejected common fit: each method produced 2,804/2,804 Gaussian
 measurements, and each primary pair produced 701/701 valid \(\Delta R/R\)
-endpoints (Figure 3; Table S7). The largest separation between two native
+endpoints (Figure 5; Table S7). The largest separation between two native
 method proposals was 16.759 px, whereas the largest separation between the
 corresponding Gaussian-refined centers was 0.0502 px. At the endpoint level,
 the maximum between-method difference over the entire sequence was only
@@ -541,7 +541,7 @@ Exact method- and pair-specific landmark values are reported in Table S4.
 ### 4.3 Independent Ag(111) scans separate availability from conditional residuals
 
 The independent Ag(111) energy scans separated the strategies in outcomes that
-were absent from the Cu(111) positive control (Figure 4; Table S7). LocoTrack
+were absent from the Cu(111) positive control (Figure 3; Table S7). LocoTrack
 had 217/221 branch-consistent measurements (98.19% coverage), followed by
 OSTrack and DAM4SAM with 216/221 each (97.74%), EasyLEED with 214/221
 (96.83%), and Lucas--Kanade with 188/221 (85.07%). The denominators were
@@ -630,7 +630,7 @@ central measurement contract was not changed.
 
 Under byte-identical checkpoint weights, vanilla SAM2 produced 126/182
 branch-consistent measurements (69.23% coverage) and recovered 9/13 natural
-I(V) gaps (69.23%; Figure 5). SAMURAI increased coverage to 181/182 (99.45%)
+I(V) gaps (69.23%; Figure 4). SAMURAI increased coverage to 181/182 (99.45%)
 and DAM4SAM to 179/182 (98.35%); both memory-aware variants recovered all
 13 gaps. The matched panel therefore associated the motion-aware and
 distractor-aware strategies with substantially greater continuity than the

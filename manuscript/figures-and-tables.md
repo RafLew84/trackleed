@@ -34,41 +34,41 @@ Shows controlled translation paths, proposal-to-measurement behavior, measuremen
 - Missing values: Rejected or unavailable measurements remain gaps and coverage is reported first.
 - Palette: Uses the frozen five-method colorblind-safe palette.
 
-### Figure 3 — Propagation to the Cu(111) physical endpoint
-
-Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread.
-
-- Bundle: [figures/figure03_cu111_physical_endpoint](figures/figure03_cu111_physical_endpoint/README.md)
-- Caption/source display: [open](figures/figure03_cu111_physical_endpoint/README.md)
-- Provenance: [manifest](figures/figure03_cu111_physical_endpoint/manifest.json)
-- Denominators: Each method retains 2804/2804 Gaussian measurements and 701/701 endpoints for each primary pair.
-- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
-- Missing values: Missing endpoints would remain missing; no gaps are present for the two primary pairs.
-- Palette: Uses the frozen five-method colorblind-safe palette.
-
-### Figure 4 — Ag(111) motion and visibility-gap stress test
+### Figure 3 — Independent Ag(111) energy-scan stress test
 
 Reports branch-consistent coverage, post-gap branch-consistent recovery, geometry inconsistency, and conditional residual in denominator-first order.
 
-- Bundle: [figures/figure04_ag111_motion_visibility_stress](figures/figure04_ag111_motion_visibility_stress/README.md)
-- Caption/source display: [open](figures/figure04_ag111_motion_visibility_stress/README.md)
-- Provenance: [manifest](figures/figure04_ag111_motion_visibility_stress/manifest.json)
+- Bundle: [figures/figure03_independent_scane_stress](figures/figure03_independent_scane_stress/README.md)
+- Caption/source display: [open](figures/figure03_independent_scane_stress/README.md)
+- Provenance: [manifest](figures/figure03_independent_scane_stress/manifest.json)
 - Denominators: Uses 221 visible opportunities, 24 evaluable gaps, accepted-fit denominators, and method-specific residual n.
 - Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
 - Missing values: Visibility gaps and rejected measurements are shown explicitly and are not connected.
 - Palette: Uses the frozen five-method colorblind-safe palette.
 
-### Figure 5 — Controlled SAM2-family continuity–consistency trade-off
+### Figure 4 — Controlled SAM2-family continuity–consistency trade-off
 
 Provides a matched-weight, one-series mechanism comparison without extending it to a general strategy ranking.
 
-- Bundle: [figures/figure05_controlled_sam2_continuity_consistency_tradeoff](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/README.md)
-- Caption/source display: [open](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/README.md)
-- Provenance: [manifest](figures/figure05_controlled_sam2_continuity_consistency_tradeoff/manifest.json)
+- Bundle: [figures/figure04_controlled_sam2_memory_tradeoff](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
+- Caption/source display: [open](figures/figure04_controlled_sam2_memory_tradeoff/README.md)
+- Provenance: [manifest](figures/figure04_controlled_sam2_memory_tradeoff/manifest.json)
 - Denominators: Coverage and post-gap branch-consistent recovery keep fixed opportunities; residuals retain method- and pair-specific conditional n.
 - Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Rates derived from exact counts are shown to 2 decimal places. Ag(111) conditional pair-distance residuals are shown to 3 decimal places with method-specific n.
 - Missing values: Visibility gaps and invalid fits remain absent and contribute to fixed-denominator outcomes.
 - Palette: Uses frozen family-specific colors without a rank-like scale.
+
+### Figure 5 — Common Gaussian refinement preserves the Cu(111) pairwise relative spot-radius endpoint across proposal strategies
+
+Propagates the common measurement contract to the descriptive Cu(111) pairwise endpoint and between-method spread.
+
+- Bundle: [figures/figure05_cu111_physical_endpoint](figures/figure05_cu111_physical_endpoint/README.md)
+- Caption/source display: [open](figures/figure05_cu111_physical_endpoint/README.md)
+- Provenance: [manifest](figures/figure05_cu111_physical_endpoint/manifest.json)
+- Denominators: Each method retains 2804/2804 Gaussian measurements and 701/701 endpoints for each primary pair.
+- Rounding: Counts and denominators are shown as exact integers in numerator/denominator form. Cu(111) endpoint deviations and pair-invariance percentage-point values are shown to 6 decimal places.
+- Missing values: Missing endpoints would remain missing; no gaps are present for the two primary pairs.
+- Palette: Uses the frozen five-method colorblind-safe palette.
 
 ## Main tables
 

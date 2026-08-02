@@ -110,14 +110,18 @@ class PublicationInventoryTest(unittest.TestCase):
         inventory = build_inventory.load_inventory(INVENTORY_PATH)
 
         for item in inventory["items"]:
-            if item["id"] not in build_inventory.RECOVERY_DISPLAY_IDS:
+            expected_term = build_inventory.RECOVERY_TERM_BY_DISPLAY.get(
+                item["id"]
+            )
+            if expected_term is None:
                 continue
             caption = build_inventory._resolve_repo_path(
                 item["caption_path"]
             ).read_text(encoding="utf-8")
+            normalized_caption = " ".join(caption.casefold().split())
             self.assertIn(
-                build_inventory.RECOVERY_TERM,
-                caption.casefold(),
+                expected_term,
+                normalized_caption,
                 item["id"],
             )
 
@@ -128,7 +132,7 @@ class PublicationInventoryTest(unittest.TestCase):
         self.assertNotIn("Table 3", manuscript)
         self.assertNotIn("BEGIN TABLE 3", manuscript)
         self.assertIn("Figure 3; Table S7", manuscript)
-        self.assertIn("Figure 4; Table S7", manuscript)
+        self.assertIn("Figure 5; Table S7", manuscript)
         self.assertIn("Figure S4", manuscript)
         self.assertIn("Figure S6", manuscript)
         self.assertEqual(supplement.count("<!-- BEGIN TABLE S7 -->"), 1)

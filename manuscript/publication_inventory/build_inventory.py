@@ -60,7 +60,7 @@ EXPECTED_IDS = (
     "Table S7",
 )
 APPROVED_INVENTORY_SHA256 = (
-    "6be02ac86d17fb5591bbcb6bb737c57254283fe8b61bb8e162dafe15127528e5"
+    "89ecac9fd38e1873246fe680bdf5c62bb72f1841051ac0ec67b32aba6fb5cab2"
 )
 EXPECTED_PLACEMENT_COUNTS = {
     "main_figure": 5,
@@ -84,15 +84,15 @@ EXPECTED_METHOD_PALETTE = {
     "lucas_kanade": "#CC79A7",
     "ostrack": "#E69F00",
 }
-RECOVERY_DISPLAY_IDS = {
-    "Figure 4",
-    "Figure 5",
-    "Table S2",
-    "Table S3",
-    "Table S6",
-    "Table S7",
-}
 RECOVERY_TERM = "post-gap branch-consistent recovery"
+RECOVERY_TERM_BY_DISPLAY = {
+    "Figure 3": "recovery of the same physics-constrained branch",
+    "Figure 4": "coverage and recovery relative to vanilla propagation",
+    "Table S2": RECOVERY_TERM,
+    "Table S3": RECOVERY_TERM,
+    "Table S6": RECOVERY_TERM,
+    "Table S7": RECOVERY_TERM,
+}
 SENSITIVITY_TEST_TARGETS = (
     (
         "trackleed.tests.test_scientific_sensitivity_evidence."
@@ -430,16 +430,15 @@ def validate_inventory(inventory: dict[str, Any]) -> dict[str, Any]:
         if not caption_path.is_file():
             raise ValueError(f"Missing caption contract for {item['id']}.")
         caption_text = caption_path.read_text(encoding="utf-8")
-        if item["title"] not in caption_text:
+        normalized_caption = " ".join(caption_text.casefold().split())
+        if item["title"].casefold() not in normalized_caption:
             raise ValueError(f"Approved title is absent from {item['id']}.")
         if "identity recovery" in caption_text.casefold():
             raise ValueError(
                 f"Superseded identity-recovery wording remains in {item['id']}."
             )
-        if (
-            item["id"] in RECOVERY_DISPLAY_IDS
-            and RECOVERY_TERM not in caption_text.casefold()
-        ):
+        recovery_term = RECOVERY_TERM_BY_DISPLAY.get(item["id"])
+        if recovery_term and recovery_term not in normalized_caption:
             raise ValueError(f"Exact recovery term is absent from {item['id']}.")
 
         rule_ids = item.get("rounding_rule_ids")

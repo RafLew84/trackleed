@@ -6,7 +6,7 @@
           "manuscript/figures/figure01_measurement_chain/build_figure.py": "108dc8bcd3ad023347572f6e3f16c565ae7fa8d925e35c860b7054360f9de468"
         },
         "caption": {
-          "manuscript/figures/figure01_measurement_chain/README.md": "a39e309046896cd4ac6f55aaae1303cb7baeaf01a42e6bc6d74f54b8d5666518"
+          "manuscript/figures/figure01_measurement_chain/README.md": "40773483f10eb28f9e9e5937a28c58a9640e2f777995db2b5ff23aa8dc1c6b0d"
         },
         "manifests": {
           "manuscript/figures/figure01_measurement_chain/manifest.json": "19837decb63cc24eb7f4218b9ee63e30ff76a5580a5a410bc28889146537dca4",
@@ -18,7 +18,7 @@
           "manuscript/figures/figure01_measurement_chain/test_freeze_case.py": "ea721baefdddb2503f980d63dabc8854cc876c457af95f43e321d8fc690990df"
         }
       },
-      "semantic_fingerprint_sha256": "2652b34e33ceb1835e7e830ea5a6433b022c8e8b81e2de5272ab9339c1b862a3",
+      "semantic_fingerprint_sha256": "4e697e0cc0046a9c38fd1211885f392e03ea34f71a3760402914afb53b1fe781",
       "source_data_sha256": {
         "manuscript/figures/figure01_measurement_chain/source_data/representative_dam4sam_mask_cache.png": "1a714a53f3e4aed148d54befbe578ed239eb4038a23332e5d4ee416b630bfc03",
         "manuscript/figures/figure01_measurement_chain/source_data/representative_initialization.json": "9983277bda6488357fbe08575b659a13a2234b92cb9fb8b85468f87a0f380c15",
@@ -59,86 +59,90 @@
     "Figure 3": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/figures/figure03_cu111_physical_endpoint/build_figure.py": "037b0b5d2cb8f88cacb792376a658a86a6b4bdd643aa0202f674595715b2fba0"
+          "manuscript/figures/figure03_independent_scane_stress/build_figure.py": "132866c58134ac83cc77ec20433c27e091ca75d8e2c137f5e54363e88eded90a"
         },
         "caption": {
-          "manuscript/figures/figure03_cu111_physical_endpoint/README.md": "1d38490ee1d341014a000ba729582d46dc8eecb287fbeee52f63b17c1dba955d"
+          "manuscript/figures/figure03_independent_scane_stress/README.md": "a2cc5f84d9853ecb2a4265646a7c2012ca8407168e87fdb52a738b33857a1498"
         },
         "manifests": {
-          "manuscript/figures/figure03_cu111_physical_endpoint/manifest.json": "d5ac890d025fd1b7721376fadcd2868dd3bf59ea2b8ad48db7292f90f74ffebb"
+          "manuscript/figures/figure03_independent_scane_stress/manifest.json": "4135c662872153f279bbee4e8605027a9429e3ab025f5027a200714c997bcc63"
         },
         "validators": {
-          "manuscript/figures/figure03_cu111_physical_endpoint/test_build_figure.py": "f23f9b6c9585318a68785a78a3ef4b7ab97ce56c9d0e954b256d3cc5c3a6f91d"
+          "manuscript/figures/figure03_independent_scane_stress/test_build_figure.py": "64294828b2617297a9a6b5c1df1f4d53d3af2f8b4dbafd098768af95e35d9fb6",
+          "manuscript/figures/figure03_independent_scane_stress/test_freeze_source_data.py": "1cbeba3d43b1b9f4516a457543cacd6a01e1a30ae175d86e8420050aa8bb5e4d"
         }
       },
-      "semantic_fingerprint_sha256": "e06f1ee5daf5201477c4a290ea351b8173a8afcadc40838f0bcd0deeb0578374",
+      "semantic_fingerprint_sha256": "38cd7556573b40d7d74a83e623ec88b783e563dffe8717652a6840e0cec483a8",
       "source_data_sha256": {
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/between_method_spread.csv": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/cycle_landmarks.csv": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/endpoint_summaries.csv": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/five_method_run_contract.json": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/pair_endpoint_timeseries.csv": "13b40293661067a518f105df5adfdbe34b96090a8660b56c1030783af8b736cf",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/source_provenance.json": "60ea33447c1adfd8946eb8ef8bcc8809b8d77a57026d127876041b3d2c4ca053",
-        "manuscript/figures/figure03_cu111_physical_endpoint/source_data/temperature_profile.csv": "c68df468e760880054e75294d9e8a82601c9771e439ab0eadc7f023268d0479d"
+        "manuscript/figures/figure03_independent_scane_stress/source_data/aggregate_method_results.csv": "30e50bfbd328d1595afec5fa7e2aa186fc3d0fb19417acd633f76b2f56b256ea",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/case_results.csv": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/external_reference_summary.json": "ef7002215311eef7c21569b9f889eb92f3dc2c3a72d061f82fb815d975e9a44e",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/representative_case.json": "099da76f76ca6f8249a96521064db556bd1aaed420a4921265242504c6239b53",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/representative_pair_measurements.csv": "1b3620acabfcc2c8e5cdd3451439bb631f0e7de0a0b61f01822a61395d9c4dd9",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/representative_visibility_regimes.csv": "4063255d663c2884c4125465de3a6db721f278be15b6f2fea8e200ea2f864cda",
+        "manuscript/figures/figure03_independent_scane_stress/source_data/source_provenance.json": "9bbe2d9de340fbf682d363ade8f1e51bd301128385d8a077787125ad8f89ffd2"
       },
       "text_outputs_sha256": {}
     },
     "Figure 4": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/figures/figure04_ag111_motion_visibility_stress/build_figure.py": "a807659c76728672aa9a0f665413ff1c4f99ba786b16e84788a35253f297a888"
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/build_figure.py": "e75bd9e2b5c4bd455ae47f5899a3cd827e9e56a6fd16d4e398611e105b674e52"
         },
         "caption": {
-          "manuscript/figures/figure04_ag111_motion_visibility_stress/README.md": "a009b8b83122d11622bfdf75dc7aff22c5f6ea32951cc432da6e3c4b0fd05434"
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/README.md": "def163ab545015c3204a59c394e1484fac6eeb68a3b291903479e4a2c844f37c"
         },
         "manifests": {
-          "manuscript/figures/figure04_ag111_motion_visibility_stress/manifest.json": "bd1e55cc007ed9900872757f115772e944dab90e44b4a6cfcd05a831c5c269bb"
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/manifest.json": "d94b2a8bb04e90cb481a5b585a99c86d732ddba81da009a1c69e71f23bdbb287"
         },
         "validators": {
-          "manuscript/figures/figure04_ag111_motion_visibility_stress/test_build_figure.py": "eb1ccd26f4b35d7c71e64f35d3509ddc74a7fe53f59ffc0f3d65ed546e39b27f",
-          "manuscript/figures/figure04_ag111_motion_visibility_stress/test_freeze_source_data.py": "93ac626387572d4549207b4a6d8426b3e25c39b0cb8ea19912f1dc2cccfc4109"
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/test_build_figure.py": "e52ae524180798b4ed8e673f71dc35b1272f474ab5a23ba866000236d6446298",
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/test_freeze_source_data.py": "c026106f183e87b556631aa6dcf707958f43dc021c7aec5561085b6d949fcd80",
+          "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/test_source_contract.py": "2ac8d65c7e45c918333def23b726696b21411bfc1b5d97a15b527574cb39470e"
         }
       },
-      "semantic_fingerprint_sha256": "6a3ba71b4efd84c0220709397597e1b2d29df6f1a41e61d811e4b28070f4cb5e",
+      "semantic_fingerprint_sha256": "038bd0ef87975cada283e382a5c884c5b0fca3a6ea7a9f3bdb732780e452a1dd",
       "source_data_sha256": {
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/aggregate_method_results.csv": "30e50bfbd328d1595afec5fa7e2aa186fc3d0fb19417acd633f76b2f56b256ea",
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/case_results.csv": "a8f2bc8d3a81cfb14fbd358dca58dde89f1f81f452371b984a30d61f7efb8b48",
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/representative_case.json": "099da76f76ca6f8249a96521064db556bd1aaed420a4921265242504c6239b53",
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/representative_pair_measurements.csv": "1b3620acabfcc2c8e5cdd3451439bb631f0e7de0a0b61f01822a61395d9c4dd9",
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/representative_visibility_regimes.csv": "4063255d663c2884c4125465de3a6db721f278be15b6f2fea8e200ea2f864cda",
-        "manuscript/figures/figure04_ag111_motion_visibility_stress/source_data/source_provenance.json": "ac9e227b5dd7840a226d9bafd86a78bd8a84432cb6ad34810929b3e1db91bc82"
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/crops/b1_160p9ev.tiff": "361ceb2558cfee5dc43561b7bb16f2a5f2bacf911534ae36f40ff292b38fc3a4",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/crops/b1_163p9ev.tiff": "24eabeee9da82d70f1ba88be5c5be5a81b2ce330637f226b22f8ee4e3e82c40d",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/crops/b1_166p5ev.tiff": "2e35764c1cffee313f5632dceda55abb6af668e2395f6cdd5f29a5a2e39a5078",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/crops/b1_169p2ev.tiff": "b3346dc974b878524e1a46d417482d173fdcb1ae0e8a2a0a6298de9be6d121f5",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/pair_seeds.csv": "9b3cb133e5d29e2487092a3d87e693c2b3a7d61128f5c8a08854796fba0727ba",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/representative_gap.json": "4833c2f2fb827bca82dac2dfa20919b88c62ca15205b30b77735723c4fdf8ed9",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/representative_gap_measurements.csv": "9ce5991f49d82542b969e8bd40a7f48c2df6edca9abc82b4d4bd9b80eb0714da",
+        "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/source_data/source_provenance.json": "121759bf36ec2bff30a558e8b7f495a2f087cd931d7e7607080c35b69e2d5f6a"
       },
       "text_outputs_sha256": {}
     },
     "Figure 5": {
       "contracts_sha256": {
         "builder": {
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/build_figure.py": "61a297115a8734b2d63b69c4a31c5b6bb6931a6d10895a7b530ac6426a08f000"
+          "manuscript/figures/figure05_cu111_physical_endpoint/build_figure.py": "aa39199d8c864817d80f0246e5e88743e22ef6abca1b3019e96529bb60080989"
         },
         "caption": {
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/README.md": "e044725545639db61c1355cbfc9feb73db5729bec534747f04c39c3018bce9aa"
+          "manuscript/figures/figure05_cu111_physical_endpoint/README.md": "c18b0b8fbc1c9f97377019bdeea5f1cdbd21d5a298c334ca42e1773e86248d52"
         },
         "manifests": {
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/manifest.json": "a21f1697b7f952617a5291de0ed097d1119a71442dabdf2142506493ef17c365"
+          "manuscript/figures/figure05_cu111_physical_endpoint/manifest.json": "a4a2bd92ce6e184c75403c999cec05be1c916f190e612e800af1ec35e956d640"
         },
         "validators": {
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/test_build_figure.py": "2743b2dea30e54a133e7ba08b147b404500a70f6b2a3df9ac06adae28686fe8d",
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/test_freeze_source_data.py": "66fda3ce71d3e552da8ad9586609721ca7ab8f585774543cd65d0dd5595b0c32",
-          "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/test_source_contract.py": "a669c775df6d1aee0037f459a5d56b60a6a03a192e2bb2ea87fc0579ae7df8dc"
+          "manuscript/figures/figure05_cu111_physical_endpoint/test_build_figure.py": "84c4359b7f8201f1a2e5dc100a32426b69c4272d0ff1909b2c919439938741ea",
+          "manuscript/figures/figure05_cu111_physical_endpoint/test_freeze_source_data.py": "bf77c018227cf7e8b3b680b862c7053dba2554a5fa9da5d2f3166b2d47af1f43",
+          "manuscript/figures/figure05_cu111_physical_endpoint/test_source_contract.py": "f76ea00b3430292c4f2a77a087ebef57620836b05cd9c0c30e4feb4824a2fae8"
         }
       },
-      "semantic_fingerprint_sha256": "5035919509acbaae0dadd8c03e69a9c508b5bd4f93e4c1a2d8dc41c7d4e5f970",
+      "semantic_fingerprint_sha256": "f71acfd2d813b2aef1b5917e4b3fea1012744a2f8d5aa8999428b5f5f2979cc1",
       "source_data_sha256": {
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/crops/b1_160p9ev.tiff": "361ceb2558cfee5dc43561b7bb16f2a5f2bacf911534ae36f40ff292b38fc3a4",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/crops/b1_163p9ev.tiff": "24eabeee9da82d70f1ba88be5c5be5a81b2ce330637f226b22f8ee4e3e82c40d",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/crops/b1_166p5ev.tiff": "2e35764c1cffee313f5632dceda55abb6af668e2395f6cdd5f29a5a2e39a5078",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/crops/b1_169p2ev.tiff": "b3346dc974b878524e1a46d417482d173fdcb1ae0e8a2a0a6298de9be6d121f5",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/family_aggregate.csv": "0683dc7cfcbcbe69a71ca4e78e7cb3f8a0bcfdfd3bedc2dcf26acc85f88b7aab",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/family_by_pair.csv": "ed028bdf591d251a9fed852a324882d20cf0a88cb6ef7beb83d010270bfcfdae",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/pair_seeds.csv": "9b3cb133e5d29e2487092a3d87e693c2b3a7d61128f5c8a08854796fba0727ba",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/representative_gap.json": "4833c2f2fb827bca82dac2dfa20919b88c62ca15205b30b77735723c4fdf8ed9",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/representative_gap_measurements.csv": "9ce5991f49d82542b969e8bd40a7f48c2df6edca9abc82b4d4bd9b80eb0714da",
-        "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/source_data/source_provenance.json": "0d0efa5666c021d1acc018cb886cb93146f8b9b69621cb9650f4c3199c74356b"
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/between_method_spread.csv": "b3264cfa71a5688a42cf9e7e7c186dda7343ae7c26982949e40927cea1f35253",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/cycle_landmarks.csv": "664b8ea5fd704015c1dffb3f33c3076297f6ba3e6181e0c1497a09a63a437fb0",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/endpoint_summaries.csv": "8ab82435679398894ada7d330156e5e3a802500f617baa167e492d068fb38962",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/five_method_run_contract.json": "6d96d8fab1efee64b2042abcd63887f8f428b39a8147be3dfa5381842628adc1",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/pair_2_4_missingness_diagnostic.csv": "2f3f1c5cbe127a09b5ad67419980235b992d98f83a5df559aea89ee3ea3790d9",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/pair_endpoint_timeseries.csv": "13b40293661067a518f105df5adfdbe34b96090a8660b56c1030783af8b736cf",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/source_provenance.json": "5ca6ce12cd1f7780cbe389369a3900530bbffd7edaa5b2a3fce1651567a4f48b",
+        "manuscript/figures/figure05_cu111_physical_endpoint/source_data/temperature_profile.csv": "c68df468e760880054e75294d9e8a82601c9771e439ab0eadc7f023268d0479d"
       },
       "text_outputs_sha256": {}
     },
@@ -621,8 +625,8 @@
     ".yaml",
     ".yml"
   ],
-  "inventory_contract_sha256": "2ea2fc1a1e1dff427614804a680d9a741795ba64d2dd727f6fbc41771c75b77e",
+  "inventory_contract_sha256": "9d51c14e46914cacb08ee01a1c76f262b1388891e345ca75611311b70763cba3",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "9e633fde9dd2b460d121e0cfa8843919963535c19dc6ddd71c457dc5f31efb95",
+  "semantic_inventory_sha256": "e51630477994b323ea5f5d6ff6959361152b6db80b1ef34ebb54006868955829",
   "status": "scientific-baseline-complete"
 }

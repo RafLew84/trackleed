@@ -11,33 +11,28 @@ Status: generated and validated.
 
 ## Caption
 
-**Figure 4. Controlled SAM2-family memory trade-off under identical
-checkpoint weights.** **a,** Four states around a natural B1 I(V) visibility
-gap in the controlled scan. SAM2, SAMURAI, and DAM4SAM receive the same
-single-object bbox seed; open circles denote native proposals, yellow plus
-symbols accepted centers from the common two-dimensional Gaussian fit, and
-red crosses rejected Gaussian centers. All twelve views render the complete
-frozen 128 x 128 pixel crops with one shared linear intensity scale. The
-sequence is the first decreasing-energy gap with different recovery outcomes
-and is outcome-selected for mechanistic explanation only. **b,**
-Branch-consistent Gaussian measurement coverage for two disjoint frozen pairs,
-each with 91 baseline-visible spot opportunities per method. **c,** Total and
-zero-delay recovery of the same physics-constrained branch after natural I(V)
-gaps, with seven evaluable gaps in pair 1 and six in pair 2. **d,** Left:
-accepted Gaussian measurements outside the frozen geometry gate, reported
-over each method's accepted measurements in all visibility regimes. Right:
-median-to-P95 absolute pair-distance residual \(D(E)\), conditional on both
-branches passing proposal, Gaussian-fit, and geometry gates; the
-method-specific numbers of jointly consistent pair frames are shown as
-\(n\). **e,** Aggregate mechanistic readout. Motion-aware and
-distractor-aware memory increase coverage and post-gap recovery relative to
-vanilla propagation, while also increasing geometry-inconsistent accepted
-fits. All methods use byte-identical SAM2.1 base-plus checkpoint weights, the
-same 48 x 48 pixel prompt and measurement ROI, the same Gaussian estimator,
-and no correction or reinitialization. The comparison contains one series and
-two pairs and is mechanism evidence, not a general ranking of SAM2-family
-methods. Conditional residuals must be interpreted together with coverage,
-recovery, and possible false continuity.
+**Figure 4. Controlled SAM2-family continuity–consistency trade-off under
+identical checkpoint weights.** **a,** Four states around the first
+decreasing-energy B1 \(I(V)\) gap with different recovery outcomes. SAM2,
+SAMURAI, and DAM4SAM receive the same bbox seed; circles are proposals,
+yellow plus signs accepted Gaussian centers, and red crosses rejected
+centers. All crops share the full 128 × 128 field and one linear intensity
+scale. The sequence is outcome-selected for mechanistic explanation and is
+not a representative-case estimate. **b,** Branch-consistent coverage for two
+disjoint pairs, each with 91 baseline-visible spot opportunities per method.
+**c,** Total and zero-delay recovery over seven and six evaluable gaps.
+**d,** Left, Gaussian fits outside the frozen geometry gate over each method's
+accepted-fit denominator; right, median-to-P95 pair-distance residuals
+conditional on both branches passing proposal, fit, and geometry gates, with
+method-specific \(n\). **e,** Motion- and distractor-aware memory increase
+coverage and recovery relative to vanilla propagation but also increase
+continuation outside the frozen branch. All methods use byte-identical SAM2.1
+base-plus weights, the same 48 × 48-pixel prompt and measurement ROI, one
+Gaussian estimator, and no correction or reinitialization. One series and two
+pairs support a mechanism result, not a general ranking. Pair-specific
+denominators remain separate rather than pooled across the two cases.
+Conditional residuals summarize only surviving pairs and must follow
+fixed-denominator coverage, recovery, and geometry context.
 
 ## Scientific question
 

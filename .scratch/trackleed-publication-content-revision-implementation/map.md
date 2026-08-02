@@ -59,6 +59,11 @@ pominięte.
   method-specific surviving `n` są kanoniczne; Table 1 rozdziela inventory 24
   od fixed opportunity sets 80/40 bez zmiany frozen source data, a generowane
   kopie i manifesty pochodzą z builderów; [dowody](artifacts/03-scientific-prose-denominator-semantics.md).
+- [I04 — kanoniczne podpisy Figures 1/4/5](issues/04-kanoniczne-podpisy-figur.md)
+  — dokładne krótsze captions, 189-word Figure 5, denominator semantics i
+  caveats są chronione fail-closed; inventory i Results używają zatwierdzonego
+  review numbering, a index i semantic manifests pochodzą z buildera bez
+  zmiany danych lub paneli; [dowody](artifacts/04-canonical-figure-captions.md).
 
 ## Constraints
 
