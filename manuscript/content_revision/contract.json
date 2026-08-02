@@ -1,0 +1,270 @@
+{
+  "asserted_status": "content-revision-complete",
+  "assertion_date": "2026-08-02",
+  "assertion_implementation": [
+    {
+      "path": "trackleed/publication/content_revision.py",
+      "role": "fail-closed seven-gate validator",
+      "sha256": "ce6130fd47dc56fab41e962fa8f609edbb7860c6a9675e4fc42df6edae4efd36"
+    },
+    {
+      "path": "scripts/assert_content_revision_complete.py",
+      "role": "deterministic public assertion CLI",
+      "sha256": "176ebb1fd80481688f976fd3674252776589ed2d9985c4dd1c8559a20e5efe1b"
+    },
+    {
+      "path": "trackleed/tests/test_content_revision_completion.py",
+      "role": "success and fail-closed assertion tests",
+      "sha256": "e308d636b677deb5d61f94cd3d2ffc342c56c5b1b2897bff4503a6e053377f62"
+    }
+  ],
+  "authorized_placeholder_categories": [
+    "AUTHOR",
+    "EXPERIMENT",
+    "RELEASE-AUTHORIZATION",
+    "SUBMISSION"
+  ],
+  "documented_validations": [
+    {
+      "command": "python -m pytest manuscript/test_manuscript_contract.py manuscript/publication_package/test_build_publication_package.py",
+      "evidence_path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/08-canonical-docx-pdf-builder.md",
+      "scope": "targeted manuscript, canonical-document, and native-math contracts"
+    },
+    {
+      "command": "python -m scripts.reconstruct_publication --clean --validate",
+      "evidence_path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/12-authorized-rebaseline-reconstruction.md",
+      "scope": "two clean Windows CPU/headless scientific reconstructions"
+    },
+    {
+      "command": "python -m manuscript.publication_package.audit_page_renders --verify",
+      "evidence_path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/13-page-level-render-audit.md",
+      "scope": "four canonical renditions and 200 per-rendition page records"
+    },
+    {
+      "command": "python -m pytest trackleed/tests -q",
+      "evidence_path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/13-page-level-render-audit.md",
+      "scope": "full application suite with documented scientific_panel access baseline"
+    },
+    {
+      "command": "python -m pytest trackleed/tests/test_content_revision_completion.py -q",
+      "evidence_path": "trackleed/tests/test_content_revision_completion.py",
+      "scope": "final assertion success, integrity drift, status boundary, page-audit, and placeholder failure modes"
+    }
+  ],
+  "expected_placeholder_counts": {
+    "AUTHOR": 4,
+    "EXPERIMENT": 1,
+    "RELEASE-AUTHORIZATION": 1,
+    "SUBMISSION": 1
+  },
+  "gates": [
+    {
+      "evidence": [
+        {
+          "path": "docs/publication-status-contract.md",
+          "role": "versioned canonical status and scope boundary",
+          "sha256": "4aa854fb7c0b9808866ef2fdcd317115601cd90131cdd4fd64f084ae54b733b6"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/03-scientific-prose-denominator-semantics.md",
+          "role": "approved prose, denominator, sensitivity, and Abstract evidence",
+          "sha256": "bed91a4a5a21e612e2daa452c2902dc03754d8272699a761aa4550d66201a9cb"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/04-canonical-figure-captions.md",
+          "role": "approved reader-facing caption evidence",
+          "sha256": "11bbbfef2a5a4a8d1b033e171388406b31e31c6046d3336229f9503387c8a0ee"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/09-pre-rebaseline-integration.md",
+          "role": "integrated 23-component review coverage",
+          "sha256": "3c0ef512cffa1fcf5fb88cb71ac7f3d503ca79a85e756a01057fc9412119e420"
+        }
+      ],
+      "id": "1-approved-scope-implemented",
+      "title": "Approved scope implemented"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/05-table-s6-full-precision-exports.md",
+          "role": "Table S6 compact and full-precision export validation",
+          "sha256": "cab028dd880e5f05c702dfa0eab9ed9d5f240a14a98917dac5e5377f73b287c0"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/06-figure-s2-continued-legibility.md",
+          "role": "Figure S2 continued and legibility validation",
+          "sha256": "be6b54242f5a1db7bfce9d1a52e5354bf5279e477dc4e2559c6eec6e90595f70"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/07-figure5-full-width-legibility.md",
+          "role": "Figure 5 full-width and effective-font validation",
+          "sha256": "86c28948f7d94424f8fbb117f8b01f3b9f1a25f7157a6ecc15078f1d636606ab"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/08-canonical-docx-pdf-builder.md",
+          "role": "canonical document builder and native-math validation",
+          "sha256": "e5020295133481b53acebee3c2c78a396ce0b43aa6747d91a89a0fe5e92ec2f9"
+        },
+        {
+          "path": "manuscript/publication_package/manifest.json",
+          "role": "current canonical document and math manifest",
+          "sha256": "5f8f0142d049ce758de41b80656f6221b9f67376b64f3f23741595e85e67cb56"
+        }
+      ],
+      "id": "2-targeted-source-and-display-validation",
+      "title": "Targeted source and display validation"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".gitattributes",
+          "role": "repository-wide LF checkout contract",
+          "sha256": "620f2180a5050df366611fb1342a7a6921b8d54e3a38e4755299e6f7639c0cdc"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/02-publication-line-ending-contract.md",
+          "role": "Windows portability reconstruction evidence",
+          "sha256": "60e8a040c5a8d67537d5502caf2ef8fc03f5a2d3fbf21e7ab25661b9cbe3c8e4"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/09-pre-rebaseline-integration.md",
+          "role": "expected predecessor rejection evidence",
+          "sha256": "3c0ef512cffa1fcf5fb88cb71ac7f3d503ca79a85e756a01057fc9412119e420"
+        }
+      ],
+      "id": "3-portability-closed-before-rebaseline",
+      "title": "Portability closed before rebaseline"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/10-hitl-content-claim-boundary-decision.md",
+          "role": "explicit user acceptance bound to content and claim boundary",
+          "sha256": "0804ea3ebe7df06ae963c168974464221aad6b51a0782fa5cde4e43859bba054"
+        }
+      ],
+      "id": "4-scientific-acceptance-checkpoint",
+      "title": "Scientific acceptance checkpoint"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/11-versioned-fingerprint-replacement-workflow.md",
+          "role": "fail-closed replacement workflow evidence",
+          "sha256": "edd24ed69e21fecbfa06c2ab1905330d710c0696fcc9b42843c60a54f0568a6c"
+        },
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/12-authorized-rebaseline-reconstruction.md",
+          "role": "executed authorized replacement and history evidence",
+          "sha256": "79072a167069704e4e8610a8e28a17e6f2ead8d8299d85cfe15747ddfea9391b"
+        },
+        {
+          "path": "manuscript/scientific_core/replacement_authorization.json",
+          "role": "canonical replacement authorization",
+          "sha256": "57337a25fbc5bd3b6402e4da72770231fa4d0208b128fe37f7c5f198476ab9ab"
+        },
+        {
+          "path": "manuscript/scientific_core/history/fingerprints/859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff.json",
+          "role": "preserved predecessor fingerprint",
+          "sha256": "6a1634b0ff7fa3ef4732e94c939c007e582b2fb0ca2d35a514734c990381f722"
+        },
+        {
+          "path": "manuscript/scientific_core/history/replacements/66b7c59994fe5369ed02f0c8c04e4f924823a52cc423ab02a66a84302b151a3e.json",
+          "role": "predecessor-to-successor replacement record",
+          "sha256": "c1d7e39f75d7ef92a94da5b5449a5d7a3c8abff8f15131e858d4e40842c8e8c1"
+        }
+      ],
+      "id": "5-controlled-scientific-core-rebaseline",
+      "title": "Controlled scientific-core rebaseline"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/12-authorized-rebaseline-reconstruction.md",
+          "role": "two clean Windows CPU/headless reconstruction records",
+          "sha256": "79072a167069704e4e8610a8e28a17e6f2ead8d8299d85cfe15747ddfea9391b"
+        },
+        {
+          "path": "manuscript/scientific_core/fingerprint.json",
+          "role": "live validated successor fingerprint",
+          "sha256": "be946e963239168ecfbb65c0eb73773e982cf0d0123b62515cc45cdf26375bd3"
+        }
+      ],
+      "id": "6-post-rebaseline-scientific-reconstruction",
+      "title": "Post-rebaseline scientific reconstruction"
+    },
+    {
+      "evidence": [
+        {
+          "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/13-page-level-render-audit.md",
+          "role": "accepted complete page-level audit evidence",
+          "sha256": "9a2df81b1570c3295f203ef44d9ed7c5c3147979cc0fdd9681e3d464f1af0124"
+        },
+        {
+          "path": "manuscript/publication_package/manifest.json",
+          "role": "four canonical reader-facing artifacts",
+          "sha256": "5f8f0142d049ce758de41b80656f6221b9f67376b64f3f23741595e85e67cb56"
+        },
+        {
+          "path": "manuscript/publication_package/page_audit/manifest.json",
+          "role": "accepted per-page decisions, render provenance, and page hashes",
+          "sha256": "973894e6e683591584d0565a0a2ffafb321b453b048a89231bb45b61d78fcf2d"
+        }
+      ],
+      "id": "7-canonical-document-build-and-page-level-render-acceptance",
+      "title": "Canonical document build and page-level render acceptance"
+    }
+  ],
+  "page_level_audit": {
+    "path": "manuscript/publication_package/page_audit/manifest.json",
+    "sha256": "973894e6e683591584d0565a0a2ffafb321b453b048a89231bb45b61d78fcf2d"
+  },
+  "placeholder_source_paths": [
+    "manuscript/manuscript.md",
+    "manuscript/claim-evidence-map.md",
+    "manuscript/supplementary-material.md"
+  ],
+  "required_resolved_tickets": [
+    ".scratch/trackleed-publication-content-revision-implementation/issues/01-wersjonowany-kontrakt-domenowy.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/02-przenosny-kontrakt-lf.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/03-proza-naukowa-i-mianowniki.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/04-kanoniczne-podpisy-figur.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/05-table-s6-i-eksporty.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/06-figure-s2-continued.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/07-figure5-full-width.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/08-kanoniczny-builder-docx-pdf.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/09-integracja-przed-rebaseline.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/10-hitl-content-claim-boundary.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/11-replacement-fingerprintu.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/12-rebaseline-i-rekonstrukcje.md",
+    ".scratch/trackleed-publication-content-revision-implementation/issues/13-pelny-audit-stron.md"
+  ],
+  "schema_version": "1.0",
+  "scientific_reconstruction": {
+    "clean_windows_run_count": 2,
+    "command": "python -m scripts.reconstruct_publication --clean --validate",
+    "evidence_path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/12-authorized-rebaseline-reconstruction.md",
+    "report_sha256": "d231a6a0ba4b79c6505971b83b34fda45fe43ac5ae3c3994ec3fd64a8c8e0a71"
+  },
+  "status": "approved-content-revision-assertion",
+  "status_contract": {
+    "path": "docs/publication-status-contract.md",
+    "sha256": "4aa854fb7c0b9808866ef2fdcd317115601cd90131cdd4fd64f084ae54b733b6"
+  },
+  "submission_ready": false,
+  "submission_ready_remaining_work": [
+    "Supply author names, affiliations, ORCID, CRediT, funding, acknowledgements, and declarations.",
+    "Supply and approve the complete experimental description.",
+    "Apply the selected journal adapter and prepare the cover letter and submission metadata.",
+    "Build and externally test the reviewer-access release candidate, then authorize release, licensing, archival identifiers, and repository publication."
+  ],
+  "successor_fingerprint": {
+    "contract_path": "manuscript/scientific_core/fingerprint_contract.json",
+    "file_sha256": "be946e963239168ecfbb65c0eb73773e982cf0d0123b62515cc45cdf26375bd3",
+    "fingerprint_sha256": "66b7c59994fe5369ed02f0c8c04e4f924823a52cc423ab02a66a84302b151a3e",
+    "path": "manuscript/scientific_core/fingerprint.json",
+    "predecessor_fingerprint_sha256": "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff",
+    "replacement_record_path": "manuscript/scientific_core/history/replacements/66b7c59994fe5369ed02f0c8c04e4f924823a52cc423ab02a66a84302b151a3e.json"
+  }
+}

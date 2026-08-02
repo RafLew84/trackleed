@@ -3,7 +3,7 @@
 Parent: [Mapa implementacji rewizji treści publikacji TrackLEED](../map.md)
 Type: `task`
 Label: `ready-for-agent`
-Status: `open`
+Status: `resolved`
 Blocked by: 13
 
 ## Question
@@ -26,3 +26,15 @@ Zebrać dowody wszystkich siedmiu gates Definition of Done i asertować
 - Status nie jest utożsamiany z `submission-ready`; zakres późniejszych prac
   pozostaje jawny.
 - Mapa i ticket zostają zamknięte dopiero po review Standards/Spec.
+
+## Answer
+
+Tak. Wszystkie siedem bramek ma hash-bound dowody i status `passed`. Finalny,
+deterministyczny raport wiąże testy, dwie rekonstrukcje, successor fingerprint,
+zaakceptowany audit 200 rekordów stron oraz każdą z siedmiu lokalizacji
+autoryzowanych placeholderów. Nie ma niekategoryzowanego placeholdera ani
+missing scientific content. Asercja brzmi `content-revision-complete`, przy
+jawnym `submission_ready: false` i pełnej liście późniejszych prac.
+
+Dowody: [artifact 14](../artifacts/14-content-revision-complete-validation.md)
+oraz `manuscript/content_revision/validation_report.json`.

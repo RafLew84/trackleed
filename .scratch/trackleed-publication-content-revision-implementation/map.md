@@ -1,7 +1,7 @@
 # Mapa implementacji rewizji treści publikacji TrackLEED
 
 Label: `wayfinder:map`
-Status: `active`
+Status: `resolved`
 
 ## Destination
 
@@ -119,6 +119,13 @@ pominięte.
   glyphów ani nieautoryzowanych placeholderów, a manifest wiąże jawną akceptację
   HITL z dokumentami, provenance i decyzjami per-page;
   [dowody](artifacts/13-page-level-render-audit.md).
+- [I14 — asercja content-revision-complete](issues/14-asercja-content-revision-complete.md)
+  — fail-closed raport związał 7/7 bramek, wszystkie testy i dwie clean
+  reconstructions z successorem `66b7c599…` oraz zaakceptowanym auditem 200
+  rekordów stron. Wymienia siedem autoryzowanych placeholderów (AUTHOR 4,
+  EXPERIMENT 1, RELEASE-AUTHORIZATION 1, SUBMISSION 1), potwierdza brak missing
+  scientific content i asertuje `content-revision-complete` przy jawnym
+  `submission_ready: false`; [dowody](artifacts/14-content-revision-complete-validation.md).
 
 ## Constraints
 
