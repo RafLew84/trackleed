@@ -87,6 +87,12 @@ pominięte.
   DOCX/PDF; fail-closed audit wiąże AST Math z niepustym natywnym OMath i
   per-expression round trip (main 64/64, SI 10/10, fallback 0), a dwa realne
   eksporty Pandoc/Word są bitowo identyczne; [dowody](artifacts/08-canonical-docx-pdf-builder.md).
+- [I09 — integracja przed rebaseline](issues/09-integracja-przed-rebaseline.md)
+  — jedna niezmieniająca danych bramka raportuje wszystkie 23 komponenty,
+  wymaga dokładnie 13 zatwierdzonych zmian i pokrywa prose, displays,
+  claim-evidence map, limitations oraz denominators; stary fingerprint odrzuca
+  bieżący core oczekiwanym typem błędu, zachowując identyczne bajty, a pełna
+  rekonstrukcja 20 bundles przechodzi; [dowody](artifacts/09-pre-rebaseline-integration.md).
 
 ## Constraints
 

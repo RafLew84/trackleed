@@ -18,6 +18,10 @@ class ScientificCoreValidationError(ValueError):
     """Raised when the frozen scientific core no longer validates."""
 
 
+class ScientificCoreMismatchError(ScientificCoreValidationError):
+    """Raised when current scientific-core content differs from its baseline."""
+
+
 @dataclass(frozen=True)
 class ScientificCoreReport:
     status: str
@@ -204,13 +208,14 @@ def validate_fingerprint(
     frozen = _load_json(fingerprint_path, "scientific-core fingerprint")
     expected = _fingerprint_value(workspace_root, contract_path)
     if frozen != expected:
-        raise ScientificCoreValidationError(
+        raise ScientificCoreMismatchError(
             "Scientific-core fingerprint differs from the frozen baseline"
         )
     return _report(frozen)
 
 
 __all__ = [
+    "ScientificCoreMismatchError",
     "ScientificCoreReport",
     "ScientificCoreValidationError",
     "freeze_fingerprint",

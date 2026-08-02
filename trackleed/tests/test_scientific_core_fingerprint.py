@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from trackleed.publication.scientific_core import (
+    ScientificCoreMismatchError,
     ScientificCoreValidationError,
     freeze_fingerprint,
     validate_fingerprint,
@@ -175,7 +176,7 @@ class ScientificCoreFingerprintTests(unittest.TestCase):
 
             component.write_text("silently changed core\n", encoding="utf-8")
 
-            with self.assertRaises(ScientificCoreValidationError):
+            with self.assertRaises(ScientificCoreMismatchError):
                 validate_fingerprint(workspace, contract, fingerprint)
             self.assertEqual(fingerprint.read_bytes(), baseline_bytes)
 
