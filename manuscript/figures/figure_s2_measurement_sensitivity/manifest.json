@@ -1,9 +1,12 @@
 {
   "automatic_configuration_selection": false,
+  "codebook_repeated_on_parts": true,
   "conditional_denominators": [
     "accepted fits",
     "jointly consistent pair frames"
   ],
+  "continued_figure": true,
+  "display_item_count": 1,
   "figure": "Figure S2",
   "fixed_denominators": [
     221,
@@ -12,14 +15,16 @@
   "gate_audit_record_count": 25,
   "gate_margin_summary_record_count": 40,
   "implementation_sha256": {
-    "trackleed/publication/scientific_sensitivity_figure.py": "7b23a49f1516c17498bfec9827a4564443a1092fa07061838f89322aaa61fbe1",
+    "trackleed/publication/scientific_sensitivity_figure.py": "612439a952b00266c92e5f30c53632d366c7edf2b756013cc078cadb901087b1",
     "trackleed/publication/scientific_sensitivity_sources.py": "398eed1d34d2cefcbfd8354f33d6b8e904697f3f9ca18ba2f92557805310618a"
   },
   "method_count": 5,
   "ofat_variant_count": 6,
   "outputs_sha256": {
-    "figure_s2_measurement_sensitivity.pdf": "07c4cb21e4be02e2ef031becbba533e7d299a226621aab7fb6f2201e028506b5",
-    "figure_s2_measurement_sensitivity.png": "36adf765d4b5ed274b358bb4e9d09cdfe76121e89e082076c244967fad442b73"
+    "figure_s2_measurement_sensitivity_a-d.pdf": "d3228e1584294b0cafa2997461c34cbbc3b9db2c0007adcd215083bf8f1d9c93",
+    "figure_s2_measurement_sensitivity_a-d.png": "5ef78935fad5ba766e5f5befab13424348cc9778c8493ffd841260ffe76f9eb4",
+    "figure_s2_measurement_sensitivity_e-f_continued.pdf": "2602259c740143154ffceac7b1785b48f19d05bd2e5abc180ec2d5fc0c6b1800",
+    "figure_s2_measurement_sensitivity_e-f_continued.png": "921c747f3b8c2c49a182a89435116361cf13d68ae60cf72b99bf0368c345b9e6"
   },
   "panel_order": [
     "coverage",
@@ -29,17 +34,53 @@
     "signed_gate_margins",
     "width_trigger_audit"
   ],
+  "parts": [
+    {
+      "label": "Figure S2a\u2013d",
+      "panels": [
+        "a",
+        "b",
+        "c",
+        "d"
+      ],
+      "pdf": "figure_s2_measurement_sensitivity_a-d.pdf",
+      "png": "figure_s2_measurement_sensitivity_a-d.png",
+      "source_size_inches": [
+        7.2,
+        10.0
+      ]
+    },
+    {
+      "label": "Figure S2e\u2013f (continued)",
+      "panels": [
+        "e",
+        "f"
+      ],
+      "pdf": "figure_s2_measurement_sensitivity_e-f_continued.pdf",
+      "png": "figure_s2_measurement_sensitivity_e-f_continued.png",
+      "source_size_inches": [
+        7.2,
+        6.0
+      ]
+    }
+  ],
+  "placement_width_inches": 6.25,
   "rendering": {
-    "central_variant_outline": "roi_48_proposal_15",
-    "figure_size_inches": [
-      11.0,
-      9.5
-    ],
+    "central_variant": {
+      "id": "roi_48_proposal_15",
+      "label": "R48-P15*",
+      "outline": true
+    },
+    "fixed_denominators_in_cells": true,
     "font_family": "DejaVu Sans",
+    "minimum_effective_font_size_pt": 6.076,
+    "minimum_heatmap_cell_height_mm": 6.081,
+    "minimum_heatmap_cell_width_mm": 8.67,
+    "minimum_source_font_size_pt": 7.0,
     "png_dpi": 300
   },
   "roi_matrix_variant_count": 9,
-  "schema_version": 1,
+  "schema_version": 2,
   "source_data_sha256": {
     "gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
     "gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",

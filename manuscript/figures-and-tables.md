@@ -112,7 +112,7 @@ Provides full per-trial paths, proposal-to-measurement diagnostics, and pair inv
 
 ### Figure S2 — Measurement-window and capture-contract sensitivity
 
-Shows the predefined ROI/gate matrix, OFAT perturbations, gate margins, and the width-trigger decision.
+Shows the predefined ROI/gate matrix, OFAT perturbations, gate margins, and width-trigger decision as one display item split across consecutive a–d and e–f (continued) pages at 6.25 in width.
 
 - Bundle: [figures/figure_s2_measurement_sensitivity](figures/figure_s2_measurement_sensitivity/README.md)
 - Caption/source display: [open](figures/figure_s2_measurement_sensitivity/README.md)

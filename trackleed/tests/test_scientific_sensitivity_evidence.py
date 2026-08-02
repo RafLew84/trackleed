@@ -10,6 +10,8 @@ import unittest
 import xml.etree.ElementTree as ET
 import zipfile
 
+from PIL import Image
+
 from trackleed.publication.scientific_sensitivity_evidence import (
     build_table_s6,
     build_table_s6_artifact,
@@ -350,14 +352,55 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
             self.assertEqual(report.gate_audit_record_count, 25)
             self.assertEqual(report.gate_margin_summary_record_count, 40)
             self.assertFalse(report.width_sensitivity_triggered)
+            self.assertEqual(report.part_count, 2)
+            self.assertEqual(report.display_item_count, 1)
+            self.assertGreaterEqual(report.minimum_effective_font_size_pt, 6.0)
+            self.assertGreaterEqual(report.minimum_heatmap_cell_width_mm, 4.5)
+            self.assertGreaterEqual(report.minimum_heatmap_cell_height_mm, 4.5)
             self.assertEqual(
                 {path.name for path in (root / "output").iterdir()},
                 {
-                    "figure_s2_measurement_sensitivity.png",
-                    "figure_s2_measurement_sensitivity.pdf",
+                    "figure_s2_measurement_sensitivity_a-d.png",
+                    "figure_s2_measurement_sensitivity_a-d.pdf",
+                    "figure_s2_measurement_sensitivity_e-f_continued.png",
+                    "figure_s2_measurement_sensitivity_e-f_continued.pdf",
                 },
             )
             manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["schema_version"], 2)
+            self.assertEqual(manifest["display_item_count"], 1)
+            self.assertTrue(manifest["continued_figure"])
+            self.assertEqual(manifest["placement_width_inches"], 6.25)
+            self.assertTrue(manifest["codebook_repeated_on_parts"])
+            self.assertEqual(
+                [(part["label"], part["panels"]) for part in manifest["parts"]],
+                [
+                    ("Figure S2a–d", ["a", "b", "c", "d"]),
+                    ("Figure S2e–f (continued)", ["e", "f"]),
+                ],
+            )
+            self.assertEqual(
+                [part["source_size_inches"] for part in manifest["parts"]],
+                [[7.2, 10.0], [7.2, 6.0]],
+            )
+            self.assertEqual(
+                manifest["rendering"]["central_variant"],
+                {
+                    "id": "roi_48_proposal_15",
+                    "label": "R48-P15*",
+                    "outline": True,
+                },
+            )
+            self.assertGreaterEqual(
+                manifest["rendering"]["minimum_effective_font_size_pt"], 6.0
+            )
+            self.assertTrue(manifest["rendering"]["fixed_denominators_in_cells"])
+            self.assertGreaterEqual(
+                manifest["rendering"]["minimum_heatmap_cell_width_mm"], 4.5
+            )
+            self.assertGreaterEqual(
+                manifest["rendering"]["minimum_heatmap_cell_height_mm"], 4.5
+            )
             self.assertEqual(
                 manifest["panel_order"],
                 [
@@ -374,6 +417,19 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                 manifest["conditional_denominators"],
                 ["accepted fits", "jointly consistent pair frames"],
             )
+            caption_source = (FIGURE_ROOT / "README.md").read_text(encoding="utf-8")
+            self.assertEqual(caption_source.count("**Caption.**"), 1)
+            self.assertIn("`Figure S2 (continued)`", caption_source)
+            with Image.open(
+                root / "output" / "figure_s2_measurement_sensitivity_a-d.png"
+            ) as image:
+                self.assertEqual(image.size, (2160, 3000))
+            with Image.open(
+                root
+                / "output"
+                / "figure_s2_measurement_sensitivity_e-f_continued.png"
+            ) as image:
+                self.assertEqual(image.size, (2160, 1800))
 
     def test_figure_s2_is_deterministic_and_rejects_changed_gate_audit(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -441,6 +497,29 @@ class ScientificSensitivityEvidenceTests(unittest.TestCase):
                     for path in (root / "styled").iterdir()
                 },
             )
+
+    def test_committed_figure_s2_matches_a_clean_rebuild(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build_figure_s2_artifact(
+                REPO_ROOT,
+                SOURCE_ROOT,
+                root / "output",
+                root / "manifest.json",
+            )
+
+            self.assertEqual(
+                (root / "manifest.json").read_bytes(),
+                (FIGURE_ROOT / "manifest.json").read_bytes(),
+            )
+            rebuilt = {
+                path.name: path.read_bytes() for path in (root / "output").iterdir()
+            }
+            committed = {
+                path.name: path.read_bytes()
+                for path in (FIGURE_ROOT / "output").iterdir()
+            }
+            self.assertEqual(rebuilt, committed)
 
     def test_claim_adjudication_combines_metadata_and_sensitivity_constraints(
         self,

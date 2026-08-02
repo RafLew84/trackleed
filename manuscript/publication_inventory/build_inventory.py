@@ -60,7 +60,7 @@ EXPECTED_IDS = (
     "Table S7",
 )
 APPROVED_INVENTORY_SHA256 = (
-    "660f41190b844b2b3a7bf54698582258d82b136d72572fcecf91ab9fa938e013"
+    "2fca48eeb352c1d0f8ba1a613dcab38393fb36b62d247eb01aa62dba913a0b1c"
 )
 EXPECTED_PLACEMENT_COUNTS = {
     "main_figure": 5,
@@ -133,6 +133,16 @@ SENSITIVITY_TEST_TARGETS = (
         "trackleed.tests.test_scientific_sensitivity_evidence."
         "ScientificSensitivityEvidenceTests."
         "test_figure_s2_is_deterministic_and_rejects_changed_gate_audit"
+    ),
+    (
+        "trackleed.tests.test_scientific_sensitivity_evidence."
+        "ScientificSensitivityEvidenceTests."
+        "test_figure_s2_ignores_ambient_matplotlib_style"
+    ),
+    (
+        "trackleed.tests.test_scientific_sensitivity_evidence."
+        "ScientificSensitivityEvidenceTests."
+        "test_committed_figure_s2_matches_a_clean_rebuild"
     ),
 )
 

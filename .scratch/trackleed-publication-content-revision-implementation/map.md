@@ -70,6 +70,12 @@ pominięte.
   canonical CSV ma pełnoprecyzyjny 75-row companion oraz deterministyczny XLSX
   `method_aggregate`/`case_records`, a manifest i inventory wiążą cały hash
   chain; [dowody](artifacts/05-table-s6-full-precision-exports.md).
+- [I06 — Figure S2 continued i legibility](issues/06-figure-s2-continued.md)
+  — jeden display item i caption są rozłożone na `a–d` oraz
+  `e–f (continued)` przy placement 6.25 in; builder zachowuje dane, panel order,
+  codebook i `R48-P15*`, a fail-closed manifest potwierdza efektywny font
+  6.076 pt i komórki co najmniej 8.670 × 6.081 mm;
+  [dowody](artifacts/06-figure-s2-continued-legibility.md).
 
 ## Constraints
 

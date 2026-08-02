@@ -179,16 +179,16 @@
           "manuscript/figures/figure_s2_measurement_sensitivity/build_figure.py": "d7d6aaf72d9b1d69e330237b524cecd0f125865e1a776fa9577cf699386115d6"
         },
         "caption": {
-          "manuscript/figures/figure_s2_measurement_sensitivity/README.md": "4588cedff2d159491e9d19b7fcda0cc681390452e4aa11cc297665cdfef1532a"
+          "manuscript/figures/figure_s2_measurement_sensitivity/README.md": "57383249d153a05ff5b61a966583442b312410caf2fab06174cb6844dcceb2fb"
         },
         "manifests": {
-          "manuscript/figures/figure_s2_measurement_sensitivity/manifest.json": "410527becae0ba8f57dbb3ccf68e256c0207312e0564c8c59f24e08ddef89854"
+          "manuscript/figures/figure_s2_measurement_sensitivity/manifest.json": "877d0580b2fe757007cdda43dc4cf8c0bfe18affca8d34fef2536aa9a5c64ad6"
         },
         "validators": {
-          "trackleed/tests/test_scientific_sensitivity_evidence.py": "5a915b074a5488805a01290f31e2bb377274bce7c61afd230d9084745fc98780"
+          "trackleed/tests/test_scientific_sensitivity_evidence.py": "db952e72ecc665d5f6080b8f07fb121a85cc37347e01e0fa4b565e7507679a96"
         }
       },
-      "semantic_fingerprint_sha256": "5feed99e29e9bcc9137a9497fea9e30203e3ecf28fb9e5800384715bd9c1ef24",
+      "semantic_fingerprint_sha256": "030d03ddaf795b378a287d204916f477a263b0692d790255e4520c890c28155f",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -554,10 +554,10 @@
           "manuscript/tables/table_s6_measurement_sensitivity/manifest.json": "e3a19be42db6e10be207689c497113b36dc3e0738dfeaac1492e2d4a694c7ab9"
         },
         "validators": {
-          "trackleed/tests/test_scientific_sensitivity_evidence.py": "5a915b074a5488805a01290f31e2bb377274bce7c61afd230d9084745fc98780"
+          "trackleed/tests/test_scientific_sensitivity_evidence.py": "db952e72ecc665d5f6080b8f07fb121a85cc37347e01e0fa4b565e7507679a96"
         }
       },
-      "semantic_fingerprint_sha256": "d38d8b019ec903bf17d3877b93ee800ef520870678a1eebf59cfb80a3ade018a",
+      "semantic_fingerprint_sha256": "acea17da4fb31bf36562d69bf2446c46f0d8d1b4df2be5e4351ca7c60b24db81",
       "source_data_sha256": {
         "manuscript/source_data/measurement_sensitivity/gate_margin_audit.csv": "6cab43b06db45d871ac2c9ddd1ea1ddb35c87b22db27f36be7b9174c25c213b3",
         "manuscript/source_data/measurement_sensitivity/gate_margin_summary.csv": "49408f7f97318a93b23ec958b7f5b8c847b37dcabe2c0fe6008804faa05b4984",
@@ -627,8 +627,8 @@
     ".yaml",
     ".yml"
   ],
-  "inventory_contract_sha256": "dd47e1e42e7212817026e7ac6a938bbd2ad9dcccebf8fc6bf50f15edd87ed097",
+  "inventory_contract_sha256": "ed7e857dc8eb54ed5dfd606e13dd331fbca781c16908212f1358ee1eb452ad0a",
   "schema_version": "1.0",
-  "semantic_inventory_sha256": "0de0fd7f12b47bdc3636e6345f52498e36e52354030ec9b024848f94a5d1ac0b",
+  "semantic_inventory_sha256": "fd6e521758c0b87de857348c054e1c99d2998e21b8999f06bb0179ef03a1c578",
   "status": "scientific-baseline-complete"
 }

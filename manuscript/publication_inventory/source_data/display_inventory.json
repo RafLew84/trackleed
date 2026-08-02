@@ -150,7 +150,7 @@
       "id": "Figure S2",
       "placement": "supplementary_figure",
       "title": "Measurement-window and capture-contract sensitivity",
-      "role": "Shows the predefined ROI/gate matrix, OFAT perturbations, gate margins, and the width-trigger decision.",
+      "role": "Shows the predefined ROI/gate matrix, OFAT perturbations, gate margins, and width-trigger decision as one display item split across consecutive a–d and e–f (continued) pages at 6.25 in width.",
       "artifact_path": "manuscript/figures/figure_s2_measurement_sensitivity",
       "source_roots": ["manuscript/source_data/measurement_sensitivity"],
       "manifest_paths": ["manuscript/figures/figure_s2_measurement_sensitivity/manifest.json"],
