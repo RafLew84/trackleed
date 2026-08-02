@@ -93,6 +93,12 @@ pominięte.
   claim-evidence map, limitations oraz denominators; stary fingerprint odrzuca
   bieżący core oczekiwanym typem błędu, zachowując identyczne bajty, a pełna
   rekonstrukcja 20 bundles przechodzi; [dowody](artifacts/09-pre-rebaseline-integration.md).
+- [I10 — HITL finalnego contentu i claim boundary](issues/10-hitl-content-claim-boundary.md)
+  — użytkownik jawnie zaakceptował finalny main/SI content, display semantics,
+  limitations, denominator semantics oraz boundary 4 preserved / 5 narrowed /
+  0 removed; decyzję związano z implementation commit `38a0e6aa668c4a7751fb6661e94af6d58bea92bc`,
+  predecessor fingerprintem i reviewed diffem wszystkich 23 komponentów bez
+  wykonywania replacement; [decision record](artifacts/10-hitl-content-claim-boundary-decision.md).
 
 ## Constraints
 
