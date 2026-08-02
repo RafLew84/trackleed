@@ -405,10 +405,6 @@ Each of the four frozen scan–pair cases is omitted once. The remaining three c
 | EasyLEED | 214/221 (96.83%) | 22/24 (91.67%) | 4/222 (1.80%) | 1.737 (n=84) |
 <!-- END TABLE S7 -->
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
-
 # Additional supplementary figures
 
 ![](manuscript/figures/figure_s2_measurement_sensitivity/output/figure_s2_measurement_sensitivity_a-d.png){width=6.25in}

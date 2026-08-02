@@ -1,5 +1,11 @@
 {
   "builder_version": "1.0.0",
+  "authorized_placeholders": [
+    "TODO[AUTHOR]",
+    "TODO[EXPERIMENT]",
+    "TODO[RELEASE-AUTHORIZATION]",
+    "TODO[SUBMISSION]"
+  ],
   "canonical_artifacts": {
     "main": {
       "docx": "output/trackleed_manuscript.docx",
@@ -13,7 +19,7 @@
   "damaged_math_allowlist": [],
   "design": {
     "mode": "existing-source transformation",
-    "policy": "Preserve the restrained Pandoc manuscript style; figures use the established 6.25 in review width."
+    "policy": "Preserve the restrained Pandoc manuscript style; figures use the established 6.25 in review width, and long main legends start on a separate page."
   },
   "excluded_review_artifacts": [
     "manuscript/review/trackleed_manuscript_review.docx",

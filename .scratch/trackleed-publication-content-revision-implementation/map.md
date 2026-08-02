@@ -111,6 +111,14 @@ pominięte.
   lokalnych wejść przeszły pełny CPU/headless `--clean --validate`, zwróciły
   bajtowo identyczne raporty i pozostały bez driftu;
   [dowody](artifacts/12-authorized-rebaseline-reconstruction.md).
+- [I13 — pełny audit stron](issues/13-pelny-audit-stron.md)
+  — ponowny audit techniczny czterech kanonicznych rendycji objął 36 stron main
+  i 64 strony SI; niezależne eksporty DOCX-origin są bajtowo identyczne z
+  kanonicznymi PDF. Figure 5 przywrócono do kontraktowanych 6.25 in i 6.076 pt;
+  100 unikalnych obrazów / 200 decyzji nie wykazuje clippingu, brakujących
+  glyphów ani nieautoryzowanych placeholderów, a manifest wiąże jawną akceptację
+  HITL z dokumentami, provenance i decyzjami per-page;
+  [dowody](artifacts/13-page-level-render-audit.md).
 
 ## Constraints
 

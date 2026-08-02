@@ -175,12 +175,18 @@ def _image_block(
     caption: str,
     *,
     continuation_label: str | None = None,
+    width_inches: float = 6.25,
+    caption_page_break: bool = False,
 ) -> str:
     if not image.is_file():
         raise BuildError(f"Required display item is missing: {image}")
     label = f"\n\n**{continuation_label}.**" if continuation_label else ""
     body = "" if continuation_label else caption
-    return f"![]({relative(image, root)}){{width=6.25in}}{label}\n\n{body}".rstrip()
+    caption_break = f"\n\n{PAGE_BREAK}" if caption_page_break else ""
+    return (
+        f"![]({relative(image, root)}){{width={width_inches:.2f}in}}"
+        f"{label}{caption_break}\n\n{body}"
+    ).rstrip()
 
 
 def assemble_main(root: Path = REPOSITORY_ROOT) -> str:
@@ -194,13 +200,14 @@ def assemble_main(root: Path = REPOSITORY_ROOT) -> str:
     figure_blocks: list[str] = ["# Main figures"]
     for index, display in enumerate(MAIN_FIGURES):
         directory = root / "manuscript" / "figures" / display.directory_name
-        if index:
+        if index and index != 1:
             figure_blocks.append(PAGE_BREAK)
         figure_blocks.append(
             _image_block(
                 root,
                 directory / "output" / display.image_names[0],
                 extract_main_caption(directory / "README.md", display.label),
+                caption_page_break=index != 1,
             )
         )
 
@@ -222,7 +229,6 @@ def assemble_supplementary_information(root: Path = REPOSITORY_ROOT) -> str:
     blocks: list[str] = [
         _metadata(title, "Supplementary information", contract["source_date"]),
         body.rstrip(),
-        PAGE_BREAK,
         "# Additional supplementary figures",
     ]
     for figure_index, display in enumerate(SUPPLEMENTARY_FIGURES):
@@ -388,12 +394,16 @@ def normalize_docx(path: Path, source_date: str) -> None:
 
     fixed_zip_time = (1980, 1, 1, 0, 0, 0)
     fixed_w3cdtf = f"{source_date}T00:00:00Z"
+    custom_properties = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties"
+    custom_value_types = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
     ET.register_namespace("cp", "http://schemas.openxmlformats.org/package/2006/metadata/core-properties")
     ET.register_namespace("dc", "http://purl.org/dc/elements/1.1/")
     dcterms = "http://purl.org/dc/terms/"
     ET.register_namespace("dcterms", dcterms)
     ET.register_namespace("dcmitype", "http://purl.org/dc/dcmitype/")
     ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
+    ET.register_namespace("", custom_properties)
+    ET.register_namespace("vt", custom_value_types)
     with zipfile.ZipFile(path) as archive:
         entries = [(info, archive.read(info.filename)) for info in archive.infolist()]
 
@@ -405,6 +415,14 @@ def normalize_docx(path: Path, source_date: str) -> None:
                 node = root.find(f"{{{dcterms}}}{local}")
                 if node is not None:
                     node.text = fixed_w3cdtf
+            data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        elif original.filename == "docProps/custom.xml":
+            root = ET.fromstring(data)
+            bibliography = root.find(f"{{{custom_properties}}}property[@name='bibliography']")
+            if bibliography is not None:
+                value = bibliography.find(f"{{{custom_value_types}}}lpwstr")
+                if value is not None:
+                    value.text = "manuscript/references.bib"
             data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
         info = copy.copy(original)
         info.date_time = fixed_zip_time

@@ -1,0 +1,78 @@
+{
+  "generation_environment": {
+    "docx_builder": "Pandoc 3.8.2.1",
+    "docx_to_pdf": "Microsoft Word 16.0 build 16.0.20228 ExportAsFixedFormat",
+    "page_renderer": "PyMuPDF 1.28.0 at 150 DPI, alpha=false",
+    "pdf_normalizer": "pypdf 6.2.0",
+    "qa_contact_sheets": "Pillow 11.2.1, 2 columns x 3 rows"
+  },
+  "renditions": {
+    "main_docx": {
+      "document_path": "manuscript/publication_package/output/trackleed_manuscript.docx",
+      "document_sha256": "6c182d4a4f3edc21745a327ee5f24b7dac53987ad444d96d4cc091ec489c5681",
+      "origin_format": "docx",
+      "page_directory": "manuscript/publication_package/page_audit/rendered/main",
+      "rendered_pdf": {
+        "path": "manuscript/publication_package/page_audit/rendered/trackleed_manuscript_docx_origin.pdf",
+        "sha256": "f56adf886d8932dac77a4c091dd71d6efb18bac62427d8f8496d14d94de4e299"
+      },
+      "renderer": {
+        "name": "Microsoft Word ExportAsFixedFormat + PyMuPDF",
+        "version": "16.0.20228 + 1.28.0 at 150 DPI"
+      }
+    },
+    "main_pdf": {
+      "document_path": "manuscript/publication_package/output/trackleed_manuscript.pdf",
+      "document_sha256": "f56adf886d8932dac77a4c091dd71d6efb18bac62427d8f8496d14d94de4e299",
+      "origin_format": "pdf",
+      "page_directory": "manuscript/publication_package/page_audit/rendered/main",
+      "renderer": {
+        "name": "PyMuPDF",
+        "version": "1.28.0 at 150 DPI"
+      }
+    },
+    "supplementary_information_docx": {
+      "document_path": "manuscript/publication_package/output/trackleed_supplementary_information.docx",
+      "document_sha256": "19e63c36740fc6b51a94097b273f7d32ab58f44b26e1eb2bf9fd4984068a871e",
+      "origin_format": "docx",
+      "page_directory": "manuscript/publication_package/page_audit/rendered/supplementary_information",
+      "rendered_pdf": {
+        "path": "manuscript/publication_package/page_audit/rendered/trackleed_supplementary_information_docx_origin.pdf",
+        "sha256": "5051e79e6f754ed53c8832e56a9244965de672bc9eb6d268b74dc541d7c63da7"
+      },
+      "renderer": {
+        "name": "Microsoft Word ExportAsFixedFormat + PyMuPDF",
+        "version": "16.0.20228 + 1.28.0 at 150 DPI"
+      }
+    },
+    "supplementary_information_pdf": {
+      "document_path": "manuscript/publication_package/output/trackleed_supplementary_information.pdf",
+      "document_sha256": "5051e79e6f754ed53c8832e56a9244965de672bc9eb6d268b74dc541d7c63da7",
+      "origin_format": "pdf",
+      "page_directory": "manuscript/publication_package/page_audit/rendered/supplementary_information",
+      "renderer": {
+        "name": "PyMuPDF",
+        "version": "1.28.0 at 150 DPI"
+      }
+    }
+  },
+  "schema_version": "1.0",
+  "shared_page_set_basis": [
+    {
+      "basis": "byte-identical-pdf",
+      "pdf_sha256": "f56adf886d8932dac77a4c091dd71d6efb18bac62427d8f8496d14d94de4e299",
+      "renditions": [
+        "main_docx",
+        "main_pdf"
+      ]
+    },
+    {
+      "basis": "byte-identical-pdf",
+      "pdf_sha256": "5051e79e6f754ed53c8832e56a9244965de672bc9eb6d268b74dc541d7c63da7",
+      "renditions": [
+        "supplementary_information_docx",
+        "supplementary_information_pdf"
+      ]
+    }
+  ]
+}

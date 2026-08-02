@@ -991,6 +991,10 @@ release authorization above.
 
 ![](manuscript/figures/figure01_measurement_chain/output/figure01_measurement_chain.png){width=6.25in}
 
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
 **Figure 1. Tracking proposal, common position measurement, and evidence
 ladder.** **a,** Native outputs of five strategies for the same Cu(111) spot:
 LocoTrack point, OSTrack box, DAM4SAM mask, Lucas–Kanade optical-flow point,
@@ -1009,10 +1013,6 @@ not. **d,** Controlled translations, Cu(111), independent Ag(111) scans, and
 the controlled SAM2 family test equivariance, endpoint agreement, motion plus
 natural \(I(V)\) gaps, and a memory mechanism, respectively. They retain
 separate denominators and do not form a composite ranking.
-
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ![](manuscript/figures/figure02_controlled_equivariance/output/figure02_controlled_equivariance.png){width=6.25in}
 
@@ -1033,6 +1033,10 @@ estimator behavior, not absolute tracking accuracy or identity ground truth.
 ```
 
 ![](manuscript/figures/figure03_independent_scane_stress/output/figure03_independent_scane_stress.png){width=6.25in}
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
 
 **Figure 3. Independent Ag(111) energy-scan stress test.** **a,** Pair
 distance as a function of electron energy for a representative frozen pair
@@ -1074,6 +1078,10 @@ truth.
 
 ![](manuscript/figures/figure04_controlled_sam2_memory_tradeoff/output/figure04_controlled_sam2_memory_tradeoff.png){width=6.25in}
 
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
+
 **Figure 4. Controlled SAM2-family continuity–consistency trade-off under
 identical checkpoint weights.** **a,** Four states around the first
 decreasing-energy B1 \(I(V)\) gap with different recovery outcomes. SAM2,
@@ -1102,6 +1110,10 @@ fixed-denominator coverage, recovery, and geometry context.
 ```
 
 ![](manuscript/figures/figure05_cu111_physical_endpoint/output/figure05_cu111_physical_endpoint.png){width=6.25in}
+
+```{=openxml}
+<w:p><w:r><w:br w:type="page"/></w:r></w:p>
+```
 
 **Figure 5. Common Gaussian refinement preserves the Cu(111) pairwise
 relative spot-radius endpoint across proposal strategies.** **a,** Temperature

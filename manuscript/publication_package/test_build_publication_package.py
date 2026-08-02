@@ -22,6 +22,15 @@ class CanonicalPublicationPackageContractTest(unittest.TestCase):
         fallbacks = json.loads((PACKAGE_DIR / "math_fallbacks.json").read_text(encoding="utf-8"))
 
         self.assertEqual(contract["pandoc_reader"], "markdown+tex_math_single_backslash")
+        self.assertEqual(
+            contract["authorized_placeholders"],
+            [
+                "TODO[AUTHOR]",
+                "TODO[EXPERIMENT]",
+                "TODO[RELEASE-AUTHORIZATION]",
+                "TODO[SUBMISSION]",
+            ],
+        )
         self.assertEqual(fallbacks["fallbacks"], [])
         self.assertEqual(contract["canonical_artifacts"]["main"]["docx"], "output/trackleed_manuscript.docx")
         self.assertEqual(contract["canonical_artifacts"]["main"]["pdf"], "output/trackleed_manuscript.pdf")
@@ -123,6 +132,15 @@ class CanonicalPublicationPackageContractTest(unittest.TestCase):
                         "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\" "
                         "xmlns:dcterms=\"http://purl.org/dc/terms/\"><dcterms:created>different</dcterms:created></cp:coreProperties>",
                     )
+                    info = zipfile.ZipInfo("docProps/custom.xml", timestamp)
+                    archive.writestr(
+                        info,
+                        "<Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/custom-properties\" "
+                        "xmlns:vt=\"http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes\">"
+                        "<property name=\"bibliography\"><vt:lpwstr>"
+                        f"{path.parent / path.stem / 'manuscript' / 'references.bib'}"
+                        "</vt:lpwstr></property></Properties>",
+                    )
                 builder.normalize_docx(path, "2026-08-02")
 
             self.assertEqual(first.read_bytes(), second.read_bytes())
@@ -154,6 +172,10 @@ class CanonicalPublicationPackageContractTest(unittest.TestCase):
         for number in range(1, 7):
             self.assertIn(f"Figure S{number}", si)
         self.assertIn("Figure S2 (continued)", si)
+        self.assertEqual(main.count("{width=6.25in}"), 5)
+        self.assertEqual(si.count("{width=6.25in}"), 6)
+        self.assertEqual(main.count(builder.PAGE_BREAK), 8)
+        self.assertEqual(si.count(builder.PAGE_BREAK), 5)
 
     def test_reproducibility_check_compares_every_canonical_output(self) -> None:
         first = {

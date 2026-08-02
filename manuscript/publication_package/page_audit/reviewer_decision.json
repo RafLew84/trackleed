@@ -1,0 +1,3841 @@
+{
+  "final_decision": "accepted",
+  "renditions": {
+    "main_docx": {
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fde8e29deee3db5b49a25f9b68540507d4329acc6bc2c8db25c4143018ed6e76",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b13af15cb410b2151eb9ea2c8e037d94292f3a664db1ff3e3b0d539cc92274eb",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d0b8ab8887b94c52d452b351d278e5dc3bd96811b2e5db39eda6c0ba9ed4c887",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "975ede59f9a3fb3d480ca9faf07bcb864527c55a745a984bcac916cd4a566517",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5ec2a1dece66407e9772cdf5c4a4df92493a692589fb18c36b0f1bc89fd04473",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cab7550cb8cf100c8424ff625bbc9124161f846f7824de9bbc4db709bc99d720",
+          "page_number": 6,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "afb5f179a2f1fdb4822d0e0d5fd03e626801c2d17d963db026c8d1914c13f6a9",
+          "page_number": 7,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "be8811c589c27f06acb27c0454947cef5e287d61ac0756a1a7e27439411ffe0e",
+          "page_number": 8,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0a74bd555a6bba44eeeafab401bbb55d52a42daa1da8394546b2194ef30620f3",
+          "page_number": 9,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e28a32f3b5c0ecd687f05f9490fff331c9ba00eec1203f3398f7db79be959694",
+          "page_number": 10,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e9a27caff81c9040c3a07107f19f9d52275a47b34af8e282a9a167d09c9b88e7",
+          "page_number": 11,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "898b8e6e25b3712817ba8777820b72b37074f6437839aece7a9f130e55165ea4",
+          "page_number": 12,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3563371cc2066b868b62ddda2c092db8de92c3f702b00a42abd143ee9ffce93e",
+          "page_number": 13,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1e4c0d8368128c9b1089f060b9721b71892ac965363eef5661f20b983f8bc579",
+          "page_number": 14,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0b5d299adcd67e32b76bf14e5106a8d2d37e7f5efec4cd72c6bc1bfe8b6e91cf",
+          "page_number": 15,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1657e6f99690f2e831c7bd950f13026f1c55efd8f5ee9b8b676729ae665cb31e",
+          "page_number": 16,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "782474351d9f4da957f70c4fc84cdbe022a0d571ef7f2e4e7b66167f97b7a2e6",
+          "page_number": 17,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "62c06244206f8913eacda5653058d34cdae99b8fba49855d02507f25150f6476",
+          "page_number": 18,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "86e1bb537cf7f483c90e426799a1ade99eda02cdb9902688e391ca2601c405dc",
+          "page_number": 19,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "81f08d12b7f7561b4ad6de242298ed69f7bc0d157c9086ecff5b2f4faae7f01b",
+          "page_number": 20,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "80430914a4b0d843384b7952922a2a19675352fb1a819b43c0cd74caa96eeb13",
+          "page_number": 21,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b3ab590b8d729703a369f7155fdedb695e5cdb3da14add21cc3d4a283e743a53",
+          "page_number": 22,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "99fad41d8144cfeb7fb87e48b6279ae2a358efafd783fdb4d0a3c1c9a543108f",
+          "page_number": 23,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5248c04062ef7a596c41bcfd4f3a62baff46ef8b0fb8a4d95875d38d465e202d",
+          "page_number": 24,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0cf90d1d1a89c8ab6d8f1ac27be61796a94f3d15132bc46028916d0ecaa9b32f",
+          "page_number": 25,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0116bf66bc07a64057b6f6ab6271779db960fc07dbcc8e7893ac417ded1a02cd",
+          "page_number": 26,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3edc467eba6e42ff5088af5b83b01048ff3b9e8e31d46eaa5909030d41e664d3",
+          "page_number": 27,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5eacffde791259e062c032744f6a3315c10f3a1221104a765a0ce2896f9331fb",
+          "page_number": 28,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b591f8b48a4af5c756d5f6cd2c5b029a3e62fc57b7a1f14756dff18883025078",
+          "page_number": 29,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "dbe88510f48b97dd547e14872ec9881aa3b0fa3022cee1ba9db20b25fc1b588b",
+          "page_number": 30,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8a97c568a6af1e369a5b0fb29b4008f62976afbe98760ccd9b9bce46527f3de9",
+          "page_number": 31,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8821f59bd0db9c21d6cde324730b6c4f10c9a8405b3ac79e10b832f4433cafa8",
+          "page_number": 32,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "091a25441c15383b66de3c9f41398dcc3a89ed0bb3faae204b0bf5e2d9e2f4e4",
+          "page_number": 33,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "46354c3bf957e49e9371beaa500cc43f6c5c10eb1705aa16e5c7d6982648c8db",
+          "page_number": 34,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "81e801932596f0a4abf6667697fb3a64e56ada6d07497d93cb785a934b37adf0",
+          "page_number": 35,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ec81a1bc06c86697cd07037bf2e723df0947fa0732292c65bffc29544cbfff7c",
+          "page_number": 36,
+          "status": "pass"
+        }
+      ]
+    },
+    "main_pdf": {
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fde8e29deee3db5b49a25f9b68540507d4329acc6bc2c8db25c4143018ed6e76",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b13af15cb410b2151eb9ea2c8e037d94292f3a664db1ff3e3b0d539cc92274eb",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d0b8ab8887b94c52d452b351d278e5dc3bd96811b2e5db39eda6c0ba9ed4c887",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "975ede59f9a3fb3d480ca9faf07bcb864527c55a745a984bcac916cd4a566517",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5ec2a1dece66407e9772cdf5c4a4df92493a692589fb18c36b0f1bc89fd04473",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cab7550cb8cf100c8424ff625bbc9124161f846f7824de9bbc4db709bc99d720",
+          "page_number": 6,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "afb5f179a2f1fdb4822d0e0d5fd03e626801c2d17d963db026c8d1914c13f6a9",
+          "page_number": 7,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "be8811c589c27f06acb27c0454947cef5e287d61ac0756a1a7e27439411ffe0e",
+          "page_number": 8,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0a74bd555a6bba44eeeafab401bbb55d52a42daa1da8394546b2194ef30620f3",
+          "page_number": 9,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e28a32f3b5c0ecd687f05f9490fff331c9ba00eec1203f3398f7db79be959694",
+          "page_number": 10,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e9a27caff81c9040c3a07107f19f9d52275a47b34af8e282a9a167d09c9b88e7",
+          "page_number": 11,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "898b8e6e25b3712817ba8777820b72b37074f6437839aece7a9f130e55165ea4",
+          "page_number": 12,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3563371cc2066b868b62ddda2c092db8de92c3f702b00a42abd143ee9ffce93e",
+          "page_number": 13,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1e4c0d8368128c9b1089f060b9721b71892ac965363eef5661f20b983f8bc579",
+          "page_number": 14,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0b5d299adcd67e32b76bf14e5106a8d2d37e7f5efec4cd72c6bc1bfe8b6e91cf",
+          "page_number": 15,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1657e6f99690f2e831c7bd950f13026f1c55efd8f5ee9b8b676729ae665cb31e",
+          "page_number": 16,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "782474351d9f4da957f70c4fc84cdbe022a0d571ef7f2e4e7b66167f97b7a2e6",
+          "page_number": 17,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "62c06244206f8913eacda5653058d34cdae99b8fba49855d02507f25150f6476",
+          "page_number": 18,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "86e1bb537cf7f483c90e426799a1ade99eda02cdb9902688e391ca2601c405dc",
+          "page_number": 19,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "81f08d12b7f7561b4ad6de242298ed69f7bc0d157c9086ecff5b2f4faae7f01b",
+          "page_number": 20,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "80430914a4b0d843384b7952922a2a19675352fb1a819b43c0cd74caa96eeb13",
+          "page_number": 21,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b3ab590b8d729703a369f7155fdedb695e5cdb3da14add21cc3d4a283e743a53",
+          "page_number": 22,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "99fad41d8144cfeb7fb87e48b6279ae2a358efafd783fdb4d0a3c1c9a543108f",
+          "page_number": 23,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5248c04062ef7a596c41bcfd4f3a62baff46ef8b0fb8a4d95875d38d465e202d",
+          "page_number": 24,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0cf90d1d1a89c8ab6d8f1ac27be61796a94f3d15132bc46028916d0ecaa9b32f",
+          "page_number": 25,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0116bf66bc07a64057b6f6ab6271779db960fc07dbcc8e7893ac417ded1a02cd",
+          "page_number": 26,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3edc467eba6e42ff5088af5b83b01048ff3b9e8e31d46eaa5909030d41e664d3",
+          "page_number": 27,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5eacffde791259e062c032744f6a3315c10f3a1221104a765a0ce2896f9331fb",
+          "page_number": 28,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b591f8b48a4af5c756d5f6cd2c5b029a3e62fc57b7a1f14756dff18883025078",
+          "page_number": 29,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "dbe88510f48b97dd547e14872ec9881aa3b0fa3022cee1ba9db20b25fc1b588b",
+          "page_number": 30,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8a97c568a6af1e369a5b0fb29b4008f62976afbe98760ccd9b9bce46527f3de9",
+          "page_number": 31,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8821f59bd0db9c21d6cde324730b6c4f10c9a8405b3ac79e10b832f4433cafa8",
+          "page_number": 32,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "091a25441c15383b66de3c9f41398dcc3a89ed0bb3faae204b0bf5e2d9e2f4e4",
+          "page_number": 33,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "46354c3bf957e49e9371beaa500cc43f6c5c10eb1705aa16e5c7d6982648c8db",
+          "page_number": 34,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "81e801932596f0a4abf6667697fb3a64e56ada6d07497d93cb785a934b37adf0",
+          "page_number": 35,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ec81a1bc06c86697cd07037bf2e723df0947fa0732292c65bffc29544cbfff7c",
+          "page_number": 36,
+          "status": "pass"
+        }
+      ]
+    },
+    "supplementary_information_docx": {
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "26bd21742992ab98bd6a88a7711b33ff93bea163dbd4d45effa4538f9d2387a7",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "a0cdf588ebc23e5e563bc8af58842490f361ae3c547bef8c8e8138691ae7de08",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e66a65afd5251a55086dd74bcbcfcc8c0af3b9a0df81e71d0bc18978c7ac3de0",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1381ecde88c5474a0e6974617e1f44f49f78070eef60857a1c7dd00cfb3c71ce",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d0c87f6e6aa4c89ebd6f1ce13553fdf36fcaf53ec1ad984bdac5837d6ffdf028",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "017b3a43a872bb09a28f6e99f7a8b99871bfb4b4404306ce45ac07f9dc40fc9c",
+          "page_number": 6,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "141cf879d91e369721687c81de5e0d1992f842f9a98e3f336d09ab1e7b6f5589",
+          "page_number": 7,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "7cad08f3a73f653a12f4a0a798cd985c9df35b365ac90f52660f8e0b2d408778",
+          "page_number": 8,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3b83a60c0fe85fdf3f745cea5fe1ecdb132c0b32bb3a326036fde26fa0856321",
+          "page_number": 9,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "543a15f34db18f96ae34ae77ad602c56debf86369a5c321bf462bce7c51a9498",
+          "page_number": 10,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "aeea40221a9b96e36cd17423d3478e51fac19d8358ef58691f226dc0cc92f9bf",
+          "page_number": 11,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "40d454ae5f090b3a2cf951c621d8a69b911877fe95af624c54deff4f4aad1da9",
+          "page_number": 12,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "6a68f0d5aaf9c3dda2a0249d5ff6c552533ff777e677584ad1d6bfdbece7cd40",
+          "page_number": 13,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "721afda9d4f7c4289e61c90e52692d066e9c29de04c5c8fc6d5656e2af8877a9",
+          "page_number": 14,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "6e6729197b2adfa627fa4e28649dc9bf7245c67b0c19ad5b42e17cda3f258020",
+          "page_number": 15,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "bb760d9c55497d5b445fb3b754d1bab0a6c81b79d351ad8ebc0f316aef8c8fec",
+          "page_number": 16,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ca79d24ac0e49a944e32bf0b3804239ef9597e83c9d5b3faa98db1444548397f",
+          "page_number": 17,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c8ba29fecb052e2402fb4e5dee82fadfb0c3f44b158e48ca63b703e58abcc77e",
+          "page_number": 18,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "629e8403d11c0159a9e8f323bfe25ae0d9bc3c029cc5b2d57bb1280b9c37301b",
+          "page_number": 19,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b7e4411457ab77055186a18343c9adaafbbe6bc13d1ce4a2e36bbfad40fd5d42",
+          "page_number": 20,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d4855aafd971764c3154a864ab2aed35d9af3879425799ba92c96c6bad8adcbc",
+          "page_number": 21,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "66f7571a64e49b8830b4444d9d7f2aecb58a637427eb1a3d892bf161f67c0a43",
+          "page_number": 22,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "a7594fe08979838f8d6d42bc962d783f9d3560d96f5325a21d98448cdc9f74a0",
+          "page_number": 23,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "088abedf35abff33b832626a09adb3bdf13a0ddea14e054596ecab00f684e926",
+          "page_number": 24,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b713c64432e757e064a4e9462fbb2d94e1437cd98c989dfa0ddb99320eabb399",
+          "page_number": 25,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d3895120b7c30cd8eca8db10e97e1d73eae9f36aff5a310f1dee9e4e750c255b",
+          "page_number": 26,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fb4e480e7d6f803a7c9b0efcf67eef289b2a2bb6881e3ebf1ffac44b07062fd0",
+          "page_number": 27,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d16f9425eaedc857f155b545594ad008f13bf3ea522410b5dac26a549ddd7d4f",
+          "page_number": 28,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cabe1234729f8d08f2b832ab7d8592d81a59e220746841003128d94b76698832",
+          "page_number": 29,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "2effc5b41ac5df3b204ea22711a800355d487a97fd559ce569f72dade788ae9c",
+          "page_number": 30,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d84c9a240f3da7ccaa91b340c34e25da2d31d1bd15c7751f6e5428cd728abb51",
+          "page_number": 31,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5d6b38ac3f9d0c269c828ce9546f37cabf0a486d17b903d3e832a557bee0142b",
+          "page_number": 32,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0263ac895ab19a101a88e831cce354921fa195d246ab299c6391a40e9812c369",
+          "page_number": 33,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "7cd66310730b41fea8055b925dff659871793d00fdaef16213254b008e152ac8",
+          "page_number": 34,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b396dab29214010bc2034c6f5fc384f43bc9574dcf77bbd3d5e477e92eb3153e",
+          "page_number": 35,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c8c7d3601aaade02ad1118a3c80ac9f61483befe11ca500cb8c08a45801d22df",
+          "page_number": 36,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ebabb0c1c25b1aecd92e9a4d91a4cedb696b1c80e2c817ccb02f522abe16d155",
+          "page_number": 37,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fdad96c0f43ff08a3bfb3cca40b3395c1e1d16942dca93ada45e0c36b2146e78",
+          "page_number": 38,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8a247c6cc405276d2b4bc13d01cac42a8bbc4e1bc44051d696a071fcecaddc98",
+          "page_number": 39,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "004227a3b3b19ed351db1afcae89d0d4e01250cfb7d2db62868f902b63588781",
+          "page_number": 40,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "20e17813ad8956339a535ea42a16ae54d00b2bad5e10448bba542bef91598457",
+          "page_number": 41,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e6c39d9fb0f4dc2a20b1300e0e6ca03d6c1ee78cf33387745e038a0497a01af9",
+          "page_number": 42,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "99bf7d54bb370c3b4fc6ebd0dbde9ca11dc7555cf5d0e383f81c89f1b3be2f89",
+          "page_number": 43,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "42f4a4432f9226b09fe2f2d23e891e76aa4554c6b7d4a531bca9ef510099d224",
+          "page_number": 44,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c318df7278bc75fc84bcd923f20ae958195271bba80d3c67d463b9ce82844d4e",
+          "page_number": 45,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "55036f6512870363011d225eb0c60584ff3a104f40c6f872dc835e983b774d73",
+          "page_number": 46,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c455ba7d3e953c4edc39f1c6634e5a34f64fa7ed4643449a885e00d0e0884acf",
+          "page_number": 47,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ab32fc2cf5abfd853c5b81b1c838cc9883257e18b983cd8b2a7bd2a5888c07ee",
+          "page_number": 48,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "4f8e406ec88181565df6a900df63e17d47bc797c665117e616eaa9c688ea345e",
+          "page_number": 49,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1ae4a81201d776cf58a3aa1015ff5d96dde9fb702e64f22396bf743cebc92e5d",
+          "page_number": 50,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "17ad5e64231a30b0b2891e2bd8961ee2daf652625e5126cf500be5ece19ef086",
+          "page_number": 51,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fd30f530a10e25fc96d94295de4d90ef6b861bc19cb226219b68e86a513050c6",
+          "page_number": 52,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d14481ee1bac2502cec24766aec791eb212c9ea1e26e555393d6e4240a77500c",
+          "page_number": 53,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "899e5403f862e29de86232f6fd848a6eb2dd08e0637bf1b0e78ed59a06cd34c2",
+          "page_number": 54,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f2a5ae2cc3f2f2dc5bca270a3de6bdb504bbda1baab6df9d66a5b0b9e59bcc7c",
+          "page_number": 55,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "470fbebab16c6ea6e4302b971b7338016aa17e8e1cf1a0ef656cac2a6bdf512f",
+          "page_number": 56,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f5e95d75a540d8ab3c0ed206e6dce29f171a3d81407a1500aaca6890fc9c504e",
+          "page_number": 57,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0db686db2dca9a10eac258193465059ba4c98d8469c6f89d068466ce0fa54aa8",
+          "page_number": 58,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cd746907d2eca8b8c8dcb040cf7e6fb050656047eae62f973f9482ce96b22b5b",
+          "page_number": 59,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "4196a5e9d71f952cebb33d4ba9a573b2f1969154aed7d89efcea91c4eab0aac9",
+          "page_number": 60,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "09b8602da8b23d56d6af9f737c464032e5b3215b5cea3549f529e6e032d43c62",
+          "page_number": 61,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "52de5455f54fc2ce67e544855f86336035717954209b6531e308b234dee66ee9",
+          "page_number": 62,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fdd442aed0836fd5efe3ae9a7c3cc196249d195c8cc23be64f8b590ad36858f2",
+          "page_number": 63,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f548707ff504a1795c19d42b61907966501599167f84416baea73759d1254133",
+          "page_number": 64,
+          "status": "pass"
+        }
+      ]
+    },
+    "supplementary_information_pdf": {
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "26bd21742992ab98bd6a88a7711b33ff93bea163dbd4d45effa4538f9d2387a7",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "a0cdf588ebc23e5e563bc8af58842490f361ae3c547bef8c8e8138691ae7de08",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e66a65afd5251a55086dd74bcbcfcc8c0af3b9a0df81e71d0bc18978c7ac3de0",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1381ecde88c5474a0e6974617e1f44f49f78070eef60857a1c7dd00cfb3c71ce",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d0c87f6e6aa4c89ebd6f1ce13553fdf36fcaf53ec1ad984bdac5837d6ffdf028",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "017b3a43a872bb09a28f6e99f7a8b99871bfb4b4404306ce45ac07f9dc40fc9c",
+          "page_number": 6,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "141cf879d91e369721687c81de5e0d1992f842f9a98e3f336d09ab1e7b6f5589",
+          "page_number": 7,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "7cad08f3a73f653a12f4a0a798cd985c9df35b365ac90f52660f8e0b2d408778",
+          "page_number": 8,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "3b83a60c0fe85fdf3f745cea5fe1ecdb132c0b32bb3a326036fde26fa0856321",
+          "page_number": 9,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "543a15f34db18f96ae34ae77ad602c56debf86369a5c321bf462bce7c51a9498",
+          "page_number": 10,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "aeea40221a9b96e36cd17423d3478e51fac19d8358ef58691f226dc0cc92f9bf",
+          "page_number": 11,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "40d454ae5f090b3a2cf951c621d8a69b911877fe95af624c54deff4f4aad1da9",
+          "page_number": 12,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "6a68f0d5aaf9c3dda2a0249d5ff6c552533ff777e677584ad1d6bfdbece7cd40",
+          "page_number": 13,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "721afda9d4f7c4289e61c90e52692d066e9c29de04c5c8fc6d5656e2af8877a9",
+          "page_number": 14,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "6e6729197b2adfa627fa4e28649dc9bf7245c67b0c19ad5b42e17cda3f258020",
+          "page_number": 15,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "bb760d9c55497d5b445fb3b754d1bab0a6c81b79d351ad8ebc0f316aef8c8fec",
+          "page_number": 16,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ca79d24ac0e49a944e32bf0b3804239ef9597e83c9d5b3faa98db1444548397f",
+          "page_number": 17,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c8ba29fecb052e2402fb4e5dee82fadfb0c3f44b158e48ca63b703e58abcc77e",
+          "page_number": 18,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "629e8403d11c0159a9e8f323bfe25ae0d9bc3c029cc5b2d57bb1280b9c37301b",
+          "page_number": 19,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b7e4411457ab77055186a18343c9adaafbbe6bc13d1ce4a2e36bbfad40fd5d42",
+          "page_number": 20,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d4855aafd971764c3154a864ab2aed35d9af3879425799ba92c96c6bad8adcbc",
+          "page_number": 21,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "66f7571a64e49b8830b4444d9d7f2aecb58a637427eb1a3d892bf161f67c0a43",
+          "page_number": 22,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "a7594fe08979838f8d6d42bc962d783f9d3560d96f5325a21d98448cdc9f74a0",
+          "page_number": 23,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "088abedf35abff33b832626a09adb3bdf13a0ddea14e054596ecab00f684e926",
+          "page_number": 24,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b713c64432e757e064a4e9462fbb2d94e1437cd98c989dfa0ddb99320eabb399",
+          "page_number": 25,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d3895120b7c30cd8eca8db10e97e1d73eae9f36aff5a310f1dee9e4e750c255b",
+          "page_number": 26,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fb4e480e7d6f803a7c9b0efcf67eef289b2a2bb6881e3ebf1ffac44b07062fd0",
+          "page_number": 27,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d16f9425eaedc857f155b545594ad008f13bf3ea522410b5dac26a549ddd7d4f",
+          "page_number": 28,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cabe1234729f8d08f2b832ab7d8592d81a59e220746841003128d94b76698832",
+          "page_number": 29,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "2effc5b41ac5df3b204ea22711a800355d487a97fd559ce569f72dade788ae9c",
+          "page_number": 30,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d84c9a240f3da7ccaa91b340c34e25da2d31d1bd15c7751f6e5428cd728abb51",
+          "page_number": 31,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "5d6b38ac3f9d0c269c828ce9546f37cabf0a486d17b903d3e832a557bee0142b",
+          "page_number": 32,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0263ac895ab19a101a88e831cce354921fa195d246ab299c6391a40e9812c369",
+          "page_number": 33,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "7cd66310730b41fea8055b925dff659871793d00fdaef16213254b008e152ac8",
+          "page_number": 34,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "b396dab29214010bc2034c6f5fc384f43bc9574dcf77bbd3d5e477e92eb3153e",
+          "page_number": 35,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c8c7d3601aaade02ad1118a3c80ac9f61483befe11ca500cb8c08a45801d22df",
+          "page_number": 36,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ebabb0c1c25b1aecd92e9a4d91a4cedb696b1c80e2c817ccb02f522abe16d155",
+          "page_number": 37,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fdad96c0f43ff08a3bfb3cca40b3395c1e1d16942dca93ada45e0c36b2146e78",
+          "page_number": 38,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "8a247c6cc405276d2b4bc13d01cac42a8bbc4e1bc44051d696a071fcecaddc98",
+          "page_number": 39,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "004227a3b3b19ed351db1afcae89d0d4e01250cfb7d2db62868f902b63588781",
+          "page_number": 40,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "20e17813ad8956339a535ea42a16ae54d00b2bad5e10448bba542bef91598457",
+          "page_number": 41,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "e6c39d9fb0f4dc2a20b1300e0e6ca03d6c1ee78cf33387745e038a0497a01af9",
+          "page_number": 42,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "99bf7d54bb370c3b4fc6ebd0dbde9ca11dc7555cf5d0e383f81c89f1b3be2f89",
+          "page_number": 43,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "42f4a4432f9226b09fe2f2d23e891e76aa4554c6b7d4a531bca9ef510099d224",
+          "page_number": 44,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c318df7278bc75fc84bcd923f20ae958195271bba80d3c67d463b9ce82844d4e",
+          "page_number": 45,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "55036f6512870363011d225eb0c60584ff3a104f40c6f872dc835e983b774d73",
+          "page_number": 46,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "c455ba7d3e953c4edc39f1c6634e5a34f64fa7ed4643449a885e00d0e0884acf",
+          "page_number": 47,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "ab32fc2cf5abfd853c5b81b1c838cc9883257e18b983cd8b2a7bd2a5888c07ee",
+          "page_number": 48,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "4f8e406ec88181565df6a900df63e17d47bc797c665117e616eaa9c688ea345e",
+          "page_number": 49,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "1ae4a81201d776cf58a3aa1015ff5d96dde9fb702e64f22396bf743cebc92e5d",
+          "page_number": 50,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "17ad5e64231a30b0b2891e2bd8961ee2daf652625e5126cf500be5ece19ef086",
+          "page_number": 51,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fd30f530a10e25fc96d94295de4d90ef6b861bc19cb226219b68e86a513050c6",
+          "page_number": 52,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "d14481ee1bac2502cec24766aec791eb212c9ea1e26e555393d6e4240a77500c",
+          "page_number": 53,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "899e5403f862e29de86232f6fd848a6eb2dd08e0637bf1b0e78ed59a06cd34c2",
+          "page_number": 54,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f2a5ae2cc3f2f2dc5bca270a3de6bdb504bbda1baab6df9d66a5b0b9e59bcc7c",
+          "page_number": 55,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "470fbebab16c6ea6e4302b971b7338016aa17e8e1cf1a0ef656cac2a6bdf512f",
+          "page_number": 56,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f5e95d75a540d8ab3c0ed206e6dce29f171a3d81407a1500aaca6890fc9c504e",
+          "page_number": 57,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "0db686db2dca9a10eac258193465059ba4c98d8469c6f89d068466ce0fa54aa8",
+          "page_number": 58,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "cd746907d2eca8b8c8dcb040cf7e6fb050656047eae62f973f9482ce96b22b5b",
+          "page_number": 59,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "4196a5e9d71f952cebb33d4ba9a573b2f1969154aed7d89efcea91c4eab0aac9",
+          "page_number": 60,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "09b8602da8b23d56d6af9f737c464032e5b3215b5cea3549f529e6e032d43c62",
+          "page_number": 61,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "52de5455f54fc2ce67e544855f86336035717954209b6531e308b234dee66ee9",
+          "page_number": 62,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "fdd442aed0836fd5efe3ae9a7c3cc196249d195c8cc23be64f8b590ad36858f2",
+          "page_number": 63,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass"
+          },
+          "page_image_sha256": "f548707ff504a1795c19d42b61907966501599167f84416baea73759d1254133",
+          "page_number": 64,
+          "status": "pass"
+        }
+      ]
+    }
+  },
+  "review_date": "2026-08-02",
+  "reviewer_identity": "rlewa (HITL acceptance); technical page-level QA by Codex",
+  "schema_version": "1.0",
+  "technical_review": {
+    "automated_checks": {
+      "all_fonts_embedded": true,
+      "docx_origin_pdfs_byte_identical_to_canonical_pdfs": true,
+      "empty_pages": 0,
+      "figure_5_minimum_effective_font_size_pt": 6.076,
+      "figure_5_placement_width_inches": 6.25,
+      "minimum_effective_image_dpi": 199.7,
+      "out_of_page_bounds": 0,
+      "replacement_glyph_pages": 0,
+      "unauthorized_placeholder_tokens": 0
+    },
+    "final_unique_pages_reviewed": 100,
+    "rendition_page_records": 200,
+    "visual_method": "Every final page inspected at 150 DPI through 2x3 labelled contact sheets; the rebuilt full-width Figure 5 and all affected main pages were re-inspected.",
+    "visual_status": "pass"
+  }
+}
