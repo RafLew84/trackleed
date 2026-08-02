@@ -44,6 +44,11 @@ pominięte.
 
 - Podział I01–I14 i granice właścicieli zatwierdzono 2026-08-02 w bramce HITL
   ticketu 09 workflow konwergencji.
+- [I01 — wersjonowany kontrakt domenowy](issues/01-wersjonowany-kontrakt-domenowy.md)
+  — cztery dokładne definicje utrwalono w śledzonym
+  `docs/publication-status-contract.md`; routing domenowy nadaje mu
+  pierwszeństwo przed ignorowanym `context.md`, a fail-closed test chroni
+  definicje i routing bez zmiany bieżącego scientific-core fingerprintu.
 
 ## Constraints
 
