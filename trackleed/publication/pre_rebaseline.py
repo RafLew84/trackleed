@@ -87,7 +87,7 @@ def _component_diff(
     return report
 
 
-def _validate_predecessor_integrity(
+def validate_predecessor_integrity(
     fingerprint: dict[str, Any],
     contract_path: Path,
 ) -> None:
@@ -138,7 +138,7 @@ def validate_pre_rebaseline(
     )
     expectation = _load_json(expectation_path, "pre-rebaseline contract")
     fingerprint = _load_json(fingerprint_path, "scientific-core fingerprint")
-    _validate_predecessor_integrity(fingerprint, contract_path)
+    validate_predecessor_integrity(fingerprint, contract_path)
 
     if (
         expectation.get("schema_version") != "1.0"
@@ -279,5 +279,6 @@ def validate_pre_rebaseline(
 
 __all__ = [
     "PreRebaselineValidationError",
+    "validate_predecessor_integrity",
     "validate_pre_rebaseline",
 ]

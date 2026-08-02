@@ -99,6 +99,12 @@ pominięte.
   0 removed; decyzję związano z implementation commit `38a0e6aa668c4a7751fb6661e94af6d58bea92bc`,
   predecessor fingerprintem i reviewed diffem wszystkich 23 komponentów bez
   wykonywania replacement; [decision record](artifacts/10-hitl-content-claim-boundary-decision.md).
+- [I11 — wersjonowany replacement fingerprintu](issues/11-replacement-fingerprintu.md)
+  — fail-closed CLI wymaga dokładnego predecessora, decision record I10,
+  implementation commitu i kanonicznej autoryzacji, blokuje dirty/unapproved
+  inputs i niepełne coverage, zachowuje historię oraz pełny 23-component link,
+  a fingerprint podmienia atomowo jako ostatni krok; clean-clone `--check-only`
+  wyliczył successor bez rebaseline; [dowody](artifacts/11-versioned-fingerprint-replacement-workflow.md).
 
 ## Constraints
 

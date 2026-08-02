@@ -1,0 +1,31 @@
+{
+  "decision_record": {
+    "path": ".scratch/trackleed-publication-content-revision-implementation/artifacts/10-hitl-content-claim-boundary-decision.md",
+    "sha256": "0804ea3ebe7df06ae963c168974464221aad6b51a0782fa5cde4e43859bba054"
+  },
+  "expected_changed_component_ids": [
+    "claim-boundary-manifest",
+    "cpu-environment",
+    "display-index",
+    "display-inventory-builder",
+    "display-inventory-contract",
+    "display-semantic-inventory",
+    "fingerprint-validator",
+    "manuscript",
+    "manuscript-validator",
+    "reconstruction-entrypoint",
+    "sensitivity-source-provenance",
+    "supplementary-material",
+    "tracer-authentication"
+  ],
+  "expected_component_count": 23,
+  "expected_predecessor_fingerprint_sha256": "859cd188d9fce23f062c9037ee5b231741c80c6df162d34014363bc2fa216eff",
+  "implementation_commit": "38a0e6aa668c4a7751fb6661e94af6d58bea92bc",
+  "reason": "User-approved final content, display semantics, limitations, denominators, and scientific claim boundary recorded by I10",
+  "reviewed_component_diff": {
+    "path": "manuscript/scientific_core/pre_rebaseline_report.json",
+    "sha256": "a04a4c83a4a2651357b21731395ea693443f8a0e81aa499c4c451a20dd23b3b9"
+  },
+  "schema_version": "1.0",
+  "status": "authorized"
+}

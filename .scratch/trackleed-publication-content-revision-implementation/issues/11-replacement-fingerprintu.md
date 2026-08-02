@@ -3,7 +3,7 @@
 Parent: [Mapa implementacji rewizji treści publikacji TrackLEED](../map.md)
 Type: `task`
 Label: `ready-for-agent`
-Status: `open`
+Status: `resolved`
 Blocked by: 10
 
 ## Question
@@ -25,3 +25,25 @@ predecessor-to-successor replacement scientific-core fingerprintu.
 - Zachowuje historię poprzednika, zapisuje diff wszystkich 23 komponentów i
   predecessor/successor link oraz używa atomic write.
 - Testy failure modes przechodzą; ten ticket nie wykonuje rebaseline.
+
+## Answer
+
+Tak. Wersjonowany command wymaga dokładnego predecessora, zaakceptowanego
+decision record I10, implementation commitu i kanonicznej autoryzacji. Przed
+zapisem blokuje dirty/untracked lub niezatwierdzone scientific inputs,
+niepełne coverage oraz każdy drift 23-component diffu. Poprawna ścieżka
+zachowuje poprzednika i pełny rekord predecessor→successor, a fingerprint
+podmienia atomowo jako ostatni krok.
+
+Tryb `--check-only` przeszedł w czystym klonie i wyliczył successor bez zmiany
+fingerprintu. Rzeczywisty rebaseline nie został wykonany i pozostaje zakresem
+I12.
+
+Dowody: [artifact 11](../artifacts/11-versioned-fingerprint-replacement-workflow.md).
+
+## Comments
+
+- 2026-08-02: publiczny seam CLI oraz izolowane repozytoria Git zostały jawnie
+  zaakceptowane przed pierwszym testem.
+- 2026-08-02: produkcyjny check-only zachował identyczne bajty poprzednika;
+  replacement nie został uruchomiony.
