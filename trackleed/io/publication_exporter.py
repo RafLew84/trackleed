@@ -30,6 +30,14 @@ FWHM_EXPORT_COLUMNS = (
     "fwhm_y_error",
     "fwhm_mean",
     "fwhm_geometric",
+    "fwhm_minor",
+    "fwhm_minor_error",
+    "fwhm_major",
+    "fwhm_major_error",
+    "fwhm_effective",
+    "fwhm_effective_error",
+    "fwhm_anisotropy",
+    "fwhm_anisotropy_error",
     "fwhm_source",
 )
 EXPORT_DIRECTORY_NAMES = {"eksport", "export", "result", "results", "wew", "zew"}
@@ -351,6 +359,10 @@ def _write_fwhm_per_frame(path: Path, rows: list[dict[str, str]]) -> None:
         "fwhm_y_mean",
         "fwhm_mean",
         "fwhm_geometric_mean",
+        "fwhm_minor_mean",
+        "fwhm_major_mean",
+        "fwhm_effective_mean",
+        "fwhm_anisotropy_mean",
         "fwhm_count",
         "fwhm_missing_count",
     ]
@@ -378,6 +390,18 @@ def _write_fwhm_per_frame(path: Path, rows: list[dict[str, str]]) -> None:
                 "fwhm_mean": _mean(metrics.mean for metrics in valid_metrics),
                 "fwhm_geometric_mean": _mean(
                     metrics.geometric for metrics in valid_metrics
+                ),
+                "fwhm_minor_mean": _mean(
+                    metrics.minor for metrics in valid_metrics
+                ),
+                "fwhm_major_mean": _mean(
+                    metrics.major for metrics in valid_metrics
+                ),
+                "fwhm_effective_mean": _mean(
+                    metrics.geometric for metrics in valid_metrics
+                ),
+                "fwhm_anisotropy_mean": _mean(
+                    metrics.anisotropy for metrics in valid_metrics
                 ),
                 "fwhm_count": len(valid_metrics),
                 "fwhm_missing_count": len(frame_rows) - len(valid_metrics),

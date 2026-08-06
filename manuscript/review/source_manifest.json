@@ -1,0 +1,25 @@
+{
+  "build_date": "2026-07-30",
+  "citation_count": 16,
+  "figure_count": 5,
+  "output_markdown": {
+    "manuscript/review/article_review.md": "29154c1c509578126cae81dd192ef6336e663241b0ec82b7e8170343a4d7c80d"
+  },
+  "schema_version": "1.0",
+  "sources": {
+    "manuscript/figures/figure01_measurement_chain/README.md": "87c02baef7ea2e4e9ce249f2e7376f9cd7adc83af476f1f7a229a36804c5a160",
+    "manuscript/figures/figure01_measurement_chain/output/figure01_measurement_chain.png": "1f0a76ba6f676720a27ba271b7968e74be233e4778d736a5c39d52a272d31928",
+    "manuscript/figures/figure02_controlled_equivariance/README.md": "53dbe228a276c4a57f524e53558ea23676459fb182028a896eff7b1dbaa5c7d0",
+    "manuscript/figures/figure02_controlled_equivariance/output/figure02_controlled_equivariance.png": "206cdd6e82e7bbc732152032d84581e9bc11cb6b9c13d1cc0a2106542e6fdf5e",
+    "manuscript/figures/figure03_independent_scane_stress/README.md": "a2cc5f84d9853ecb2a4265646a7c2012ca8407168e87fdb52a738b33857a1498",
+    "manuscript/figures/figure03_independent_scane_stress/output/figure03_independent_scane_stress.png": "4a0f77c8f6dc673d0042b8f2c01cc2dd6d073d06e073081ef1a629e8d071aae3",
+    "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/README.md": "cd5320bfee7b656c4542e7efec172e7f11df26c63f778d0711fe87efb90567fd",
+    "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/output/figure04_controlled_sam2_memory_tradeoff.png": "d9ec0d907cda8f063cf244f0ae4163ded8136307ab989d20ddcbd9ca1e761bee",
+    "manuscript/figures/figure05_cu111_physical_endpoint/README.md": "57cc64c5f13271a4c7ec6a93a6caf0f465d060fe5890f8dc12ba210cfb336b25",
+    "manuscript/figures/figure05_cu111_physical_endpoint/output/figure05_cu111_physical_endpoint.png": "5bbca91b432149b7302d67e6b1749ea5e461a7e2ecd19fa1db921ce3ca9b0fef",
+    "manuscript/manuscript.md": "054250187863b0daaf3790a56445b8f54645f96f6693f6e1cbd1b416815d48a7",
+    "manuscript/references.bib": "cb29f6212f48538935d5acfb7f9b5e6bfc62796160f76ae1597a36c53a3a12c3",
+    "manuscript/review/assemble_review_markdown.py": "32c0255df100c5f7414a352c2067a2c500e8ab999deceff2d4f6ea975e29507d"
+  },
+  "todo_marker_count": 7
+}

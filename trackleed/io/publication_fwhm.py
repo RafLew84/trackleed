@@ -93,6 +93,78 @@ class FwhmMetrics:
             return None
         return math.sqrt(self.fwhm_x * self.fwhm_y)
 
+    @property
+    def minor(self) -> float | None:
+        if self.fwhm_x is None or self.fwhm_y is None:
+            return None
+        return min(self.fwhm_x, self.fwhm_y)
+
+    @property
+    def major(self) -> float | None:
+        if self.fwhm_x is None or self.fwhm_y is None:
+            return None
+        return max(self.fwhm_x, self.fwhm_y)
+
+    @property
+    def anisotropy(self) -> float | None:
+        if self.minor is None or self.major is None or self.minor <= 0:
+            return None
+        return self.major / self.minor
+
+    @property
+    def minor_error(self) -> float | None:
+        if self.fwhm_x is None or self.fwhm_y is None:
+            return None
+        if self.fwhm_x <= self.fwhm_y:
+            return self.fwhm_x_error
+        return self.fwhm_y_error
+
+    @property
+    def major_error(self) -> float | None:
+        if self.fwhm_x is None or self.fwhm_y is None:
+            return None
+        if self.fwhm_x <= self.fwhm_y:
+            return self.fwhm_y_error
+        return self.fwhm_x_error
+
+    @property
+    def effective_error(self) -> float | None:
+        if (
+            self.geometric is None
+            or self.fwhm_x is None
+            or self.fwhm_y is None
+            or self.fwhm_x <= 0
+            or self.fwhm_y <= 0
+            or self.fwhm_x_error is None
+            or self.fwhm_y_error is None
+        ):
+            return None
+        return (
+            self.geometric
+            * 0.5
+            * math.hypot(
+                self.fwhm_x_error / self.fwhm_x,
+                self.fwhm_y_error / self.fwhm_y,
+            )
+        )
+
+    @property
+    def anisotropy_error(self) -> float | None:
+        if (
+            self.anisotropy is None
+            or self.minor is None
+            or self.major is None
+            or self.minor <= 0
+            or self.major <= 0
+            or self.minor_error is None
+            or self.major_error is None
+        ):
+            return None
+        return self.anisotropy * math.hypot(
+            self.major_error / self.major,
+            self.minor_error / self.minor,
+        )
+
     def as_csv_fields(self) -> dict[str, str]:
         return {
             "fwhm_x": _format_number(self.fwhm_x),
@@ -101,6 +173,14 @@ class FwhmMetrics:
             "fwhm_y_error": _format_number(self.fwhm_y_error),
             "fwhm_mean": _format_number(self.mean),
             "fwhm_geometric": _format_number(self.geometric),
+            "fwhm_minor": _format_number(self.minor),
+            "fwhm_minor_error": _format_number(self.minor_error),
+            "fwhm_major": _format_number(self.major),
+            "fwhm_major_error": _format_number(self.major_error),
+            "fwhm_effective": _format_number(self.geometric),
+            "fwhm_effective_error": _format_number(self.effective_error),
+            "fwhm_anisotropy": _format_number(self.anisotropy),
+            "fwhm_anisotropy_error": _format_number(self.anisotropy_error),
             "fwhm_source": self.source.value,
         }
 
@@ -112,6 +192,14 @@ class FwhmMetrics:
             "fwhm_y_error": self.fwhm_y_error,
             "fwhm_mean": self.mean,
             "fwhm_geometric": self.geometric,
+            "fwhm_minor": self.minor,
+            "fwhm_minor_error": self.minor_error,
+            "fwhm_major": self.major,
+            "fwhm_major_error": self.major_error,
+            "fwhm_effective": self.geometric,
+            "fwhm_effective_error": self.effective_error,
+            "fwhm_anisotropy": self.anisotropy,
+            "fwhm_anisotropy_error": self.anisotropy_error,
             "fwhm_source": self.source.value,
         }
 

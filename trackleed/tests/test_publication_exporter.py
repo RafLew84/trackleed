@@ -82,6 +82,25 @@ class PublicationExporterTests(unittest.TestCase):
             self.assertEqual(rows[0]["fwhm_y"], "14.0")
             self.assertEqual(rows[0]["fwhm_source"], "stored")
             self.assertEqual(rows[0]["fwhm_mean"], "12.0")
+            self.assertEqual(rows[0]["fwhm_minor"], "10.0")
+            self.assertEqual(rows[0]["fwhm_major"], "14.0")
+            self.assertAlmostEqual(
+                float(rows[0]["fwhm_effective"]),
+                math.sqrt(140.0),
+            )
+            self.assertEqual(rows[0]["fwhm_anisotropy"], "1.4")
+            self.assertEqual(rows[0]["fwhm_minor_error"], "0.2")
+            self.assertEqual(rows[0]["fwhm_major_error"], "0.3")
+            self.assertAlmostEqual(
+                float(rows[0]["fwhm_effective_error"]),
+                math.sqrt(140.0)
+                * 0.5
+                * math.hypot(0.2 / 10.0, 0.3 / 14.0),
+            )
+            self.assertAlmostEqual(
+                float(rows[0]["fwhm_anisotropy_error"]),
+                1.4 * math.hypot(0.3 / 14.0, 0.2 / 10.0),
+            )
             self.assertEqual(
                 (destination_root / "sample" / "eksport" / "notes.bin").read_bytes(),
                 unrelated_bytes,
@@ -358,6 +377,13 @@ class PublicationExporterTests(unittest.TestCase):
             self.assertEqual(summary_rows[0]["fwhm_x_mean"], "10.0")
             self.assertEqual(summary_rows[0]["fwhm_y_mean"], "14.0")
             self.assertEqual(summary_rows[0]["fwhm_mean"], "12.0")
+            self.assertEqual(summary_rows[0]["fwhm_minor_mean"], "10.0")
+            self.assertEqual(summary_rows[0]["fwhm_major_mean"], "14.0")
+            self.assertAlmostEqual(
+                float(summary_rows[0]["fwhm_effective_mean"]),
+                math.sqrt(140.0),
+            )
+            self.assertEqual(summary_rows[0]["fwhm_anisotropy_mean"], "1.4")
             manifest = json.loads(
                 (destination_root / "export_manifest.json").read_text(encoding="utf-8")
             )
