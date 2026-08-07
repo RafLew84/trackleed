@@ -1,0 +1,175 @@
+{
+  "authorized_deferred_inputs": [
+    {
+      "category": "EXPERIMENT",
+      "id": "experimental-details",
+      "required_draft_marker": "TODO[EXPERIMENT] Supply and approve the complete experimental description.",
+      "scope": "Author-approved experimental details are outside this ticket set and must not be inferred or invented."
+    },
+    {
+      "category": "SUBMISSION",
+      "id": "complete-bibliography",
+      "required_draft_marker": "TODO[SUBMISSION] Complete and verify the bibliography from primary sources before submission.",
+      "scope": "Complete bibliography work is outside this ticket set; provisional citations must not be represented as a finished reference list."
+    }
+  ],
+  "change_control": {
+    "downstream_binding": "Every downstream cross-contract analysis, display, claim map, manuscript, and supplementary package must record this contract path, schema version, and SHA-256 digest.",
+    "normative_path": "manuscript/cross_contract/scientific_contract.json",
+    "revision_rule": "A semantic change requires an approved follow-up ticket, a schema or contract revision, and revalidation of every downstream artifact bound to the predecessor digest."
+  },
+  "claim_boundary": {
+    "permitted": [
+      "Compare operational measurability and bounded gap events under the local Gaussian and native ViPErLEED measurement contracts.",
+      "Report agreement, disagreement, recovery, and physical self-consistency with explicit fixed or outcome-specific denominators.",
+      "Classify an accepted continuation as branch-model disagreement, cross-contract target inconsistency, or unresolved only when the frozen native contract and positional tolerance support that label.",
+      "State that observability or a failure interpretation is measurement-contract dependent when principal-scan results support that conclusion.",
+      "Describe the contribution as a cross-contract, denominator-aware assessment of measurement-chain failure semantics."
+    ],
+    "prohibited": [
+      "Treat either measurement contract as absolute position ground truth or spot-identity ground truth.",
+      "Use unqualified identity-switch, false-persistence, physical-disappearance, or physical-visibility claims for a contract-defined outcome.",
+      "Call a Gaussian-contract gap an I(V) visibility gap without independent evidence allowed by the frozen claim boundary.",
+      "Treat successive frames, branches from one scan, or the two contracts applied to the same acquisition as independent experimental replicates.",
+      "Present the restricted pilot as independent confirmation after it has calibrated the native contract.",
+      "Claim invention of LEED spot tracking, radial scaling, aperture measurement, or gap bridging."
+    ],
+    "required_qualifiers": [
+      "Contract-defined states are operational outcomes of their complete analysis pathways, not intrinsic labels attached to an image.",
+      "Cross-contract target inconsistency is evidence of disagreement with an indexed native target, not proof of a ground-truth identity switch.",
+      "Measurement-chain robustness and physical self-consistency do not establish instrument-traceable absolute accuracy.",
+      "All claims remain within the acquisition-closed, existing-acquisition-only evidence boundary."
+    ]
+  },
+  "contract_id": "trackleed-cross-contract-manuscript",
+  "effective_date": "2026-08-07",
+  "effort_end_state": {
+    "label": "scientifically-complete-cross-contract-draft-with-authorized-deferred-inputs",
+    "not_submission_ready": true,
+    "required": [
+      "The cross-contract scientific question, analysis, claim boundary, displays, main text, and Supplementary Information are complete and internally consistent.",
+      "Every unresolved external input is an authorized deferred publication input using one of the canonical AUTHOR, EXPERIMENT, RELEASE-AUTHORIZATION, or SUBMISSION categories.",
+      "The package identifies the validation and controlled scientific-core rebaseline triggered by the new native inference."
+    ],
+    "status_guard": "Completing this ticket set does not by itself assert content-revision-complete, scientific-baseline-complete, or submission-ready; each canonical status still requires its own repository gates."
+  },
+  "evidence_hierarchy": [
+    {
+      "id": "principal-direct-outcomes",
+      "rank": 1,
+      "role": "Frozen branch-frame outcomes from both principal scans under the local Gaussian and native ViPErLEED contracts, retaining every predefined opportunity."
+    },
+    {
+      "id": "event-and-cross-contract-inference",
+      "rank": 2,
+      "role": "Gap, recovery, agreement, physical-consistency, and target-inconsistency outcomes derived from rank-1 records with explicit nesting and denominators."
+    },
+    {
+      "id": "predeclared-sensitivity",
+      "rank": 3,
+      "role": "Limited predeclared sensitivity to native significance and cross-contract positional tolerance; it tests claim stability and must not optimize a method ranking."
+    },
+    {
+      "id": "restricted-pilot-calibration",
+      "rank": 4,
+      "role": "Restricted pilot evidence used to freeze native parameters, beam mapping, and positional tolerance; it is calibration evidence, not an independent confirmation set."
+    },
+    {
+      "id": "illustrative-context",
+      "rank": 5,
+      "role": "Selected image crops and descriptive diagnostics used only to explain a frozen outcome; they do not determine quantitative labels or headline claims."
+    }
+  ],
+  "measurement_contracts": [
+    {
+      "endpoint": "A finite Gaussian-refined spot position that passes all frozen local acceptance gates.",
+      "id": "local-gaussian",
+      "role": "Local TrackLEED ROI and two-dimensional Gaussian measurement pathway."
+    },
+    {
+      "endpoint": "A finite native raw beam-position deviation paired with significance meeting the predeclared native threshold.",
+      "id": "native-viperleed",
+      "role": "Indexed, aperture- and whole-pattern-based ViPErLEED pathway whose native outputs are not passed through the TrackLEED Gaussian estimator."
+    }
+  ],
+  "operational_vocabulary": [
+    {
+      "definition": "For a predeclared branch-frame opportunity, the local TrackLEED Gaussian measurement returns a finite Gaussian-refined spot position and passes every frozen local acceptance gate.",
+      "not_equivalent_to": "physical visibility, native tracker success, or absolute position accuracy",
+      "symbol": "G=1",
+      "term": "Gaussian-contract measurability"
+    },
+    {
+      "definition": "For the indexed ViPErLEED beam mapped to a predeclared branch-frame opportunity, native significance meets the frozen threshold and both raw position deviations are finite; smoothed, extrapolated, or final coordinates alone do not qualify.",
+      "not_equivalent_to": "physical visibility, spot-identity ground truth, or a Gaussian-refined measurement",
+      "symbol": "V=1",
+      "term": "ViPEr-native direct detectability"
+    },
+    {
+      "definition": "A maximal contiguous run of G=0 opportunities for one predeclared branch within one scan, bounded on both sides by G=1 for that branch.",
+      "not_equivalent_to": "physical disappearance or a confirmed I(V) visibility gap",
+      "symbol": "Gap_G",
+      "term": "Gaussian-contract gap"
+    },
+    {
+      "definition": "A maximal contiguous run of V=0 opportunities for one indexed ViPErLEED beam within one scan, bounded on both sides by V=1 for that same beam.",
+      "not_equivalent_to": "physical disappearance or an estimator-independent visibility gap",
+      "symbol": "Gap_V",
+      "term": "ViPEr-native visibility gap"
+    },
+    {
+      "definition": "An accepted Gaussian-path continuation and a direct native observation of its mapped indexed beam disagree by more than the frozen cross-contract positional tolerance after the declared coordinate alignment.",
+      "not_equivalent_to": "a proven ground-truth identity switch",
+      "symbol": null,
+      "term": "cross-contract target inconsistency"
+    },
+    {
+      "definition": "A retained opportunity or event for which the available contract states cannot support branch-model disagreement or cross-contract target inconsistency, including absence of a required direct native observation.",
+      "not_equivalent_to": "failure, neither-observed, or permission to remove the opportunity from a denominator",
+      "reporting_label": "unresolved",
+      "symbol": null,
+      "term": "Unresolved cross-contract outcome"
+    }
+  ],
+  "publication_budget": {
+    "abstract": {
+      "hard_max_words": 200
+    },
+    "main_display_inventory": {
+      "figures": 3,
+      "tables": 0
+    },
+    "main_text": {
+      "excluded_from_count": [
+        "abstract",
+        "figure captions",
+        "references",
+        "declarations",
+        "supplementary material"
+      ],
+      "hard_max_words": 5000,
+      "target_max_words": 4600,
+      "target_min_words": 4200
+    },
+    "supplementary_information": {
+      "approximate_words": 2000,
+      "max_figures": 3,
+      "max_single_column_tables": 2
+    }
+  },
+  "repository_only_material": [
+    "per-frame and per-opportunity tables",
+    "complete method and environment configurations",
+    "file and artifact hashes",
+    "machine-readable results and validation reports"
+  ],
+  "research_question": "Do LEED spot measurability, gap recovery, and physical consistency remain stable across a local Gaussian measurement contract and a native whole-pattern ViPErLEED contract?",
+  "schema_version": "1.0",
+  "scope": {
+    "acquisition_boundary": "acquisition-closed and existing-acquisition-only",
+    "comparison_unit": "Predeclared branch-frame opportunities nested within scan, branch, and gap event; successive frames are not independent experimental replicates.",
+    "reader_facing_supplement_excludes_repository_only_material": true,
+    "venue_portable": true
+  },
+  "status": "frozen"
+}

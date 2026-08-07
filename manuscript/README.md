@@ -5,6 +5,15 @@ Sections 1–7 and the abstract are written as manuscript prose. The experimenta
 description, author information, submission metadata, and release authorization
 are explicitly deferred.
 
+## Cross-contract manuscript effort
+
+The frozen upstream contract for the new local-Gaussian versus native-ViPErLEED
+manuscript is in [`cross_contract/`](cross_contract/). It defines the new
+research question, operational vocabulary, claim boundary, evidence hierarchy,
+publication budget, and deferred-input boundary. It does not replace the current
+canonical reader-facing package or assert a new publication status before the
+downstream analysis, rebaseline, and validation tickets are complete.
+
 Working title:
 
 > Evaluating Heterogeneous LEED Spot-Tracking Methods under a Common
