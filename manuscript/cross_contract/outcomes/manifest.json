@@ -1,0 +1,68 @@
+{
+  "analysis_id": "principal-cross-contract-outcomes",
+  "file_count": 10,
+  "files": [
+    {
+      "path": "README.md",
+      "role": "analysis scope, denominator semantics and validation guide",
+      "sha256": "ce2269b6610da3fffa80df1ba4454ee7a6ee7dfa6419989fcf006c7d2d54af0d",
+      "size_bytes": 3177
+    },
+    {
+      "path": "analysis_contract.json",
+      "role": "predeclared cross-contract analysis contract",
+      "sha256": "6e87d92f48554412f90ae8bd90ec3a81a5116a9ca872f5d1bdb33129498d0c8b",
+      "size_bytes": 6124
+    },
+    {
+      "path": "branch_frame_matrix.csv",
+      "role": "complete method-by-opportunity cross-contract matrix",
+      "sha256": "7262abafe29bdae8430685467e0a6001023470bb725f94b86cd7dc7e181d1308",
+      "size_bytes": 566636
+    },
+    {
+      "path": "gap_comparisons.csv",
+      "role": "contract-specific gap overlap and recovery comparisons",
+      "sha256": "eeeb1892d47058fee177b8d2b338426863ac4059334b3c9926053c187d545b8e",
+      "size_bytes": 16791
+    },
+    {
+      "path": "gaussian_gap_events.csv",
+      "role": "bounded Gaussian-contract gap events",
+      "sha256": "90c427774b08b945603c77078ee2ae9fdeba5a73525ec2a7187415a0a2a20364",
+      "size_bytes": 11985
+    },
+    {
+      "path": "headline_summary.json",
+      "role": "headline counts and explicit denominator summary",
+      "sha256": "507703750724ae9ebbc27c5a05f370689bb2090ee02818794fe8a352e852b236",
+      "size_bytes": 5858
+    },
+    {
+      "path": "method_summary.csv",
+      "role": "method outcomes with fixed and conditional denominators",
+      "sha256": "c276642ba2b441e1e97773ddb1e4bb6ca926c8279273548846b10ace90319bd2",
+      "size_bytes": 854
+    },
+    {
+      "path": "out_of_branch_events.csv",
+      "role": "accepted out-of-branch cross-contract classifications",
+      "sha256": "2ec225ae4c3577dc20e1dbb90eea110a20a453b72260f1caf336d374548a253d",
+      "size_bytes": 37402
+    },
+    {
+      "path": "sensitivity_results.csv",
+      "role": "complete predeclared sensitivity grid",
+      "sha256": "fade134772a73baa73bfbce2212f89658bf365c62b407ead26b74b239fba107b",
+      "size_bytes": 4445
+    },
+    {
+      "path": "viperleed_gap_events.csv",
+      "role": "bounded ViPEr-native visibility-gap events",
+      "sha256": "aa68c22f7f412086c6edd4af0319854994330ff8baf83015842b1553d04e380f",
+      "size_bytes": 287
+    }
+  ],
+  "schema_version": "1.0",
+  "status": "frozen-cross-contract-outcome-manifest"
+}

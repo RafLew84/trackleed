@@ -1,0 +1,233 @@
+{
+  "accepted_out_of_branch_event_count": 124,
+  "branch_frame_matrix_count": 1620,
+  "gap_comparison_by_method": {
+    "dam4sam": {
+      "both_contracts_recover_at_component_exit": 24,
+      "component_count": 24,
+      "exact_boundary_agreement": 1,
+      "gaussian_only": 22,
+      "shared": 1,
+      "viperleed_only": 1
+    },
+    "easyleed": {
+      "both_contracts_recover_at_component_exit": 23,
+      "component_count": 24,
+      "exact_boundary_agreement": 0,
+      "gaussian_only": 22,
+      "shared": 0,
+      "viperleed_only": 2
+    },
+    "lk": {
+      "both_contracts_recover_at_component_exit": 21,
+      "component_count": 22,
+      "exact_boundary_agreement": 0,
+      "gaussian_only": 20,
+      "shared": 0,
+      "viperleed_only": 2
+    },
+    "locotrack": {
+      "both_contracts_recover_at_component_exit": 26,
+      "component_count": 26,
+      "exact_boundary_agreement": 1,
+      "gaussian_only": 24,
+      "shared": 1,
+      "viperleed_only": 1
+    },
+    "ostrack": {
+      "both_contracts_recover_at_component_exit": 24,
+      "component_count": 25,
+      "exact_boundary_agreement": 1,
+      "gaussian_only": 23,
+      "shared": 1,
+      "viperleed_only": 1
+    }
+  },
+  "gaussian_gap_event_count": 114,
+  "gaussian_gap_event_count_by_method": {
+    "dam4sam": 23,
+    "easyleed": 22,
+    "lk": 20,
+    "locotrack": 25,
+    "ostrack": 24
+  },
+  "measurability_outcomes_by_method": {
+    "dam4sam": {
+      "both_contracts_observe": 262,
+      "gaussian_only": 10,
+      "neither_contract_observes": 9,
+      "viperleed_only": 43
+    },
+    "easyleed": {
+      "both_contracts_observe": 222,
+      "gaussian_only": 0,
+      "neither_contract_observes": 19,
+      "viperleed_only": 83
+    },
+    "lk": {
+      "both_contracts_observe": 205,
+      "gaussian_only": 1,
+      "neither_contract_observes": 18,
+      "viperleed_only": 100
+    },
+    "locotrack": {
+      "both_contracts_observe": 262,
+      "gaussian_only": 10,
+      "neither_contract_observes": 9,
+      "viperleed_only": 43
+    },
+    "ostrack": {
+      "both_contracts_observe": 259,
+      "gaussian_only": 10,
+      "neither_contract_observes": 9,
+      "viperleed_only": 46
+    }
+  },
+  "method_denominators": {
+    "dam4sam": {
+      "accepted_gaussian_all_frames": 272,
+      "branch_consistent_on_reference_visible": 216,
+      "out_of_branch_all_frames": 36,
+      "out_of_branch_branch_model_disagreement": 23,
+      "out_of_branch_cross_contract_target_inconsistency": 5,
+      "out_of_branch_unresolved": 8,
+      "reference_visible_opportunities": 221
+    },
+    "easyleed": {
+      "accepted_gaussian_all_frames": 222,
+      "branch_consistent_on_reference_visible": 214,
+      "out_of_branch_all_frames": 4,
+      "out_of_branch_branch_model_disagreement": 4,
+      "out_of_branch_cross_contract_target_inconsistency": 0,
+      "out_of_branch_unresolved": 0,
+      "reference_visible_opportunities": 221
+    },
+    "lk": {
+      "accepted_gaussian_all_frames": 206,
+      "branch_consistent_on_reference_visible": 188,
+      "out_of_branch_all_frames": 14,
+      "out_of_branch_branch_model_disagreement": 12,
+      "out_of_branch_cross_contract_target_inconsistency": 1,
+      "out_of_branch_unresolved": 1,
+      "reference_visible_opportunities": 221
+    },
+    "locotrack": {
+      "accepted_gaussian_all_frames": 272,
+      "branch_consistent_on_reference_visible": 217,
+      "out_of_branch_all_frames": 36,
+      "out_of_branch_branch_model_disagreement": 23,
+      "out_of_branch_cross_contract_target_inconsistency": 5,
+      "out_of_branch_unresolved": 8,
+      "reference_visible_opportunities": 221
+    },
+    "ostrack": {
+      "accepted_gaussian_all_frames": 269,
+      "branch_consistent_on_reference_visible": 216,
+      "out_of_branch_all_frames": 34,
+      "out_of_branch_branch_model_disagreement": 21,
+      "out_of_branch_cross_contract_target_inconsistency": 5,
+      "out_of_branch_unresolved": 8,
+      "reference_visible_opportunities": 221
+    }
+  },
+  "opportunity_count_per_method": 324,
+  "out_of_branch_classifications": {
+    "branch_model_disagreement": 83,
+    "cross_contract_target_inconsistency": 16,
+    "unresolved": 25
+  },
+  "schema_version": "1.0",
+  "sensitivity_classification_envelopes_by_method": {
+    "dam4sam": {
+      "branch_model_disagreement": [
+        17,
+        26
+      ],
+      "cross_contract_target_inconsistency": [
+        2,
+        11
+      ],
+      "unresolved": [
+        8,
+        8
+      ]
+    },
+    "easyleed": {
+      "branch_model_disagreement": [
+        4,
+        4
+      ],
+      "cross_contract_target_inconsistency": [
+        0,
+        0
+      ],
+      "unresolved": [
+        0,
+        0
+      ]
+    },
+    "lk": {
+      "branch_model_disagreement": [
+        7,
+        13
+      ],
+      "cross_contract_target_inconsistency": [
+        0,
+        6
+      ],
+      "unresolved": [
+        1,
+        1
+      ]
+    },
+    "locotrack": {
+      "branch_model_disagreement": [
+        17,
+        26
+      ],
+      "cross_contract_target_inconsistency": [
+        2,
+        11
+      ],
+      "unresolved": [
+        8,
+        8
+      ]
+    },
+    "ostrack": {
+      "branch_model_disagreement": [
+        15,
+        24
+      ],
+      "cross_contract_target_inconsistency": [
+        2,
+        11
+      ],
+      "unresolved": [
+        8,
+        8
+      ]
+    }
+  },
+  "sensitivity_measurability_counts_stable": true,
+  "sensitivity_parameters": {
+    "cross_contract_positional_tolerance_px": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "native_significance_threshold": [
+      2.0,
+      2.5,
+      3.0
+    ]
+  },
+  "sensitivity_result_count": 45,
+  "sensitivity_variant_count": 9,
+  "status": "built-cross-contract-outcomes",
+  "viperleed_gap_event_count": 2,
+  "viperleed_gap_identities": [
+    "viperleed|scan_a|P2_B2|4|4",
+    "viperleed|scan_a|P2_B2|8|8"
+  ]
+}
