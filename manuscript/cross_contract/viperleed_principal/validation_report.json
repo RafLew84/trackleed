@@ -1,0 +1,35 @@
+{
+  "contract_sha256": "200715029bd4bcfb944fff59b632372e497c6b220dc2039e9a2aab242837c4a0",
+  "final_position_count": 324,
+  "four_branch_opportunity_count": 324,
+  "frame_count": 81,
+  "inference_scope": "new inference on existing acquisitions",
+  "manifest_sha256": "df97fa62bfbd02ee51d0364e469d31a339aaf5fcf2b1c1099a33433cba75dced",
+  "native_table_count_per_scan": 13,
+  "retained_non_direct_count": 19,
+  "run_authentication_sha256": "14db2e014f046ef7f45bfa7ec92714ddf7c818209cd72f1fc03488bab33b5e05",
+  "scan_count": 2,
+  "scans": {
+    "scan_a": {
+      "direct_detectability_count": 129,
+      "final_position_count": 140,
+      "frame_count": 35,
+      "opportunity_count": 140,
+      "retained_non_direct_count": 11,
+      "terminal_duplicate_energy_ev": 220.5
+    },
+    "scan_b": {
+      "direct_detectability_count": 176,
+      "final_position_count": 184,
+      "frame_count": 46,
+      "opportunity_count": 184,
+      "retained_non_direct_count": 8,
+      "terminal_duplicate_energy_ev": 220.4
+    }
+  },
+  "schema_version": "1.0",
+  "scientific_core_rebaseline": "required",
+  "status": "validated-principal-viperleed-scans",
+  "viper_native_direct_detectability_count": 305,
+  "whole_pattern_beam_frame_count": 1458
+}

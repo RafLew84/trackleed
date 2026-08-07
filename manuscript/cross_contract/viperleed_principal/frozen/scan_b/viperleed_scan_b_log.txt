@@ -1,0 +1,30 @@
+LEED Spot Tracker LEED I(V) Analysis 
+2026-08-07 18:07
+
+Input Images & Image Stacks:
+Main Input Stack: principal_scan_b
+Mask: principal_mask
+
+Pattern file: 
+
+Energy range, I0 etc.: E40-220.4[?]; no I0
+
+Integration Radius: 9.43 -> 8.28 circ.
+
+Indices defined at 188.5 eV
+cubic, ?rms=3.2pxl, 18 spots
+
+Spot tracking:
+18 beams; highest raw intensity=16055 at 121.8, beam=-1,0
+
+Parameters (in machine-readable form):
+leed.tracker_n=6,0,64,1000,1000,3,30,2.5,10,0,0,4,0,0,5,5,100,2,50,2,4,1111,NaN,NaN,0,NaN,1,0,0,0,20,0,0,0,0,1,512,2,1
+leed.tracker_s0=
+leed.tracker_s1=
+leed.tracker_s2=energy=|E=|V=
+leed.tracker_s3=time=|Clock=|t=
+leed.tracker_s4=current=|i=|i0=|I0=|AD_0=
+leed.tracker_s5=I00=
+leed.tracker_s6=T=|Temp=|temp=|temperature=
+leed.tracker_s7=aux=|Aux=|AUX=|AD_2=
+leed.screenfit=2,3.208917,0.072835706,490.43094,487.03558,0,-1.4191978,955.5686,127.888664,17.851248,-6.614935,9.127244,-139.2909,36.708546,-310.57474,-25.282038,-2.0826397,-141.60406,961.477,-7.71046,-16.474522,-14.98892,82.3576,-211.94531,119.25008,-145.83488

@@ -1,0 +1,31 @@
+{
+  "final_position_count": 324,
+  "four_branch_opportunity_count": 324,
+  "frame_count": 81,
+  "inference_scope": "new inference on existing acquisitions",
+  "native_table_count_per_scan": 13,
+  "retained_non_direct_count": 19,
+  "scan_count": 2,
+  "scans": {
+    "scan_a": {
+      "direct_detectability_count": 129,
+      "final_position_count": 140,
+      "frame_count": 35,
+      "opportunity_count": 140,
+      "retained_non_direct_count": 11,
+      "terminal_duplicate_energy_ev": 220.5
+    },
+    "scan_b": {
+      "direct_detectability_count": 176,
+      "final_position_count": 184,
+      "frame_count": 46,
+      "opportunity_count": 184,
+      "retained_non_direct_count": 8,
+      "terminal_duplicate_energy_ev": 220.4
+    }
+  },
+  "scientific_core_rebaseline": "required",
+  "status": "frozen-principal-viperleed-summary",
+  "viper_native_direct_detectability_count": 305,
+  "whole_pattern_beam_frame_count": 1458
+}

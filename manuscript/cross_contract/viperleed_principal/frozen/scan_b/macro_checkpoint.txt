@@ -1,0 +1,20 @@
+macro started
+configuration predeclared; no manual outcome annotation
+46-frame stack opened
+
+frozen annular mask built
+
+tracker panel started
+
+stack, energy and mask attached
+
+pattern attached; transferring frozen indices
+
+indices set once; no per-frame correction permitted
+
+spot tracking completed
+
+native whole-pattern data saved before proposal reduction
+
+macro completed
+

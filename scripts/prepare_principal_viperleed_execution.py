@@ -101,7 +101,9 @@ def macro_text(scan_id: str, energies: list[float]) -> str:
     prefix = f"viperleed_{scan_id}"
     energy_lines = []
     for start in range(0, len(energies), 8):
-        values = ", ".join(format(value, ".10g") for value in energies[start : start + 8])
+        values = ", ".join(
+            format(value, ".10g") for value in energies[start : start + 8]
+        )
         energy_lines.append(f"    {values}")
     energy_body = ",\n".join(energy_lines)
     return f'''// Predeclared ticket-03 execution; do not edit after native outcomes exist.
@@ -115,7 +117,7 @@ File.saveString("macro started\\nconfiguration predeclared; no manual outcome an
 
 run("Image Sequence...", "open=[" + frameDir + "] sort");
 rename("principal_{scan_id}");
-File.append("{scan['frame_count']}-frame stack opened\\n", checkpointPath);
+File.append("{scan["frame_count"]}-frame stack opened\\n", checkpointPath);
 
 newImage("principal_mask", "8-bit black", 1000, 1000, 1);
 setColor(255);
@@ -149,7 +151,7 @@ Ext.LEEDsetValue("saveStack", 0);
 Ext.LEEDsetValue("neighborBackground", 0);
 Ext.LEEDsetValue("minSignificanceSelecting", 4);
 Ext.LEEDsetPattern(patternPath);
-Ext.LEEDselectSliceForE({scan['initialization_energy_ev']});
+Ext.LEEDselectSliceForE({scan["initialization_energy_ev"]});
 File.append("pattern attached; transferring frozen indices\\n", checkpointPath);
 Ext.LEEDsetIndices(indices);
 File.append("indices set once; no per-frame correction permitted\\n", checkpointPath);
@@ -212,7 +214,9 @@ def main() -> int:
         manifest_path = package_scan / "input_manifest.csv"
         manifest_path.write_bytes(csv_bytes(rows))
         macro_path = package_scan / "run_viperleed.ijm"
-        macro_path.write_text(macro_text(scan_id, energies), encoding="utf-8", newline="\n")
+        macro_path.write_text(
+            macro_text(scan_id, energies), encoding="utf-8", newline="\n"
+        )
         (EXECUTION_ROOT / scan_id / "native").mkdir(parents=True, exist_ok=True)
         scan_contracts[scan_id] = {
             **scan,
@@ -232,7 +236,9 @@ def main() -> int:
     pattern = PILOT_ROOT / "frozen/pattern.csv"
     screenfit = TRANSFERRED_SCREENFIT
     pilot_log = PILOT_ROOT / "frozen/viperleed_log.txt"
-    scientific_contract = REPO_ROOT / "manuscript/cross_contract/scientific_contract.json"
+    scientific_contract = (
+        REPO_ROOT / "manuscript/cross_contract/scientific_contract.json"
+    )
     fingerprint = REPO_ROOT / "manuscript/scientific_core/fingerprint.json"
     contract = {
         "branch_mapping": {

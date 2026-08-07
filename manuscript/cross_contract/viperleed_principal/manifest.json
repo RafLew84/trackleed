@@ -1,0 +1,264 @@
+{
+  "file_count": 42,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "role": "native byte-preservation rules",
+      "sha256": "987b71d86c7bc3e5db601c37d4a83d97484ea49609e6a8830135af68c0553e1e",
+      "size_bytes": 85
+    },
+    {
+      "path": "contract.json",
+      "role": "predeclared principal inference contract",
+      "sha256": "200715029bd4bcfb944fff59b632372e497c6b220dc2039e9a2aab242837c4a0",
+      "size_bytes": 5588
+    },
+    {
+      "path": "execution/frozen_pilot_screenfit.csv",
+      "role": "transferred final pilot screenfit",
+      "sha256": "deac8094e0f8b897943e77ec06ecebeb0c3505da1c9adadb2e81a71ea95bbbec",
+      "size_bytes": 248
+    },
+    {
+      "path": "execution/scan_a/input_manifest.csv",
+      "role": "predeclared scan_a input manifest",
+      "sha256": "0c4bb768acdb2724aadc35c92e9fbcc59f2897721bf5007746db0a0daef383d7",
+      "size_bytes": 5117
+    },
+    {
+      "path": "execution/scan_a/run_viperleed.ijm",
+      "role": "predeclared scan_a macro",
+      "sha256": "d91a287165f6ebf2ab53efec163d4c15d322b0af49b2fd634e7b65a0b15c5476",
+      "size_bytes": 2975
+    },
+    {
+      "path": "execution/scan_b/input_manifest.csv",
+      "role": "predeclared scan_b input manifest",
+      "sha256": "4d52d76e0ef028d0e443fd013506e224cab2145db357c179155a7775a1fb741e",
+      "size_bytes": 6790
+    },
+    {
+      "path": "execution/scan_b/run_viperleed.ijm",
+      "role": "predeclared scan_b macro",
+      "sha256": "1e3c20120a3df59339633aeb7615416afadd744151fec0753f63584144cacec2",
+      "size_bytes": 3078
+    },
+    {
+      "path": "four_branch_records.csv",
+      "role": "lossless four-branch native records",
+      "sha256": "9d717b67377b5d0e66789e2aa4a55da7cc6766fcd3a12b4a2f870f1097d90a30",
+      "size_bytes": 116171
+    },
+    {
+      "path": "frozen/scan_a/macro_checkpoint.txt",
+      "role": "native whole-pattern output",
+      "sha256": "fe57ee1cf59c49d72e05adfe956df56440168c98299a16174145d3339347a627",
+      "size_bytes": 377
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_IVcurves.csv",
+      "role": "native whole-pattern output",
+      "sha256": "bb8fcfd9e256b8c3e7f834c816320e07e1e5e0429fdb0d03f3fddf948b1cfb28",
+      "size_bytes": 4367
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_backgr.csv",
+      "role": "native whole-pattern output",
+      "sha256": "f19c13829d7e3c7fc042017f0bc9d862bdcc85556589aa0d81f3ed303d705098",
+      "size_bytes": 4349
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_bsigma.csv",
+      "role": "native whole-pattern output",
+      "sha256": "d0985d13597cec6ad6a3e007fec7ab6b82c8f00ea0e68f6c77a16be3cb4a73db",
+      "size_bytes": 4424
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_dx_raw.csv",
+      "role": "native whole-pattern output",
+      "sha256": "0c75177c291c98aa662db6f41f670067397615c4e1eeeb72bb978a6bfc0829e7",
+      "size_bytes": 4505
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_dx_smooth.csv",
+      "role": "native whole-pattern output",
+      "sha256": "8ed037c68f03749e637453db79788827a0c426893a4229f380314fa732977a07",
+      "size_bytes": 4650
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_dy_raw.csv",
+      "role": "native whole-pattern output",
+      "sha256": "64b2d1a666226896431f129853184b5b2abcde7d18dcbf8933038f68e96e6072",
+      "size_bytes": 4530
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_dy_smooth.csv",
+      "role": "native whole-pattern output",
+      "sha256": "2c16abd9c994ed0c1c1b042bcc047b818dcef502025126ffbb5d5a80f955cdae",
+      "size_bytes": 4660
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_log.txt",
+      "role": "native whole-pattern output",
+      "sha256": "146beee71cdd7ea6c7755529e6a30ae9beea8dbfbfbc11c1f441bc9904900100",
+      "size_bytes": 1068
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_rSize.csv",
+      "role": "native whole-pattern output",
+      "sha256": "4bc6c60a29c8513a121faf41491087700a16ef0334393ed4674bafad2de02247",
+      "size_bytes": 4346
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_rawInt.csv",
+      "role": "native whole-pattern output",
+      "sha256": "6630311def0006dd3582e4cc456fee3188ae0e8f37a3508d42f944b898b18617",
+      "size_bytes": 4364
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_signif.csv",
+      "role": "native whole-pattern output",
+      "sha256": "cb5777072ec0d0cdafb42bfd42b194c147736080a465e2b4b561f1b3bd8a289a",
+      "size_bytes": 4358
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_spotIndicesImage.tif.zip",
+      "role": "native whole-pattern output",
+      "sha256": "50f1c1c82c8dfc77435233d9378ae0f0c9d7358fa2e35088565e5c38dfe655e4",
+      "size_bytes": 249834
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_tSize.csv",
+      "role": "native whole-pattern output",
+      "sha256": "61a217e43cda8a7950989f70138d4304530d93b87b1a5691b31d50e3e33af414",
+      "size_bytes": 4346
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_x.csv",
+      "role": "native whole-pattern output",
+      "sha256": "17083af83a22a66ecd13ed2ff5768fa8798b082c961d84a9ccf058e03e2e35d8",
+      "size_bytes": 6512
+    },
+    {
+      "path": "frozen/scan_a/viperleed_scan_a_y.csv",
+      "role": "native whole-pattern output",
+      "sha256": "8fe9bc7dab62251b22de71555d4c1c4184caa2240afcb58ce9eaa48646d67428",
+      "size_bytes": 6536
+    },
+    {
+      "path": "frozen/scan_b/macro_checkpoint.txt",
+      "role": "native whole-pattern output",
+      "sha256": "e419da000aff71acf81010b1477846e35923db853f421d2bcbdde0a21d035c6f",
+      "size_bytes": 377
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_IVcurves.csv",
+      "role": "native whole-pattern output",
+      "sha256": "e6c992bd4d09e03e5b858ad961e5d34aa81335883a0bd17b3be45fb71898a745",
+      "size_bytes": 5726
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_backgr.csv",
+      "role": "native whole-pattern output",
+      "sha256": "ec53c7341ea131819701f2fd8f32d0430932340fc7e6819604f60b88d13ffde6",
+      "size_bytes": 5665
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_bsigma.csv",
+      "role": "native whole-pattern output",
+      "sha256": "2c10e7351646c8eeb880be3f62d9140c66c7ed7d23863a89cae65af992faa670",
+      "size_bytes": 5782
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_dx_raw.csv",
+      "role": "native whole-pattern output",
+      "sha256": "6bc7ea6d045938747ded0ed897c53690e7314e4af14effed274f764a7f4c109d",
+      "size_bytes": 5886
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_dx_smooth.csv",
+      "role": "native whole-pattern output",
+      "sha256": "37cc66010a6c203926bdc9a4212361b02283df1fc76d5722cd86af86b51d054f",
+      "size_bytes": 6051
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_dy_raw.csv",
+      "role": "native whole-pattern output",
+      "sha256": "9aa3981ce1b4096ade103096f6d387637004f16daf8832cfa9558eb80a2d0808",
+      "size_bytes": 5941
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_dy_smooth.csv",
+      "role": "native whole-pattern output",
+      "sha256": "b9f383d6b922be8985d998e8bc42d5d330950ba333f5def01c8f8bc8ca07a9c6",
+      "size_bytes": 6103
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_log.txt",
+      "role": "native whole-pattern output",
+      "sha256": "505c8088e62c7bae35e4e6f4eafac5efc48c7c27d4b8f2d4f1378560a9077a01",
+      "size_bytes": 1063
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_rSize.csv",
+      "role": "native whole-pattern output",
+      "sha256": "3b20bb64e2d52f53157e2a760bbc8393b08938c7126056cda5895de60e07eee0",
+      "size_bytes": 5709
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_rawInt.csv",
+      "role": "native whole-pattern output",
+      "sha256": "1d85c334f1dd86277910e7862c3ec1b9d332cea343b881feec94c873391b7a62",
+      "size_bytes": 5689
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_signif.csv",
+      "role": "native whole-pattern output",
+      "sha256": "524792cc460055e11815f7644a34aca8156a503ee1bf0d61fb0c7388a3e281bb",
+      "size_bytes": 5738
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_spotIndicesImage.tif.zip",
+      "role": "native whole-pattern output",
+      "sha256": "e2a454bfc5257595d6be87c76cbb2c7102e3512992a9128e9babf88d50b923a6",
+      "size_bytes": 255777
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_tSize.csv",
+      "role": "native whole-pattern output",
+      "sha256": "4c7e3bf6e79b4a1ddba01f3c1d999d23a57f3ef925a5b9f083aa1d5ffff6f6b6",
+      "size_bytes": 5689
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_x.csv",
+      "role": "native whole-pattern output",
+      "sha256": "c6a6c2aa5f09cc900f7017bff23190eb9f4bf8ecf4849386f0455221cee4dd50",
+      "size_bytes": 8444
+    },
+    {
+      "path": "frozen/scan_b/viperleed_scan_b_y.csv",
+      "role": "native whole-pattern output",
+      "sha256": "5ce708e143be005dfee71d45f695d78b8f863bb3e8c808ae347658b6c764299c",
+      "size_bytes": 8476
+    },
+    {
+      "path": "run_authentication.json",
+      "role": "immutable native-run authentication",
+      "sha256": "14db2e014f046ef7f45bfa7ec92714ddf7c818209cd72f1fc03488bab33b5e05",
+      "size_bytes": 11551
+    },
+    {
+      "path": "run_summary.json",
+      "role": "native denominator and finite-semantics summary",
+      "sha256": "2356174a2ca61dafdc00e3fbe104b14cd26cd635ca4d7a893e1ed377ebcb8e39",
+      "size_bytes": 929
+    }
+  ],
+  "package_id": "native-viperleed-principal-scans",
+  "schema_version": "1.0",
+  "source_image_inventory": {
+    "distinct_observation_count": 81,
+    "identity": "scan plus source frame plus energy; duplicate energies remain distinct"
+  },
+  "status": "frozen-principal-viperleed-manifest"
+}
