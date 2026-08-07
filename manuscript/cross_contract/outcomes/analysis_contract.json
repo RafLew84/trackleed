@@ -1,0 +1,127 @@
+{
+  "analysis_id": "principal-cross-contract-outcomes",
+  "classification": {
+    "accepted_out_of_branch_event": "accepted_fit is true and measurement_status is geometry_inconsistent",
+    "branch_model_disagreement": "the event has a direct native observation and Gaussian-to-native raw-position distance is less than or equal to the positional tolerance",
+    "cross_contract_target_inconsistency": "the event has a direct native observation and Gaussian-to-native raw-position distance exceeds the positional tolerance",
+    "nominal_positional_tolerance_px": 1.0,
+    "unresolved": "the event lacks a direct native observation"
+  },
+  "denominators": {
+    "all_frame_conditional_out_of_branch_fraction": {
+      "denominator": "all accepted Gaussian fits for the method across all 324 frozen opportunities",
+      "numerator": "accepted out-of-branch events",
+      "report_every_numerator_and_denominator": true
+    },
+    "branch_consistent_measurement_coverage": {
+      "denominator": "the 221 frozen physics-baseline visible_fit opportunities for each method",
+      "numerator": "records with measurement_status branch_consistent",
+      "report_every_numerator_and_denominator": true
+    },
+    "nesting": "opportunities are nested within scan, branch and gap event; frames, branches and contracts are not independent experimental replicates"
+  },
+  "gap_contract": {
+    "boundary_rule": "a maximal contiguous run of false states bounded immediately before and after by true states for the same scan and branch; Gaussian gaps are additionally method-specific",
+    "comparison_category": {
+      "gaussian_only": "an overlap-connected interval component contains Gaussian gaps only",
+      "shared": "an overlap-connected interval component contains at least one gap from each contract",
+      "viperleed_only": "an overlap-connected interval component contains ViPErLEED gaps only"
+    },
+    "exact_boundary_agreement": "a shared component contains exactly one Gaussian gap and one ViPErLEED gap with identical first and last gap frames",
+    "identity": "contract plus method when applicable plus scan plus branch plus first gap frame plus last gap frame",
+    "matching": "within each method, scan and branch, form overlap-connected components of the closed frame intervals from both gap contracts",
+    "recovery": "record the first direct observation immediately after every bounded contract-specific gap and whether both contracts observe at the first frame after the comparison component"
+  },
+  "input_bindings": {
+    "gaussian_candidate_records": {
+      "path": "manuscript/scientific_panel/frozen/expected_candidate_records.csv",
+      "row_count": 1620,
+      "sha256": "a178d053f667475747a86c512f8a4f8eab2af57eab58499e9d3c5ec5faf96652"
+    },
+    "gaussian_evaluation_records": {
+      "path": "manuscript/scientific_panel/frozen/expected_evaluation_records.csv",
+      "row_count": 1620,
+      "sha256": "96292706b17927d6bc2289bf9b0112cace2d16da1fe57e537746beeb059144d2"
+    },
+    "gaussian_panel_contract": {
+      "path": "manuscript/scientific_panel/frozen/panel_contract.json",
+      "sha256": "8a86e4ba8c7fe5472b62c97fcb68dbe105ca8045b96a5e9e85cafc9e7974bdf5"
+    },
+    "gaussian_panel_manifest": {
+      "path": "manuscript/scientific_panel/package_manifest.json",
+      "sha256": "5fcf89a90adacbd5b5b0a0b16482ff7dbdda41230f3108b58c5b36cd37ee0c8b"
+    },
+    "principal_native_manifest": {
+      "path": "manuscript/cross_contract/viperleed_principal/manifest.json",
+      "sha256": "df97fa62bfbd02ee51d0364e469d31a339aaf5fcf2b1c1099a33433cba75dced"
+    },
+    "principal_native_records": {
+      "path": "manuscript/cross_contract/viperleed_principal/four_branch_records.csv",
+      "row_count": 324,
+      "sha256": "9d717b67377b5d0e66789e2aa4a55da7cc6766fcd3a12b4a2f870f1097d90a30"
+    },
+    "scientific_contract": {
+      "path": "manuscript/cross_contract/scientific_contract.json",
+      "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+    },
+    "viperleed_pilot_contract": {
+      "path": "manuscript/cross_contract/viperleed_pilot/contract.json",
+      "sha256": "5afa547db8eca73a3e2a6479ac4138b90e15c357322fe1b805120fdbacbc1618"
+    }
+  },
+  "join_contract": {
+    "branch_mapping": {
+      "pair_1:B1": "P1_B1",
+      "pair_1:B2": "P1_B2",
+      "pair_2:B1": "P2_B1",
+      "pair_2:B2": "P2_B2"
+    },
+    "energy_absolute_tolerance_ev": 1e-06,
+    "gaussian_join": "candidate and evaluation records join one-to-one on record_key",
+    "native_join": "series_id equals scan_id, frame equals source_frame, mapped branch equals branch_id, and energy matches",
+    "required_methods": [
+      "easyleed",
+      "locotrack",
+      "ostrack",
+      "dam4sam",
+      "lk"
+    ],
+    "required_opportunities_per_method": 324
+  },
+  "measurability_states": {
+    "four_outcomes": [
+      "both_contracts_observe",
+      "gaussian_only",
+      "viperleed_only",
+      "neither_contract_observes"
+    ],
+    "gaussian_contract_measurable": "measurement_valid is true; accepted_fit must be identical, while branch consistency is reported separately",
+    "viper_native_direct_detectability": "significance meets the selected threshold and both raw position deviations are finite; the stored nominal flag must reproduce threshold 2.5"
+  },
+  "outputs": {
+    "branch_frame_matrix": "branch_frame_matrix.csv",
+    "gap_comparisons": "gap_comparisons.csv",
+    "gaussian_gap_events": "gaussian_gap_events.csv",
+    "headline_summary": "headline_summary.json",
+    "method_summary": "method_summary.csv",
+    "out_of_branch_events": "out_of_branch_events.csv",
+    "sensitivity": "sensitivity_results.csv",
+    "viperleed_gap_events": "viperleed_gap_events.csv"
+  },
+  "schema_version": "1.0",
+  "sensitivity_contract": {
+    "cross_contract_positional_tolerance_px": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "native_significance_threshold": [
+      2.0,
+      2.5,
+      3.0
+    ],
+    "no_method_ranking_or_variant_selection": true,
+    "report_all_cartesian_combinations": true
+  },
+  "status": "predeclared-before-cross-contract-outcome-computation"
+}
