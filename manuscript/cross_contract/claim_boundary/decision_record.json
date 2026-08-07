@@ -1,0 +1,283 @@
+{
+  "author_checkpoint_requirements": {
+    "approval_scope": [
+      "selected combined thesis",
+      "single working title",
+      "XC1-XC7 claim-evidence map",
+      "language rules",
+      "legacy claim dispositions",
+      "contribution boundary"
+    ],
+    "confirmation_statement": "The author approves the selected combined thesis, the single working title, claims XC1-XC7 with their evidence classes and limitations, the language rules, the legacy claim dispositions, and the contribution boundary bound by this decision-record SHA-256.",
+    "required_attestations": [
+      "thesis_and_title_approved",
+      "all_claims_and_limitations_reviewed",
+      "language_and_contribution_boundaries_accepted",
+      "no_contract_treated_as_ground_truth"
+    ]
+  },
+  "claim_evidence_map": [
+    {
+      "claim_id": "XC1",
+      "denominator_semantics": "The evidence is stratified by method over 324 fixed opportunities; methods, frames, branches, and contracts are not experimental replicates.",
+      "evidence_class": "cross_contract_inference",
+      "frozen_anchors": [
+        "Gaussian-only outcomes per method: 0-10",
+        "ViPErLEED-only outcomes per method: 43-100",
+        "Gaussian bounded gaps: 114",
+        "ViPErLEED bounded gaps: 2"
+      ],
+      "permitted_claim": "Across the two principal scans, operational observability and gap attribution differed between the local Gaussian and native ViPErLEED contracts; failure interpretation was therefore measurement-contract dependent.",
+      "required_limitation": "This is a comparison of two operational pathways on the same acquisitions, not evidence that either pathway supplies physical-visibility or spot-identity ground truth.",
+      "sections": [
+        "abstract",
+        "results",
+        "conclusion"
+      ],
+      "source": "manuscript/cross_contract/outcomes/headline_summary.json"
+    },
+    {
+      "claim_id": "XC2",
+      "denominator_semantics": "Report the four counts separately for each method out of 324 fixed opportunities; do not pool the 1,620 method-opportunity rows as independent observations.",
+      "evidence_class": "direct_result",
+      "frozen_anchors": [
+        "EasyLEED both/G-only/V-only/neither: 222/0/83/19",
+        "LocoTrack: 262/10/43/9",
+        "OSTrack: 259/10/46/9",
+        "DAM4SAM: 262/10/43/9",
+        "Lucas-Kanade: 205/1/100/18"
+      ],
+      "permitted_claim": "All 324 opportunities per method were retained, and every method contained more ViPErLEED-only than Gaussian-only observations under the frozen contracts.",
+      "required_limitation": "The asymmetry is contract-defined and descriptive; it is not a method ranking or a statement that all ViPErLEED-only states are physically visible spots.",
+      "sections": [
+        "abstract",
+        "results"
+      ],
+      "source": "manuscript/cross_contract/outcomes/method_summary.csv"
+    },
+    {
+      "claim_id": "XC3",
+      "denominator_semantics": "Gaussian gaps are method-specific; native gaps are beam-specific. The 121 comparison components are descriptive overlap components formed separately within method, scan, and branch.",
+      "evidence_class": "cross_contract_inference",
+      "frozen_anchors": [
+        "114 Gaussian-contract gaps",
+        "2 ViPEr-native visibility gaps",
+        "121 comparison components: 111 Gaussian-only, 7 ViPErLEED-only, 3 shared",
+        "3/3 shared components have exact boundary agreement"
+      ],
+      "permitted_claim": "Bounded gap events were strongly contract-specific: most comparison components contained only Gaussian gaps, while only three components were shared and all three shared exact boundaries.",
+      "required_limitation": "Neither contract-specific gap is a physical-disappearance claim or a confirmed estimator-independent I(V) visibility gap.",
+      "sections": [
+        "results",
+        "conclusion"
+      ],
+      "source": "manuscript/cross_contract/outcomes/gap_comparisons.csv"
+    },
+    {
+      "claim_id": "XC4",
+      "denominator_semantics": "The denominator for classification is the 124 accepted Gaussian out-of-branch events, not all opportunities and not the fixed reference-visible set.",
+      "evidence_class": "cross_contract_inference",
+      "frozen_anchors": [
+        "124 accepted out-of-branch events",
+        "83 branch-model disagreements",
+        "16 Cross-contract target inconsistency events",
+        "25 Unresolved cross-contract outcomes without a direct native observation"
+      ],
+      "permitted_claim": "Accepted out-of-branch continuations were not one failure class: native evidence separated branch-model disagreement from Cross-contract target inconsistency and classified events without a direct native observation as Unresolved cross-contract outcomes.",
+      "required_limitation": "Cross-contract target inconsistency is compatible with possible false persistence but does not prove an identity switch; Unresolved cross-contract outcomes support neither interpretation.",
+      "sections": [
+        "abstract",
+        "results",
+        "conclusion"
+      ],
+      "source": "manuscript/cross_contract/outcomes/out_of_branch_events.csv"
+    },
+    {
+      "claim_id": "XC5",
+      "denominator_semantics": "The denominator is 121 overlap-connected components, nested within method, scan, and branch; exits are not independent replicates.",
+      "evidence_class": "cross_contract_inference",
+      "frozen_anchors": [
+        "Both contracts observe at 118/121 component exits",
+        "The three non-joint exits remain explicit"
+      ],
+      "permitted_claim": "Both contracts returned a direct observation at the first frame after 118 of 121 bounded comparison components.",
+      "required_limitation": "Call this joint observation at component exit, or contract-specific recovery where appropriate; do not call it proven recovery of physical spot identity.",
+      "sections": [
+        "results"
+      ],
+      "source": "manuscript/cross_contract/outcomes/gap_comparisons.csv"
+    },
+    {
+      "claim_id": "XC6",
+      "denominator_semantics": "Branch-consistent measurement coverage uses the fixed 221 reference-visible opportunities per method; the all-frame out-of-branch fraction instead uses 206-272 accepted Gaussian fits depending on method.",
+      "evidence_class": "direct_result",
+      "frozen_anchors": [
+        "Branch-consistent observations: 188-217/221",
+        "Accepted Gaussian fits: 206-272/324",
+        "Out-of-branch events: 4-36 per method"
+      ],
+      "permitted_claim": "Fixed-set branch-consistent measurement coverage and conditional out-of-branch fractions answer different questions and remained separately denominator-bound.",
+      "required_limitation": "Do not combine these quantities into a generic coverage score or use them to declare a universal best method.",
+      "sections": [
+        "abstract",
+        "results",
+        "conclusion"
+      ],
+      "source": "manuscript/cross_contract/outcomes/method_summary.csv"
+    },
+    {
+      "claim_id": "XC7",
+      "denominator_semantics": "All nine predeclared threshold/tolerance combinations and all five method strata are reported, for 45 method-variant rows; no variant is selected.",
+      "evidence_class": "direct_result",
+      "frozen_anchors": [
+        "Measurability counts are stable across all 9 variants",
+        "Positional tolerance reallocates some direct events between branch-model disagreement and Cross-contract target inconsistency",
+        "Unresolved cross-contract outcome counts remain fixed within method"
+      ],
+      "permitted_claim": "The measurement-contract observability conclusion was stable over the limited predeclared sensitivity grid, while the split between two direct-event interpretations remained tolerance dependent.",
+      "required_limitation": "The grid is a bounded robustness check, not parameter optimization, a complete capture-basin analysis, or support for selecting a favorable method ranking.",
+      "sections": [
+        "results",
+        "conclusion"
+      ],
+      "source": "manuscript/cross_contract/outcomes/sensitivity_results.csv"
+    }
+  ],
+  "contribution_boundary": {
+    "contribution": "A cross-contract, denominator-aware assessment of failure semantics in LEED spot-tracking measurement chains.",
+    "easy_leed_role": "EasyLEED is a prior physics-informed LEED-domain tracking baseline evaluated within the frozen comparison; this work does not claim to invent LEED spot tracking or radial scaling.",
+    "not_contributions": [
+      "invention of LEED spot tracking",
+      "invention of radial scaling",
+      "invention of aperture-based spot measurement",
+      "invention of gap bridging",
+      "a universal tracker ranking"
+    ],
+    "viperleed_role": "ViPErLEED supplies a prior indexed whole-pattern native measurement pathway; this work does not claim to invent aperture measurement, native beam indexing, or I(V) extraction."
+  },
+  "decision_id": "cross-contract-thesis-and-claim-boundary",
+  "language_rules": [
+    {
+      "concept": "gaps",
+      "permitted": "Use Gaussian-contract gap or ViPEr-native visibility gap and state the contract and bounded-run definition.",
+      "prohibited": "Do not use physical disappearance, true I(V) gap, occlusion, or estimator-independent visibility without separate evidence."
+    },
+    {
+      "concept": "recovery",
+      "permitted": "Use contract-specific recovery or both contracts observe at the comparison-component exit, with the event denominator.",
+      "prohibited": "Do not state that physical spot identity was recovered or that each frame is an independent recovery trial."
+    },
+    {
+      "concept": "Cross-contract target inconsistency",
+      "permitted": "Use Cross-contract target inconsistency for an accepted continuation more than the frozen tolerance from a direct mapped native target.",
+      "prohibited": "Do not call the event a proven identity switch, tracking error, or native ground-truth failure."
+    },
+    {
+      "concept": "abstention",
+      "permitted": "Use no accepted measurement under the named contract. Use abstention only when a method-specific output explicitly records an abstaining state.",
+      "prohibited": "Do not infer deliberate tracker abstention from Gaussian non-measurability, native non-detectability, or a rejected fit alone."
+    },
+    {
+      "concept": "possible false persistence",
+      "permitted": "State that Cross-contract target inconsistency is compatible with possible false persistence and requires qualification by the non-ground-truth boundary.",
+      "prohibited": "Do not label branch-model disagreement or Unresolved cross-contract outcomes as false persistence, and do not present possible false persistence as a proven identity switch."
+    }
+  ],
+  "legacy_claim_dispositions": [
+    {
+      "action": "remove_from_focused_cross_contract_claim_set",
+      "legacy_claim_id": "C1",
+      "reason": "Common-Gaussian suppression of proposal differences is local-contract evidence and cannot support the selected cross-contract thesis. It may remain clearly labeled methodological background."
+    },
+    {
+      "action": "remove_from_focused_cross_contract_claim_set",
+      "legacy_claim_id": "C2",
+      "reason": "The Cu positive-control endpoint uses the local Gaussian pathway and a different acquisition regime. It is outside the focused principal-scan claim set."
+    },
+    {
+      "action": "replace",
+      "legacy_claim_id": "C3",
+      "reason": "The prior Gaussian-only stress-test claim cannot remain the cross-contract headline. Replace it with XC1-XC6 so observability, gaps, recovery, and continuation semantics are explicitly contract-specific."
+    },
+    {
+      "action": "remove_from_abstract_and_conclusion",
+      "legacy_claim_id": "C4",
+      "reason": "Conditional pair-distance residual similarity depends only on the local Gaussian contract and does not answer the new cross-contract research question. It may remain labeled supporting context outside headline claims."
+    },
+    {
+      "action": "remove_from_focused_cross_contract_claim_set",
+      "legacy_claim_id": "C5",
+      "reason": "The SAM2 memory mechanism result uses the local Gaussian pathway only and is not evidence for the selected cross-contract thesis."
+    },
+    {
+      "action": "replace",
+      "legacy_claim_id": "C6",
+      "reason": "The old compatibility claim passes both methods through one Gaussian endpoint. The new principal comparison deliberately preserves ViPErLEED native outputs and must not imply downstream-contract equivalence."
+    },
+    {
+      "action": "retain_as_methodological_boundary_only",
+      "legacy_claim_id": "C7",
+      "reason": "The analytical pairwise-geometry statement remains a valid limitation, but it is not a result claim for the focused cross-contract manuscript."
+    },
+    {
+      "action": "remove_from_focused_cross_contract_claim_set",
+      "legacy_claim_id": "C8",
+      "reason": "The temperature-indexed Cu endpoint is local-Gaussian evidence from a different regime and does not support the selected cross-contract thesis."
+    },
+    {
+      "action": "remove_from_focused_cross_contract_claim_set",
+      "legacy_claim_id": "C9",
+      "reason": "The saved-proposal missingness diagnostic is specific to the local Gaussian amplitude gate and must not be generalized to native detectability or cross-contract observability."
+    },
+    {
+      "action": "remove",
+      "legacy_claim_id": "unqualified_failure_language",
+      "reason": "Any identity-switch, physical-disappearance, false-persistence, or generic visibility claim based on the local Gaussian contract alone exceeds the frozen scientific boundary."
+    }
+  ],
+  "schema_version": "1.0",
+  "source_bindings": {
+    "cross_contract_outcomes_headline": {
+      "path": "manuscript/cross_contract/outcomes/headline_summary.json",
+      "sha256": "507703750724ae9ebbc27c5a05f370689bb2090ee02818794fe8a352e852b236"
+    },
+    "cross_contract_outcomes_manifest": {
+      "path": "manuscript/cross_contract/outcomes/manifest.json",
+      "sha256": "c48f462f8d5c98b638a5acacc6a003bfc2bbc59fe8061051fba44545ff329456"
+    },
+    "gap_comparisons": {
+      "path": "manuscript/cross_contract/outcomes/gap_comparisons.csv",
+      "sha256": "eeeb1892d47058fee177b8d2b338426863ac4059334b3c9926053c187d545b8e"
+    },
+    "method_summary": {
+      "path": "manuscript/cross_contract/outcomes/method_summary.csv",
+      "sha256": "c276642ba2b441e1e97773ddb1e4bb6ca926c8279273548846b10ace90319bd2"
+    },
+    "scientific_contract": {
+      "path": "manuscript/cross_contract/scientific_contract.json",
+      "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+    }
+  },
+  "status": "proposed_for_author_checkpoint",
+  "thesis_decision": {
+    "justification": [
+      "Every method has more ViPErLEED-only than Gaussian-only observations, so observability is not stable across contracts.",
+      "The two contracts produce 114 versus 2 bounded gaps, and only 3 of 121 method-stratified comparison components are shared.",
+      "The 124 accepted out-of-branch continuations divide into branch-model disagreement, Cross-contract target inconsistency, and Unresolved cross-contract outcomes, so continuity alone cannot determine consistency.",
+      "The limited predeclared sensitivity preserves measurability counts but changes some direct-event interpretations, supporting the combined thesis with an explicit tolerance boundary."
+    ],
+    "rejected_alternatives": [
+      {
+        "alternative": "continuity-versus-consistency only",
+        "reason": "It omits the large contract dependence in direct observability and bounded gap definitions."
+      },
+      {
+        "alternative": "measurement-contract-dependent observability only",
+        "reason": "It omits the scientifically important split of accepted continuous outputs into agreement, Cross-contract target inconsistency, and Unresolved cross-contract outcomes."
+      }
+    ],
+    "selected": "combined_continuity_consistency_and_contract_dependent_observability",
+    "statement": "In the tested principal energy scans, LEED spot observability and the interpretation of continuous tracker output depend on the measurement contract: a continuation can remain measurable yet disagree with the predeclared radial branch, agree with the mapped indexed native target, meet the definition of Cross-contract target inconsistency, or remain an Unresolved cross-contract outcome. Robustness therefore requires cross-contract, denominator-aware assessment of both continuity and physical consistency."
+  },
+  "working_title": "Continuity is not consistency: Cross-contract observability in LEED spot measurement chains"
+}
