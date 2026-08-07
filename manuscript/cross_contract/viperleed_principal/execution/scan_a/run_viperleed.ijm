@@ -3,7 +3,7 @@ scanId = "scan_a";
 frameDir = "C:/Users/rlewa/Documents/PROJEKTY/trackleed/data/26a21_ScanE";
 outputDir = "C:/Users/rlewa/Documents/PROJEKTY/trackleed/.scratch/trackleed-cross-contract-manuscript/principal-viperleed-execution/scan_a/native";
 patternPath = "C:/Users/rlewa/Documents/PROJEKTY/trackleed/manuscript/cross_contract/viperleed_pilot/frozen/pattern.csv";
-screenfitPath = "C:/Users/rlewa/Documents/PROJEKTY/trackleed/manuscript/cross_contract/viperleed_pilot/frozen/registration_screenfit.csv";
+screenfitPath = "C:/Users/rlewa/Documents/PROJEKTY/trackleed/manuscript/cross_contract/viperleed_principal/execution/frozen_pilot_screenfit.csv";
 checkpointPath = outputDir + "/macro_checkpoint.txt";
 File.saveString("macro started\nconfiguration predeclared; no manual outcome annotation\n", checkpointPath);
 

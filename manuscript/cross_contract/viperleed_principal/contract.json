@@ -49,15 +49,20 @@
       ]
     },
     "screenfit": {
-      "path": "manuscript/cross_contract/viperleed_pilot/frozen/registration_screenfit.csv",
-      "sha256": "1ec0e47484f485cec06af5a055864d0d51720c2c7d75c975c371727e883929fa",
-      "transfer_policy": "one unchanged pilot initialization per principal scan"
+      "path": "manuscript/cross_contract/viperleed_principal/execution/frozen_pilot_screenfit.csv",
+      "sha256": "deac8094e0f8b897943e77ec06ecebeb0c3505da1c9adadb2e81a71ea95bbbec",
+      "source_log": {
+        "path": "manuscript/cross_contract/viperleed_pilot/frozen/viperleed_log.txt",
+        "sha256": "61c0dbc6868e3fb3c5ea4e471519261c9519403c0dca6551f27fae901a2bfd57"
+      },
+      "transfer_policy": "one unchanged final native pilot screenfit per principal scan"
     },
     "search_beam_unseen_for_ev": 10.0,
     "serialized_tracker_parameters_expected": "6,0,64,1000,1000,3,30,2.5,10,0,0,4,0,0,5,5,100,2,50,2,4,1111,NaN,NaN,0,NaN,1,0,0,0,20,0,0,0,0,1,512,2,1"
   },
   "contract_id": "native-viperleed-principal-scans",
   "evidence_policy": {
+    "initialization_amendment": "the pre-pilot registration model was replaced by the final native pilot screenfit after LEEDsetIndices rejected it, before any principal tracking result existed",
     "method_configuration": [
       "one transferred pattern and screenfit initialization per scan",
       "frozen pilot tracker settings",
@@ -124,7 +129,7 @@
       },
       "macro": {
         "path": "manuscript/cross_contract/viperleed_principal/execution/scan_a/run_viperleed.ijm",
-        "sha256": "da84a84a329da88444e0eb28fbfd73ceb4dc1de6f13a57bbe28b1f36975a172a"
+        "sha256": "d91a287165f6ebf2ab53efec163d4c15d322b0af49b2fd634e7b65a0b15c5476"
       },
       "native_output_prefix": "viperleed_scan_a",
       "terminal_duplicate": [
@@ -147,7 +152,7 @@
       },
       "macro": {
         "path": "manuscript/cross_contract/viperleed_principal/execution/scan_b/run_viperleed.ijm",
-        "sha256": "247168334a602ca07f26be7a43c44aeb64be0c37cb9421b1321ce80bfdf4a4d5"
+        "sha256": "1e3c20120a3df59339633aeb7615416afadd744151fec0753f63584144cacec2"
       },
       "native_output_prefix": "viperleed_scan_b",
       "terminal_duplicate": [

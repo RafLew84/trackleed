@@ -18,6 +18,7 @@ EXECUTION_ROOT = (
     / ".scratch/trackleed-cross-contract-manuscript/principal-viperleed-execution"
 )
 PILOT_ROOT = REPO_ROOT / "manuscript/cross_contract/viperleed_pilot"
+TRANSFERRED_SCREENFIT = PACKAGE_ROOT / "execution/frozen_pilot_screenfit.csv"
 FRAME_PATTERN = re.compile(r"_(?P<frame>\d{4})_T\d+_E(?P<energy>\d{4})_")
 SERIALIZED_TRACKER_PARAMETERS = (
     "6,0,64,1000,1000,3,30,2.5,10,0,0,4,0,0,5,5,100,2,50,2,4,1111,"
@@ -96,7 +97,7 @@ def macro_text(scan_id: str, energies: list[float]) -> str:
     dataset = REPO_ROOT / str(scan["dataset"])
     output = EXECUTION_ROOT / scan_id / "native"
     pattern = PILOT_ROOT / "frozen/pattern.csv"
-    screenfit = PILOT_ROOT / "frozen/registration_screenfit.csv"
+    screenfit = TRANSFERRED_SCREENFIT
     prefix = f"viperleed_{scan_id}"
     energy_lines = []
     for start in range(0, len(energies), 8):
@@ -229,7 +230,8 @@ def main() -> int:
 
     pilot_contract = PILOT_ROOT / "contract.json"
     pattern = PILOT_ROOT / "frozen/pattern.csv"
-    screenfit = PILOT_ROOT / "frozen/registration_screenfit.csv"
+    screenfit = TRANSFERRED_SCREENFIT
+    pilot_log = PILOT_ROOT / "frozen/viperleed_log.txt"
     scientific_contract = REPO_ROOT / "manuscript/cross_contract/scientific_contract.json"
     fingerprint = REPO_ROOT / "manuscript/scientific_core/fingerprint.json"
     contract = {
@@ -260,7 +262,11 @@ def main() -> int:
             "screenfit": {
                 "path": screenfit.relative_to(REPO_ROOT).as_posix(),
                 "sha256": sha256(screenfit),
-                "transfer_policy": "one unchanged pilot initialization per principal scan",
+                "source_log": {
+                    "path": pilot_log.relative_to(REPO_ROOT).as_posix(),
+                    "sha256": sha256(pilot_log),
+                },
+                "transfer_policy": "one unchanged final native pilot screenfit per principal scan",
             },
             "screen_mask": {
                 "center_xy_px": [491.00030779190064, 472.01122086402023],
@@ -274,6 +280,7 @@ def main() -> int:
         },
         "contract_id": "native-viperleed-principal-scans",
         "evidence_policy": {
+            "initialization_amendment": "the pre-pilot registration model was replaced by the final native pilot screenfit after LEEDsetIndices rejected it, before any principal tracking result existed",
             "method_configuration": [
                 "one transferred pattern and screenfit initialization per scan",
                 "frozen pilot tracker settings",
