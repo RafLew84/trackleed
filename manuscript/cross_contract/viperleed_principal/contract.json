@@ -1,0 +1,165 @@
+{
+  "branch_mapping": {
+    "P1_B1": [
+      -1,
+      0
+    ],
+    "P1_B2": [
+      1,
+      0
+    ],
+    "P2_B1": [
+      1,
+      -1
+    ],
+    "P2_B2": [
+      -1,
+      1
+    ]
+  },
+  "configuration": {
+    "aperture_and_background": {
+      "bright_neighbor_background_subtraction": false,
+      "shape": "concentric-circles"
+    },
+    "corrections": {
+      "dark_frame": "none supplied",
+      "flat_field": "none supplied",
+      "i0": "none supplied",
+      "i00": "none supplied"
+    },
+    "minimum_energy_range_per_beam_ev": 0.0,
+    "noise_rejection_significance": 2.5,
+    "pattern": {
+      "path": "manuscript/cross_contract/viperleed_pilot/frozen/pattern.csv",
+      "sha256": "4a96c9b5a45d0ccf737374ab810229bd51f84832506e9bba1b736880800a419e"
+    },
+    "position_smoothing_range_ev": 30.0,
+    "screen_mask": {
+      "center_xy_px": [
+        491.00030779190064,
+        472.01122086402023
+      ],
+      "inner_radius_px": 125.0,
+      "outer_radius_px": 470.0,
+      "shape": "annulus",
+      "size_px": [
+        1000,
+        1000
+      ]
+    },
+    "screenfit": {
+      "path": "manuscript/cross_contract/viperleed_pilot/frozen/registration_screenfit.csv",
+      "sha256": "1ec0e47484f485cec06af5a055864d0d51720c2c7d75c975c371727e883929fa",
+      "transfer_policy": "one unchanged pilot initialization per principal scan"
+    },
+    "search_beam_unseen_for_ev": 10.0,
+    "serialized_tracker_parameters_expected": "6,0,64,1000,1000,3,30,2.5,10,0,0,4,0,0,5,5,100,2,50,2,4,1111,NaN,NaN,0,NaN,1,0,0,0,20,0,0,0,0,1,512,2,1"
+  },
+  "contract_id": "native-viperleed-principal-scans",
+  "evidence_policy": {
+    "method_configuration": [
+      "one transferred pattern and screenfit initialization per scan",
+      "frozen pilot tracker settings",
+      "frozen source-frame and energy sequence"
+    ],
+    "outcome_annotation": "none during native inference",
+    "prohibited_after_outcomes_visible": [
+      "per-frame correction",
+      "manual recovery decision",
+      "selective beam deletion",
+      "parameter tuning",
+      "dropping failed or missing observations"
+    ]
+  },
+  "expected_native_suffixes": [
+    "x",
+    "y",
+    "signif",
+    "dx_raw",
+    "dy_raw",
+    "dx_smooth",
+    "dy_smooth",
+    "rawInt",
+    "backgr",
+    "bsigma",
+    "rSize",
+    "tSize",
+    "IVcurves"
+  ],
+  "inference_scope": {
+    "acquisition_status": "existing-acquisition-only evidence",
+    "inference_status": "new native inference",
+    "native_outputs_preserved_before_proposal_reduction": true
+  },
+  "pilot_contract": {
+    "path": "manuscript/cross_contract/viperleed_pilot/contract.json",
+    "sha256": "5afa547db8eca73a3e2a6479ac4138b90e15c357322fe1b805120fdbacbc1618"
+  },
+  "predecessor_scientific_core": {
+    "fingerprint_path": "manuscript/scientific_core/fingerprint.json",
+    "fingerprint_sha256": "be946e963239168ecfbb65c0eb73773e982cf0d0123b62515cc45cdf26375bd3",
+    "required_transition": "controlled scientific-core rebaseline after cross-contract analysis and claim-boundary approval"
+  },
+  "runtime": {
+    "imagej_jar_sha256": "6acc016e4630d5c5ecd470b205f8d1abc08ce57568c6ab617a308d2451d9c90d",
+    "imagej_version": "1.54u",
+    "java_version": "OpenJDK 1.8.0_345",
+    "plugin_jar_sha256": "dd058af9ea79eaf6bea837efc6188b8f9b67dadf980b540d84826a33062c8a2d",
+    "plugin_version": "1.03"
+  },
+  "scans": {
+    "scan_a": {
+      "dataset": "data/26a21_ScanE",
+      "energy_range_ev": [
+        40.0,
+        220.5
+      ],
+      "frame_count": 35,
+      "initialization_energy_ev": 188.5,
+      "initialization_frame": 27,
+      "input_manifest": {
+        "path": "manuscript/cross_contract/viperleed_principal/execution/scan_a/input_manifest.csv",
+        "sha256": "0c4bb768acdb2724aadc35c92e9fbcc59f2897721bf5007746db0a0daef383d7"
+      },
+      "macro": {
+        "path": "manuscript/cross_contract/viperleed_principal/execution/scan_a/run_viperleed.ijm",
+        "sha256": "da84a84a329da88444e0eb28fbfd73ceb4dc1de6f13a57bbe28b1f36975a172a"
+      },
+      "native_output_prefix": "viperleed_scan_a",
+      "terminal_duplicate": [
+        220.5,
+        220.5
+      ]
+    },
+    "scan_b": {
+      "dataset": "data/26a21b_ScanE",
+      "energy_range_ev": [
+        40.0,
+        220.4
+      ],
+      "frame_count": 46,
+      "initialization_energy_ev": 188.5,
+      "initialization_frame": 36,
+      "input_manifest": {
+        "path": "manuscript/cross_contract/viperleed_principal/execution/scan_b/input_manifest.csv",
+        "sha256": "4d52d76e0ef028d0e443fd013506e224cab2145db357c179155a7775a1fb741e"
+      },
+      "macro": {
+        "path": "manuscript/cross_contract/viperleed_principal/execution/scan_b/run_viperleed.ijm",
+        "sha256": "247168334a602ca07f26be7a43c44aeb64be0c37cb9421b1321ce80bfdf4a4d5"
+      },
+      "native_output_prefix": "viperleed_scan_b",
+      "terminal_duplicate": [
+        220.4,
+        220.4
+      ]
+    }
+  },
+  "schema_version": "1.0",
+  "scientific_contract": {
+    "path": "manuscript/cross_contract/scientific_contract.json",
+    "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+  },
+  "status": "predeclared-principal-viperleed-inference-contract"
+}

@@ -1,0 +1,2 @@
+# Preserve native ViPErLEED results byte-for-byte across platforms.
+frozen/** binary
