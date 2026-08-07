@@ -1,0 +1,186 @@
+{
+  "status": "completed",
+  "scope": "Frozen 15-frame, two-pair EasyLEED-ViPErLEED contract; not an absolute accuracy ranking.",
+  "dataset": "data/26a24_ScanE",
+  "source_frames": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68
+  ],
+  "frame_count": 15,
+  "unique_energy_count": 14,
+  "energy_range_ev": [
+    187.9,
+    220.2
+  ],
+  "duplicate_terminal_energy": {
+    "energy_ev": 220.2,
+    "frames": [
+      67,
+      68
+    ],
+    "preserved_as_distinct_frames": true
+  },
+  "pairs": {
+    "P1": [
+      "P1_B1",
+      "P1_B2"
+    ],
+    "P2": [
+      "P2_B1",
+      "P2_B2"
+    ]
+  },
+  "common_measurement": {
+    "roi_size_px": 48,
+    "r_squared_min": 0.85,
+    "amplitude_min": 0.012,
+    "center_tolerance_px": 15.0
+  },
+  "methods": {
+    "EasyLEED": {
+      "proposal_rows": 60,
+      "valid_common_fits": 38,
+      "per_branch": {
+        "P1_B1": {
+          "valid_common_fits": 13,
+          "total_frames": 15
+        },
+        "P1_B2": {
+          "valid_common_fits": 7,
+          "total_frames": 15
+        },
+        "P2_B1": {
+          "valid_common_fits": 13,
+          "total_frames": 15
+        },
+        "P2_B2": {
+          "valid_common_fits": 5,
+          "total_frames": 15
+        }
+      },
+      "per_pair": {
+        "P1": {
+          "valid_pair_frames": 5,
+          "total_frames": 15,
+          "pair_abs_residual_px": {
+            "median": 0.46152634953296,
+            "maximum": 0.6677175812752694
+          }
+        },
+        "P2": {
+          "valid_pair_frames": 3,
+          "total_frames": 15,
+          "pair_abs_residual_px": {
+            "median": 0.7618937213718482,
+            "maximum": 1.2162069157260476
+          }
+        }
+      },
+      "branch_gap_checks_passed": 4,
+      "branch_gap_checks_total": 4,
+      "terminal_duplicate_common_fit_validity": {
+        "P1_B1": {
+          "67": false,
+          "68": false
+        },
+        "P1_B2": {
+          "67": true,
+          "68": true
+        },
+        "P2_B1": {
+          "67": false,
+          "68": false
+        },
+        "P2_B2": {
+          "67": true,
+          "68": true
+        }
+      }
+    },
+    "ViPErLEED": {
+      "proposal_rows": 60,
+      "valid_common_fits": 38,
+      "per_branch": {
+        "P1_B1": {
+          "valid_common_fits": 13,
+          "total_frames": 15
+        },
+        "P1_B2": {
+          "valid_common_fits": 7,
+          "total_frames": 15
+        },
+        "P2_B1": {
+          "valid_common_fits": 13,
+          "total_frames": 15
+        },
+        "P2_B2": {
+          "valid_common_fits": 5,
+          "total_frames": 15
+        }
+      },
+      "per_pair": {
+        "P1": {
+          "valid_pair_frames": 5,
+          "total_frames": 15,
+          "pair_abs_residual_px": {
+            "median": 0.46033446939969735,
+            "maximum": 0.6699823100376534
+          }
+        },
+        "P2": {
+          "valid_pair_frames": 3,
+          "total_frames": 15,
+          "pair_abs_residual_px": {
+            "median": 0.7601447007832576,
+            "maximum": 1.2161708071204202
+          }
+        }
+      },
+      "branch_gap_checks_passed": 4,
+      "branch_gap_checks_total": 4,
+      "terminal_duplicate_common_fit_validity": {
+        "P1_B1": {
+          "67": false,
+          "68": false
+        },
+        "P1_B2": {
+          "67": true,
+          "68": true
+        },
+        "P2_B1": {
+          "67": false,
+          "68": false
+        },
+        "P2_B2": {
+          "67": true,
+          "68": true
+        }
+      }
+    }
+  },
+  "interpretation_limits": [
+    "At both terminal 220.2 eV frames, P1_B2 and P2_B2 recover a valid common fit, but their opposite B1 branches fail the Gaussian gate. This supports branch identity recovery, not a terminal pair-distance D(E) measurement.",
+    "EasyLEED's standard energy-keyed loader collapses duplicate energies; the adapter preserves frame_id and feeds both 220.2 eV images to the native Tracker at the true energy."
+  ],
+  "cross_method_contract_agreement_px": {
+    "native_proposal_pairs": 60,
+    "native_proposal_distance_median": 0.6256103065878225,
+    "native_proposal_distance_maximum": 1.69552331430677,
+    "jointly_valid_common_centers": 38,
+    "common_center_distance_median": 0.0009857897447900941,
+    "common_center_distance_maximum": 0.024036728374994654
+  }
+}

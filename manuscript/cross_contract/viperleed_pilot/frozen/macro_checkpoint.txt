@@ -1,0 +1,19 @@
+macro started
+15-frame stack opened
+
+annular mask built
+
+tracker panel started
+
+stack, energy and mask attached
+
+pattern attached; setting indices
+
+indices set
+
+spot tracking completed
+
+native data saved
+
+macro completed
+

@@ -1,0 +1,2 @@
+# Preserve authenticated upstream evidence byte-for-byte on every platform.
+frozen/** binary

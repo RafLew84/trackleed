@@ -1,0 +1,169 @@
+{
+  "file_count": 26,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "role": "checkout byte-preservation rules",
+      "sha256": "072a63db578b9ea497912662cc9feab61f0b94dc82a23cda477a53d6a20f6ac0",
+      "size_bytes": 93
+    },
+    {
+      "path": "contract.json",
+      "role": "normative pilot contract",
+      "sha256": "5afa547db8eca73a3e2a6479ac4138b90e15c357322fe1b805120fdbacbc1618",
+      "size_bytes": 11920
+    },
+    {
+      "path": "frozen/common_measurements.csv",
+      "role": "local Gaussian acceptance outcomes",
+      "sha256": "08f8791d4ad7d83925588eb58e4da4e2ac12134ab649f07c9e2394324907a4fc",
+      "size_bytes": 30728
+    },
+    {
+      "path": "frozen/input_manifest.csv",
+      "role": "source-image hash and frame inventory",
+      "sha256": "059f80d89e6465997647f8d8a509224c265d53054077f3a3130095f8913a07b6",
+      "size_bytes": 2386
+    },
+    {
+      "path": "frozen/macro_checkpoint.txt",
+      "role": "completed native-run checkpoint",
+      "sha256": "1685593c1ba0753a46de414ac901b182bc1eabfa8d2127df224e3083f5d35436",
+      "size_bytes": 222
+    },
+    {
+      "path": "frozen/native/background.csv",
+      "role": "native local background diagnostic",
+      "sha256": "ca0e3ba74bbb7fc647934fb841456d4d6b96361a7bbd9bc9a2ce361ea15c6653",
+      "size_bytes": 2825
+    },
+    {
+      "path": "frozen/native/background_sigma.csv",
+      "role": "native background-noise diagnostic",
+      "sha256": "6f7a0e4d7dbfe9721e7538c7ad8016880e3b1e6e4cad492885a4427682b10803",
+      "size_bytes": 2925
+    },
+    {
+      "path": "frozen/native/dx_raw.csv",
+      "role": "raw native x deviations",
+      "sha256": "6ca9c4fe685998b04d13d56246befce5ae3493fa5e5609272a044be6043cfb2a",
+      "size_bytes": 3037
+    },
+    {
+      "path": "frozen/native/dx_smooth.csv",
+      "role": "smoothed native x deviations",
+      "sha256": "67e3c9e9d560d4e9c26edf7b4dc79aca2ac9441b9a5f400ebe4a0808139702f6",
+      "size_bytes": 3192
+    },
+    {
+      "path": "frozen/native/dy_raw.csv",
+      "role": "raw native y deviations",
+      "sha256": "362c940324818d4d5121100f40f1134b34e4e95351ccd4783a1921b257deddf3",
+      "size_bytes": 3002
+    },
+    {
+      "path": "frozen/native/dy_smooth.csv",
+      "role": "smoothed native y deviations",
+      "sha256": "98f924714d219c85d91f5aa63de5924fe7cf60da1c777b07f93483ccb85b9635",
+      "size_bytes": 3129
+    },
+    {
+      "path": "frozen/native/iv_curves.csv",
+      "role": "native integrated-intensity output",
+      "sha256": "5d7deb7844841905d1ac7873d090bb2919a83080098ed2ab86c1748d05c5aa48",
+      "size_bytes": 2915
+    },
+    {
+      "path": "frozen/native/radial_size.csv",
+      "role": "native radial spot-size diagnostic",
+      "sha256": "726e02c6f57ddeb9a0c3c059726524bc04322771b0025c526edeceb3c36d8ea5",
+      "size_bytes": 2856
+    },
+    {
+      "path": "frozen/native/raw_intensity.csv",
+      "role": "native raw intensity diagnostic",
+      "sha256": "6937df1c57bc436fe01007bec131355a61b9a3cb59412bc12b1ebefd707f9c2f",
+      "size_bytes": 2914
+    },
+    {
+      "path": "frozen/native/significance.csv",
+      "role": "native direct-detection significance",
+      "sha256": "73238007247ed375e812ed064a9e55ed9cad52b73af31d796e4e163325f42c8e",
+      "size_bytes": 2889
+    },
+    {
+      "path": "frozen/native/tangential_size.csv",
+      "role": "native tangential spot-size diagnostic",
+      "sha256": "de6d3521343f9eff97372d4cad0881690b91a49c1f2ee9ea4105462ef9f7d36f",
+      "size_bytes": 2865
+    },
+    {
+      "path": "frozen/native/x.csv",
+      "role": "final native x positions",
+      "sha256": "94e8cfd0a13dc574b3d23615b62022402bbf55da401e220c6f093905618d67d6",
+      "size_bytes": 2884
+    },
+    {
+      "path": "frozen/native/y.csv",
+      "role": "final native y positions",
+      "sha256": "0b94e9262f13585b82b65d74b9c3aa55ce5617e09777d5fa318b3fe588438fcd",
+      "size_bytes": 2900
+    },
+    {
+      "path": "frozen/original_summary.json",
+      "role": "predecessor common-Gaussian pilot summary",
+      "sha256": "390c49a88c10b9e76f6e47fd7d9c208348b507c4948b0630b606e5510ad69e3b",
+      "size_bytes": 4583
+    },
+    {
+      "path": "frozen/pattern.csv",
+      "role": "18-beam Ag(111) pattern definition",
+      "sha256": "4a96c9b5a45d0ccf737374ab810229bd51f84832506e9bba1b736880800a419e",
+      "size_bytes": 911
+    },
+    {
+      "path": "frozen/registration_screenfit.csv",
+      "role": "initial reciprocal-space-to-screen transform",
+      "sha256": "1ec0e47484f485cec06af5a055864d0d51720c2c7d75c975c371727e883929fa",
+      "size_bytes": 357
+    },
+    {
+      "path": "frozen/registration_validation.json",
+      "role": "independent registration diagnostics",
+      "sha256": "bd9c56e4742445f02f55c2613edb41811586f200222c2cb6c31cebd4ca0d53ca",
+      "size_bytes": 6033
+    },
+    {
+      "path": "frozen/run_viperleed.ijm",
+      "role": "executed pilot macro",
+      "sha256": "1612e4b77179eddfcefd59c546068ec926324c22cb5a50b9b4714633a1772ec6",
+      "size_bytes": 2693
+    },
+    {
+      "path": "frozen/viperleed_log.txt",
+      "role": "authoritative serialized tracker parameters",
+      "sha256": "61c0dbc6868e3fb3c5ea4e471519261c9519403c0dca6551f27fae901a2bfd57",
+      "size_bytes": 1070
+    },
+    {
+      "path": "pilot_records.csv",
+      "role": "normalized native four-branch pilot records",
+      "sha256": "4fe756adc9d41e31d878a621946bd23ca5f10899e2ec7d52444ce9f22d3f9860",
+      "size_bytes": 21344
+    },
+    {
+      "path": "pilot_summary.json",
+      "role": "derived pilot calibration summary",
+      "sha256": "d4e00c75ad9a22f4392ee35122d21711b0e149ef25927c73b295df280538d393",
+      "size_bytes": 922
+    }
+  ],
+  "package_id": "native-viperleed-pilot-reference",
+  "schema_version": "1.0",
+  "source_image_inventory": {
+    "frame_count": 15,
+    "identity": "source frame plus energy; duplicate energies remain distinct",
+    "manifest_path": "frozen/input_manifest.csv"
+  },
+  "status": "frozen-viperleed-pilot-manifest"
+}

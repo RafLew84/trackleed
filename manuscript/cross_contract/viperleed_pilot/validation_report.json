@@ -1,0 +1,33 @@
+{
+  "branch_mapping": {
+    "P1_B1": [
+      -1,
+      0
+    ],
+    "P1_B2": [
+      1,
+      0
+    ],
+    "P2_B1": [
+      1,
+      -1
+    ],
+    "P2_B2": [
+      -1,
+      1
+    ]
+  },
+  "contract_sha256": "5afa547db8eca73a3e2a6479ac4138b90e15c357322fe1b805120fdbacbc1618",
+  "cross_contract_displacement_record_count": 38,
+  "cross_contract_tolerance_px": 1.0,
+  "gaussian_rejection_count": 22,
+  "high_signal_calibration_count": 22,
+  "manifest_sha256": "8c702ffbb1d82cfd5c83c93a9bdcca2f47fee2fd948b0bc1c224cad21b2f7123",
+  "pilot_evidence_role": "calibration-only",
+  "pilot_record_count": 60,
+  "rejections_above_native_threshold": 21,
+  "rejections_above_threshold_with_finite_raw": 21,
+  "schema_version": "1.0",
+  "status": "validated-viperleed-pilot-contract",
+  "viper_native_direct_detectability_count": 59
+}

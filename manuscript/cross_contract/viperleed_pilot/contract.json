@@ -1,0 +1,286 @@
+{
+  "aperture_and_background": {
+    "background_outer_radius_factor": "sqrt(2)",
+    "bright_neighbor_background_subtraction": false,
+    "integration_radius_end_px": 8.28,
+    "integration_radius_start_px": 8.33,
+    "shape": "concentric-circles"
+  },
+  "beam_mapping": {
+    "P1_B1": {
+      "beam_column": "(-1|0) [0]",
+      "h": -1,
+      "k": 0
+    },
+    "P1_B2": {
+      "beam_column": "(1|0) [0]",
+      "h": 1,
+      "k": 0
+    },
+    "P2_B1": {
+      "beam_column": "(1|-1) [0]",
+      "h": 1,
+      "k": -1
+    },
+    "P2_B2": {
+      "beam_column": "(-1|1) [0]",
+      "h": -1,
+      "k": 1
+    }
+  },
+  "calibration": {
+    "cross_contract_tolerance_px": 1.0,
+    "eligibility": {
+      "gaussian_contract_measurable": true,
+      "minimum_native_significance": 20.0,
+      "viper_native_direct_detectability": true
+    },
+    "exclusions": [
+      "all Gaussian-contract rejections",
+      "all pilot records below the high-signal threshold",
+      "all principal-scan records and outcomes"
+    ],
+    "expected_record_count": 22,
+    "observed_max_distance_px": 0.4548687654337075,
+    "round_up_increment_px": 1.0,
+    "rule": "ceil_to_increment(safety_factor * maximum high-signal raw-native-to-Gaussian distance)",
+    "safety_factor": 2.0
+  },
+  "contract_id": "native-viperleed-pilot-reference",
+  "corrections": {
+    "dark_frame": "none supplied to ViPErLEED",
+    "flat_field": "none supplied to ViPErLEED",
+    "i0": "none supplied",
+    "i00": "none supplied"
+  },
+  "cross_contract_displacement": {
+    "definition": "native raw beam position minus accepted Gaussian-refined spot position",
+    "radial_axis": "from the frozen reciprocal-space origin to the native screen-model position",
+    "radial_origin_xy_px": [
+      490.6476466795615,
+      487.8489146787019
+    ],
+    "record_only_when": [
+      "ViPEr-native direct detectability",
+      "Gaussian-contract measurability"
+    ],
+    "tangential_orientation": "counter-clockwise from the radial axis after converting image y-down coordinates to y-up"
+  },
+  "viper_native_direct_detectability": {
+    "all_of": [
+      "significance >= 2.5",
+      "finite dx_raw",
+      "finite dy_raw"
+    ],
+    "coordinate_source": "raw native position reconstructed as final - smooth deviation + raw deviation",
+    "final_coordinates_alone_are_sufficient": false,
+    "significance_threshold": 2.5,
+    "smoothed_or_extrapolated_coordinates_alone_are_sufficient": false
+  },
+  "evidence_role": {
+    "may_be_reused_as_independent_confirmation": false,
+    "principal_scan_outcomes_inspected_for_calibration": false,
+    "role": "calibration-only"
+  },
+  "frozen_inputs": [
+    {
+      "frozen_path": "frozen/input_manifest.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/input_manifest.csv",
+      "role": "source-image hash and frame inventory",
+      "sha256": "059f80d89e6465997647f8d8a509224c265d53054077f3a3130095f8913a07b6"
+    },
+    {
+      "frozen_path": "frozen/common_measurements.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/common_measurements.csv",
+      "role": "local Gaussian acceptance outcomes",
+      "sha256": "08f8791d4ad7d83925588eb58e4da4e2ac12134ab649f07c9e2394324907a4fc"
+    },
+    {
+      "frozen_path": "frozen/original_summary.json",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/summary.json",
+      "role": "predecessor common-Gaussian pilot summary",
+      "sha256": "390c49a88c10b9e76f6e47fd7d9c208348b507c4948b0630b606e5510ad69e3b"
+    },
+    {
+      "frozen_path": "frozen/run_viperleed.ijm",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/run_viperleed.ijm",
+      "role": "executed pilot macro",
+      "sha256": "1612e4b77179eddfcefd59c546068ec926324c22cb5a50b9b4714633a1772ec6"
+    },
+    {
+      "frozen_path": "frozen/macro_checkpoint.txt",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/macro_checkpoint.txt",
+      "role": "completed native-run checkpoint",
+      "sha256": "1685593c1ba0753a46de414ac901b182bc1eabfa8d2127df224e3083f5d35436"
+    },
+    {
+      "frozen_path": "frozen/viperleed_log.txt",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_log.txt",
+      "role": "authoritative serialized tracker parameters",
+      "sha256": "61c0dbc6868e3fb3c5ea4e471519261c9519403c0dca6551f27fae901a2bfd57"
+    },
+    {
+      "frozen_path": "frozen/pattern.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-pilot/viperleed/ag111_hexagonal_pattern.csv",
+      "role": "18-beam Ag(111) pattern definition",
+      "sha256": "4a96c9b5a45d0ccf737374ab810229bd51f84832506e9bba1b736880800a419e"
+    },
+    {
+      "frozen_path": "frozen/registration_screenfit.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-pilot/viperleed/ag111_registration_screenfit.csv",
+      "role": "initial reciprocal-space-to-screen transform",
+      "sha256": "1ec0e47484f485cec06af5a055864d0d51720c2c7d75c975c371727e883929fa"
+    },
+    {
+      "frozen_path": "frozen/registration_validation.json",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-pilot/viperleed/ag111_registration_validation.json",
+      "role": "independent registration diagnostics",
+      "sha256": "bd9c56e4742445f02f55c2613edb41811586f200222c2cb6c31cebd4ca0d53ca"
+    },
+    {
+      "frozen_path": "frozen/native/x.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_x.csv",
+      "role": "final native x positions",
+      "sha256": "94e8cfd0a13dc574b3d23615b62022402bbf55da401e220c6f093905618d67d6"
+    },
+    {
+      "frozen_path": "frozen/native/y.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_y.csv",
+      "role": "final native y positions",
+      "sha256": "0b94e9262f13585b82b65d74b9c3aa55ce5617e09777d5fa318b3fe588438fcd"
+    },
+    {
+      "frozen_path": "frozen/native/significance.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_signif.csv",
+      "role": "native direct-detection significance",
+      "sha256": "73238007247ed375e812ed064a9e55ed9cad52b73af31d796e4e163325f42c8e"
+    },
+    {
+      "frozen_path": "frozen/native/dx_raw.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_dx_raw.csv",
+      "role": "raw native x deviations",
+      "sha256": "6ca9c4fe685998b04d13d56246befce5ae3493fa5e5609272a044be6043cfb2a"
+    },
+    {
+      "frozen_path": "frozen/native/dy_raw.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_dy_raw.csv",
+      "role": "raw native y deviations",
+      "sha256": "362c940324818d4d5121100f40f1134b34e4e95351ccd4783a1921b257deddf3"
+    },
+    {
+      "frozen_path": "frozen/native/dx_smooth.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_dx_smooth.csv",
+      "role": "smoothed native x deviations",
+      "sha256": "67e3c9e9d560d4e9c26edf7b4dc79aca2ac9441b9a5f400ebe4a0808139702f6"
+    },
+    {
+      "frozen_path": "frozen/native/dy_smooth.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_dy_smooth.csv",
+      "role": "smoothed native y deviations",
+      "sha256": "98f924714d219c85d91f5aa63de5924fe7cf60da1c777b07f93483ccb85b9635"
+    },
+    {
+      "frozen_path": "frozen/native/raw_intensity.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_rawInt.csv",
+      "role": "native raw intensity diagnostic",
+      "sha256": "6937df1c57bc436fe01007bec131355a61b9a3cb59412bc12b1ebefd707f9c2f"
+    },
+    {
+      "frozen_path": "frozen/native/background.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_backgr.csv",
+      "role": "native local background diagnostic",
+      "sha256": "ca0e3ba74bbb7fc647934fb841456d4d6b96361a7bbd9bc9a2ce361ea15c6653"
+    },
+    {
+      "frozen_path": "frozen/native/background_sigma.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_bsigma.csv",
+      "role": "native background-noise diagnostic",
+      "sha256": "6f7a0e4d7dbfe9721e7538c7ad8016880e3b1e6e4cad492885a4427682b10803"
+    },
+    {
+      "frozen_path": "frozen/native/radial_size.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_rSize.csv",
+      "role": "native radial spot-size diagnostic",
+      "sha256": "726e02c6f57ddeb9a0c3c059726524bc04322771b0025c526edeceb3c36d8ea5"
+    },
+    {
+      "frozen_path": "frozen/native/tangential_size.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_tSize.csv",
+      "role": "native tangential spot-size diagnostic",
+      "sha256": "de6d3521343f9eff97372d4cad0881690b91a49c1f2ee9ea4105462ef9f7d36f"
+    },
+    {
+      "frozen_path": "frozen/native/iv_curves.csv",
+      "origin_path": ".scratch/trackleed-physics-method-paper/artifacts/domain-baseline-high-energy/viperleed/viperleed_high_energy_IVcurves.csv",
+      "role": "native integrated-intensity output",
+      "sha256": "5d7deb7844841905d1ac7873d090bb2919a83080098ed2ab86c1748d05c5aa48"
+    }
+  ],
+  "initialization": {
+    "energy_ev": 187.9,
+    "pattern_beam_count": 18,
+    "registered_spot_count": 18,
+    "screen_model": "cubic",
+    "screen_model_rms_px": 3.2
+  },
+  "pilot_scope": {
+    "dataset": "data/26a24_ScanE",
+    "energy_range_ev": [
+      187.9,
+      220.2
+    ],
+    "expected_branch_frame_records": 60,
+    "frame_count": 15,
+    "source_frames": [
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68
+    ]
+  },
+  "runtime": {
+    "imagej_version": "1.54u",
+    "imagej_sha256": "6acc016e4630d5c5ecd470b205f8d1abc08ce57568c6ab617a308d2451d9c90d",
+    "java_version": "OpenJDK 1.8.0_345",
+    "plugin_commit": "2ed1044b72bb43a936f9456cdb8b9846e0d23e96",
+    "plugin_sha256": "dd058af9ea79eaf6bea837efc6188b8f9b67dadf980b540d84826a33062c8a2d",
+    "plugin_version": "1.03"
+  },
+  "schema_version": "1.0",
+  "scientific_contract": {
+    "path": "manuscript/cross_contract/scientific_contract.json",
+    "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+  },
+  "screen_mask": {
+    "height_px": 1000,
+    "inner_radius_px": 125.0,
+    "mechanical_center_xy_px": [
+      491.00030779190064,
+      472.01122086402023
+    ],
+    "outer_radius_px": 470.0,
+    "shape": "annulus",
+    "width_px": 1000
+  },
+  "serialized_tracker_parameters": "6,0,64,1000,1000,3,30,2.5,10,0,0,4,0,0,5,5,100,2,50,2,4,1111,NaN,NaN,0,NaN,1,0,0,0,20,0,0,0,0,1,512,2,1",
+  "status": "frozen-native-viperleed-pilot-contract",
+  "tracking_options": {
+    "automatic_curve_selection_significance": 4.0,
+    "minimum_energy_range_per_beam_ev": 0.0,
+    "noise_rejection_significance": 2.5,
+    "position_smoothing_range_ev": 30.0,
+    "search_beam_unseen_for_ev": 10.0,
+    "unseen_or_subthreshold_positions_may_be_inferred": true
+  }
+}

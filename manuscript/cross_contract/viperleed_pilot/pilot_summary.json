@@ -1,0 +1,43 @@
+{
+  "branch_mapping": {
+    "P1_B1": [
+      -1,
+      0
+    ],
+    "P1_B2": [
+      1,
+      0
+    ],
+    "P2_B1": [
+      1,
+      -1
+    ],
+    "P2_B2": [
+      -1,
+      1
+    ]
+  },
+  "calibration": {
+    "cross_contract_tolerance_px": 1.0,
+    "high_signal_maximum_distance_px": 0.4548687654337075,
+    "high_signal_minimum_significance": 20.0,
+    "record_count": 22,
+    "round_up_increment_px": 1.0,
+    "safety_factor": 2.0
+  },
+  "cross_contract_displacement_record_count": 38,
+  "gaussian_rejections": {
+    "above_native_threshold": 21,
+    "above_threshold_with_finite_raw": 21,
+    "count": 22
+  },
+  "pilot_evidence_role": "calibration-only",
+  "pilot_record_count": 60,
+  "schema_version": "1.0",
+  "status": "frozen-native-viperleed-pilot-summary",
+  "viper_native_direct_detectability": {
+    "count": 59,
+    "definition": "significance >= 2.5 and finite dx_raw and dy_raw",
+    "threshold": 2.5
+  }
+}
