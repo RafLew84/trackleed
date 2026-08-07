@@ -20,7 +20,9 @@ DEFAULT_PACKAGE_PATH = Path("manuscript/cross_contract/claim_boundary")
 EXPECTED_DECISION_SHA256 = (
     "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
 )
-EXPECTED_MANIFEST_SHA256: str | None = None
+EXPECTED_MANIFEST_SHA256 = (
+    "c70f96207b3846ec523fd49947691a5013ef3c50841dc19dca2ae1f87452b261"
+)
 GENERATED_FILES = (
     "author_checkpoint.json",
     "manifest.json",
@@ -507,8 +509,7 @@ def validate_cross_contract_claim_boundary(
         )
     report = _validate_frozen_package(workspace_root, package)
     if (
-        EXPECTED_MANIFEST_SHA256 is not None
-        and package == workspace_root / DEFAULT_PACKAGE_PATH
+        package == workspace_root / DEFAULT_PACKAGE_PATH
         and report["manifest_sha256"] != EXPECTED_MANIFEST_SHA256
     ):
         raise CrossContractClaimBoundaryError(

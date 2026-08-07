@@ -28,6 +28,22 @@ def copy_proposal(destination: Path) -> None:
 
 
 class CrossContractClaimBoundaryTests(unittest.TestCase):
+    def test_committed_author_approved_package_validates(self) -> None:
+        report = validate_cross_contract_claim_boundary(REPO_ROOT, PROPOSAL)
+
+        self.assertEqual(report["status"], "validated-author-approved-boundary")
+        self.assertEqual(
+            report["decision_record_sha256"],
+            "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+        )
+        self.assertEqual(
+            report["author_checkpoint"],
+            {
+                "confirmed_by": "publication author via repository HITL checkpoint",
+                "confirmed_date": "2026-08-08",
+            },
+        )
+
     def test_validation_fails_closed_when_decision_package_is_absent(self) -> None:
         with (
             TemporaryDirectory() as temporary,

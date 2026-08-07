@@ -1,0 +1,71 @@
+{
+  "author_checkpoint": {
+    "confirmed_by": "publication author via repository HITL checkpoint",
+    "confirmed_date": "2026-08-08"
+  },
+  "claim_count": 7,
+  "claim_ids": [
+    "XC1",
+    "XC2",
+    "XC3",
+    "XC4",
+    "XC5",
+    "XC6",
+    "XC7"
+  ],
+  "claims_by_section": {
+    "abstract": [
+      "XC1",
+      "XC2",
+      "XC4",
+      "XC6"
+    ],
+    "conclusion": [
+      "XC1",
+      "XC3",
+      "XC4",
+      "XC6",
+      "XC7"
+    ],
+    "results": [
+      "XC1",
+      "XC2",
+      "XC3",
+      "XC4",
+      "XC5",
+      "XC6",
+      "XC7"
+    ]
+  },
+  "contribution": "A cross-contract, denominator-aware assessment of failure semantics in LEED spot-tracking measurement chains.",
+  "decision_record_sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+  "evidence_class_counts": {
+    "cross_contract_inference": 4,
+    "direct_result": 3
+  },
+  "fail_closed": true,
+  "language_rule_concepts": [
+    "gaps",
+    "recovery",
+    "Cross-contract target inconsistency",
+    "abstention",
+    "possible false persistence"
+  ],
+  "legacy_claim_dispositions": {
+    "C1": "remove_from_focused_cross_contract_claim_set",
+    "C2": "remove_from_focused_cross_contract_claim_set",
+    "C3": "replace",
+    "C4": "remove_from_abstract_and_conclusion",
+    "C5": "remove_from_focused_cross_contract_claim_set",
+    "C6": "replace",
+    "C7": "retain_as_methodological_boundary_only",
+    "C8": "remove_from_focused_cross_contract_claim_set",
+    "C9": "remove_from_focused_cross_contract_claim_set",
+    "unqualified_failure_language": "remove"
+  },
+  "schema_version": "1.0",
+  "selected_thesis": "combined_continuity_consistency_and_contract_dependent_observability",
+  "status": "validated-author-approved-boundary",
+  "thesis_statement": "In the tested principal energy scans, LEED spot observability and the interpretation of continuous tracker output depend on the measurement contract: a continuation can remain measurable yet disagree with the predeclared radial branch, agree with the mapped indexed native target, meet the definition of Cross-contract target inconsistency, or remain an Unresolved cross-contract outcome. Robustness therefore requires cross-contract, denominator-aware assessment of both continuity and physical consistency.",
+  "working_title": "Continuity is not consistency: Cross-contract observability in LEED spot measurement chains"
+}

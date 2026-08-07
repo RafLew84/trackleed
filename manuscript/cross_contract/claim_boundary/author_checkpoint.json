@@ -1,0 +1,14 @@
+{
+  "attestations": {
+    "all_claims_and_limitations_reviewed": true,
+    "language_and_contribution_boundaries_accepted": true,
+    "no_contract_treated_as_ground_truth": true,
+    "thesis_and_title_approved": true
+  },
+  "confirmation_statement": "The author approves the selected combined thesis, the single working title, claims XC1-XC7 with their evidence classes and limitations, the language rules, the legacy claim dispositions, and the contribution boundary bound by this decision-record SHA-256.",
+  "confirmed_by": "publication author via repository HITL checkpoint",
+  "confirmed_date": "2026-08-08",
+  "decision_record_sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+  "schema_version": "1.0",
+  "status": "confirmed"
+}

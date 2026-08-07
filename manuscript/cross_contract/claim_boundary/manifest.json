@@ -1,0 +1,27 @@
+{
+  "decision_record_sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+  "files": {
+    "README.md": {
+      "bytes": 1835,
+      "role": "readable_decision",
+      "sha256": "ed26d15c188532273702fffc6fbfb1dd5d8affa4ed4245c4bb8dd5fceaf9b1b8"
+    },
+    "author_checkpoint.json": {
+      "bytes": 763,
+      "role": "author_checkpoint",
+      "sha256": "bd9135f087fe9543c9212df37c3fc982e9ed19e19aee22b04b783437b01b3a98"
+    },
+    "decision_record.json": {
+      "bytes": 16778,
+      "role": "normative_decision",
+      "sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
+    },
+    "validation_report.json": {
+      "bytes": 2402,
+      "role": "validation_report",
+      "sha256": "2b6c34b6c725502716100e7d0ef91747563837b90e29eb25410f29d069185f48"
+    }
+  },
+  "schema_version": "1.0",
+  "status": "frozen-author-approved-claim-boundary"
+}
