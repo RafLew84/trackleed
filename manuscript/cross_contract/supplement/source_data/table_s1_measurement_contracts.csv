@@ -1,0 +1,3 @@
+measurement_path,qualifying_endpoint,denominator_and_retention
+Local proposal-to-Gaussian,finite accepted Gaussian-refined position,324 per method; rejection retained as G=0
+Native indexed whole-pattern,significance >=2.5 and finite raw dx/dy,324 mapped; non-direct retained as V=0

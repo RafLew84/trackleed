@@ -1,0 +1,74 @@
+{
+  "file_count": 11,
+  "files": [
+    {
+      "path": "README.md",
+      "role": "supplement scope, workflow, and repository boundary",
+      "sha256": "a985291c1830f7be53346fd16779097aab31ab8b820bec1718522d86db3f1dbe",
+      "size_bytes": 1226
+    },
+    {
+      "path": "contract.json",
+      "role": "frozen supplement content, display, and source contract",
+      "sha256": "3e9f3f2d11761de216a64322d5756123650496cdd6eeada81ce8bb15da94bf70",
+      "size_bytes": 6347
+    },
+    {
+      "path": "output/figure_s1_pilot_calibration.png",
+      "role": "single-column pilot calibration figure",
+      "sha256": "702b64381441addb72a4f476823bdd8cd956b282d46d96f2433080eac198f2a1",
+      "size_bytes": 80942
+    },
+    {
+      "path": "output/figure_s2_sensitivity.png",
+      "role": "single-column sensitivity figure",
+      "sha256": "d851bf0032e6726aeb75e495ba173f9de663bdb6cd79cea0ba6275ed2eef9d6b",
+      "size_bytes": 133653
+    },
+    {
+      "path": "output/pdf/figure_s1_pilot_calibration.pdf",
+      "role": "vector pilot calibration figure",
+      "sha256": "194d36e1201b5b0d5c9d67f76530513b78d82a556c53003b6e31b0b1dcf1bfdb",
+      "size_bytes": 18439
+    },
+    {
+      "path": "output/pdf/figure_s2_sensitivity.pdf",
+      "role": "vector sensitivity figure",
+      "sha256": "ebfe6543f8d2fccc548aa7b6c14d032e437568a4921dd739e08659eeb1a239aa",
+      "size_bytes": 20559
+    },
+    {
+      "path": "source_data/figure_s1_pilot_calibration.csv",
+      "role": "compact pilot calibration figure data",
+      "sha256": "92e09fbdb1a4cb8112308d1011f42629bd0adca77d37c74e362460f3f6b26c03",
+      "size_bytes": 749
+    },
+    {
+      "path": "source_data/figure_s2_sensitivity.csv",
+      "role": "compact sensitivity figure data",
+      "sha256": "3eee5b5980cf216f0dc9cc1278350f7a85419d8212e95b9be8f50f34bd31e414",
+      "size_bytes": 457
+    },
+    {
+      "path": "source_data/table_s1_measurement_contracts.csv",
+      "role": "measurement-contract table data",
+      "sha256": "c45b5a14b4493d521e1bf0e5471edb868e62db8557885dd174a6a0665e578097",
+      "size_bytes": 282
+    },
+    {
+      "path": "source_data/table_s2_pilot_validation.csv",
+      "role": "restricted-pilot table data",
+      "sha256": "3118c98c8870814f6d378aeb5779f3cf554984b1ff87784032c9b18855a9905f",
+      "size_bytes": 525
+    },
+    {
+      "path": "supplement.md",
+      "role": "reader-facing constrained Supplementary Information",
+      "sha256": "dbc81c99f262f8cb805102d33603ee4ad1fdc873aa9837f766c3d11bdb06cbc0",
+      "size_bytes": 17848
+    }
+  ],
+  "schema_version": "1.0",
+  "status": "frozen-cross-contract-supplement-manifest",
+  "supplement_id": "constrained-cross-contract-supplement"
+}

@@ -1,0 +1,16 @@
+method,positional_tolerance_px,accepted_out_of_branch_events,branch_model_disagreement,cross_contract_target_inconsistency,unresolved_cross_contract_outcome
+easyleed,0.5,4,4,0,0
+easyleed,1,4,4,0,0
+easyleed,2,4,4,0,0
+locotrack,0.5,36,17,11,8
+locotrack,1,36,23,5,8
+locotrack,2,36,26,2,8
+ostrack,0.5,34,15,11,8
+ostrack,1,34,21,5,8
+ostrack,2,34,24,2,8
+dam4sam,0.5,36,17,11,8
+dam4sam,1,36,23,5,8
+dam4sam,2,36,26,2,8
+lk,0.5,14,7,6,1
+lk,1,14,12,1,1
+lk,2,14,13,0,1

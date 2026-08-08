@@ -1,0 +1,141 @@
+{
+  "display_inventory": {
+    "figures": [
+      {
+        "caption": "Restricted-pilot high-signal calibration distances between raw native and accepted Gaussian-refined positions. All 22 predeclared calibration records remain at or below the observed maximum of 0.455 px and below the frozen 1.0 px cross-contract tolerance. This is calibration-only evidence, not an independent experimental replicate or an absolute accuracy reference.",
+        "id": "Figure S1",
+        "path": "output/figure_s1_pilot_calibration.png",
+        "pdf_path": "output/pdf/figure_s1_pilot_calibration.pdf",
+        "size_mm": [
+          88.0,
+          75.0
+        ],
+        "source_data": "source_data/figure_s1_pilot_calibration.csv",
+        "supporting_validation": true
+      },
+      {
+        "caption": "Predeclared positional-tolerance sensitivity for accepted out-of-branch events at the nominal native significance threshold. Increasing tolerance reallocates direct events from Cross-contract target inconsistency to branch-model disagreement; Unresolved cross-contract outcome counts remain fixed. The complete 45-row grid is retained in the manifested outcome package.",
+        "id": "Figure S2",
+        "path": "output/figure_s2_sensitivity.png",
+        "pdf_path": "output/pdf/figure_s2_sensitivity.pdf",
+        "size_mm": [
+          88.0,
+          100.0
+        ],
+        "source_data": "source_data/figure_s2_sensitivity.csv",
+        "supporting_validation": true
+      }
+    ],
+    "minimum_font_size_pt": 7.0,
+    "single_column_width_mm": 88.0,
+    "tables": [
+      {
+        "column_count": 3,
+        "id": "Table S1",
+        "source_data": "source_data/table_s1_measurement_contracts.csv",
+        "supporting_validation": true,
+        "title": "Frozen measurement endpoints and denominator protection"
+      },
+      {
+        "column_count": 3,
+        "id": "Table S2",
+        "source_data": "source_data/table_s2_pilot_validation.csv",
+        "supporting_validation": true,
+        "title": "Restricted-pilot validation evidence and limits"
+      }
+    ]
+  },
+  "fixed_denominators": {
+    "accepted_out_of_branch_events": 124,
+    "opportunities_per_method": 324,
+    "pilot_branch_frame_records": 60,
+    "reference_visible_per_method": 221,
+    "sensitivity_method_variant_rows": 45
+  },
+  "prose_contract": {
+    "hard_max_words": 2300,
+    "target_max_words": 2200,
+    "target_min_words": 1800,
+    "token_rule": "Unicode words with internal ASCII hyphens or apostrophes count once; headings, display captions, Markdown tables, figure directives, and code paths do not count."
+  },
+  "repository_only_material": [
+    "full image sequences",
+    "per-frame and per-opportunity tables",
+    "hash inventories",
+    "runtime and environment inventories",
+    "executed macros and exhaustive configurations"
+  ],
+  "required_sections": [
+    "Scope and evidence boundary",
+    "Frozen measurement contracts",
+    "Restricted pilot calibration evidence",
+    "Limited predeclared sensitivity",
+    "Repository evidence boundary"
+  ],
+  "schema_version": "1.0",
+  "source_bindings": {
+    "author_approved_claim_boundary": {
+      "path": "manuscript/cross_contract/claim_boundary/decision_record.json",
+      "sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
+    },
+    "cross_contract_analysis_contract": {
+      "path": "manuscript/cross_contract/outcomes/analysis_contract.json",
+      "sha256": "6e87d92f48554412f90ae8bd90ec3a81a5116a9ca872f5d1bdb33129498d0c8b"
+    },
+    "cross_contract_headline": {
+      "path": "manuscript/cross_contract/outcomes/headline_summary.json",
+      "sha256": "507703750724ae9ebbc27c5a05f370689bb2090ee02818794fe8a352e852b236"
+    },
+    "cross_contract_outcomes_manifest": {
+      "path": "manuscript/cross_contract/outcomes/manifest.json",
+      "sha256": "c48f462f8d5c98b638a5acacc6a003bfc2bbc59fe8061051fba44545ff329456"
+    },
+    "cross_contract_sensitivity": {
+      "path": "manuscript/cross_contract/outcomes/sensitivity_results.csv",
+      "sha256": "fade134772a73baa73bfbce2212f89658bf365c62b407ead26b74b239fba107b"
+    },
+    "focused_main_manuscript_manifest": {
+      "path": "manuscript/cross_contract/main_manuscript/manifest.json",
+      "sha256": "4d269530a760a2debcd84f588ed1367f0ab1d7998d26724b9a2b7a9bce6bbafe"
+    },
+    "principal_native_contract": {
+      "path": "manuscript/cross_contract/viperleed_principal/contract.json",
+      "sha256": "200715029bd4bcfb944fff59b632372e497c6b220dc2039e9a2aab242837c4a0"
+    },
+    "principal_native_manifest": {
+      "path": "manuscript/cross_contract/viperleed_principal/manifest.json",
+      "sha256": "df97fa62bfbd02ee51d0364e469d31a339aaf5fcf2b1c1099a33433cba75dced"
+    },
+    "principal_native_summary": {
+      "path": "manuscript/cross_contract/viperleed_principal/run_summary.json",
+      "sha256": "2356174a2ca61dafdc00e3fbe104b14cd26cd635ca4d7a893e1ed377ebcb8e39"
+    },
+    "restricted_pilot_contract": {
+      "path": "manuscript/cross_contract/viperleed_pilot/contract.json",
+      "sha256": "5afa547db8eca73a3e2a6479ac4138b90e15c357322fe1b805120fdbacbc1618"
+    },
+    "restricted_pilot_manifest": {
+      "path": "manuscript/cross_contract/viperleed_pilot/manifest.json",
+      "sha256": "8c702ffbb1d82cfd5c83c93a9bdcca2f47fee2fd948b0bc1c224cad21b2f7123"
+    },
+    "restricted_pilot_records": {
+      "path": "manuscript/cross_contract/viperleed_pilot/pilot_records.csv",
+      "sha256": "4fe756adc9d41e31d878a621946bd23ca5f10899e2ec7d52444ce9f22d3f9860"
+    },
+    "restricted_pilot_registration": {
+      "path": "manuscript/cross_contract/viperleed_pilot/frozen/registration_validation.json",
+      "sha256": "bd9c56e4742445f02f55c2613edb41811586f200222c2cb6c31cebd4ca0d53ca"
+    },
+    "restricted_pilot_summary": {
+      "path": "manuscript/cross_contract/viperleed_pilot/pilot_summary.json",
+      "sha256": "d4e00c75ad9a22f4392ee35122d21711b0e149ef25927c73b295df280538d393"
+    },
+    "scientific_contract": {
+      "path": "manuscript/cross_contract/scientific_contract.json",
+      "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+    }
+  },
+  "status": "frozen-before-supplement-build",
+  "supplement_id": "constrained-cross-contract-supplement",
+  "title": "Supplementary Information: Contract validation and bounded sensitivity"
+}

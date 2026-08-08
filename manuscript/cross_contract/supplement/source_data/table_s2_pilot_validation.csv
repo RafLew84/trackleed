@@ -1,0 +1,7 @@
+pilot_diagnostic,frozen_value,evidence_role
+Pilot opportunity inventory,15 frames x 4 branches = 60,calibration-only; not an independent replicate
+Native direct endpoint,59/60,contract check; not physical visibility
+Cross-contract displacement,38/60,paired endpoints; not absolute accuracy
+High-signal calibration subset,22 at significance >=20,predeclared tolerance input
+Maximum calibration distance,0.4549 px,operational disagreement; not true error
+Frozen positional tolerance,1.0 px,rounded safety rule; no optimization

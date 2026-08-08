@@ -1,0 +1,54 @@
+{
+  "display_validation": {
+    "Figure S1": {
+      "minimum_font_size_pt": 7.0,
+      "pixel_size_300_dpi": [
+        1039,
+        885
+      ],
+      "size_mm": [
+        88.0,
+        75.0
+      ]
+    },
+    "Figure S2": {
+      "minimum_font_size_pt": 7.0,
+      "pixel_size_300_dpi": [
+        1039,
+        1181
+      ],
+      "size_mm": [
+        88.0,
+        100.0
+      ]
+    }
+  },
+  "fail_closed": true,
+  "figure_count": 2,
+  "fixed_denominators": {
+    "accepted_out_of_branch_events": 124,
+    "opportunities_per_method": 324,
+    "pilot_branch_frame_records": 60,
+    "reference_visible_per_method": 221,
+    "sensitivity_method_variant_rows": 45
+  },
+  "manifest_sha256": "39a33d38b0978ff7051e7596625f4ad11a709e01b72a59f2aaa3a1b0a3024c34",
+  "prose_word_count": 2092,
+  "repository_only_full_records": true,
+  "schema_version": "1.0",
+  "sections": [
+    "Scope and evidence boundary",
+    "Frozen measurement contracts",
+    "Restricted pilot calibration evidence",
+    "Limited predeclared sensitivity",
+    "Repository evidence boundary"
+  ],
+  "status": "validated-cross-contract-supplement",
+  "supporting_validation_items": [
+    "Figure S1",
+    "Figure S2",
+    "Table S1",
+    "Table S2"
+  ],
+  "table_count": 2
+}
