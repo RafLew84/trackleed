@@ -1,0 +1,42 @@
+{
+  "abstract_word_count": 152,
+  "authorized_deferred_inputs": [
+    "EXPERIMENT",
+    "SUBMISSION"
+  ],
+  "citation_keys": [
+    "cho2024locotrack",
+    "lucas1981iterative",
+    "mayer2012easyleed",
+    "pendry1974leed",
+    "schmid2025viperleed",
+    "videnovic2025dam4sam",
+    "ye2022ostrack"
+  ],
+  "claim_boundary_decision_sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+  "claim_ids": [
+    "XC1",
+    "XC2",
+    "XC3",
+    "XC4",
+    "XC5",
+    "XC6",
+    "XC7"
+  ],
+  "fail_closed": true,
+  "figure_count": 3,
+  "main_figure_manifest_sha256": "fd4972886cc2892d77ddea2f629459bc6255d3fc35ed98d54d035cf066fd563c",
+  "main_sections": [
+    "Introduction",
+    "Methods",
+    "Results",
+    "Discussion",
+    "Conclusions"
+  ],
+  "main_text_word_count": 4555,
+  "manifest_sha256": "4d269530a760a2debcd84f588ed1367f0ab1d7998d26724b9a2b7a9bce6bbafe",
+  "schema_version": "1.0",
+  "scientific_contract_sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1",
+  "status": "validated-cross-contract-manuscript",
+  "table_count": 0
+}

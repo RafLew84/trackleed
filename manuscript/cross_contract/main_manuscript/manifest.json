@@ -1,0 +1,26 @@
+{
+  "file_count": 3,
+  "files": [
+    {
+      "path": "README.md",
+      "role": "manuscript scope, workflow, and package boundary",
+      "sha256": "a5883a2f960bd960d7fca64dd6f8b60faadf7e89b5afacb10d809528132747d0",
+      "size_bytes": 1086
+    },
+    {
+      "path": "contract.json",
+      "role": "frozen manuscript structure, budget, display, and source contract",
+      "sha256": "a8c281d3679013994eba17341045b97174a12274770af1120e6424a6a0198dae",
+      "size_bytes": 2726
+    },
+    {
+      "path": "manuscript.md",
+      "role": "venue-portable reader-facing scientific draft",
+      "sha256": "cb1bda13ff64bc5b05d56de854d249d19d645671f2cecabe50e53817f5d50191",
+      "size_bytes": 37303
+    }
+  ],
+  "manuscript_id": "focused-cross-contract-main-manuscript",
+  "schema_version": "1.0",
+  "status": "frozen-cross-contract-manuscript-manifest"
+}

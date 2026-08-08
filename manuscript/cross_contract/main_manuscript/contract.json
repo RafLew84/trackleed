@@ -1,0 +1,86 @@
+{
+  "authorized_deferred_inputs": [
+    {
+      "category": "EXPERIMENT",
+      "marker": "TODO[EXPERIMENT] Supply and approve the complete experimental description."
+    },
+    {
+      "category": "SUBMISSION",
+      "marker": "TODO[SUBMISSION] Complete and verify the bibliography from primary sources before submission."
+    }
+  ],
+  "claim_ids": [
+    "XC1",
+    "XC2",
+    "XC3",
+    "XC4",
+    "XC5",
+    "XC6",
+    "XC7"
+  ],
+  "display_inventory": {
+    "figures": [
+      {
+        "id": "figure01",
+        "path": "../figures/output/figure01_cross_contract_framework.png"
+      },
+      {
+        "id": "figure02",
+        "path": "../figures/output/figure02_measurability_and_gaps.png"
+      },
+      {
+        "id": "figure03",
+        "path": "../figures/output/figure03_out_of_branch_interpretation.png"
+      }
+    ],
+    "main_text_tables": 0
+  },
+  "manuscript_id": "focused-cross-contract-main-manuscript",
+  "required_main_sections": [
+    "Introduction",
+    "Methods",
+    "Results",
+    "Discussion",
+    "Conclusions"
+  ],
+  "schema_version": "1.0",
+  "source_bindings": {
+    "author_approved_claim_boundary": {
+      "path": "manuscript/cross_contract/claim_boundary/decision_record.json",
+      "sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
+    },
+    "claim_boundary_manifest": {
+      "path": "manuscript/cross_contract/claim_boundary/manifest.json",
+      "sha256": "c70f96207b3846ec523fd49947691a5013ef3c50841dc19dca2ae1f87452b261"
+    },
+    "cross_contract_outcomes_manifest": {
+      "path": "manuscript/cross_contract/outcomes/manifest.json",
+      "sha256": "c48f462f8d5c98b638a5acacc6a003bfc2bbc59fe8061051fba44545ff329456"
+    },
+    "main_figure_manifest": {
+      "path": "manuscript/cross_contract/figures/manifest.json",
+      "sha256": "fd4972886cc2892d77ddea2f629459bc6255d3fc35ed98d54d035cf066fd563c"
+    },
+    "scientific_contract": {
+      "path": "manuscript/cross_contract/scientific_contract.json",
+      "sha256": "7a662cbcf18627cb5fdbaabec33f69d33b8c7cac24d9ceab12e138b7945b2fe1"
+    }
+  },
+  "status": "frozen-before-main-manuscript-drafting",
+  "title": "Continuity is not consistency: Cross-contract observability in LEED spot measurement chains",
+  "word_count_contract": {
+    "abstract_hard_max": 200,
+    "excluded_from_main_text": [
+      "title",
+      "abstract",
+      "figure_captions",
+      "references",
+      "declarations",
+      "supplementary_material"
+    ],
+    "main_text_hard_max": 5000,
+    "main_text_target_max": 4600,
+    "main_text_target_min": 4200,
+    "token_rule": "Unicode words with internal ASCII hyphens or apostrophes count once; Markdown syntax, citation keys, and figure directives do not count."
+  }
+}
