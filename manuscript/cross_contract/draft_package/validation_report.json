@@ -1,0 +1,51 @@
+{
+  "abstract_word_count": 152,
+  "authorized_deferred_inputs": [
+    "EXPERIMENT",
+    "SUBMISSION"
+  ],
+  "docx_structure": {
+    "main": {
+      "column_sequence": [
+        1,
+        2
+      ],
+      "embedded_media_count": 3,
+      "floating_media_count": 0,
+      "image_widths_mm": [
+        88.0,
+        88.0,
+        178.0
+      ],
+      "table_count": 0
+    },
+    "supplementary_information": {
+      "column_sequence": [
+        2
+      ],
+      "embedded_media_count": 2,
+      "floating_media_count": 0,
+      "image_widths_mm": [
+        88.0,
+        88.0
+      ],
+      "table_count": 2
+    }
+  },
+  "fail_closed": true,
+  "main_figure_count": 3,
+  "main_table_count": 0,
+  "main_text_word_count": 4598,
+  "manifest_sha256": "3df05a70834254dfb933240d655339b351891ffcf21b5d6dc9d306831c6570f8",
+  "page_level_render_acceptance": {
+    "reviewed_page_count": 18,
+    "reviewer_identity": "Codex technical page reviewer",
+    "status": "page-level-render-accepted",
+    "unique_page_count": 9
+  },
+  "schema_version": "1.0",
+  "status": "validated-cross-contract-scientific-draft-package",
+  "submission_ready": false,
+  "supplement_figure_count": 2,
+  "supplement_table_count": 2
+}

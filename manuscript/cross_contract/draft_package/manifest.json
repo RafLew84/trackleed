@@ -1,0 +1,85 @@
+{
+  "directories": [
+    "assembled",
+    "output",
+    "page_audit"
+  ],
+  "file_count": 12,
+  "files": [
+    {
+      "path": "README.md",
+      "role": "package scope, workflow, and deferred-input boundary",
+      "sha256": "bd57f3d4373efdf92c206c251193c3c577bb2717dae4ff54b908d794f9e2f1c9",
+      "size_bytes": 1617
+    },
+    {
+      "path": "contract.json",
+      "role": "frozen document, layout, display, and source contract",
+      "sha256": "d307bf797af943860b28ef4e00ab81355c38d722936715d30fddd0e209eca039",
+      "size_bytes": 5210
+    },
+    {
+      "path": "assembled/main_manuscript.md",
+      "role": "deterministic Pandoc-ready main manuscript",
+      "sha256": "55612d676b6238d64b9e681297f75a3289d33eb82a0370eca53425b42491abfc",
+      "size_bytes": 38094
+    },
+    {
+      "path": "assembled/supplementary_information.md",
+      "role": "deterministic Pandoc-ready Supplementary Information",
+      "sha256": "105eb5e1348294fa7bd375054c65dcb82bd7210e9b033cbc51b2bf16c87f78b0",
+      "size_bytes": 18042
+    },
+    {
+      "path": "output/cross_contract_manuscript.docx",
+      "role": "canonical editable main manuscript",
+      "sha256": "226849ffaff81344f41a3a06689a9b785509cace4cb70c45f2cafa29f113139c",
+      "size_bytes": 508527
+    },
+    {
+      "path": "output/cross_contract_manuscript.pdf",
+      "role": "canonical rendered main manuscript",
+      "sha256": "173110c06a1a5e41f556849e9cdae98cbc9a88ba3e6b423ad8a70df443718808",
+      "size_bytes": 628128
+    },
+    {
+      "path": "output/cross_contract_supplementary_information.docx",
+      "role": "canonical editable Supplementary Information",
+      "sha256": "b790840e0b06c6ae65946476a06ae53c971d5649b6ac68716a2e351cbc06b0c3",
+      "size_bytes": 214515
+    },
+    {
+      "path": "output/cross_contract_supplementary_information.pdf",
+      "role": "canonical rendered Supplementary Information",
+      "sha256": "29e3da0f25809eb7b51c5d4f1749b8a5712e32e0a9d99aea67176ca4ea754be4",
+      "size_bytes": 366559
+    },
+    {
+      "path": "page_audit/render_provenance.json",
+      "role": "renderer and accepted page-set provenance",
+      "sha256": "761c37d01b6e1f1b0e437fbc51713a508d9bfbc0123ad1f2052eb3943bec9510",
+      "size_bytes": 3618
+    },
+    {
+      "path": "page_audit/reviewer_decision.json",
+      "role": "explicit complete per-page review decision",
+      "sha256": "005d62190a28d4c4f72f4c564f8bb0966c7d65d185702676078f68351e7cf98c",
+      "size_bytes": 13682
+    },
+    {
+      "path": "page_audit/manifest.json",
+      "role": "Page-level render acceptance record",
+      "sha256": "c1b4063f78cbf65e154afcf4f54b17a5ea05d1cc43a3c478835846a29df4d543",
+      "size_bytes": 15349
+    },
+    {
+      "path": "handoff_report.json",
+      "role": "scientific-draft handoff and submission-readiness boundary",
+      "sha256": "4925a66bb0d7df534861281adb8bbec522af51dcbbdb4eb2223de8438f93dd0d",
+      "size_bytes": 2261
+    }
+  ],
+  "package_id": "cross-contract-scientific-draft-package",
+  "schema_version": "1.0",
+  "status": "frozen-cross-contract-draft-package-manifest"
+}

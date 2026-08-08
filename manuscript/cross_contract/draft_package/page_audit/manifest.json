@@ -1,0 +1,460 @@
+{
+  "final_decision": "accepted",
+  "rendition_count": 4,
+  "renditions": {
+    "main_docx": {
+      "document_path": "output/cross_contract_manuscript.docx",
+      "document_sha256": "226849ffaff81344f41a3a06689a9b785509cace4cb70c45f2cafa29f113139c",
+      "origin_format": "docx",
+      "page_count": 6,
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "591ec0a59eda3f1fc208a4e49ad7f3c2b720590381bde37b12e700f3bfcd3522",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "1d2148ac76206e4c11cef10592dbd037121656dd4b59ef280431bff05b993e80",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "1ec684f8452d34281ea92feb59b617fa0fabe15021deb4e8d679ebefa004bde0",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "e989d71d9173843756a5fa374731abad35693bf80fcc03206c61f5b385d3a41d",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "7e616d1e4c26c39bb5bd2ffbdf1312c2437e19864986457b9255421dbb31ae07",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "51ae68fd3edb00a4be53a9a245a576b399b824a8f8fc2e2df575466afbfb9037",
+          "page_number": 6,
+          "status": "pass"
+        }
+      ],
+      "renderer": {
+        "dpi": 150,
+        "name": "PyMuPDF",
+        "version": "1.28.0"
+      }
+    },
+    "main_pdf": {
+      "document_path": "output/cross_contract_manuscript.pdf",
+      "document_sha256": "173110c06a1a5e41f556849e9cdae98cbc9a88ba3e6b423ad8a70df443718808",
+      "origin_format": "pdf",
+      "page_count": 6,
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "591ec0a59eda3f1fc208a4e49ad7f3c2b720590381bde37b12e700f3bfcd3522",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "1d2148ac76206e4c11cef10592dbd037121656dd4b59ef280431bff05b993e80",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "1ec684f8452d34281ea92feb59b617fa0fabe15021deb4e8d679ebefa004bde0",
+          "page_number": 3,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "e989d71d9173843756a5fa374731abad35693bf80fcc03206c61f5b385d3a41d",
+          "page_number": 4,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "7e616d1e4c26c39bb5bd2ffbdf1312c2437e19864986457b9255421dbb31ae07",
+          "page_number": 5,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "51ae68fd3edb00a4be53a9a245a576b399b824a8f8fc2e2df575466afbfb9037",
+          "page_number": 6,
+          "status": "pass"
+        }
+      ],
+      "renderer": {
+        "dpi": 150,
+        "name": "PyMuPDF",
+        "version": "1.28.0"
+      }
+    },
+    "supplementary_information_docx": {
+      "document_path": "output/cross_contract_supplementary_information.docx",
+      "document_sha256": "b790840e0b06c6ae65946476a06ae53c971d5649b6ac68716a2e351cbc06b0c3",
+      "origin_format": "docx",
+      "page_count": 3,
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "e8e5cfea20524dcd435492ca81aaea58eed38469e97f60c03149dba1f1550a9f",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "2696d45bf49f7e56c5a4d15c72cfd22390e21157dce55d31f6f71de83cb3618e",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "11a82ebfcc5267138396ae37d78564476c0184e29bf2d9d956e0da227272fec7",
+          "page_number": 3,
+          "status": "pass"
+        }
+      ],
+      "renderer": {
+        "dpi": 150,
+        "name": "PyMuPDF",
+        "version": "1.28.0"
+      }
+    },
+    "supplementary_information_pdf": {
+      "document_path": "output/cross_contract_supplementary_information.pdf",
+      "document_sha256": "29e3da0f25809eb7b51c5d4f1749b8a5712e32e0a9d99aea67176ca4ea754be4",
+      "origin_format": "pdf",
+      "page_count": 3,
+      "pages": [
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "e8e5cfea20524dcd435492ca81aaea58eed38469e97f60c03149dba1f1550a9f",
+          "page_number": 1,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "2696d45bf49f7e56c5a4d15c72cfd22390e21157dce55d31f6f71de83cb3618e",
+          "page_number": 2,
+          "status": "pass"
+        },
+        {
+          "checks": {
+            "authorized_placeholders": "pass",
+            "captions": "pass",
+            "citations_and_cross_references": "pass",
+            "clipping": "pass",
+            "effective_fonts": "pass",
+            "excessive_whitespace": "pass",
+            "figures": "pass",
+            "image_quality": "pass",
+            "mathematics": "pass",
+            "missing_glyphs": "pass",
+            "numbering": "pass",
+            "page_breaks": "pass",
+            "tables": "pass",
+            "typography": "pass"
+          },
+          "page_image_sha256": "11a82ebfcc5267138396ae37d78564476c0184e29bf2d9d956e0da227272fec7",
+          "page_number": 3,
+          "status": "pass"
+        }
+      ],
+      "renderer": {
+        "dpi": 150,
+        "name": "PyMuPDF",
+        "version": "1.28.0"
+      }
+    }
+  },
+  "review_date": "2026-08-08",
+  "reviewed_page_count": 18,
+  "reviewer_identity": "Codex technical page reviewer",
+  "schema_version": "1.0",
+  "shared_page_sets": [
+    {
+      "basis": "direct-docx-origin-pdf",
+      "document": "main",
+      "renditions": [
+        "main_docx",
+        "main_pdf"
+      ]
+    },
+    {
+      "basis": "direct-docx-origin-pdf",
+      "document": "supplementary_information",
+      "renditions": [
+        "supplementary_information_docx",
+        "supplementary_information_pdf"
+      ]
+    }
+  ],
+  "status": "page-level-render-accepted",
+  "unique_page_count": 9
+}

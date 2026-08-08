@@ -1,0 +1,178 @@
+{
+  "authorized_deferred_inputs": [
+    {
+      "category": "EXPERIMENT",
+      "marker": "TODO[EXPERIMENT] Supply and approve the complete experimental description."
+    },
+    {
+      "category": "SUBMISSION",
+      "marker": "TODO[SUBMISSION] Complete and verify the bibliography from primary sources before submission."
+    }
+  ],
+  "builder": {
+    "docx_generator": "pandoc 3.8.2.1",
+    "pdf_generator": "Microsoft Word ExportAsFixedFormat",
+    "source_date": "2026-08-08"
+  },
+  "canonical_artifacts": {
+    "main": {
+      "docx": "output/cross_contract_manuscript.docx",
+      "pdf": "output/cross_contract_manuscript.pdf"
+    },
+    "supplementary_information": {
+      "docx": "output/cross_contract_supplementary_information.docx",
+      "pdf": "output/cross_contract_supplementary_information.pdf"
+    }
+  },
+  "design": {
+    "base_preset": "narrative_proposal",
+    "first_page_header_pattern": "memo_masthead",
+    "named_override": "journal_two_column_scientific_draft",
+    "override_reason": "The ticket requires a two-column journal production proof with 178 mm full-width and 88 mm single-column displays.",
+    "page": {
+      "columns": 2,
+      "column_gutter_mm": 2.0,
+      "column_width_mm": 88.0,
+      "content_width_mm": 178.0,
+      "footer_distance_mm": 8.0,
+      "header_distance_mm": 8.0,
+      "margins_mm": {
+        "bottom": 16.0,
+        "left": 16.0,
+        "right": 16.0,
+        "top": 16.0
+      },
+      "orientation": "portrait",
+      "size": "A4",
+      "size_mm": [
+        210.0,
+        297.0
+      ]
+    },
+    "sections": {
+      "body": "two_column",
+      "conceptual_figure": "full_width",
+      "single_column_figures": "one_column_within_two_column_flow",
+      "supplement_title": "editable_full_width_frame_above_two_column_flow",
+      "title_abstract_and_conceptual_figure": "full_width"
+    },
+    "typography": {
+      "body": {
+        "after_pt": 3.0,
+        "alignment": "justified",
+        "font": "Times New Roman",
+        "line_spacing": 1.0,
+        "size_pt": 9.0
+      },
+      "caption": {
+        "after_pt": 5.0,
+        "font": "Arial",
+        "line_spacing": 1.0,
+        "size_pt": 8.0
+      },
+      "heading_1": {
+        "after_pt": 4.0,
+        "before_pt": 8.0,
+        "color": "#2E74B5",
+        "font": "Arial",
+        "size_pt": 12.0
+      },
+      "heading_2": {
+        "after_pt": 3.0,
+        "before_pt": 6.0,
+        "color": "#2E74B5",
+        "font": "Arial",
+        "size_pt": 10.0
+      },
+      "minimum_embedded_figure_font_pt": 7.0,
+      "reference": {
+        "after_pt": 1.0,
+        "font": "Times New Roman",
+        "line_spacing": 1.0,
+        "size_pt": 8.0
+      },
+      "title": {
+        "after_pt": 6.0,
+        "before_pt": 0.0,
+        "color": "#000000",
+        "font": "Arial",
+        "size_pt": 18.0
+      }
+    }
+  },
+  "display_contract": {
+    "main": {
+      "figures": 3,
+      "full_width_figures": [
+        "Figure 1"
+      ],
+      "single_column_figures": [
+        "Figure 2",
+        "Figure 3"
+      ],
+      "tables": 0
+    },
+    "supplementary_information": {
+      "figures": 2,
+      "single_column_figures": [
+        "Figure S1",
+        "Figure S2"
+      ],
+      "single_column_tables": [
+        "Table S1",
+        "Table S2"
+      ],
+      "tables": 2
+    }
+  },
+  "page_level_checks": [
+    "mathematics",
+    "tables",
+    "figures",
+    "captions",
+    "numbering",
+    "citations_and_cross_references",
+    "clipping",
+    "page_breaks",
+    "typography",
+    "effective_fonts",
+    "image_quality",
+    "missing_glyphs",
+    "excessive_whitespace",
+    "authorized_placeholders"
+  ],
+  "package_id": "cross-contract-scientific-draft-package",
+  "schema_version": "1.0",
+  "source_bindings": {
+    "author_approved_claim_boundary": {
+      "path": "manuscript/cross_contract/claim_boundary/decision_record.json",
+      "sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
+    },
+    "focused_main_manuscript_manifest": {
+      "path": "manuscript/cross_contract/main_manuscript/manifest.json",
+      "sha256": "4d269530a760a2debcd84f588ed1367f0ab1d7998d26724b9a2b7a9bce6bbafe"
+    },
+    "main_figure_manifest": {
+      "path": "manuscript/cross_contract/figures/manifest.json",
+      "sha256": "fd4972886cc2892d77ddea2f629459bc6255d3fc35ed98d54d035cf066fd563c"
+    },
+    "provisional_bibliography": {
+      "path": "manuscript/references.bib",
+      "sha256": "cb29f6212f48538935d5acfb7f9b5e6bfc62796160f76ae1597a36c53a3a12c3"
+    },
+    "publication_status_contract": {
+      "path": "docs/publication-status-contract.md",
+      "sha256": "4aa854fb7c0b9808866ef2fdcd317115601cd90131cdd4fd64f084ae54b733b6"
+    },
+    "supplement_manifest": {
+      "path": "manuscript/cross_contract/supplement/manifest.json",
+      "sha256": "39a33d38b0978ff7051e7596625f4ad11a709e01b72a59f2aaa3a1b0a3024c34"
+    }
+  },
+  "status": "frozen-before-draft-package-build",
+  "word_count_contract": {
+    "abstract_hard_max": 200,
+    "main_text_hard_max": 5000,
+    "rule": "Use the frozen main-manuscript counting rule: title, abstract, figure captions, references, declarations, and supplementary material are excluded from main text."
+  }
+}

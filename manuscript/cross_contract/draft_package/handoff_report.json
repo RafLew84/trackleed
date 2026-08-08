@@ -1,0 +1,61 @@
+{
+  "authorized_deferred_publication_inputs": [
+    {
+      "category": "EXPERIMENT",
+      "external_input_required": "Author-supplied and author-approved sample, instrument, preparation, and acquisition description.",
+      "marker": "TODO[EXPERIMENT] Supply and approve the complete experimental description."
+    },
+    {
+      "category": "SUBMISSION",
+      "external_input_required": "Author-verified complete bibliography from primary sources.",
+      "marker": "TODO[SUBMISSION] Complete and verify the bibliography from primary sources before submission."
+    }
+  ],
+  "display_inventory": {
+    "main": {
+      "figures": 3,
+      "tables": 0
+    },
+    "supplementary_information": {
+      "figures": 2,
+      "tables": 2
+    }
+  },
+  "document_pages": {
+    "main": 6,
+    "supplementary_information": 3
+  },
+  "external_inputs_still_required": [
+    "EXPERIMENT",
+    "SUBMISSION"
+  ],
+  "page_level_render_acceptance": {
+    "review_date": "2026-08-08",
+    "reviewed_page_count": 18,
+    "reviewer_identity": "Codex technical page reviewer",
+    "status": "page-level-render-accepted",
+    "unique_page_count": 9
+  },
+  "reproducibility": {
+    "byte_identical_independent_builds": true,
+    "canonical_hashes": {
+      "main/assembled": "55612d676b6238d64b9e681297f75a3289d33eb82a0370eca53425b42491abfc",
+      "main/docx": "226849ffaff81344f41a3a06689a9b785509cace4cb70c45f2cafa29f113139c",
+      "main/pdf": "173110c06a1a5e41f556849e9cdae98cbc9a88ba3e6b423ad8a70df443718808",
+      "supplementary_information/assembled": "105eb5e1348294fa7bd375054c65dcb82bd7210e9b033cbc51b2bf16c87f78b0",
+      "supplementary_information/docx": "b790840e0b06c6ae65946476a06ae53c971d5649b6ac68716a2e351cbc06b0c3",
+      "supplementary_information/pdf": "29e3da0f25809eb7b51c5d4f1749b8a5712e32e0a9d99aea67176ca4ea754be4"
+    }
+  },
+  "schema_version": "1.0",
+  "scientific_draft_status": "scientific-draft-complete",
+  "submission_readiness": {
+    "is_submission_ready": false,
+    "reason": "Two Authorized deferred publication inputs remain unresolved; no venue submission adapter or reviewer-access release candidate is asserted.",
+    "status": "not-submission-ready"
+  },
+  "unresolved_placeholder_categories": [
+    "EXPERIMENT",
+    "SUBMISSION"
+  ]
+}
