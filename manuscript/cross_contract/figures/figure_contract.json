@@ -1,0 +1,111 @@
+{
+  "caption_requirements": {
+    "figure01": "Name both operational paths and state that neither is ground truth.",
+    "figure02": "State 324 fixed opportunities per method and describe gap components as nested, method-stratified descriptive events.",
+    "figure03": "State that each bar is conditional on accepted Gaussian out-of-branch events and retain each method-specific numerator and denominator."
+  },
+  "concept_flow": {
+    "cross_contract_layers": [
+      "four-state observability",
+      "bounded gaps and component exits",
+      "continuation interpretation",
+      "explicit fixed and conditional denominators"
+    ],
+    "gaussian_path": [
+      "tracker proposal",
+      "fixed measurement ROI",
+      "2D Gaussian refinement",
+      "Gaussian-contract measurability"
+    ],
+    "native_path": [
+      "indexed beam mapping",
+      "whole-pattern registration",
+      "native significance and raw position",
+      "ViPEr-native direct detectability"
+    ],
+    "shared_input": "predeclared branch-frame opportunity"
+  },
+  "figures": {
+    "figure01": {
+      "basename": "figure01_cross_contract_framework",
+      "height_mm": 78.0,
+      "layout": "full_width",
+      "panels": [
+        "parallel_measurement_paths",
+        "four_state_outcome_layer",
+        "interpretation_layers"
+      ],
+      "width_mm": 178.0
+    },
+    "figure02": {
+      "basename": "figure02_measurability_and_gaps",
+      "height_mm": 98.0,
+      "layout": "single_column",
+      "panels": [
+        "measurability_agreement_matrix",
+        "gap_component_counts"
+      ],
+      "width_mm": 88.0
+    },
+    "figure03": {
+      "basename": "figure03_out_of_branch_interpretation",
+      "height_mm": 85.0,
+      "layout": "single_column",
+      "panels": [
+        "accepted_out_of_branch_classification"
+      ],
+      "width_mm": 88.0
+    }
+  },
+  "image_policy": {
+    "full_image_montages": 0,
+    "maximum_decision_relevant_crops": 1,
+    "selected_crops": 0
+  },
+  "palette": {
+    "both_or_shared": "#0072B2",
+    "branch_model_disagreement": "#56B4E9",
+    "cross_contract_target_inconsistency": "#D55E00",
+    "gaussian": "#E69F00",
+    "neither_or_unresolved": "#8A8A8A",
+    "viperleed": "#009E73"
+  },
+  "rendering": {
+    "font_family": "DejaVu Sans",
+    "minimum_final_size_font_pt": 7.0,
+    "panel_label_font_pt": 9.0,
+    "png_dpi": 300
+  },
+  "schema_version": "1.0",
+  "source_bindings": {
+    "claim_boundary_decision": {
+      "path": "manuscript/cross_contract/claim_boundary/decision_record.json",
+      "sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18"
+    },
+    "claim_boundary_manifest": {
+      "path": "manuscript/cross_contract/claim_boundary/manifest.json",
+      "sha256": "c70f96207b3846ec523fd49947691a5013ef3c50841dc19dca2ae1f87452b261"
+    },
+    "gap_comparisons": {
+      "path": "manuscript/cross_contract/outcomes/gap_comparisons.csv",
+      "sha256": "eeeb1892d47058fee177b8d2b338426863ac4059334b3c9926053c187d545b8e"
+    },
+    "method_summary": {
+      "path": "manuscript/cross_contract/outcomes/method_summary.csv",
+      "sha256": "c276642ba2b441e1e97773ddb1e4bb6ca926c8279273548846b10ace90319bd2"
+    },
+    "out_of_branch_events": {
+      "path": "manuscript/cross_contract/outcomes/out_of_branch_events.csv",
+      "sha256": "2ec225ae4c3577dc20e1dbb90eea110a20a453b72260f1caf336d374548a253d"
+    },
+    "outcomes_headline": {
+      "path": "manuscript/cross_contract/outcomes/headline_summary.json",
+      "sha256": "507703750724ae9ebbc27c5a05f370689bb2090ee02818794fe8a352e852b236"
+    },
+    "outcomes_manifest": {
+      "path": "manuscript/cross_contract/outcomes/manifest.json",
+      "sha256": "c48f462f8d5c98b638a5acacc6a003bfc2bbc59fe8061051fba44545ff329456"
+    }
+  },
+  "status": "frozen-before-figure-rendering"
+}

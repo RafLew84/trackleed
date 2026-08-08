@@ -1,0 +1,16 @@
+method,method_display_name,classification,event_count,conditional_denominator,percent_of_accepted_out_of_branch,accepted_gaussian_all_frames
+easyleed,EasyLEED,branch_model_disagreement,4,4,100.000,222
+easyleed,EasyLEED,cross_contract_target_inconsistency,0,4,0.000,222
+easyleed,EasyLEED,unresolved,0,4,0.000,222
+locotrack,LocoTrack,branch_model_disagreement,23,36,63.889,272
+locotrack,LocoTrack,cross_contract_target_inconsistency,5,36,13.889,272
+locotrack,LocoTrack,unresolved,8,36,22.222,272
+ostrack,OSTrack,branch_model_disagreement,21,34,61.765,269
+ostrack,OSTrack,cross_contract_target_inconsistency,5,34,14.706,269
+ostrack,OSTrack,unresolved,8,34,23.529,269
+dam4sam,DAM4SAM,branch_model_disagreement,23,36,63.889,272
+dam4sam,DAM4SAM,cross_contract_target_inconsistency,5,36,13.889,272
+dam4sam,DAM4SAM,unresolved,8,36,22.222,272
+lk,Lucas-Kanade,branch_model_disagreement,12,14,85.714,206
+lk,Lucas-Kanade,cross_contract_target_inconsistency,1,14,7.143,206
+lk,Lucas-Kanade,unresolved,1,14,7.143,206

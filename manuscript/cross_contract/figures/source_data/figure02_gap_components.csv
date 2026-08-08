@@ -1,0 +1,16 @@
+method,method_display_name,category,component_count,method_component_count
+easyleed,EasyLEED,gaussian_only,22,24
+easyleed,EasyLEED,shared,0,24
+easyleed,EasyLEED,viperleed_only,2,24
+locotrack,LocoTrack,gaussian_only,24,26
+locotrack,LocoTrack,shared,1,26
+locotrack,LocoTrack,viperleed_only,1,26
+ostrack,OSTrack,gaussian_only,23,25
+ostrack,OSTrack,shared,1,25
+ostrack,OSTrack,viperleed_only,1,25
+dam4sam,DAM4SAM,gaussian_only,22,24
+dam4sam,DAM4SAM,shared,1,24
+dam4sam,DAM4SAM,viperleed_only,1,24
+lk,Lucas-Kanade,gaussian_only,20,22
+lk,Lucas-Kanade,shared,0,22
+lk,Lucas-Kanade,viperleed_only,2,22

@@ -1,0 +1,87 @@
+{
+  "caption_count": 3,
+  "claim_boundary_decision_sha256": "0f3e4d727fdf66721fa76924728fcf67ae1443c6c09654395093b20434ed6c18",
+  "fail_closed": true,
+  "figure_count": 3,
+  "figure_package_id": "cross-contract-main-figures",
+  "figures": {
+    "figure01": {
+      "basename": "figure01_cross_contract_framework",
+      "layout": "full_width",
+      "minimum_font_pt": 7.0,
+      "pdf_page_count": 1,
+      "pdf_size_pt": [
+        504.567,
+        221.102
+      ],
+      "png_dimensions_px": [
+        2102,
+        921
+      ],
+      "size_mm": [
+        178.0,
+        78.0
+      ]
+    },
+    "figure02": {
+      "basename": "figure02_measurability_and_gaps",
+      "layout": "single_column",
+      "minimum_font_pt": 7.0,
+      "pdf_page_count": 1,
+      "pdf_size_pt": [
+        249.449,
+        277.795
+      ],
+      "png_dimensions_px": [
+        1039,
+        1157
+      ],
+      "size_mm": [
+        88.0,
+        98.0
+      ]
+    },
+    "figure03": {
+      "basename": "figure03_out_of_branch_interpretation",
+      "layout": "single_column",
+      "minimum_font_pt": 7.0,
+      "pdf_page_count": 1,
+      "pdf_size_pt": [
+        249.449,
+        240.945
+      ],
+      "png_dimensions_px": [
+        1039,
+        1003
+      ],
+      "size_mm": [
+        88.0,
+        85.0
+      ]
+    }
+  },
+  "gap_component_totals": {
+    "gaussian_only": 111,
+    "shared": 3,
+    "viperleed_only": 7
+  },
+  "image_policy": {
+    "full_image_montages": 0,
+    "maximum_decision_relevant_crops": 1,
+    "selected_crops": 0
+  },
+  "manifest_sha256": "fd4972886cc2892d77ddea2f629459bc6255d3fc35ed98d54d035cf066fd563c",
+  "out_of_branch_classification_totals": {
+    "branch_model_disagreement": 83,
+    "cross_contract_target_inconsistency": 16,
+    "unresolved": 25
+  },
+  "outcomes_manifest_sha256": "c48f462f8d5c98b638a5acacc6a003bfc2bbc59fe8061051fba44545ff329456",
+  "schema_version": "1.0",
+  "source_record_counts": {
+    "figure02_gap_components": 15,
+    "figure02_measurability": 20,
+    "figure03_out_of_branch": 15
+  },
+  "status": "validated-cross-contract-main-figures"
+}

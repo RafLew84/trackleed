@@ -1,0 +1,32 @@
+{
+  "concept_flow": {
+    "cross_contract_layers": [
+      "four-state observability",
+      "bounded gaps and component exits",
+      "continuation interpretation",
+      "explicit fixed and conditional denominators"
+    ],
+    "gaussian_path": [
+      "tracker proposal",
+      "fixed measurement ROI",
+      "2D Gaussian refinement",
+      "Gaussian-contract measurability"
+    ],
+    "native_path": [
+      "indexed beam mapping",
+      "whole-pattern registration",
+      "native significance and raw position",
+      "ViPEr-native direct detectability"
+    ],
+    "shared_input": "predeclared branch-frame opportunity"
+  },
+  "palette": {
+    "both_or_shared": "#0072B2",
+    "branch_model_disagreement": "#56B4E9",
+    "cross_contract_target_inconsistency": "#D55E00",
+    "gaussian": "#E69F00",
+    "neither_or_unresolved": "#8A8A8A",
+    "viperleed": "#009E73"
+  },
+  "schema_version": "1.0"
+}

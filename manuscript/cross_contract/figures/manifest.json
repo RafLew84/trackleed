@@ -1,0 +1,86 @@
+{
+  "figure_package_id": "cross-contract-main-figures",
+  "file_count": 13,
+  "files": [
+    {
+      "path": "README.md",
+      "role": "figure scope, build instructions, and publication constraints",
+      "sha256": "2a58d0dbc5b0bc1b1ca1ee2afd106e8ffdd588ca01ba840330dbd19a2be24889",
+      "size_bytes": 1210
+    },
+    {
+      "path": "captions.json",
+      "role": "denominator-complete manuscript captions",
+      "sha256": "677980e78de116a42ee9a48dfe831d916774335b6e8a0567d8536bd1a6c6f4a8",
+      "size_bytes": 1118
+    },
+    {
+      "path": "figure_contract.json",
+      "role": "frozen figure sizes, palette, panels, and source bindings",
+      "sha256": "06216eda68f1af563aca4b5ed48d07ced75896e7a1828e5e89a05fb185aa2409",
+      "size_bytes": 3804
+    },
+    {
+      "path": "output/figure01_cross_contract_framework.png",
+      "role": "300 dpi full-width conceptual figure",
+      "sha256": "ffcce0338dd7185ecead5163a85c390815a58a8aee586e3a783a7186404186db",
+      "size_bytes": 222759
+    },
+    {
+      "path": "output/figure02_measurability_and_gaps.png",
+      "role": "300 dpi single-column observability and gap figure",
+      "sha256": "7a193d93ff5897b4f90c1b73fb2ba1bf446d0aa1b342776423f867681a9ca6e1",
+      "size_bytes": 163775
+    },
+    {
+      "path": "output/figure03_out_of_branch_interpretation.png",
+      "role": "300 dpi single-column continuation-classification figure",
+      "sha256": "b4efcc050f2663dc799af61561c40626da58e8143c22581ae913520f8a5eb72d",
+      "size_bytes": 143818
+    },
+    {
+      "path": "output/pdf/figure01_cross_contract_framework.pdf",
+      "role": "vector full-width conceptual figure",
+      "sha256": "a9ff61945a3380357d80b69649570811d2e012579b0d810b2c9c789a6f46a8c3",
+      "size_bytes": 22224
+    },
+    {
+      "path": "output/pdf/figure02_measurability_and_gaps.pdf",
+      "role": "vector single-column observability and gap figure",
+      "sha256": "8ba55ec050ddefeef66c14ce301b3131c22465ccfeea2c60741c7e0c6471ead0",
+      "size_bytes": 27627
+    },
+    {
+      "path": "output/pdf/figure03_out_of_branch_interpretation.pdf",
+      "role": "vector single-column continuation-classification figure",
+      "sha256": "08548c82496c3070e87f67da7d70dce4a8d7a8b22e2861df3f3171249f96c2c7",
+      "size_bytes": 23096
+    },
+    {
+      "path": "source_data/figure01_concept_flow.json",
+      "role": "machine-readable conceptual flow",
+      "sha256": "d71f24e335d49d1048c70151468435502cca86851a62b4180895d7404dc9cafa",
+      "size_bytes": 903
+    },
+    {
+      "path": "source_data/figure02_gap_components.csv",
+      "role": "machine-readable gap-component counts",
+      "sha256": "df1e0035ebf3c47a0ff082830d3af53ae081414de50ea90b6cbfcf85622303ad",
+      "size_bytes": 593
+    },
+    {
+      "path": "source_data/figure02_measurability.csv",
+      "role": "machine-readable four-state observability counts",
+      "sha256": "74e3939aa78601fd5f89c334dd11eabc86d6c80053e4b855d479a9cfc6ec9bc0",
+      "size_bytes": 1066
+    },
+    {
+      "path": "source_data/figure03_out_of_branch.csv",
+      "role": "machine-readable conditional continuation classifications",
+      "sha256": "779cd335c62f763062ffc1716a7c376d119c2f3c8a5177bbdddc60a511dbd99a",
+      "size_bytes": 1002
+    }
+  ],
+  "schema_version": "1.0",
+  "status": "frozen-cross-contract-figure-manifest"
+}
