@@ -1,0 +1,1260 @@
+{
+  "files": {
+    "manuscript/figures/figure01_measurement_chain/export_native_geometry.py": {
+      "definitions": 15,
+      "lines": 715,
+      "oversized_definitions": {
+        "_run_dam4sam": 89,
+        "validate": 158
+      }
+    },
+    "manuscript/figures/figure01_measurement_chain/figure_render.py": {
+      "definitions": 8,
+      "lines": 694,
+      "oversized_definitions": {
+        "_render_panel_a": 111,
+        "_render_panel_b": 187,
+        "_render_panel_c": 104,
+        "render_figure": 94
+      }
+    },
+    "manuscript/figures/figure01_measurement_chain/freeze_case.py": {
+      "definitions": 27,
+      "lines": 831,
+      "oversized_definitions": {
+        "build": 100
+      }
+    },
+    "manuscript/figures/figure02_controlled_equivariance/figure_render.py": {
+      "definitions": 7,
+      "lines": 413,
+      "oversized_definitions": {
+        "_render_panel_a": 87,
+        "_render_panel_b": 90,
+        "render_figure": 104
+      }
+    },
+    "manuscript/figures/figure03_cu111_physical_endpoint/build_figure.py": {
+      "definitions": 8,
+      "lines": 238,
+      "oversized_definitions": {
+        "build_manifest": 89
+      }
+    },
+    "manuscript/figures/figure03_cu111_physical_endpoint/figure_render.py": {
+      "definitions": 11,
+      "lines": 591,
+      "oversized_definitions": {
+        "_render_endpoint_panel": 93,
+        "_render_panel_a": 88,
+        "_render_panel_d": 83,
+        "render_figure": 126
+      }
+    },
+    "manuscript/figures/figure03_independent_scane_stress/figure_contract.py": {
+      "definitions": 15,
+      "lines": 317,
+      "oversized_definitions": {
+        "validate_source_contract": 93
+      }
+    },
+    "manuscript/figures/figure03_independent_scane_stress/figure_render.py": {
+      "definitions": 10,
+      "lines": 789,
+      "oversized_definitions": {
+        "_render_panel_a": 149,
+        "_render_panel_f": 229,
+        "render_figure": 126
+      }
+    },
+    "manuscript/figures/figure04_ag111_motion_visibility_stress/figure_render.py": {
+      "definitions": 9,
+      "lines": 542,
+      "oversized_definitions": {
+        "_render_panel_a": 147,
+        "render_figure": 122
+      }
+    },
+    "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/figure_contract.py": {
+      "definitions": 14,
+      "lines": 369,
+      "oversized_definitions": {
+        "validate_source_contract": 123
+      }
+    },
+    "manuscript/figures/figure04_controlled_sam2_memory_tradeoff/figure_render.py": {
+      "definitions": 10,
+      "lines": 749,
+      "oversized_definitions": {
+        "_render_panel_a": 197,
+        "_render_panel_c": 89,
+        "_render_panel_d": 116,
+        "_render_panel_e": 139
+      }
+    },
+    "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/figure_contract.py": {
+      "definitions": 14,
+      "lines": 369,
+      "oversized_definitions": {
+        "validate_source_contract": 123
+      }
+    },
+    "manuscript/figures/figure05_controlled_sam2_continuity_consistency_tradeoff/figure_render.py": {
+      "definitions": 10,
+      "lines": 754,
+      "oversized_definitions": {
+        "_render_panel_a": 197,
+        "_render_panel_c": 94,
+        "_render_panel_d": 116,
+        "_render_panel_e": 139
+      }
+    },
+    "manuscript/figures/figure05_cu111_physical_endpoint/build_figure.py": {
+      "definitions": 10,
+      "lines": 354,
+      "oversized_definitions": {
+        "build_manifest": 115
+      }
+    },
+    "manuscript/figures/figure05_cu111_physical_endpoint/figure_render.py": {
+      "definitions": 12,
+      "lines": 742,
+      "oversized_definitions": {
+        "_render_endpoint_panel": 98,
+        "_render_panel_a": 94,
+        "_render_panel_d": 94,
+        "_render_panel_e": 115,
+        "render_figure": 134
+      }
+    },
+    "manuscript/figures/figure_s3_ag111_midpoint_drift/build_figure.py": {
+      "definitions": 12,
+      "lines": 390,
+      "oversized_definitions": {
+        "render": 139
+      }
+    },
+    "manuscript/figures/figure_s4_easyleed_viperleed_compatibility/build_figure.py": {
+      "definitions": 13,
+      "lines": 461,
+      "oversized_definitions": {
+        "render": 211
+      }
+    },
+    "manuscript/figures/figure_s5_geometry_inconsistent_continuation/build_figure.py": {
+      "definitions": 10,
+      "lines": 401,
+      "oversized_definitions": {
+        "render": 226
+      }
+    },
+    "manuscript/figures/figure_s5_geometry_inconsistent_continuation/freeze_source_data.py": {
+      "definitions": 12,
+      "lines": 317,
+      "oversized_definitions": {
+        "_select_examples": 83
+      }
+    },
+    "manuscript/figures/figure_s6_cu111_pair_2_4_missingness/build_figure.py": {
+      "definitions": 11,
+      "lines": 441,
+      "oversized_definitions": {
+        "render_figure": 181
+      }
+    },
+    "manuscript/manuscript_contract.py": {
+      "definitions": 7,
+      "lines": 342,
+      "oversized_definitions": {
+        "validate_manuscript_package": 211
+      }
+    },
+    "manuscript/publication_inventory/build_inventory.py": {
+      "definitions": 20,
+      "lines": 760,
+      "oversized_definitions": {
+        "validate_inventory": 211
+      }
+    },
+    "manuscript/publication_inventory/test_build_inventory.py": {
+      "definitions": 8,
+      "lines": 289,
+      "oversized_definitions": {
+        "PublicationInventoryTest.test_build_is_deterministic_and_committed_index_is_synchronized": 86
+      }
+    },
+    "manuscript/publication_package/audit_page_renders.py": {
+      "definitions": 11,
+      "lines": 449,
+      "oversized_definitions": {
+        "build_audit_manifest": 192
+      }
+    },
+    "manuscript/publication_package/test_audit_page_renders.py": {
+      "definitions": 2,
+      "lines": 200,
+      "oversized_definitions": {
+        "PageRenderAuditContractTest.test_builds_an_accepted_manifest_for_all_four_canonical_renditions": 162
+      }
+    },
+    "manuscript/tables/stratified_uncertainty/build_tables.py": {
+      "definitions": 19,
+      "lines": 604,
+      "oversized_definitions": {
+        "build_artifact": 90,
+        "render_energy_scan_markdown": 96
+      }
+    },
+    "manuscript/tables/table01_data_evidence_roles/build_table.py": {
+      "definitions": 13,
+      "lines": 427,
+      "oversized_definitions": {
+        "_expected_opportunity_sets": 82
+      }
+    },
+    "manuscript/tables/table02_tracking_methods_contract/build_table.py": {
+      "definitions": 12,
+      "lines": 460,
+      "oversized_definitions": {
+        "_validate_against_frozen_contracts": 120
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/build_table.py": {
+      "definitions": 24,
+      "lines": 1039,
+      "oversized_definitions": {
+        "_validate_components_against_upstream": 258,
+        "build_artifact": 87
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/controlled_family_runner.py": {
+      "definitions": 27,
+      "lines": 1047,
+      "oversized_definitions": {
+        "measure_tracker": 87,
+        "run_one": 96,
+        "write_comparison_summary": 82
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_high_energy_runner.py": {
+      "definitions": 3,
+      "lines": 199,
+      "oversized_definitions": {
+        "main": 131
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_analysis.py": {
+      "definitions": 2,
+      "lines": 139,
+      "oversized_definitions": {
+        "main": 97
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/easyleed_independent_runner.py": {
+      "definitions": 5,
+      "lines": 275,
+      "oversized_definitions": {
+        "main": 195
+      }
+    },
+    "manuscript/tables/table_s1_software_environments/source_data/upstream_contracts/executed_sources/independent_energy_runner.py": {
+      "definitions": 14,
+      "lines": 731,
+      "oversized_definitions": {
+        "run_one": 161,
+        "write_cross_pair_artifacts": 138
+      }
+    },
+    "manuscript/tables/table_s2_gates_denominators/build_table.py": {
+      "definitions": 23,
+      "lines": 769,
+      "oversized_definitions": {
+        "validate_provenance": 108,
+        "validate_upstream_semantics": 216
+      }
+    },
+    "manuscript/tables/table_s2_gates_denominators/source_data/upstream_contracts/executed_sources/cu_measurement_runner.py": {
+      "definitions": 23,
+      "lines": 1526,
+      "oversized_definitions": {
+        "build_pair_rows": 84,
+        "build_summary": 213,
+        "load_easyleed": 106,
+        "load_gpu_native": 140,
+        "main": 141,
+        "render_diagnostic_overlays": 166,
+        "render_results_readme": 83,
+        "run_lucas_kanade": 129
+      }
+    },
+    "manuscript/tables/table_s2_gates_denominators/source_data/upstream_contracts/executed_sources/energy_measurement_runner.py": {
+      "definitions": 27,
+      "lines": 1127,
+      "oversized_definitions": {
+        "summarize": 114
+      }
+    },
+    "manuscript/tables/table_s2_gates_denominators/source_data/upstream_contracts/executed_sources/peak_analyzer.py": {
+      "definitions": 9,
+      "lines": 635,
+      "oversized_definitions": {
+        "calculate_spot_properties": 94,
+        "find_pattern_center": 82,
+        "fit_ellipse_center": 81,
+        "fit_spot_to_gaussian": 104
+      }
+    },
+    "manuscript/tables/table_s7_cross_regime_summary/build_table.py": {
+      "definitions": 14,
+      "lines": 551,
+      "oversized_definitions": {
+        "build_blocks": 117,
+        "render_markdown": 92
+      }
+    },
+    "manuscript/test_manuscript_contract.py": {
+      "definitions": 9,
+      "lines": 201,
+      "oversized_definitions": {
+        "ManuscriptContractTest.test_approved_content_revision_and_denominator_semantics": 83
+      }
+    },
+    "scripts/analyze_tracked_session_headless.py": {
+      "definitions": 28,
+      "lines": 1283,
+      "oversized_definitions": {
+        "_fit_session": 95,
+        "_frozen_radius_comparison": 106,
+        "_write_comparison": 272,
+        "_write_numerical_exports": 91
+      }
+    },
+    "scripts/benchmark_tracking_methods.py": {
+      "definitions": 9,
+      "lines": 408,
+      "oversized_definitions": {
+        "build_parser": 83,
+        "main": 134
+      }
+    },
+    "scripts/build_publication_reference_package.py": {
+      "definitions": 17,
+      "lines": 784,
+      "oversized_definitions": {
+        "build": 213,
+        "select_evaluation_frames": 127
+      }
+    },
+    "scripts/check_cutie_env.py": {
+      "definitions": 1,
+      "lines": 137,
+      "oversized_definitions": {
+        "main": 110
+      }
+    },
+    "scripts/check_dam4sam_env.py": {
+      "definitions": 1,
+      "lines": 127,
+      "oversized_definitions": {
+        "main": 94
+      }
+    },
+    "scripts/check_deva_env.py": {
+      "definitions": 24,
+      "lines": 717,
+      "oversized_definitions": {
+        "main": 109,
+        "probe_deva_environment": 134
+      }
+    },
+    "scripts/check_mftiq_env.py": {
+      "definitions": 1,
+      "lines": 120,
+      "oversized_definitions": {
+        "main": 93
+      }
+    },
+    "scripts/check_ostrack_env.py": {
+      "definitions": 2,
+      "lines": 181,
+      "oversized_definitions": {
+        "main": 134
+      }
+    },
+    "scripts/check_samurai_env.py": {
+      "definitions": 1,
+      "lines": 136,
+      "oversized_definitions": {
+        "main": 103
+      }
+    },
+    "scripts/check_tomp_env.py": {
+      "definitions": 6,
+      "lines": 236,
+      "oversized_definitions": {
+        "main": 146
+      }
+    },
+    "scripts/check_xmem2_env.py": {
+      "definitions": 1,
+      "lines": 134,
+      "oversized_definitions": {
+        "main": 106
+      }
+    },
+    "scripts/prepare_principal_viperleed_execution.py": {
+      "definitions": 7,
+      "lines": 346,
+      "oversized_definitions": {
+        "main": 137
+      }
+    },
+    "scripts/run_cutie_subprocess.py": {
+      "definitions": 1,
+      "lines": 137,
+      "oversized_definitions": {
+        "main": 112
+      }
+    },
+    "scripts/run_dam4sam_subprocess.py": {
+      "definitions": 2,
+      "lines": 154,
+      "oversized_definitions": {
+        "main": 102
+      }
+    },
+    "scripts/run_deva_subprocess.py": {
+      "definitions": 3,
+      "lines": 224,
+      "oversized_definitions": {
+        "main": 145
+      }
+    },
+    "scripts/run_ostrack_subprocess.py": {
+      "definitions": 2,
+      "lines": 133,
+      "oversized_definitions": {
+        "main": 82
+      }
+    },
+    "scripts/run_sam2_subprocess.py": {
+      "definitions": 1,
+      "lines": 167,
+      "oversized_definitions": {
+        "main": 142
+      }
+    },
+    "scripts/run_samurai_subprocess.py": {
+      "definitions": 2,
+      "lines": 154,
+      "oversized_definitions": {
+        "main": 102
+      }
+    },
+    "scripts/run_tomp_subprocess.py": {
+      "definitions": 2,
+      "lines": 146,
+      "oversized_definitions": {
+        "main": 95
+      }
+    },
+    "scripts/run_xmem2_subprocess.py": {
+      "definitions": 1,
+      "lines": 146,
+      "oversized_definitions": {
+        "main": 121
+      }
+    },
+    "trackleed/ai/synth.py": {
+      "definitions": 12,
+      "lines": 765,
+      "oversized_definitions": {
+        "generate_sequence": 178,
+        "main_cli": 197
+      }
+    },
+    "trackleed/analysis/controlled_translation_evidence.py": {
+      "definitions": 9,
+      "lines": 327,
+      "oversized_definitions": {
+        "build_trial_outcomes": 82
+      }
+    },
+    "trackleed/analysis/cross_contract_outcomes.py": {
+      "definitions": 33,
+      "lines": 1457,
+      "oversized_definitions": {
+        "_analysis_report": 142,
+        "_build_gap_comparisons": 132,
+        "_build_matrix": 141,
+        "_build_method_summaries": 95,
+        "_build_sensitivity_rows": 104
+      }
+    },
+    "trackleed/analysis/cutie_backend.py": {
+      "definitions": 52,
+      "lines": 1914,
+      "oversized_definitions": {
+        "_run_cutie_direct_offline": 151,
+        "_run_cutie_subprocess_offline": 116,
+        "probe_cutie_environment": 166,
+        "probe_cutie_initial_mask_builder": 129
+      }
+    },
+    "trackleed/analysis/dam4sam_backend.py": {
+      "definitions": 53,
+      "lines": 1664,
+      "oversized_definitions": {
+        "_run_dam4sam_direct_offline": 167,
+        "_run_dam4sam_subprocess_offline": 117,
+        "probe_dam4sam_environment": 130
+      }
+    },
+    "trackleed/analysis/deva_backend.py": {
+      "definitions": 40,
+      "lines": 1134,
+      "oversized_definitions": {
+        "_run_deva_eval_vos_offline": 90,
+        "_run_deva_subprocess_offline": 113,
+        "probe_deva_environment": 131
+      }
+    },
+    "trackleed/analysis/experimental_metadata.py": {
+      "definitions": 6,
+      "lines": 362,
+      "oversized_definitions": {
+        "validate_metadata_package": 170
+      }
+    },
+    "trackleed/analysis/experimental_metadata_record.py": {
+      "definitions": 6,
+      "lines": 735,
+      "oversized_definitions": {
+        "initial_metadata_record": 516,
+        "metadata_claim_constraints": 98
+      }
+    },
+    "trackleed/analysis/fwhm_metrics.py": {
+      "definitions": 4,
+      "lines": 193,
+      "oversized_definitions": {
+        "calculate_gaussian_width_properties": 154
+      }
+    },
+    "trackleed/analysis/locotrack_backend.py": {
+      "definitions": 26,
+      "lines": 730,
+      "oversized_definitions": {
+        "_run_locotrack_subprocess_offline": 81
+      }
+    },
+    "trackleed/analysis/mftiq_backend.py": {
+      "definitions": 35,
+      "lines": 1252,
+      "oversized_definitions": {
+        "_run_mftiq_direct_offline": 127,
+        "_run_mftiq_subprocess_offline": 85,
+        "probe_mftiq_environment": 173,
+        "run_mftiq_inference_probe": 133,
+        "run_mftiq_smoke_test": 87
+      }
+    },
+    "trackleed/analysis/ostrack_backend.py": {
+      "definitions": 56,
+      "lines": 2162,
+      "oversized_definitions": {
+        "_run_ostrack_direct_offline": 141,
+        "_run_ostrack_subprocess_offline": 133,
+        "probe_ostrack_environment": 108,
+        "probe_ostrack_initial_bbox_padding": 87
+      }
+    },
+    "trackleed/analysis/peak_analyzer.py": {
+      "definitions": 9,
+      "lines": 654,
+      "oversized_definitions": {
+        "calculate_spot_properties": 94,
+        "find_pattern_center": 82,
+        "fit_ellipse_center": 81,
+        "fit_spot_to_gaussian": 123
+      }
+    },
+    "trackleed/analysis/pipspp_backend.py": {
+      "definitions": 32,
+      "lines": 856,
+      "oversized_definitions": {
+        "_run_pipspp_direct_offline": 99,
+        "_run_pipspp_subprocess_offline": 81,
+        "probe_pipspp_environment": 108
+      }
+    },
+    "trackleed/analysis/sam2_backend.py": {
+      "definitions": 48,
+      "lines": 1476,
+      "oversized_definitions": {
+        "_run_sam2_direct_offline": 208,
+        "_run_sam2_subprocess_offline": 123,
+        "probe_sam2_environment": 134,
+        "run_sam2_smoke_test": 100
+      }
+    },
+    "trackleed/analysis/samurai_backend.py": {
+      "definitions": 47,
+      "lines": 1702,
+      "oversized_definitions": {
+        "_run_samurai_direct_offline": 154,
+        "_run_samurai_subprocess_offline": 117,
+        "probe_samurai_environment": 132
+      }
+    },
+    "trackleed/analysis/scientific_baseline_builder.py": {
+      "definitions": 2,
+      "lines": 259,
+      "oversized_definitions": {
+        "build_package": 204
+      }
+    },
+    "trackleed/analysis/scientific_baseline_contract.py": {
+      "definitions": 2,
+      "lines": 290,
+      "oversized_definitions": {
+        "measurement_contract": 269
+      }
+    },
+    "trackleed/analysis/scientific_baseline_validation.py": {
+      "definitions": 5,
+      "lines": 483,
+      "oversized_definitions": {
+        "_validate_frozen_input_schemas": 102,
+        "_validate_inventory_bindings": 98,
+        "validate_package": 231
+      }
+    },
+    "trackleed/analysis/scientific_panel_candidates.py": {
+      "definitions": 5,
+      "lines": 406,
+      "oversized_definitions": {
+        "reconstruct_panel_candidates": 262
+      }
+    },
+    "trackleed/analysis/scientific_panel_contract.py": {
+      "definitions": 5,
+      "lines": 228,
+      "oversized_definitions": {
+        "validate_panel_package": 86
+      }
+    },
+    "trackleed/analysis/scientific_panel_outcomes.py": {
+      "definitions": 2,
+      "lines": 217,
+      "oversized_definitions": {
+        "reconstruct_panel_gaps": 112
+      }
+    },
+    "trackleed/analysis/scientific_panel_reconstruction.py": {
+      "definitions": 1,
+      "lines": 154,
+      "oversized_definitions": {
+        "reconstruct_panel_artifacts": 91
+      }
+    },
+    "trackleed/analysis/scientific_panel_validation.py": {
+      "definitions": 10,
+      "lines": 491,
+      "oversized_definitions": {
+        "_validate_historical_records": 98,
+        "validate_panel_result": 96
+      }
+    },
+    "trackleed/analysis/scientific_sensitivity_audit.py": {
+      "definitions": 3,
+      "lines": 136,
+      "oversized_definitions": {
+        "audit_width_trigger": 97
+      }
+    },
+    "trackleed/analysis/scientific_sensitivity_reconstruction.py": {
+      "definitions": 3,
+      "lines": 245,
+      "oversized_definitions": {
+        "validate_sensitivity_coverage_matrix": 90
+      }
+    },
+    "trackleed/analysis/scientific_sensitivity_validation.py": {
+      "definitions": 3,
+      "lines": 311,
+      "oversized_definitions": {
+        "validate_sensitivity_output": 180
+      }
+    },
+    "trackleed/analysis/scientific_tracer_contract.py": {
+      "definitions": 7,
+      "lines": 308,
+      "oversized_definitions": {
+        "_validate_contract_semantics": 89,
+        "validate_tracer_package": 85
+      }
+    },
+    "trackleed/analysis/scientific_tracer_evaluation.py": {
+      "definitions": 2,
+      "lines": 170,
+      "oversized_definitions": {
+        "evaluate_candidates": 121
+      }
+    },
+    "trackleed/analysis/scientific_tracer_freeze.py": {
+      "definitions": 3,
+      "lines": 150,
+      "oversized_definitions": {
+        "refreeze_tracer_package": 98
+      }
+    },
+    "trackleed/analysis/scientific_tracer_reconstruction.py": {
+      "definitions": 10,
+      "lines": 542,
+      "oversized_definitions": {
+        "reconstruct_candidates": 202,
+        "reconstruct_gaps": 86
+      }
+    },
+    "trackleed/analysis/scientific_tracer_validation.py": {
+      "definitions": 10,
+      "lines": 463,
+      "oversized_definitions": {
+        "validate_central_result": 132
+      }
+    },
+    "trackleed/analysis/spot_finding.py": {
+      "definitions": 1,
+      "lines": 118,
+      "oversized_definitions": {
+        "find_spots": 103
+      }
+    },
+    "trackleed/analysis/tapir_backend.py": {
+      "definitions": 22,
+      "lines": 684,
+      "oversized_definitions": {
+        "run_tapir_offline": 84,
+        "run_tapir_online": 133
+      }
+    },
+    "trackleed/analysis/tapnext_backend.py": {
+      "definitions": 24,
+      "lines": 647,
+      "oversized_definitions": {
+        "run_tapnext_offline": 126
+      }
+    },
+    "trackleed/analysis/tomp_backend.py": {
+      "definitions": 71,
+      "lines": 2251,
+      "oversized_definitions": {
+        "_run_tomp_direct_offline": 158,
+        "_run_tomp_subprocess_offline": 112,
+        "probe_tomp_environment": 241,
+        "probe_tomp_initial_bbox_padding": 115
+      }
+    },
+    "trackleed/analysis/tracking.py": {
+      "definitions": 90,
+      "lines": 11267,
+      "oversized_definitions": {
+        "_append_cotracker3_sequence_to_track": 141,
+        "_append_cutie_sequence_to_track": 196,
+        "_append_deva_sequence_to_track": 200,
+        "_append_locotrack_sequence_to_track": 141,
+        "_append_mftiq_sequence_to_track": 155,
+        "_append_pipspp_sequence_to_track": 147,
+        "_append_sam2_sequence_to_track": 205,
+        "_append_tapir_sequence_to_track": 144,
+        "_append_tapnext_sequence_to_track": 159,
+        "_append_tomp_sequence_to_track": 191,
+        "_append_trackonr_sequence_to_track": 141,
+        "_append_xmem2_sequence_to_track": 200,
+        "_legacy_retrack_single_spot_cotracker3_offline": 268,
+        "_legacy_retrack_single_spot_cutie_offline": 309,
+        "_legacy_retrack_single_spot_locotrack_offline": 271,
+        "_legacy_retrack_single_spot_mftiq_offline": 278,
+        "_legacy_retrack_single_spot_optical_flow": 96,
+        "_legacy_retrack_single_spot_pipspp_offline": 274,
+        "_legacy_retrack_single_spot_sam2_offline": 314,
+        "_legacy_retrack_single_spot_tapir_offline": 261,
+        "_legacy_retrack_single_spot_tapir_online": 277,
+        "_legacy_retrack_single_spot_tapnext_offline": 276,
+        "_legacy_retrack_single_spot_trackonr_offline": 275,
+        "_legacy_retrack_single_spot_xmem2_offline": 332,
+        "_legacy_track_spots_cotracker3_offline": 303,
+        "_legacy_track_spots_cutie_offline": 346,
+        "_legacy_track_spots_locotrack_offline": 314,
+        "_legacy_track_spots_mftiq_offline": 313,
+        "_legacy_track_spots_pipspp_offline": 302,
+        "_legacy_track_spots_sam2_offline": 347,
+        "_legacy_track_spots_tapir_offline": 303,
+        "_legacy_track_spots_tapir_online": 311,
+        "_legacy_track_spots_tapnext_offline": 303,
+        "_legacy_track_spots_trackonr_offline": 310,
+        "_legacy_track_spots_xmem2_offline": 339,
+        "optical_flow_with_skip_anchor": 183,
+        "track_spots_hungarian": 95,
+        "track_spots_hungarian_directional": 249,
+        "track_spots_optical_flow": 148,
+        "track_spots_optical_flow_skip_anchor": 111
+      }
+    },
+    "trackleed/analysis/tracking_bbox_backends.py": {
+      "definitions": 13,
+      "lines": 1689,
+      "oversized_definitions": {
+        "_append_ostrack_sequence_to_track": 195,
+        "retrack_single_spot_ostrack_offline": 275,
+        "retrack_single_spot_tomp_offline": 290,
+        "track_spots_ostrack_offline": 316,
+        "track_spots_tomp_offline": 324
+      }
+    },
+    "trackleed/analysis/tracking_mask_backends.py": {
+      "definitions": 25,
+      "lines": 4541,
+      "oversized_definitions": {
+        "_append_dam4sam_sequence_to_track": 218,
+        "_append_samurai_sequence_to_track": 218,
+        "retrack_single_spot_cutie_offline": 282,
+        "retrack_single_spot_dam4sam_offline": 297,
+        "retrack_single_spot_deva_offline": 304,
+        "retrack_single_spot_sam2_offline": 305,
+        "retrack_single_spot_samurai_offline": 296,
+        "retrack_single_spot_xmem2_offline": 316,
+        "track_spots_cutie_offline": 294,
+        "track_spots_dam4sam_offline": 304,
+        "track_spots_deva_offline": 316,
+        "track_spots_sam2_offline": 319,
+        "track_spots_samurai_offline": 303,
+        "track_spots_xmem2_offline": 299
+      }
+    },
+    "trackleed/analysis/trackonr_backend.py": {
+      "definitions": 25,
+      "lines": 727,
+      "oversized_definitions": {
+        "_run_trackonr_subprocess_offline": 81,
+        "probe_trackonr_environment": 126
+      }
+    },
+    "trackleed/analysis/viperleed_pilot.py": {
+      "definitions": 21,
+      "lines": 926,
+      "oversized_definitions": {
+        "_build_records_and_summary": 252,
+        "_validate_contract": 100,
+        "_validate_package_files": 112
+      }
+    },
+    "trackleed/analysis/viperleed_principal.py": {
+      "definitions": 27,
+      "lines": 1029,
+      "oversized_definitions": {
+        "_build_records_and_summary": 135,
+        "_validate_contract": 97,
+        "_validate_frozen_package": 159
+      }
+    },
+    "trackleed/analysis/xmem2_backend.py": {
+      "definitions": 53,
+      "lines": 1997,
+      "oversized_definitions": {
+        "_run_xmem2_direct_offline": 194,
+        "_run_xmem2_subprocess_offline": 126,
+        "_write_xmem2_seed_masks": 84,
+        "probe_xmem2_environment": 158,
+        "probe_xmem2_initial_mask_builder": 139,
+        "run_xmem2_smoke_test": 92
+      }
+    },
+    "trackleed/analysis/yolo_detector.py": {
+      "definitions": 3,
+      "lines": 197,
+      "oversized_definitions": {
+        "detect_spots_with_yolo": 90
+      }
+    },
+    "trackleed/gui/analysis_dialog.py": {
+      "definitions": 36,
+      "lines": 2058,
+      "oversized_definitions": {
+        "AnalysisResultsDialog.__init__": 111,
+        "AnalysisResultsDialog._create_visualization_panel": 213,
+        "AnalysisResultsDialog.on_analysis_finished": 94,
+        "AnalysisResultsDialog.update_2d_preview": 107,
+        "AnalysisResultsDialog.update_3d_plots": 90,
+        "AnalysisResultsDialog.update_comparison_plot": 94,
+        "AnalysisResultsDialog.update_pattern_center_plots": 82,
+        "AnalysisResultsDialog.update_position_plot": 117,
+        "AnalysisResultsDialog.update_radius_plot": 102
+      }
+    },
+    "trackleed/gui/leed_image_viewer.py": {
+      "definitions": 44,
+      "lines": 1019,
+      "oversized_definitions": {}
+    },
+    "trackleed/gui/main_window.py": {
+      "definitions": 203,
+      "lines": 11804,
+      "oversized_definitions": {
+        "MainWindow.__init__": 123,
+        "MainWindow._build_dl_find_spots_panel": 87,
+        "MainWindow._build_registered_tracking_worker": 634,
+        "MainWindow._create_analysis_panel": 4552,
+        "MainWindow._create_menu": 109,
+        "MainWindow._refresh_cotracker_checkpoints": 97,
+        "MainWindow._refresh_cutie_checkpoints": 110,
+        "MainWindow._refresh_dam4sam_checkpoints": 159,
+        "MainWindow._refresh_deva_checkpoints": 110,
+        "MainWindow._refresh_locotrack_checkpoints": 101,
+        "MainWindow._refresh_mftiq_checkpoints": 110,
+        "MainWindow._refresh_ostrack_checkpoints": 148,
+        "MainWindow._refresh_pipspp_checkpoints": 106,
+        "MainWindow._refresh_sam2_checkpoints": 118,
+        "MainWindow._refresh_samurai_checkpoints": 159,
+        "MainWindow._refresh_tapir_checkpoints": 94,
+        "MainWindow._refresh_tomp_checkpoints": 161,
+        "MainWindow._refresh_trackonr_checkpoints": 108,
+        "MainWindow._refresh_xmem2_checkpoints": 110,
+        "MainWindow.run_tracking": 157
+      }
+    },
+    "trackleed/gui/positions_analysis_dialog.py": {
+      "definitions": 127,
+      "lines": 3821,
+      "oversized_definitions": {
+        "PositionsAnalysisDialog._build_export_point_rows": 99,
+        "PositionsAnalysisDialog._build_groups_panel": 209,
+        "PositionsAnalysisDialog._build_preview_panel": 124,
+        "PositionsAnalysisDialog._draw_gauss_preview": 142,
+        "PositionsAnalysisDialog._recompute_selected_fit_range": 125,
+        "PositionsAnalysisDialog._restore_positions_view_state": 89,
+        "PositionsAnalysisDialog._update_results_plot": 103
+      }
+    },
+    "trackleed/gui/tracking_dialog.py": {
+      "definitions": 80,
+      "lines": 2619,
+      "oversized_definitions": {
+        "TrackingDialog.__init__": 176,
+        "TrackingDialog.initiate_retrack_tomp": 100
+      }
+    },
+    "trackleed/io/effective_fwhm_temperature_export.py": {
+      "definitions": 16,
+      "lines": 398,
+      "oversized_definitions": {
+        "export_effective_fwhm_temperature": 106
+      }
+    },
+    "trackleed/io/file_parser.py": {
+      "definitions": 8,
+      "lines": 321,
+      "oversized_definitions": {
+        "parse_directory": 96
+      }
+    },
+    "trackleed/io/fwhm_series_plots.py": {
+      "definitions": 9,
+      "lines": 275,
+      "oversized_definitions": {
+        "_render_line_plot": 105,
+        "write_fwhm_plots": 88
+      }
+    },
+    "trackleed/io/fwhm_temperature_quality_plot.py": {
+      "definitions": 15,
+      "lines": 538,
+      "oversized_definitions": {
+        "_export_quality_fwhm_temperature_plot": 125,
+        "_render_marked_plot": 106
+      }
+    },
+    "trackleed/io/publication_exporter.py": {
+      "definitions": 27,
+      "lines": 659,
+      "oversized_definitions": {
+        "create_publication_export": 126
+      }
+    },
+    "trackleed/io/temperature_series_plots.py": {
+      "definitions": 4,
+      "lines": 240,
+      "oversized_definitions": {
+        "export_temperature_series_plots": 171
+      }
+    },
+    "trackleed/logic/analysis_coordinator.py": {
+      "definitions": 16,
+      "lines": 671,
+      "oversized_definitions": {
+        "_smooth_centers_temporally": 82,
+        "run_full_analysis": 190
+      }
+    },
+    "trackleed/logic/positions_analysis_coordinator.py": {
+      "definitions": 15,
+      "lines": 547,
+      "oversized_definitions": {
+        "evaluate_fit_quality": 94,
+        "run_positions_analysis": 182
+      }
+    },
+    "trackleed/publication/content_revision.py": {
+      "definitions": 10,
+      "lines": 511,
+      "oversized_definitions": {
+        "validate_content_revision": 269
+      }
+    },
+    "trackleed/publication/controlled_translation_figure_s1.py": {
+      "definitions": 8,
+      "lines": 397,
+      "oversized_definitions": {
+        "_render_figure": 100
+      }
+    },
+    "trackleed/publication/controlled_translation_sources.py": {
+      "definitions": 5,
+      "lines": 201,
+      "oversized_definitions": {
+        "validate_controlled_translation_source_data": 85
+      }
+    },
+    "trackleed/publication/cross_contract_claim_boundary.py": {
+      "definitions": 12,
+      "lines": 518,
+      "oversized_definitions": {
+        "_validate_proposal": 168
+      }
+    },
+    "trackleed/publication/cross_contract_draft_package.py": {
+      "definitions": 48,
+      "lines": 1760,
+      "oversized_definitions": {
+        "_patch_document": 96,
+        "_patch_styles": 114,
+        "_render_pdf": 87,
+        "prepare_cross_contract_draft_package": 93
+      }
+    },
+    "trackleed/publication/cross_contract_figures.py": {
+      "definitions": 20,
+      "lines": 1203,
+      "oversized_definitions": {
+        "_render_figure01": 246,
+        "_render_figure02": 237,
+        "_render_figure03": 202,
+        "_validate_frozen_package": 84
+      }
+    },
+    "trackleed/publication/cross_contract_manuscript.py": {
+      "definitions": 13,
+      "lines": 545,
+      "oversized_definitions": {
+        "_analyze_manuscript": 202
+      }
+    },
+    "trackleed/publication/cross_contract_supplement.py": {
+      "definitions": 24,
+      "lines": 957,
+      "oversized_definitions": {
+        "_analyze_supplement": 156,
+        "_validate_frozen_package": 87
+      }
+    },
+    "trackleed/publication/pre_rebaseline.py": {
+      "definitions": 5,
+      "lines": 311,
+      "oversized_definitions": {
+        "validate_pre_rebaseline": 187
+      }
+    },
+    "trackleed/publication/scientific_claim_adjudication.py": {
+      "definitions": 12,
+      "lines": 462,
+      "oversized_definitions": {
+        "build_claim_adjudication": 129
+      }
+    },
+    "trackleed/publication/scientific_core_replacement.py": {
+      "definitions": 13,
+      "lines": 515,
+      "oversized_definitions": {
+        "_validate_component_diff": 105,
+        "replace_fingerprint": 150
+      }
+    },
+    "trackleed/publication/scientific_panel.py": {
+      "definitions": 2,
+      "lines": 170,
+      "oversized_definitions": {
+        "run_central_panel": 104
+      }
+    },
+    "trackleed/publication/scientific_sensitivity.py": {
+      "definitions": 3,
+      "lines": 205,
+      "oversized_definitions": {
+        "run_sensitivity": 97
+      }
+    },
+    "trackleed/publication/scientific_sensitivity_bundle.py": {
+      "definitions": 4,
+      "lines": 253,
+      "oversized_definitions": {
+        "validate_sensitivity_publication_bundle": 109
+      }
+    },
+    "trackleed/publication/scientific_sensitivity_evidence.py": {
+      "definitions": 7,
+      "lines": 514,
+      "oversized_definitions": {
+        "_write_table_s6_workbook": 102
+      }
+    },
+    "trackleed/publication/scientific_sensitivity_figure.py": {
+      "definitions": 9,
+      "lines": 697,
+      "oversized_definitions": {
+        "_render_figure_s2": 185,
+        "build_figure_s2_artifact": 93
+      }
+    },
+    "trackleed/publication/scientific_sensitivity_sources.py": {
+      "definitions": 7,
+      "lines": 327,
+      "oversized_definitions": {
+        "validate_sensitivity_source_data": 96
+      }
+    },
+    "trackleed/publication/scientific_tracer.py": {
+      "definitions": 4,
+      "lines": 201,
+      "oversized_definitions": {
+        "_run_tracer": 102
+      }
+    },
+    "trackleed/tests/test_deva_tracking_windowing.py": {
+      "definitions": 21,
+      "lines": 458,
+      "oversized_definitions": {
+        "DevaTrackingWindowingTests.test_deva_retrack_trims_future_frames_and_reseeds_from_selected_frame": 101,
+        "DevaTrackingWindowingTests.test_deva_windowing_reseeds_each_window_from_local_zero": 118
+      }
+    },
+    "trackleed/tests/test_effective_fwhm_temperature_export.py": {
+      "definitions": 5,
+      "lines": 261,
+      "oversized_definitions": {
+        "EffectiveFwhmTemperatureExportTests.test_export_writes_branch_plots_and_axis_free_source_data": 125
+      }
+    },
+    "trackleed/tests/test_experimental_metadata_contract.py": {
+      "definitions": 10,
+      "lines": 434,
+      "oversized_definitions": {
+        "ExperimentalMetadataContractTests._create_pending_package": 101
+      }
+    },
+    "trackleed/tests/test_fwhm_temperature_quality_plot.py": {
+      "definitions": 4,
+      "lines": 214,
+      "oversized_definitions": {
+        "FwhmTemperatureQualityPlotTest.test_export_preserves_sources_and_records_quality_mask": 92,
+        "FwhmTemperatureQualityPlotTest.test_marked_export_keeps_rejected_values_as_gray_markers": 92
+      }
+    },
+    "trackleed/tests/test_main_window_registry_dispatch.py": {
+      "definitions": 60,
+      "lines": 1013,
+      "oversized_definitions": {
+        "MainWindowImportMixin.import_main_window": 462,
+        "MainWindowRegistryDispatchTests.test_launch_worker_with_progress_disables_qprogressdialog_autoclose": 102
+      }
+    },
+    "trackleed/tests/test_ostrack_tracking_windowing.py": {
+      "definitions": 24,
+      "lines": 529,
+      "oversized_definitions": {
+        "OstrackTrackingWindowingTests.test_ostrack_retrack_trims_future_points_and_uses_current_roi_seed": 105,
+        "OstrackTrackingWindowingTests.test_ostrack_windowing_reseeds_each_window_from_local_zero": 99
+      }
+    },
+    "trackleed/tests/test_positions_analysis_export.py": {
+      "definitions": 19,
+      "lines": 470,
+      "oversized_definitions": {
+        "PositionsAnalysisDialogImportMixin.import_positions_analysis_dialog": 135
+      }
+    },
+    "trackleed/tests/test_publication_exporter.py": {
+      "definitions": 20,
+      "lines": 761,
+      "oversized_definitions": {
+        "PublicationExporterTests.test_positions_session_enriches_legacy_csv_and_copied_session": 90
+      }
+    },
+    "trackleed/tests/test_scientific_baseline_contract.py": {
+      "definitions": 13,
+      "lines": 555,
+      "oversized_definitions": {
+        "ScientificBaselineContractTests._create_workspace": 100,
+        "ScientificBaselineContractTests.test_measurement_contract_freezes_variants_denominators_and_width_semantics": 150
+      }
+    },
+    "trackleed/tests/test_scientific_core_replacement.py": {
+      "definitions": 16,
+      "lines": 535,
+      "oversized_definitions": {
+        "_build_authorized_fixture": 124
+      }
+    },
+    "trackleed/tests/test_scientific_sensitivity.py": {
+      "definitions": 7,
+      "lines": 398,
+      "oversized_definitions": {
+        "ScientificSensitivityTests.test_public_runner_writes_validated_sensitivity_assessment": 126
+      }
+    },
+    "trackleed/tests/test_scientific_sensitivity_evidence.py": {
+      "definitions": 20,
+      "lines": 887,
+      "oversized_definitions": {
+        "ScientificSensitivityEvidenceTests.test_figure_s2_covers_matrix_ofat_outcomes_and_gate_audit": 96,
+        "ScientificSensitivityEvidenceTests.test_table_s6_emits_compact_view_codebook_and_full_precision_exports": 121
+      }
+    },
+    "trackleed/tests/test_scientific_tracer.py": {
+      "definitions": 14,
+      "lines": 539,
+      "oversized_definitions": {
+        "ScientificTracerTests.test_altered_input_candidate_or_contract_fails_closed": 104,
+        "ScientificTracerTests.test_headless_tracer_builds_candidate_and_evaluation_layers": 104
+      }
+    },
+    "trackleed/tests/test_tracking_dialog_retrack_dispatch.py": {
+      "definitions": 50,
+      "lines": 1061,
+      "oversized_definitions": {
+        "TrackingDialogImportMixin.import_tracking_dialog": 189,
+        "TrackingDialogRetrackDispatchTests.test_initiate_retrack_dam4sam_launches_registered_worker_with_validated_checkpoint": 84,
+        "TrackingDialogRetrackDispatchTests.test_initiate_retrack_samurai_launches_registered_worker_with_validated_checkpoint": 84
+      }
+    },
+    "trackleed/tests/test_tracking_shim_compatibility.py": {
+      "definitions": 20,
+      "lines": 595,
+      "oversized_definitions": {
+        "ShimImportMixin.import_shim_modules": 317
+      }
+    }
+  },
+  "fixed_point": "9bd7d80ca7ea68c22caa297cfe450cf92be309d2",
+  "schema_version": 1
+}

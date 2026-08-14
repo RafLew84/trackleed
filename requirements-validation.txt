@@ -1,0 +1,11 @@
+-r requirements.txt
+
+# Keep the fail-closed scientific tracer on its repository-frozen CPU runtime.
+matplotlib==3.10.1
+numpy==2.2.5
+pandas==2.3.0
+pillow==11.2.1
+scikit-image==0.25.2
+scipy==1.15.2
+tifffile==2025.3.30
+xlsxwriter==3.2.9
