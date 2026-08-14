@@ -141,19 +141,12 @@ def _validate_manifest_history(
     if shallow.stdout.strip() == "true":
         return ["Cannot validate code-size manifest history in a shallow repository."]
 
-    parents = _run_git(root, "rev-list", "--parents", "-n", "1", "HEAD")
-    if parents.returncode != 0 or not parents.stdout.strip():
+    history = _run_git(root, "rev-list", "HEAD", "--", relative_path)
+    if history.returncode != 0:
         return ["Cannot read code-size manifest commit history."]
-    revisions = parents.stdout.split()
-    head, errors = _read_manifest_at_revision(root, revisions[0], relative_path)
-    if errors:
-        return errors
-    if head is not None and head != current:
-        return _validate_manifest_reduction(head, current)
-
     history_errors: list[str] = []
-    for parent_revision in revisions[1:]:
-        previous, errors = _read_manifest_at_revision(root, parent_revision, relative_path)
+    for revision in history.stdout.splitlines():
+        previous, errors = _read_manifest_at_revision(root, revision, relative_path)
         history_errors.extend(errors)
         if previous is not None and previous != current:
             history_errors.extend(_validate_manifest_reduction(previous, current))

@@ -379,6 +379,49 @@ class CodeSizeValidationTests(unittest.TestCase):
         self.assertIn("Code-size manifest at", report.format_errors())
         self.assertIn("root must be an object", report.format_errors())
 
+    def test_manifest_cannot_be_reset_after_two_commits_without_it(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"legacy.py": "# baseline\n" * 1005})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = self._write_manifest(
+                root,
+                fixed_point,
+                {
+                    "legacy.py": {
+                        "lines": 1002,
+                        "definitions": 0,
+                        "oversized_definitions": {},
+                    }
+                },
+            )
+            (root / "legacy.py").write_text("# reduced\n" * 1002, encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "record lower ratchet")
+            manifest_path.unlink()
+            self._git(root, "add", "--update")
+            self._git(root, "commit", "-m", "remove ratchet")
+            self._git(root, "commit", "--allow-empty", "-m", "unrelated change")
+            replacement = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            self._write_manifest(
+                root,
+                replacement,
+                {
+                    "legacy.py": {
+                        "lines": 1002,
+                        "definitions": 0,
+                        "oversized_definitions": {},
+                    }
+                },
+            )
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "reset ratchet")
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("fixed point changed", report.format_errors())
+
     def test_invalid_fixed_point_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

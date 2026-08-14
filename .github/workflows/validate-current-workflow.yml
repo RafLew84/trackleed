@@ -16,45 +16,39 @@ jobs:
       PYTHONUTF8: "1"
       QT_QPA_PLATFORM: offscreen
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: blob:none
-          lfs: false
-          persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /*
-            !/.scratch/
-            !/data/
-            !/tmp_test_positions_export/
-            !/manuscript/**/*.bmp
-            !/manuscript/**/*.csv
-            !/manuscript/**/*.docx
-            !/manuscript/**/*.gif
-            !/manuscript/**/*.jpeg
-            !/manuscript/**/*.jpg
-            !/manuscript/**/*.json
-            !/manuscript/**/*.npy
-            !/manuscript/**/*.npz
-            !/manuscript/**/*.pdf
-            !/manuscript/**/*.png
-            !/manuscript/**/*.tif
-            !/manuscript/**/*.tiff
-            !/manuscript/**/*.webp
-            !/manuscript/**/*.xls
-            !/manuscript/**/*.xlsx
-            !/manuscript/**/*.zip
-
-      - name: Assert prohibited artifacts are absent
+      - name: Check out code without reference artifacts
         shell: pwsh
+        env:
+          CHECKOUT_TOKEN: ${{ github.token }}
         run: |
+          $ErrorActionPreference = 'Stop'
           $artifactExtensions = @(
             '.bmp', '.csv', '.docx', '.gif', '.jpeg', '.jpg', '.json',
             '.npy', '.npz', '.pdf', '.png', '.tif', '.tiff', '.webp',
             '.xls', '.xlsx', '.zip'
           )
+          $sparsePatterns = @('/*', '!/.scratch/', '!/data/',
+            '!/tmp_test_positions_export/')
+          $sparsePatterns += $artifactExtensions |
+            ForEach-Object { "!/manuscript/**/*$_" }
+          $repositoryUrl = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY.git"
+          $tokenBytes = [Text.Encoding]::ASCII.GetBytes(
+            "x-access-token:$env:CHECKOUT_TOKEN"
+          )
+          $encodedToken = [Convert]::ToBase64String($tokenBytes)
+          $authConfig = "http.extraHeader=AUTHORIZATION: basic $encodedToken"
+
+          git -c $authConfig clone --filter=blob:none --no-checkout `
+            $repositoryUrl .
+          if ($LASTEXITCODE -ne 0) { throw 'Partial clone failed.' }
+          $sparsePatterns | git sparse-checkout set --no-cone --stdin
+          if ($LASTEXITCODE -ne 0) { throw 'Sparse checkout setup failed.' }
+          git -c $authConfig fetch --filter=blob:none --no-tags origin `
+            $env:GITHUB_REF
+          if ($LASTEXITCODE -ne 0) { throw 'Commit fetch failed.' }
+          git -c $authConfig checkout --detach $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Sparse checkout failed.' }
+
           $forbidden = @(
             Get-ChildItem data -Recurse -File -ErrorAction SilentlyContinue
             Get-ChildItem tmp_test_positions_export -Recurse -File `
@@ -65,6 +59,25 @@ jobs:
           if ($forbidden.Count -gt 0) {
             $paths = $forbidden.FullName -join "`n"
             throw "Prohibited CI artifacts were checked out:`n$paths"
+          }
+
+          $manifest = Get-Content code_size_baseline.json -Raw |
+            ConvertFrom-Json
+          $objectIds = @(
+            git ls-tree -r $manifest.fixed_point |
+              ForEach-Object {
+                $metadata, $path = $_ -split "`t", 2
+                if ($path.EndsWith('.py')) { ($metadata -split ' ')[2] }
+              }
+            $manifestHistory = git rev-list HEAD -- code_size_baseline.json
+            foreach ($revision in $manifestHistory) {
+              git ls-tree $revision -- code_size_baseline.json |
+                ForEach-Object { (($_ -split "`t", 2)[0] -split ' ')[2] }
+            }
+          ) | Sort-Object -Unique
+          $objectIds | git -c $authConfig cat-file --batch-check | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Code-size history prefetch failed.'
           }
 
       - name: Set up Python 3.12
