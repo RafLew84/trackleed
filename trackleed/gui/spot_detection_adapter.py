@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -32,6 +34,54 @@ from trackleed.logic.workflows.spot_detection import (
 
 class CancellationSignal(Protocol):
     def is_set(self) -> bool: ...
+
+
+class SpotDetectionCompletionKind(Enum):
+    SUCCEEDED = auto()
+    CANCELLED = auto()
+    FAILED = auto()
+
+
+@dataclass(frozen=True)
+class SpotDetectionCompletion:
+    """Typed GUI-thread outcome produced by the worker's separate signals."""
+
+    kind: SpotDetectionCompletionKind
+    result: DetectionResult | None = None
+    error_message: str | None = None
+
+    @classmethod
+    def from_worker_result(
+        cls,
+        result: DetectionResult | None,
+    ) -> SpotDetectionCompletion:
+        kind = (
+            SpotDetectionCompletionKind.SUCCEEDED
+            if result is not None
+            else SpotDetectionCompletionKind.CANCELLED
+        )
+        return cls(kind=kind, result=result)
+
+    @classmethod
+    def from_worker_error(cls, error_message: str) -> SpotDetectionCompletion:
+        return cls(
+            kind=SpotDetectionCompletionKind.FAILED,
+            error_message=error_message,
+        )
+
+    @property
+    def failed(self) -> bool:
+        return self.kind is SpotDetectionCompletionKind.FAILED
+
+    @property
+    def cancelled(self) -> bool:
+        return self.kind is SpotDetectionCompletionKind.CANCELLED
+
+    @property
+    def successful_result(self) -> DetectionResult:
+        if self.kind is not SpotDetectionCompletionKind.SUCCEEDED or self.result is None:
+            raise RuntimeError("Detection completion does not contain a successful result")
+        return self.result
 
 
 def build_detection_request(

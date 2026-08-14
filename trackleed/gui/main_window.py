@@ -24,11 +24,11 @@ from trackleed.io.file_parser import parse_directory, repair_duplicate_frame_ids
 from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.gui.spot_detection_adapter import (
+    SpotDetectionCompletion,
     build_detection_request,
     publish_detection_result,
     run_spot_detection_job,
 )
-from trackleed.logic.workflows.spot_detection import DetectionResult
 from trackleed.analysis.dam4sam_backend import (
     DAM4SAM_TRACKER_VARIANTS,
     DEFAULT_DAM4SAM_TRACKER_NAME,
@@ -9325,9 +9325,7 @@ class MainWindow(QMainWindow):
             return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
         self._start_spot_detection(
-            (leed_file,),
-            is_batch=False,
-            title="Detecting spots...",
+            (leed_file,), is_batch=False, title="Detecting spots..."
         )
 
     def run_spot_finding_all(self):
@@ -9340,9 +9338,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Frames", "No frames available for detection.")
             return
         self._start_spot_detection(
-            files,
-            is_batch=True,
-            title="Detecting spots on all frames...",
+            files, is_batch=True, title="Detecting spots on all frames..."
         )
 
     def _start_spot_detection(self, files, *, is_batch: bool, title: str):
@@ -9374,30 +9370,35 @@ class MainWindow(QMainWindow):
             worker,
             title,
             cancel_event,
-            on_finished=self._on_spot_detection_finished,
-            on_error=self._on_spot_detection_finished,
+            on_finished=lambda result: self._on_spot_detection_completed(
+                SpotDetectionCompletion.from_worker_result(result)
+            ),
+            on_error=lambda message: self._on_spot_detection_completed(
+                SpotDetectionCompletion.from_worker_error(message)
+            ),
             cancel_label="Detection",
         )
 
-    def _on_spot_detection_finished(self, result: DetectionResult | None | str):
+    def _on_spot_detection_completed(self, completion: SpotDetectionCompletion):
         files = tuple(getattr(self, "_pending_spot_detection_files", ()))
         is_batch = bool(getattr(self, "_pending_spot_detection_is_batch", False))
         self._pending_spot_detection_files = ()
         self._pending_spot_detection_is_batch = False
-        if isinstance(result, str):
+        if completion.failed:
             QMessageBox.critical(
                 self,
                 "Detector Error",
-                f"An error occurred during detection:\n{result}",
+                f"An error occurred during detection:\n{completion.error_message}",
             )
             return
-        if result is None:
+        if completion.cancelled:
             QMessageBox.information(
                 self,
                 "Find Spots",
                 "Detection cancelled. No frames were changed.",
             )
             return
+        result = completion.successful_result
         try:
             publish_detection_result(files, result)
         except (TypeError, ValueError) as exc:

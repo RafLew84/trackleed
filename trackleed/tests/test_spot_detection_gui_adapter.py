@@ -7,6 +7,7 @@ from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.spot_detection_adapter import (
+    SpotDetectionCompletion,
     build_detection_request,
     publish_detection_result,
     run_spot_detection_job,
@@ -42,6 +43,18 @@ def _spot(spot_id: int, x: int) -> SpotROI:
 
 
 class SpotDetectionGuiAdapterTests(unittest.TestCase):
+    def test_worker_signals_map_to_typed_completion_states(self) -> None:
+        result = DetectionResult((FrameDetections(4, ()),))
+
+        succeeded = SpotDetectionCompletion.from_worker_result(result)
+        cancelled = SpotDetectionCompletion.from_worker_result(None)
+        failed = SpotDetectionCompletion.from_worker_error("boom")
+
+        self.assertIs(succeeded.successful_result, result)
+        self.assertTrue(cancelled.cancelled)
+        self.assertTrue(failed.failed)
+        self.assertEqual(failed.error_message, "boom")
+
     def test_request_builder_captures_immutable_values_from_gui_models(self) -> None:
         leed_file = _leed_file(4)
         mask = QRect(1, 2, 3, 4)

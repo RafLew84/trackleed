@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+from trackleed.gui.spot_detection_adapter import SpotDetectionCompletion
 from trackleed.logic.workflows.spot_detection import DetectionResult, FrameDetections
 from trackleed.tests.test_main_window_registry_dispatch import MainWindowImportMixin
 
@@ -42,8 +43,8 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             self.main_window.MainWindow._start_spot_detection,
             fake,
         )
-        fake._on_spot_detection_finished = types.MethodType(
-            self.main_window.MainWindow._on_spot_detection_finished,
+        fake._on_spot_detection_completed = types.MethodType(
+            self.main_window.MainWindow._on_spot_detection_completed,
             fake,
         )
 
@@ -123,7 +124,10 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             (FrameDetections(11, ()), FrameDetections(12, ()))
         )
 
-        self.main_window.MainWindow._on_spot_detection_finished(fake, result)
+        self.main_window.MainWindow._on_spot_detection_completed(
+            fake,
+            SpotDetectionCompletion.from_worker_result(result),
+        )
 
         self.assertEqual([file.spots for file in files], [[], []])
         self.assertIn("files", calls)
