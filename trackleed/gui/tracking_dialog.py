@@ -244,7 +244,7 @@ class TrackingDialog(QDialog):
         save_session_callback=None,
     ):
         super().__init__(parent)
-        self.setWindowTitle("Tracking Results Visualizer")
+        self.setWindowTitle("Review / Edit Tracks")
         self.setMinimumSize(1200, 800)
 
         current_flags=self.windowFlags()
@@ -340,10 +340,10 @@ class TrackingDialog(QDialog):
 
         self.animation_timer = QTimer(self)
         self.animation_timer.timeout.connect(self.advance_frame)
-
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        self.button_box.button(QDialogButtonBox.StandardButton.Ok).setText("Accept Tracks")
         self.save_session_button = self.button_box.addButton(
             "Save Session", QDialogButtonBox.ButtonRole.ActionRole
         )

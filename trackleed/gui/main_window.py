@@ -36,6 +36,12 @@ from trackleed.gui.spot_detection_dialog import (
     SpotDetectionScope,
 )
 from trackleed.gui.spots_menu import SpotsMenuActions, add_spots_menu
+from trackleed.gui.seeded_tracking_adapter import (
+    clone_tracks_for_review,
+    publish_edited_tracks,
+)
+from trackleed.gui.seeded_tracking_controller import SeededTrackingController
+from trackleed.gui.tracking_menu import TrackingMenuActions, add_tracking_menu
 from trackleed.logic.workflows.spot_detection import DetectionRequest
 from trackleed.analysis.dam4sam_backend import (
     DAM4SAM_TRACKER_VARIANTS,
@@ -75,8 +81,6 @@ from trackleed.gui.tracker_registry import (
 )
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.analysis.tracking import (
-    track_spots_optical_flow,
-    track_spots_optical_flow_skip_anchor,
     track_spots_hungarian,
     track_spots_hungarian_directional,
 )
@@ -777,6 +781,10 @@ class MainWindow(QMainWindow):
         self._tracking_progress_dialog: QProgressDialog | None = None
         self._active_tracking_cancel_requested = False
         self.spot_detection_binding = SpotDetectionSettingsBinding()
+        self.seeded_tracking_controller = SeededTrackingController(
+            self,
+            roi_size=self.spot_detection_binding.roi_size,
+        )
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
@@ -985,6 +993,14 @@ class MainWindow(QMainWindow):
         view_menu.addAction(bbox_transparency_off_action)
 
         add_spots_menu(menu_bar, self, self._spots_menu_actions())
+        add_tracking_menu(
+            menu_bar,
+            self,
+            TrackingMenuActions(
+                seeded=self.seeded_tracking_controller.show_dialog,
+                review=self.show_tracking_visualizer,
+            ),
+        )
         analysis_menu = menu_bar.addMenu("&Analysis")
         analysis_action = QAction("Final Analysis...", self)
         analysis_action.setShortcut("Ctrl+Shift+A")
@@ -1694,170 +1710,6 @@ class MainWindow(QMainWindow):
 
         # --- Group for Scenario 1 Parameters ---
         # layout.addWidget(s1_group)
-
-        # --- Optical Flow (shared) Parameters ---
-        self.optical_basic_group = QGroupBox("Optical Flow Parameters")
-        optical_basic_layout = QFormLayout(self.optical_basic_group)
-
-        self.lk_win_size_spinbox = QSpinBox()
-        self.lk_win_size_spinbox.setRange(21, 71)
-        self.lk_win_size_spinbox.setSingleStep(2)
-        self.lk_win_size_spinbox.setValue(41)
-        self.lk_win_size_spinbox.setToolTip(
-            "Lucas–Kanade window size. Larger windows tolerate more motion/deformation but blur fine detail."
-        )
-        optical_basic_layout.addRow("Window size (px):", self.lk_win_size_spinbox)
-
-        self.lk_max_level_spinbox = QSpinBox()
-        self.lk_max_level_spinbox.setRange(0, 6)
-        self.lk_max_level_spinbox.setValue(4)
-        self.lk_max_level_spinbox.setToolTip(
-            "Number of pyramid levels. Higher values handle larger displacements but slow processing."
-        )
-        optical_basic_layout.addRow("Pyramid levels:", self.lk_max_level_spinbox)
-
-        self.lk_iterations_spinbox = QSpinBox()
-        self.lk_iterations_spinbox.setRange(10, 100)
-        self.lk_iterations_spinbox.setValue(50)
-        self.lk_iterations_spinbox.setToolTip(
-            "Lucas–Kanade convergence criterion: maximum number of iterations."
-        )
-        self.lk_epsilon_spinbox = QDoubleSpinBox()
-        self.lk_epsilon_spinbox.setDecimals(5)
-        self.lk_epsilon_spinbox.setRange(0.0001, 0.01)
-        self.lk_epsilon_spinbox.setSingleStep(0.0001)
-        self.lk_epsilon_spinbox.setValue(0.01)
-        self.lk_epsilon_spinbox.setToolTip(
-            "Lucas–Kanade epsilon threshold: acceptable delta between iterations."
-        )
-        iterations_widget = QWidget()
-        iterations_layout = QHBoxLayout(iterations_widget)
-        iterations_layout.setContentsMargins(0, 0, 0, 0)
-        iterations_layout.addWidget(QLabel("Iter:"))
-        iterations_layout.addWidget(self.lk_iterations_spinbox)
-        iterations_layout.addSpacing(8)
-        iterations_layout.addWidget(QLabel("Eps:"))
-        iterations_layout.addWidget(self.lk_epsilon_spinbox)
-        optical_basic_layout.addRow("Iterations / epsilon:", iterations_widget)
-
-        self.lk_min_eig_spinbox = QDoubleSpinBox()
-        self.lk_min_eig_spinbox.setDecimals(6)
-        self.lk_min_eig_spinbox.setRange(0.000001, 0.001)
-        self.lk_min_eig_spinbox.setSingleStep(0.000001)
-        self.lk_min_eig_spinbox.setValue(0.00001)
-        self.lk_min_eig_spinbox.setToolTip(
-            "Texture-quality threshold inside the LK window (lower = accept weaker detail but risk noise)."
-        )
-        optical_basic_layout.addRow("Min eigenvalue:", self.lk_min_eig_spinbox)
-
-        self.lk_subtract_bg_checkbox = QCheckBox("Subtract background before LK")
-        self.lk_subtract_bg_checkbox.setToolTip(
-            "Use the loaded background image and subtract it from every frame before LK (requires a background file)."
-        )
-        optical_basic_layout.addRow(self.lk_subtract_bg_checkbox)
-
-        self.lk_use_centroid_checkbox = QCheckBox("Centroid-based recentering")
-        self.lk_use_centroid_checkbox.setChecked(True)
-        self.lk_use_centroid_checkbox.setToolTip(
-            "After each successful match, compute a local centroid to recentre the ROI and avoid clipping the spot."
-        )
-        optical_basic_layout.addRow(self.lk_use_centroid_checkbox)
-
-        self.lk_centroid_multiplier_spinbox = QDoubleSpinBox()
-        self.lk_centroid_multiplier_spinbox.setDecimals(2)
-        self.lk_centroid_multiplier_spinbox.setRange(1.0, 3.0)
-        self.lk_centroid_multiplier_spinbox.setSingleStep(0.1)
-        self.lk_centroid_multiplier_spinbox.setValue(1.5)
-        self.lk_centroid_multiplier_spinbox.setToolTip("Multiplier applied to the ROI radius when extracting the centroid patch (e.g., 1.5 ~= 1.5x larger).")
-        optical_basic_layout.addRow("Centroid radius multiplier:", self.lk_centroid_multiplier_spinbox)
-
-        self.lk_centroid_rel_thr_spinbox = QDoubleSpinBox()
-        self.lk_centroid_rel_thr_spinbox.setDecimals(2)
-        self.lk_centroid_rel_thr_spinbox.setRange(0.1, 0.9)
-        self.lk_centroid_rel_thr_spinbox.setSingleStep(0.05)
-        self.lk_centroid_rel_thr_spinbox.setValue(0.4)
-        self.lk_centroid_rel_thr_spinbox.setToolTip("Relative intensity threshold (with respect to the peak) for the centroid mask.")
-        optical_basic_layout.addRow("Centroid relative threshold:", self.lk_centroid_rel_thr_spinbox)
-
-        self.lk_centroid_expand_spinbox = QSpinBox()
-        self.lk_centroid_expand_spinbox.setRange(0, 3)
-        self.lk_centroid_expand_spinbox.setValue(1)
-        self.lk_centroid_expand_spinbox.setToolTip("How many times the centroid patch may expand when it sits near the edge.")
-        optical_basic_layout.addRow("Max centroid expansions:", self.lk_centroid_expand_spinbox)
-
-        form_layout.addRow(self.optical_basic_group)
-
-        # --- Optical Flow (skip anchor) Extras ---
-        self.optical_skip_group = QGroupBox("Optical Flow (skip anchor) safeguards")
-        optical_skip_layout = QFormLayout(self.optical_skip_group)
-
-        self.lk_error_threshold_spinbox = QSpinBox()
-        self.lk_error_threshold_spinbox.setRange(10, 80)
-        self.lk_error_threshold_spinbox.setValue(30)
-        self.lk_error_threshold_spinbox.setToolTip(
-            "Maximum LK fit error (lower = stricter). Used to discard questionable matches."
-        )
-        optical_skip_layout.addRow("Error threshold (LK):", self.lk_error_threshold_spinbox)
-        self.lkErrSpin = self.lk_error_threshold_spinbox
-
-        self.lk_fb_checkbox = QCheckBox("Forward-Backward check")
-        self.lk_fb_checkbox.setChecked(True)
-        self.lk_fb_checkbox.setToolTip(
-            "Validate tracks by running LK forward and backward. Improves quality at additional cost."
-        )
-        optical_skip_layout.addRow(self.lk_fb_checkbox)
-
-        self.lk_fb_threshold_spinbox = QDoubleSpinBox()
-        self.lk_fb_threshold_spinbox.setDecimals(1)
-        self.lk_fb_threshold_spinbox.setRange(2.0, 20.0)
-        self.lk_fb_threshold_spinbox.setSingleStep(0.1)
-        default_fb_threshold = max(2.0, round(self.lk_win_size_spinbox.value() * 0.2, 1))
-        self.lk_fb_threshold_spinbox.setValue(default_fb_threshold)
-        self.lk_fb_threshold_spinbox.setToolTip(
-            "Maximum closure distance allowed for the forward-backward pass (higher = more tolerant)."
-        )
-        optical_skip_layout.addRow("FB threshold (px):", self.lk_fb_threshold_spinbox)
-        self.lkFBSpin = self.lk_fb_threshold_spinbox
-
-        self.lk_max_skip_frames_spinbox = QSpinBox()
-        self.lk_max_skip_frames_spinbox.setRange(0, 1000)
-        self.lk_max_skip_frames_spinbox.setValue(0)
-        self.lk_max_skip_frames_spinbox.setToolTip(
-            "How many consecutive frames a point may skip before we terminate its track (0 = unlimited)."
-        )
-        optical_skip_layout.addRow("Max skip frames:", self.lk_max_skip_frames_spinbox)
-
-        self.oob_behavior_combo = QComboBox()
-        self.oob_behavior_combo.addItem("Ignore (skip)", "skip")
-        self.oob_behavior_combo.addItem("Mark as lost", "mark_lost")
-        self.oob_behavior_combo.setCurrentIndex(0)
-        self.oob_behavior_combo.setToolTip(
-            "Choose how to handle spots that leave the image bounds."
-        )
-        optical_skip_layout.addRow("Out-of-bounds:", self.oob_behavior_combo)
-
-        self.lk_use_ncc_checkbox = QCheckBox("Enable NCC test")
-        self.lk_use_ncc_checkbox.setChecked(True)
-        self.lk_use_ncc_checkbox.setToolTip(
-            "Run an additional Normalized Cross-Correlation check in a local patch to suppress hallucinations."
-        )
-        optical_skip_layout.addRow(self.lk_use_ncc_checkbox)
-
-        self.lk_ncc_threshold_spinbox = QDoubleSpinBox()
-        self.lk_ncc_threshold_spinbox.setDecimals(2)
-        self.lk_ncc_threshold_spinbox.setRange(0.3, 0.95)
-        self.lk_ncc_threshold_spinbox.setSingleStep(0.05)
-        self.lk_ncc_threshold_spinbox.setValue(0.65)
-        self.lk_ncc_threshold_spinbox.setToolTip("Minimum NCC value required to accept a match.")
-        optical_skip_layout.addRow("NCC threshold:", self.lk_ncc_threshold_spinbox)
-
-        self.lk_ncc_patch_spinbox = QSpinBox()
-        self.lk_ncc_patch_spinbox.setRange(3, 6)
-        self.lk_ncc_patch_spinbox.setValue(4)
-        self.lk_ncc_patch_spinbox.setToolTip("Patch radius for NCC (r=3 => 7x7, r=4 => 9x9).")
-        optical_skip_layout.addRow("NCC patch radius:", self.lk_ncc_patch_spinbox)
-
-        form_layout.addRow(self.optical_skip_group)
 
         # --- Offline TAPIR parameters ---
         self.tapir_group = QGroupBox("TAPIR")
@@ -8033,8 +7885,6 @@ class MainWindow(QMainWindow):
             scenario = self.tracking_scenario_combo.currentText()
         tracker_spec = self._tracker_spec_for_scenario(scenario)
 
-        show_optical_basic = str(scenario).startswith("Optical Flow")
-        show_optical_skip = scenario == OPTICAL_FLOW_SKIP_SCENARIO
         show_hungarian = scenario == HUNGARIAN_SCENARIO
         show_dir = scenario == DIRECTIONAL_LINKING_SCENARIO
         active_panel_attr = tracker_spec.panel_group_attr if tracker_spec is not None else None
@@ -8044,10 +7894,6 @@ class MainWindow(QMainWindow):
             if spec.panel_group_attr
         }
 
-        if hasattr(self, "optical_basic_group"):
-            self.optical_basic_group.setVisible(show_optical_basic)
-        if hasattr(self, "optical_skip_group"):
-            self.optical_skip_group.setVisible(show_optical_skip)
         for panel_attr in sorted(tracker_panel_attrs):
             if hasattr(self, panel_attr):
                 getattr(self, panel_attr).setVisible(panel_attr == active_panel_attr)
@@ -10766,78 +10612,11 @@ class MainWindow(QMainWindow):
 
         selected_scenario = self.tracking_scenario_combo.currentText()
         selected_tracker_spec = self._tracker_spec_for_scenario(selected_scenario)
+        if self.seeded_tracking_controller.show_legacy_scenario(selected_scenario):
+            return
         worker = None
         cancel_event = Event()
-        if "Optical Flow" in selected_scenario:
-            optical_params = {"roi_size": self.spot_detection_binding.roi_size}
-            ref_item = self.file_list_widget.currentItem()
-            if not ref_item:
-                QMessageBox.warning(self, "No Reference", "Optical Flow requires selecting a reference frame.")
-                return
-            ref_file = ref_item.data(Qt.ItemDataRole.UserRole)
-            if not ref_file.spots:
-                QMessageBox.warning(self, "No Spots", "The reference frame has no spots defined.")
-                return
-
-            subtract_background = self.lk_subtract_bg_checkbox.isChecked()
-            if subtract_background and not self.background_file:
-                QMessageBox.warning(
-                    self,
-                    "No Background",
-                    "Load a background file before enabling background subtraction for Optical Flow.",
-                )
-                return
-
-            optical_params.update({
-                "lk_win_size": self.lk_win_size_spinbox.value(),
-                "lk_max_level": self.lk_max_level_spinbox.value(),
-                "lk_max_iterations": self.lk_iterations_spinbox.value(),
-                "lk_epsilon": self.lk_epsilon_spinbox.value(),
-                "lk_min_eigen_threshold": self.lk_min_eig_spinbox.value(),
-                "use_centroid_refinement": self.lk_use_centroid_checkbox.isChecked(),
-                "centroid_patch_multiplier": self.lk_centroid_multiplier_spinbox.value(),
-                "centroid_rel_threshold": self.lk_centroid_rel_thr_spinbox.value(),
-                "centroid_max_expand": self.lk_centroid_expand_spinbox.value(),
-                "subtract_background": subtract_background,
-            })
-            if subtract_background and self.background_file:
-                optical_params["background_filepath"] = str(self.background_file.filepath)
-
-            if selected_scenario == "Optical Flow (skip, anchor)":
-                optical_params.update({
-                    "lk_err_threshold": self.lk_error_threshold_spinbox.value(),
-                    "lk_fb_threshold": self.lk_fb_threshold_spinbox.value(),
-                    "use_forward_backward": self.lk_fb_checkbox.isChecked(),
-                    "max_skip_frames": self.lk_max_skip_frames_spinbox.value(),
-                    "oob_behavior": self.oob_behavior_combo.currentData(),
-                    "use_ncc_check": self.lk_use_ncc_checkbox.isChecked(),
-                    "ncc_threshold": self.lk_ncc_threshold_spinbox.value(),
-                    "ncc_patch_radius": self.lk_ncc_patch_spinbox.value(),
-                })
-
-            file_map = {f.id: f for f in self.data_files if f.id is not None}
-            sorted_ids = sorted(file_map.keys())
-
-            if selected_scenario == "Optical Flow (skip, anchor)":
-                worker = GenericWorker(
-                    track_spots_optical_flow_skip_anchor,
-                    file_map,
-                    sorted_ids,
-                    ref_file.id,
-                    optical_params,
-                    cancel_event=cancel_event,
-                )
-            else:
-                worker = GenericWorker(
-                    track_spots_optical_flow,
-                    file_map,
-                    sorted_ids,
-                    ref_file.id,
-                    optical_params,
-                    cancel_event=cancel_event,
-                )
-
-        elif selected_tracker_spec is not None:
+        if selected_tracker_spec is not None:
             worker = self._build_registered_tracking_worker(selected_tracker_spec, cancel_event)
             if worker is None:
                 return
@@ -11060,18 +10839,16 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Tracking Data", "Please run the tracking analysis first.")
             return
         
-        current_roi_size = self.spot_detection_binding.roi_size
-        lk_win_size = self.lk_win_size_spinbox.value()
-        lk_max_level = self.lk_max_level_spinbox.value()
+        review_defaults = self.seeded_tracking_controller.review_defaults
         tracking_dialog_params = self._collect_tracking_dialog_backend_params()
 
         dialog = TrackingDialog(
-            self.tracking_results, 
+            clone_tracks_for_review(self.tracking_results),
             self.data_files, 
             self.metadata_mask_list,
-            roi_size=current_roi_size,
-            lk_win_size=lk_win_size,  
-            lk_max_level=lk_max_level,
+            roi_size=review_defaults.roi_size,
+            lk_win_size=review_defaults.lk_win_size,
+            lk_max_level=review_defaults.lk_max_level,
             **tracking_dialog_params,
             parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
@@ -11080,11 +10857,17 @@ class MainWindow(QMainWindow):
         result = dialog.exec()
 
         if result == QDialog.DialogCode.Accepted:
-            self.tracking_results = dialog.get_updated_tracks()
+            try:
+                self.tracking_results = publish_edited_tracks(
+                    self.data_files,
+                    dialog.get_updated_tracks(),
+                )
+            except (TypeError, ValueError) as exc:
+                QMessageBox.critical(self, "Tracking Error", str(exc))
+                return
             print(f"Tracking data accepted. Final number of tracks: {len(self.tracking_results)}")
 
             QMessageBox.information(self, "Tracks Confirmed", "Corrected tracks have been saved.")
-            self._apply_tracks_to_files(self.tracking_results)
             current_item = self.file_list_widget.currentItem()
             if current_item:
                 lf: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
@@ -11095,15 +10878,7 @@ class MainWindow(QMainWindow):
 
     def _apply_tracks_to_files(self, tracks: List[Track]):
         """Sync SpotROI instances from tracking results back into LeedFile objects for display."""
-        spots_by_file: dict[int, list[SpotROI]] = {}
-        for tr in tracks:
-            for frame_id, spot in tr.spots_by_image_id.items():
-                spots_by_file.setdefault(frame_id, []).append(spot)
-        file_map = {f.id: f for f in self.data_files if f.id is not None}
-        for fid, spots in spots_by_file.items():
-            lf = file_map.get(fid)
-            if lf:
-                lf.spots = spots
+        publish_edited_tracks(self.data_files, tracks)
     
     def populate_spot_list(self, spots: list[SpotROI]):
         """Populates the spot list widget with analysis results."""

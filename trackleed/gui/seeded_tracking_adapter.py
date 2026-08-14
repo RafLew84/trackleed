@@ -1,0 +1,229 @@
+"""Qt/model compatibility adapter for the seeded-tracking workflow."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Protocol
+
+import numpy as np
+from PyQt6.QtCore import QRect
+
+from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.logic.workflows.seeded_tracking import (
+    OpticalFlowConfig,
+    RunContext,
+    SeedRect,
+    SeededTrackingConfig,
+    SeededTrackingCancelled,
+    SeededTrackingFrame,
+    SeededTrackingRequest,
+    SkipAnchorOpticalFlowConfig,
+    TrackObservation,
+    TrackingProgress,
+    TrackingResult,
+    TrackingSeed,
+    run_seeded_tracking,
+)
+
+
+class CancellationSignal(Protocol):
+    def is_set(self) -> bool: ...
+
+
+@dataclass(frozen=True)
+class SeededTrackingDialogSettings:
+    selected_method_id: str
+    optical_flow: OpticalFlowConfig
+    skip_anchor: SkipAnchorOpticalFlowConfig
+
+    @classmethod
+    def defaults(cls, *, roi_size: int = 32) -> SeededTrackingDialogSettings:
+        return cls(
+            selected_method_id="optical_flow",
+            optical_flow=OpticalFlowConfig(roi_size=roi_size),
+            skip_anchor=SkipAnchorOpticalFlowConfig(roi_size=roi_size),
+        )
+
+
+class SeededTrackingSettingsBinding:
+    """Own the last accepted tracking settings for this process only."""
+
+    def __init__(self, *, roi_size: int = 32) -> None:
+        self._settings = SeededTrackingDialogSettings.defaults(roi_size=roi_size)
+
+    @property
+    def dialog_settings(self) -> SeededTrackingDialogSettings:
+        return self._settings
+
+    def accept(self, settings: SeededTrackingDialogSettings) -> None:
+        self._settings = settings
+
+
+def build_seeded_tracking_request(
+    *,
+    files: Sequence[LeedFile],
+    reference_file: LeedFile | None,
+    method_id: str,
+    config: SeededTrackingConfig,
+    background_file: LeedFile | None,
+) -> SeededTrackingRequest:
+    """Snapshot mutable GUI frame and seed models into neutral workflow values."""
+    if reference_file is None:
+        raise ValueError("Reference frame must be selected")
+    frame_ids = _stable_frame_ids(files)
+    if reference_file.id is None or int(reference_file.id) not in frame_ids:
+        raise ValueError("Reference frame must belong to the requested frame series")
+    return SeededTrackingRequest(
+        method_id=method_id,
+        frames=tuple(
+            SeededTrackingFrame(frame_id, leed_file.filepath)
+            for frame_id, leed_file in zip(frame_ids, files, strict=True)
+        ),
+        reference_frame_id=int(reference_file.id),
+        seeds=tuple(
+            TrackingSeed(
+                seed_id=spot.id,
+                center_x=float(spot.center_x),
+                center_y=float(spot.center_y),
+                roi=SeedRect(
+                    spot.roi_rect.x(),
+                    spot.roi_rect.y(),
+                    spot.roi_rect.width(),
+                    spot.roi_rect.height(),
+                ),
+                intensity=float(spot.intensity),
+                source=str(spot.source),
+            )
+            for spot in reference_file.spots
+        ),
+        config=config,
+        background_path=(
+            background_file.filepath if background_file is not None else None
+        ),
+    )
+
+
+def publish_tracking_result(
+    files: Sequence[LeedFile],
+    result: TrackingResult,
+) -> list[Track]:
+    """Project a complete neutral result without aliasing tracks and frame spots."""
+    tracks = [
+        Track(
+            track_id=identity.track_id,
+            spots_by_image_id={
+                observation.frame_id: _spot_from_observation(
+                    identity.track_id,
+                    observation,
+                )
+                for observation in identity.observations
+            },
+        )
+        for identity in result.tracks
+    ]
+    return publish_edited_tracks(files, tracks)
+
+
+def clone_tracks_for_review(tracks: Sequence[Track]) -> list[Track]:
+    """Create an editable copy without sharing mutable observations."""
+    return [_clone_track(track) for track in tracks]
+
+
+def publish_edited_tracks(
+    files: Sequence[LeedFile],
+    edited_tracks: Sequence[Track],
+) -> list[Track]:
+    """Atomically publish edited tracks and independent frame projections."""
+    frame_ids = _stable_frame_ids(files)
+    files_by_id = dict(zip(frame_ids, files, strict=True))
+    observation_ids = {
+        frame_id for track in edited_tracks for frame_id in track.spots_by_image_id
+    }
+    missing_ids = observation_ids - files_by_id.keys()
+    if missing_ids:
+        raise ValueError(f"Tracking result contains unknown frame IDs: {missing_ids}")
+    active_tracks = clone_tracks_for_review(edited_tracks)
+    frame_spots: dict[int, list[SpotROI]] = {frame_id: [] for frame_id in files_by_id}
+    for track in edited_tracks:
+        for frame_id, spot in track.spots_by_image_id.items():
+            frame_spots[frame_id].append(_clone_spot(spot))
+    for frame_id, file in files_by_id.items():
+        file.spots = frame_spots[frame_id]
+    return active_tracks
+
+
+def run_seeded_tracking_job(
+    request: SeededTrackingRequest,
+    image_reader: Callable[[Path], np.ndarray],
+    cancel_signal: CancellationSignal,
+    *,
+    progress_callback: Callable[[int], None],
+) -> TrackingResult | None:
+    """Run the headless workflow inside GenericWorker without GUI model access."""
+    context = RunContext(
+        image_reader=image_reader,
+        report_progress=lambda progress: progress_callback(
+            _progress_percentage(progress)
+        ),
+        is_cancelled=cancel_signal.is_set,
+    )
+    try:
+        return run_seeded_tracking(request, context)
+    except SeededTrackingCancelled:
+        return None
+
+
+def _spot_from_observation(
+    track_id: int,
+    observation: TrackObservation,
+) -> SpotROI:
+    rect = observation.roi
+    return SpotROI(
+        id=track_id,
+        roi_rect=QRect(rect.x, rect.y, rect.width, rect.height),
+        center_x=observation.center_x,
+        center_y=observation.center_y,
+        intensity=observation.intensity,
+        source=observation.source,
+    )
+
+
+def _clone_track(track: Track) -> Track:
+    return Track(
+        track_id=track.track_id,
+        spots_by_image_id={
+            frame_id: _clone_spot(spot)
+            for frame_id, spot in track.spots_by_image_id.items()
+        },
+    )
+
+
+def _clone_spot(spot: SpotROI) -> SpotROI:
+    rect = spot.roi_rect
+    return SpotROI(
+        id=spot.id,
+        roi_rect=QRect(rect.x(), rect.y(), rect.width(), rect.height()),
+        center_x=spot.center_x,
+        center_y=spot.center_y,
+        intensity=spot.intensity,
+        source=spot.source,
+        polygon_seed_points=list(spot.polygon_seed_points),
+    )
+
+
+def _progress_percentage(progress: TrackingProgress) -> int:
+    if progress.total <= 0:
+        return 100
+    return round(100 * progress.completed / progress.total)
+
+
+def _stable_frame_ids(files: Sequence[LeedFile]) -> tuple[int, ...]:
+    frame_ids = tuple(file.id for file in files)
+    if any(frame_id is None for frame_id in frame_ids):
+        raise ValueError("Seeded tracking requires every frame to have an ID")
+    stable_ids = tuple(int(frame_id) for frame_id in frame_ids if frame_id is not None)
+    if len(set(stable_ids)) != len(stable_ids):
+        raise ValueError("Seeded tracking requires unique frame IDs")
+    return stable_ids

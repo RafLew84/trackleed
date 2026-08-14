@@ -596,6 +596,9 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         fake = SimpleNamespace(
             tracking_scenario_combo=_DummyCombo("Offline TAPIR"),
             thread=None,
+            seeded_tracking_controller=SimpleNamespace(
+                show_legacy_scenario=lambda _scenario: False
+            ),
         )
         fake._tracker_spec_for_scenario = types.MethodType(
             self.main_window.MainWindow._tracker_spec_for_scenario,
@@ -629,11 +632,36 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.assertEqual(recorded["title"], "Running tracking...")
         self.assertIs(recorded["cancel_event"], recorded["launch_cancel_event"])
 
+    def test_run_tracking_routes_legacy_optical_choice_to_seeded_controller(self) -> None:
+        calls: list[str] = []
+        fake = SimpleNamespace(
+            tracking_scenario_combo=_DummyCombo("Optical Flow Tracking"),
+            thread=None,
+            seeded_tracking_controller=SimpleNamespace(
+                show_legacy_scenario=lambda scenario: calls.append(scenario) or True
+            ),
+        )
+        fake._tracker_spec_for_scenario = types.MethodType(
+            self.main_window.MainWindow._tracker_spec_for_scenario,
+            fake,
+        )
+        fake._tracking_worker_is_active = types.MethodType(
+            self.main_window.MainWindow._tracking_worker_is_active,
+            fake,
+        )
+
+        self.main_window.MainWindow.run_tracking(fake)
+
+        self.assertEqual(calls, ["Optical Flow Tracking"])
+
     def test_run_tracking_stops_when_registered_worker_builder_returns_none(self) -> None:
         recorded: dict[str, object] = {}
         fake = SimpleNamespace(
             tracking_scenario_combo=_DummyCombo("Offline TAPIR"),
             thread=None,
+            seeded_tracking_controller=SimpleNamespace(
+                show_legacy_scenario=lambda _scenario: False
+            ),
         )
         fake._tracker_spec_for_scenario = types.MethodType(
             self.main_window.MainWindow._tracker_spec_for_scenario,
@@ -678,6 +706,9 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         fake = SimpleNamespace(
             tracking_scenario_combo=_DummyCombo("Detection Linking (Hungarian)"),
             thread=None,
+            seeded_tracking_controller=SimpleNamespace(
+                show_legacy_scenario=lambda _scenario: False
+            ),
             data_files=[
                 SimpleNamespace(id=0, filename="a_T0014_E1100_C0000.tiff", spots=[object()]),
                 SimpleNamespace(id=0, filename="b_T0015_E1100_C0000.tiff", spots=[object()]),
