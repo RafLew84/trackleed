@@ -8,10 +8,10 @@ import numpy as np
 
 from trackleed.analysis import spot_detection_runtime
 from trackleed.logic.workflows.spot_detection import (
+    AnalysisRegionSnapshot,
     ClassicDetectionConfig,
     DetectedSpot,
     DetectionCapabilities,
-    DetectionFamily,
     DetectionFrame,
     DetectionMethod,
     DetectionRequest,
@@ -22,6 +22,7 @@ from trackleed.logic.workflows.spot_detection import (
     SpotDetectionCancelled,
     SpotDetectionCatalog,
     SpotDetectionExecutionError,
+    SpotDetectionFamily,
     SpotDetectionPreflightError,
     YoloDetectionConfig,
     default_spot_detection_catalog,
@@ -91,7 +92,7 @@ def _recording_context(
     method = DetectionMethod(
         method_id="classic",
         display_name="Classic",
-        family=DetectionFamily.CLASSICAL,
+        family=SpotDetectionFamily.CLASSICAL,
         capabilities=DetectionCapabilities(True, True, False),
         runtime=_RecordingClassicRuntime(events, fail_on_value),
     )
@@ -163,8 +164,11 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
             catalog.method("classic").capabilities,
             DetectionCapabilities(True, True, False),
         )
-        self.assertIs(catalog.method("classic").family, DetectionFamily.CLASSICAL)
-        self.assertIs(catalog.method("yolo").family, DetectionFamily.NEURAL)
+        self.assertIs(
+            catalog.method("classic").family,
+            SpotDetectionFamily.CLASSICAL,
+        )
+        self.assertIs(catalog.method("yolo").family, SpotDetectionFamily.NEURAL)
         self.assertTrue(catalog.method("yolo").capabilities.requires_model)
 
     def test_invalid_classic_config_fails_preflight_before_image_read(self) -> None:
@@ -181,6 +185,78 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
             {issue.code for issue in raised.exception.report.issues},
             {"invalid_config"},
         )
+
+    def test_classic_background_subtraction_preserves_metadata_mask(self) -> None:
+        image = np.zeros((64, 64), dtype=np.uint8)
+        image[30:35, 30:35] = 255
+        background = np.ones((64, 64), dtype=np.uint8)
+        request = DetectionRequest(
+            method_id="classic",
+            frames=(DetectionFrame(1, Path("frame.tif")),),
+            config=ClassicDetectionConfig(
+                blur_sigma=1.0,
+                wth_radius=2,
+                min_distance=3,
+                threshold_rel=0.05,
+                roi_size=8,
+            ),
+            background_path=Path("background.tif"),
+            analysis_region=AnalysisRegionSnapshot(
+                metadata_masks=(RectSnapshot(28, 28, 10, 10),)
+            ),
+        )
+
+        result = run_spot_detection(
+            request,
+            RunContext(
+                image_reader=lambda path: (
+                    background if path.name == "background.tif" else image
+                )
+            ),
+        )
+
+        self.assertEqual(result.frames[0].spots, ())
+
+    def test_preflight_rejects_empty_or_duplicate_frame_identity(self) -> None:
+        empty = DetectionRequest("classic", (), ClassicDetectionConfig())
+        duplicate = DetectionRequest(
+            "classic",
+            (
+                DetectionFrame(1, Path("one.tif")),
+                DetectionFrame(1, Path("two.tif")),
+            ),
+            ClassicDetectionConfig(),
+        )
+
+        for request, expected_code in (
+            (empty, "frames_required"),
+            (duplicate, "duplicate_frame_id"),
+        ):
+            with self.subTest(expected_code=expected_code):
+                with self.assertRaises(SpotDetectionPreflightError) as raised:
+                    run_spot_detection(request, RunContext(_unexpected_image_read))
+                self.assertIn(
+                    expected_code,
+                    {issue.code for issue in raised.exception.report.issues},
+                )
+
+    def test_preflight_rejects_yolo_background_mode_without_background(self) -> None:
+        request = DetectionRequest(
+            method_id="yolo",
+            frames=(DetectionFrame(1, Path("frame.tif")),),
+            config=YoloDetectionConfig(
+                model_path=Path("missing-model.pt"),
+                confidence=1.5,
+                subtract_background=True,
+            ),
+        )
+
+        with self.assertRaises(SpotDetectionPreflightError) as raised:
+            run_spot_detection(request, RunContext(_unexpected_image_read))
+
+        issue_codes = {issue.code for issue in raised.exception.report.issues}
+        self.assertIn("invalid_config", issue_codes)
+        self.assertIn("background_required", issue_codes)
 
     def test_unavailable_yolo_fails_preflight_before_image_read(self) -> None:
         request = DetectionRequest(
@@ -206,10 +282,12 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
                 "find_spec",
                 return_value=object(),
             ):
-                report = default_spot_detection_catalog().preflight(
-                    "yolo",
-                    YoloDetectionConfig(model_path=checkpoint),
+                request = DetectionRequest(
+                    method_id="yolo",
+                    frames=(DetectionFrame(1, Path("frame.tif")),),
+                    config=YoloDetectionConfig(model_path=checkpoint),
                 )
+                report = default_spot_detection_catalog().preflight(request)
 
         self.assertTrue(report.ready)
 
@@ -217,7 +295,7 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
         yolo_method = DetectionMethod(
             method_id="yolo",
             display_name="YOLO",
-            family=DetectionFamily.NEURAL,
+            family=SpotDetectionFamily.NEURAL,
             capabilities=DetectionCapabilities(True, True, True),
             runtime=_ReadyYoloRuntime(),
         )

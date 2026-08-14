@@ -9319,50 +9319,19 @@ class MainWindow(QMainWindow):
 
     def run_spot_finding(self):
         """Gathers parameters and runs the spot finding algorithm."""
-        if self._tracking_worker_is_active():
-            QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
-            return
         current_list_item = self.file_list_widget.currentItem()
         if not current_list_item:
             QMessageBox.warning(self, "No Image", "Please select an image to analyze.")
             return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
-        files = (leed_file,)
-        try:
-            request = build_detection_request(
-                files=files,
-                spot_settings=self._collect_spot_settings(),
-                background_file=self.background_file,
-                metadata_masks=self.metadata_mask_list,
-                analysis_circle=self.analysis_circle,
-                analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
-            )
-        except (TypeError, ValueError) as exc:
-            QMessageBox.critical(self, "Detector Error", str(exc))
-            return
-        cancel_event = Event()
-        worker = GenericWorker(
-            run_spot_detection_job,
-            request,
-            load_tiff,
-            cancel_event,
-        )
-        self._pending_spot_detection_files = files
-        self._pending_spot_detection_is_batch = False
-        self._launch_worker_with_progress(
-            worker,
-            "Detecting spots...",
-            cancel_event,
-            on_finished=self._on_spot_detection_finished,
-            on_error=self._on_spot_detection_error,
-            cancel_label="Detection",
+        self._start_spot_detection(
+            (leed_file,),
+            is_batch=False,
+            title="Detecting spots...",
         )
 
     def run_spot_finding_all(self):
         """Run spot detection on all frames in the list using the current backend."""
-        if self._tracking_worker_is_active():
-            QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
-            return
         if not self.data_files:
             QMessageBox.information(self, "No Data", "Load images before running batch detection.")
             return
@@ -9370,6 +9339,16 @@ class MainWindow(QMainWindow):
         if not files:
             QMessageBox.information(self, "No Frames", "No frames available for detection.")
             return
+        self._start_spot_detection(
+            files,
+            is_batch=True,
+            title="Detecting spots on all frames...",
+        )
+
+    def _start_spot_detection(self, files, *, is_batch: bool, title: str):
+        if self._tracking_worker_is_active():
+            QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
+            return
         try:
             request = build_detection_request(
                 files=files,
@@ -9390,21 +9369,28 @@ class MainWindow(QMainWindow):
             cancel_event,
         )
         self._pending_spot_detection_files = files
-        self._pending_spot_detection_is_batch = True
+        self._pending_spot_detection_is_batch = is_batch
         self._launch_worker_with_progress(
             worker,
-            "Detecting spots on all frames...",
+            title,
             cancel_event,
             on_finished=self._on_spot_detection_finished,
-            on_error=self._on_spot_detection_error,
+            on_error=self._on_spot_detection_finished,
             cancel_label="Detection",
         )
 
-    def _on_spot_detection_finished(self, result: DetectionResult | None):
+    def _on_spot_detection_finished(self, result: DetectionResult | None | str):
         files = tuple(getattr(self, "_pending_spot_detection_files", ()))
         is_batch = bool(getattr(self, "_pending_spot_detection_is_batch", False))
         self._pending_spot_detection_files = ()
         self._pending_spot_detection_is_batch = False
+        if isinstance(result, str):
+            QMessageBox.critical(
+                self,
+                "Detector Error",
+                f"An error occurred during detection:\n{result}",
+            )
+            return
         if result is None:
             QMessageBox.information(
                 self,
@@ -9429,15 +9415,6 @@ class MainWindow(QMainWindow):
         if current_item:
             self.display_selected_image(current_item, None)
         QMessageBox.information(self, "Find All Spots", f"Processed {len(files)} frame(s).")
-
-    def _on_spot_detection_error(self, error_message: str):
-        self._pending_spot_detection_files = ()
-        self._pending_spot_detection_is_batch = False
-        QMessageBox.critical(
-            self,
-            "Detector Error",
-            f"An error occurred during detection:\n{error_message}",
-        )
 
     def copy_spots_to_all_frames(self):
         """Copy spots from the currently selected frame to all other frames."""

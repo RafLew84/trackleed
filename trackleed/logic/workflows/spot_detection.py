@@ -76,6 +76,25 @@ class YoloDetectionConfig:
     device: str = "auto"
 
 
+def yolo_config_from_mapping(values: Mapping[str, Any]) -> YoloDetectionConfig:
+    """Normalize a legacy YOLO settings mapping using contract defaults."""
+    defaults = YoloDetectionConfig()
+    model_path = values.get("model_path", defaults.model_path)
+    return YoloDetectionConfig(
+        model_path=Path(model_path) if model_path else None,
+        confidence=float(values.get("confidence", defaults.confidence)),
+        iou=float(values.get("iou", defaults.iou)),
+        max_detections=int(values.get("max_det", defaults.max_detections)),
+        bbox_margin_px=int(
+            values.get("bbox_margin_px", defaults.bbox_margin_px)
+        ),
+        subtract_background=bool(
+            values.get("subtract_bg", defaults.subtract_background)
+        ),
+        device=str(values.get("device", defaults.device)),
+    )
+
+
 DetectionConfig: TypeAlias = ClassicDetectionConfig | YoloDetectionConfig
 
 
@@ -146,9 +165,10 @@ class DetectionCapabilities:
     supports_background: bool
     supports_metadata_masks: bool
     requires_model: bool
+    supports_series: bool = True
 
 
-class DetectionFamily(str, Enum):
+class SpotDetectionFamily(str, Enum):
     CLASSICAL = "classical"
     NEURAL = "neural"
 
@@ -174,7 +194,7 @@ class DetectionRuntimeAdapter(Protocol):
 class DetectionMethod:
     method_id: str
     display_name: str
-    family: DetectionFamily
+    family: SpotDetectionFamily
     capabilities: DetectionCapabilities
     runtime: DetectionRuntimeAdapter
 
@@ -189,9 +209,55 @@ class SpotDetectionCatalog:
             raise UnknownDetectionMethod(f"Unknown spot detection method: {method_id}")
         return matches[0]
 
-    def preflight(self, method_id: str, config: DetectionConfig) -> PreflightReport:
-        method = self.method(method_id)
-        return PreflightReport(method_id, method.runtime.preflight(config))
+    def preflight(self, request: DetectionRequest) -> PreflightReport:
+        method = self.method(request.method_id)
+        issues = list(method.runtime.preflight(request.config))
+        frame_ids = tuple(frame.frame_id for frame in request.frames)
+        if not frame_ids:
+            issues.append(PreflightIssue("frames_required", "Select at least one frame."))
+        elif len(set(frame_ids)) != len(frame_ids):
+            issues.append(
+                PreflightIssue("duplicate_frame_id", "Frame IDs must be unique.")
+            )
+        if len(frame_ids) > 1 and not method.capabilities.supports_series:
+            issues.append(
+                PreflightIssue(
+                    "mode_unavailable",
+                    f"Method {request.method_id} does not support series detection.",
+                )
+            )
+        if (
+            request.background_path is not None
+            and not method.capabilities.supports_background
+        ):
+            issues.append(
+                PreflightIssue(
+                    "background_unsupported",
+                    f"Method {request.method_id} does not support a background image.",
+                )
+            )
+        if (
+            request.analysis_region.metadata_masks
+            and not method.capabilities.supports_metadata_masks
+        ):
+            issues.append(
+                PreflightIssue(
+                    "masks_unsupported",
+                    f"Method {request.method_id} does not support metadata masks.",
+                )
+            )
+        if (
+            isinstance(request.config, YoloDetectionConfig)
+            and request.config.subtract_background
+            and request.background_path is None
+        ):
+            issues.append(
+                PreflightIssue(
+                    "background_required",
+                    "YOLO background subtraction requires a background image.",
+                )
+            )
+        return PreflightReport(request.method_id, tuple(issues))
 
 
 @dataclass(frozen=True)
@@ -239,14 +305,14 @@ def default_spot_detection_catalog() -> SpotDetectionCatalog:
             DetectionMethod(
                 method_id="classic",
                 display_name="Classic",
-                family=DetectionFamily.CLASSICAL,
+                family=SpotDetectionFamily.CLASSICAL,
                 capabilities=DetectionCapabilities(True, True, False),
                 runtime=ClassicDetectionRuntime(),
             ),
             DetectionMethod(
                 method_id="yolo",
                 display_name="YOLO",
-                family=DetectionFamily.NEURAL,
+                family=SpotDetectionFamily.NEURAL,
                 capabilities=DetectionCapabilities(True, True, True),
                 runtime=YoloDetectionRuntime(),
             ),
@@ -261,7 +327,7 @@ def run_spot_detection(
     """Detect spots frame-by-frame and return only a complete batch result."""
     catalog = context.detection_catalog or default_spot_detection_catalog()
     method = catalog.method(request.method_id)
-    report = catalog.preflight(request.method_id, request.config)
+    report = catalog.preflight(request)
     if not report.ready:
         raise SpotDetectionPreflightError(report)
 

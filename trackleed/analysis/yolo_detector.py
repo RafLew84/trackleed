@@ -18,6 +18,8 @@ from trackleed.logic.workflows.spot_detection import (
     YoloDetectionConfig,
 )
 
+_DEFAULT_YOLO_CONFIG = YoloDetectionConfig()
+
 
 class YOLODetectionError(RuntimeError):
     """Raised when YOLO inference fails."""
@@ -26,11 +28,11 @@ class YOLODetectionError(RuntimeError):
 @dataclass
 class YOLOSettings:
     model_path: str | None = None
-    confidence: float = 0.25
-    iou: float = 0.45
-    max_det: int = 300
-    bbox_margin_px: int = 2
-    device: str = "auto"
+    confidence: float = _DEFAULT_YOLO_CONFIG.confidence
+    iou: float = _DEFAULT_YOLO_CONFIG.iou
+    max_det: int = _DEFAULT_YOLO_CONFIG.max_detections
+    bbox_margin_px: int = _DEFAULT_YOLO_CONFIG.bbox_margin_px
+    device: str = _DEFAULT_YOLO_CONFIG.device
 
 
 def detect_spots_with_yolo(

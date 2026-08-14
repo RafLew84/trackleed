@@ -24,9 +24,9 @@ from trackleed.logic.workflows.spot_detection import (
     RectSnapshot,
     RunContext,
     SpotDetectionCancelled,
-    YoloDetectionConfig,
     classic_config_from_mapping,
     run_spot_detection,
+    yolo_config_from_mapping,
 )
 
 
@@ -51,16 +51,7 @@ def build_detection_request(
         config: DetectionConfig = classic_config_from_mapping(values)
     elif method_id == "yolo":
         values = spot_settings.get("yolo", {})
-        model_path = values.get("model_path")
-        config = YoloDetectionConfig(
-            model_path=Path(model_path) if model_path else None,
-            confidence=float(values.get("confidence", 0.25)),
-            iou=float(values.get("iou", 0.45)),
-            max_detections=int(values.get("max_det", 300)),
-            bbox_margin_px=int(values.get("bbox_margin_px", 2)),
-            subtract_background=bool(values.get("subtract_bg", False)),
-            device=str(values.get("device", "auto")),
-        )
+        config = yolo_config_from_mapping(values)
     else:
         config = ClassicDetectionConfig()
 

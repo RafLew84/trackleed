@@ -72,6 +72,18 @@ class YoloDetectionRuntime:
                 ),
             )
         issues: list[PreflightIssue] = []
+        if (
+            not 0 <= config.confidence <= 1
+            or not 0 <= config.iou <= 1
+            or config.max_detections < 1
+            or not config.device.strip()
+        ):
+            issues.append(
+                PreflightIssue(
+                    "invalid_config",
+                    "YOLO detection settings are outside their valid ranges.",
+                )
+            )
         if config.model_path is None:
             issues.append(PreflightIssue("model_required", "Select a YOLO model."))
         elif not config.model_path.is_file():
@@ -202,14 +214,15 @@ def _subtract_background(
     background: np.ndarray,
     masks: tuple[RectSnapshot, ...],
 ) -> np.ndarray:
-    main_float = img_as_float(image)
-    bg_float = rgb2gray(background) if background.ndim == 3 else img_as_float(background)
-    main_for_mean = main_float.copy()
-    bg_for_mean = bg_float.copy()
-    _zero_rectangles(main_for_mean, masks)
-    _zero_rectangles(bg_for_mean, masks)
-    main_values = main_for_mean[main_for_mean > 0]
-    bg_values = bg_for_mean[bg_for_mean > 0]
+    main_float = img_as_float(image).copy()
+    converted_background = (
+        rgb2gray(background) if background.ndim == 3 else img_as_float(background)
+    )
+    bg_float = converted_background.copy()
+    _zero_rectangles(main_float, masks)
+    _zero_rectangles(bg_float, masks)
+    main_values = main_float[main_float > 0]
+    bg_values = bg_float[bg_float > 0]
     main_mean = float(main_values.mean()) if main_values.size else 0.0
     bg_mean = float(bg_values.mean()) if bg_values.size else 0.0
     scale = main_mean / bg_mean if bg_mean > 1e-9 else 1.0

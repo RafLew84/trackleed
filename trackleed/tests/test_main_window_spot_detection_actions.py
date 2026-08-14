@@ -38,12 +38,12 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
         self.main_window.GenericWorker = Worker
 
     def _bind_detection_handlers(self, fake: SimpleNamespace) -> None:
-        fake._on_spot_detection_finished = types.MethodType(
-            self.main_window.MainWindow._on_spot_detection_finished,
+        fake._start_spot_detection = types.MethodType(
+            self.main_window.MainWindow._start_spot_detection,
             fake,
         )
-        fake._on_spot_detection_error = types.MethodType(
-            self.main_window.MainWindow._on_spot_detection_error,
+        fake._on_spot_detection_finished = types.MethodType(
+            self.main_window.MainWindow._on_spot_detection_finished,
             fake,
         )
 
