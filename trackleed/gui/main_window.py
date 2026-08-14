@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QLabel, QFileDialog, QListWidgetItem, QMessageBox, QApplication,
                              QDialog, QDockWidget, QFormLayout, QSpinBox, QDoubleSpinBox,
                              QPushButton, QCheckBox, QToolBar, QComboBox, QProgressDialog,
-                             QScrollArea, QStackedWidget, QSizePolicy, QInputDialog, QLineEdit)
+                             QScrollArea, QSizePolicy, QInputDialog, QLineEdit)
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory, repair_duplicate_frame_ids
@@ -29,6 +29,14 @@ from trackleed.gui.spot_detection_adapter import (
     publish_detection_result,
     run_spot_detection_job,
 )
+from trackleed.gui.spot_detection_dialog import (
+    SpotDetectionDialog,
+    SpotDetectionDialogContext,
+    SpotDetectionDialogSettings,
+    SpotDetectionScope,
+)
+from trackleed.gui.spots_menu import SpotsMenuActions, add_spots_menu
+from trackleed.logic.workflows.spot_detection import DetectionRequest
 from trackleed.analysis.dam4sam_backend import (
     DAM4SAM_TRACKER_VARIANTS,
     DEFAULT_DAM4SAM_TRACKER_NAME,
@@ -136,25 +144,6 @@ SAMURAI_MODEL_VARIANT_LABELS = {
     "sam2.1_hiera_small": "SAM2.1 Hiera Small",
     "sam2.1_hiera_tiny": "SAM2.1 Hiera Tiny",
 }
-
-
-@dataclass
-class DLSpotSettings:
-    model_path: str | None = None
-    confidence: float = 0.5
-    min_area_px: int = 10
-    max_area_px: int = 10000
-    bbox_margin_px: int = 4
-    dilate_radius_px: int = 0
-
-
-@dataclass
-class YOLOSpotSettings:
-    model_path: str | None = None
-    confidence: float = 0.25
-    iou: float = 0.45
-    max_det: int = 300
-    bbox_margin_px: int = 2
 
 
 @dataclass
@@ -794,8 +783,7 @@ class MainWindow(QMainWindow):
         self.worker: GenericWorker | None = None
         self._tracking_progress_dialog: QProgressDialog | None = None
         self._active_tracking_cancel_requested = False
-        self.dl_settings = DLSpotSettings()
-        self.yolo_settings = YOLOSpotSettings()
+        self.spot_detection_settings = SpotDetectionDialogSettings.from_mapping({})
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
@@ -809,10 +797,7 @@ class MainWindow(QMainWindow):
         self.deva_settings = DevaTrackingSettings()
         self.cutie_settings = CutieTrackingSettings()
         self.xmem2_settings = XMem2TrackingSettings()
-        self.current_spot_backend = "Classic"
         self.tracking_models_dir = Path("tracking_models")
-        self.dl_models_dir = self.tracking_models_dir
-        self.yolo_models_dir = self.tracking_models_dir / "yolo"
         self.tapir_models_dir = self.tracking_models_dir / "tapir"
         self.locotrack_models_dir = self.tracking_models_dir / "locotrack"
         self.cotracker_models_dir = self.tracking_models_dir / "cotracker3"
@@ -874,9 +859,6 @@ class MainWindow(QMainWindow):
         if default_deva_repo.exists():
             self.deva_settings.repo_path = str(default_deva_repo.resolve())
         self._apply_default_subprocess_python_executables()
-        self.legacy_segmentation_models_dir = Path("segmentation_models")
-        self._dl_models_available = False
-        self._yolo_models_available = False
         self._tapir_checkpoint_available = False
         self._locotrack_checkpoint_available = False
         self._cotracker_checkpoint_available = False
@@ -1009,13 +991,20 @@ class MainWindow(QMainWindow):
         bbox_transparency_off_action.triggered.connect(lambda: self.set_bbox_transparency(0.0))
         view_menu.addAction(bbox_transparency_off_action)
 
-        # --- Analysis Menu ---
+        add_spots_menu(menu_bar, self, self._spots_menu_actions())
         analysis_menu = menu_bar.addMenu("&Analysis")
         analysis_action = QAction("Final Analysis...", self)
         analysis_action.setShortcut("Ctrl+Shift+A")
         analysis_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
         analysis_action.triggered.connect(self.show_analysis_dialog)
         analysis_menu.addAction(analysis_action)
+
+    def _spots_menu_actions(self) -> SpotsMenuActions:
+        return SpotsMenuActions(
+            detect=self.show_spot_detection_dialog,
+            copy_to_all=self.copy_spots_to_all_frames,
+            normalize_all=self.normalize_rois_all_frames,
+        )
 
     def _create_toolbar(self):
         """Creates the main toolbar for interaction modes."""
@@ -1230,7 +1219,7 @@ class MainWindow(QMainWindow):
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
 
         # Get ROI size from the GUI
-        roi_size = self.roi_size_spinbox.value()
+        roi_size = self.spot_detection_settings.classic.roi_size
         roi_half = roi_size // 2
 
         # Create a new QRect centered on the click position
@@ -1575,7 +1564,10 @@ class MainWindow(QMainWindow):
         if self.show_processed_checkbox.isChecked() and not leed_file.is_background:
             try:
                 bg_img = load_tiff(self.background_file.filepath) if self.background_file else None
-                params = {'blur_sigma': self.blur_sigma_spinbox.value(), 'wth_radius': self.wth_radius_spinbox.value()}
+                params = {
+                    'blur_sigma': self.spot_detection_settings.classic.blur_sigma,
+                    'wth_radius': self.spot_detection_settings.classic.wth_radius,
+                }
                 main_float = img_as_float(original_image_data.copy())
                 subtracted_image = main_float
                 if bg_img is not None:
@@ -1693,63 +1685,14 @@ class MainWindow(QMainWindow):
         controls_widget = QWidget()
         layout = QVBoxLayout(controls_widget)
         
-        # Use a form layout for neat parameter alignment
-        find_spots_group = QGroupBox("Find Spots")
-        find_spots_layout = QVBoxLayout(find_spots_group)
-
-        backend_form = QFormLayout()
-        self.spot_backend_combo = QComboBox()
-        # To re-enable U-Net/segmentation, add "Deep Learning" back to this list.
-        self.spot_backend_combo.addItems(["Classic", "YOLO"])
-        self.spot_backend_combo.setToolTip(
-            "Select the spot detection backend. Classic uses the existing WTH/peak pipeline; "
-            "YOLO uses checkpoints from tracking_models/yolo "
-            "(legacy fallback: segmentation_models/)."
+        spot_tools_group = QGroupBox("Spot Tools")
+        spot_tools_layout = QVBoxLayout(spot_tools_group)
+        self.copy_spots_skip_existing_checkbox = QCheckBox(
+            "Skip frames that already have spots"
         )
-        backend_form.addRow("Spot detector:", self.spot_backend_combo)
-        find_spots_layout.addLayout(backend_form)
-
-        self.spot_backend_stack = QStackedWidget()
-        self.spot_backend_stack.addWidget(self._build_classic_find_spots_panel())
-        self.spot_backend_stack.addWidget(self._build_dl_find_spots_panel())
-        self.spot_backend_stack.addWidget(self._build_yolo_find_spots_panel())
-        find_spots_layout.addWidget(self.spot_backend_stack)
-
-        self.dl_device_combo = QComboBox()
-        self.dl_device_combo.addItems(["Auto", "CPU", "GPU"])
-        self.dl_device_combo.setToolTip("Device for YOLO inference. Auto = GPU if available.")
-        find_spots_layout.addWidget(self.dl_device_combo)
-
-        self.det_subtract_bg_checkbox = QCheckBox("Subtract background before detection (YOLO)")
-        self.det_subtract_bg_checkbox.setToolTip("Applies only when backend is YOLO and a background file is loaded.")
-        find_spots_layout.addWidget(self.det_subtract_bg_checkbox)
-
-        self.find_spots_button = QPushButton("Find Spots")
-        self.find_spots_button.clicked.connect(self.run_spot_finding)
-        find_spots_layout.addWidget(self.find_spots_button)
-        self.find_all_spots_button = QPushButton("Find All Spots")
-        self.find_all_spots_button.setToolTip("Run the selected detector on every frame in the list.")
-        self.find_all_spots_button.clicked.connect(self.run_spot_finding_all)
-        find_spots_layout.addWidget(self.find_all_spots_button)
-
-        self.copy_spots_button = QPushButton("Copy Spots to All Frames")
-        self.copy_spots_button.setToolTip("Duplicate spots from the current frame to all other frames.")
-        self.copy_spots_button.clicked.connect(self.copy_spots_to_all_frames)
-        find_spots_layout.addWidget(self.copy_spots_button)
-
-        self.normalize_rois_button = QPushButton("Normalize ROIs (All Frames)")
-        self.normalize_rois_button.setToolTip(
-            "Set every spot ROI to the current ROI Size while keeping each spot center."
-        )
-        self.normalize_rois_button.clicked.connect(self.normalize_rois_all_frames)
-        find_spots_layout.addWidget(self.normalize_rois_button)
-
-        self.copy_spots_skip_existing_checkbox = QCheckBox("Nie nadpisuj istniejacych")
         self.copy_spots_skip_existing_checkbox.setToolTip("If enabled, frames that already have spots will be skipped.")
-        find_spots_layout.addWidget(self.copy_spots_skip_existing_checkbox)
-
-        layout.addWidget(find_spots_group)
-        self.spot_backend_combo.currentTextChanged.connect(self._on_spot_backend_changed)
+        spot_tools_layout.addWidget(self.copy_spots_skip_existing_checkbox)
+        layout.addWidget(spot_tools_group)
 
         layout.addStretch() # Pushes everything up
 
@@ -6217,7 +6160,6 @@ class MainWindow(QMainWindow):
         scroll_area.setWidget(controls_widget)
         self.analysis_dock.setWidget(scroll_area)
 
-        self._refresh_segmentation_models()
         self._refresh_tapir_checkpoints()
         self._refresh_locotrack_checkpoints()
         self._refresh_cotracker_checkpoints()
@@ -6233,272 +6175,8 @@ class MainWindow(QMainWindow):
         self._refresh_dam4sam_checkpoints()
         self._refresh_samurai_checkpoints()
         self._refresh_deva_checkpoints()
-        self._on_spot_backend_changed(self.spot_backend_combo.currentText())
         self._update_spot_polygon_buttons()
         self.polygon_seed_group.setVisible(self._polygon_seed_scenario_active())
-
-    def _build_classic_find_spots_panel(self) -> QWidget:
-        widget = QWidget()
-        form_layout = QFormLayout(widget)
-
-        self.wth_radius_spinbox = QSpinBox()
-        self.wth_radius_spinbox.setRange(1, 50)
-        self.wth_radius_spinbox.setValue(8)
-        form_layout.addRow("WTH Radius:", self.wth_radius_spinbox)
-
-        self.blur_sigma_spinbox = QDoubleSpinBox()
-        self.blur_sigma_spinbox.setRange(1.0, 100.0)
-        self.blur_sigma_spinbox.setSingleStep(0.5)
-        self.blur_sigma_spinbox.setValue(20.0)
-        form_layout.addRow("Blur Sigma:", self.blur_sigma_spinbox)
-
-        self.min_distance_spinbox = QSpinBox()
-        self.min_distance_spinbox.setRange(1, 100)
-        self.min_distance_spinbox.setValue(10)
-        form_layout.addRow("Min Peak Distance:", self.min_distance_spinbox)
-
-        self.threshold_rel_spinbox = QDoubleSpinBox()
-        self.threshold_rel_spinbox.setRange(0.01, 1.0)
-        self.threshold_rel_spinbox.setSingleStep(0.01)
-        self.threshold_rel_spinbox.setValue(0.1)
-        form_layout.addRow("Relative Threshold:", self.threshold_rel_spinbox)
-
-        self.roi_size_spinbox = QSpinBox()
-        self.roi_size_spinbox.setRange(8, 128)
-        self.roi_size_spinbox.setSingleStep(2)
-        self.roi_size_spinbox.setValue(32)
-        form_layout.addRow("ROI Size:", self.roi_size_spinbox)
-
-        return widget
-
-    def _build_dl_find_spots_panel(self) -> QWidget:
-        widget = QWidget()
-        form_layout = QFormLayout(widget)
-
-        model_row_widget = QWidget()
-        model_row_layout = QHBoxLayout(model_row_widget)
-        model_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.dl_model_combo = QComboBox()
-        self.dl_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.dl_model_combo.setToolTip(
-            "Select a trained segmentation model (.pt) placed in tracking_models/ "
-            "(legacy fallback: segmentation_models/)."
-        )
-        self.dl_model_combo.currentIndexChanged.connect(self._on_dl_model_selected)
-        self.dl_refresh_models_button = QPushButton("Refresh")
-        self.dl_refresh_models_button.setToolTip(
-            "Re-scan tracking_models/ and the legacy segmentation_models/ directory."
-        )
-        self.dl_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
-        model_row_layout.addWidget(self.dl_model_combo)
-        model_row_layout.addWidget(self.dl_refresh_models_button)
-        form_layout.addRow("Model:", model_row_widget)
-
-        self.dl_confidence_spinbox = QDoubleSpinBox()
-        self.dl_confidence_spinbox.setRange(0.1, 0.99)
-        self.dl_confidence_spinbox.setSingleStep(0.01)
-        self.dl_confidence_spinbox.setValue(self.dl_settings.confidence)
-        self.dl_confidence_spinbox.setToolTip(
-            "Cut-off applied to the U-Net probability map (higher = fewer, cleaner components)."
-        )
-        self.dl_confidence_spinbox.valueChanged.connect(
-            lambda v: setattr(self.dl_settings, "confidence", float(v))
-        )
-        form_layout.addRow("Confidence:", self.dl_confidence_spinbox)
-
-        self.dl_min_area_spinbox = QSpinBox()
-        self.dl_min_area_spinbox.setRange(1, 10000)
-        self.dl_min_area_spinbox.setValue(self.dl_settings.min_area_px)
-        self.dl_min_area_spinbox.setToolTip("Discard connected components smaller than this pixel area to avoid noise blobs.")
-        self.dl_min_area_spinbox.valueChanged.connect(
-            lambda v: setattr(self.dl_settings, "min_area_px", int(v))
-        )
-        form_layout.addRow("Min area (px):", self.dl_min_area_spinbox)
-
-        self.dl_max_area_spinbox = QSpinBox()
-        self.dl_max_area_spinbox.setRange(10, 100000)
-        self.dl_max_area_spinbox.setValue(self.dl_settings.max_area_px)
-        self.dl_max_area_spinbox.setToolTip("Discard unusually large components (pixels). Increase if spots cover many pixels.")
-        self.dl_max_area_spinbox.valueChanged.connect(
-            lambda v: setattr(self.dl_settings, "max_area_px", int(v))
-        )
-        form_layout.addRow("Max area (px):", self.dl_max_area_spinbox)
-
-        self.dl_bbox_margin_spinbox = QSpinBox()
-        self.dl_bbox_margin_spinbox.setRange(0, 50)
-        self.dl_bbox_margin_spinbox.setValue(self.dl_settings.bbox_margin_px)
-        self.dl_bbox_margin_spinbox.setToolTip("Extra padding (pixels) around each connected component when creating SpotROI rectangles.")
-        self.dl_bbox_margin_spinbox.valueChanged.connect(
-            lambda v: setattr(self.dl_settings, "bbox_margin_px", int(v))
-        )
-        form_layout.addRow("BBox margin (px):", self.dl_bbox_margin_spinbox)
-
-        self.dl_dilate_spinbox = QSpinBox()
-        self.dl_dilate_spinbox.setRange(0, 15)
-        self.dl_dilate_spinbox.setValue(self.dl_settings.dilate_radius_px)
-        self.dl_dilate_spinbox.setToolTip(
-            "Optional dilation radius in pixels applied to the binary mask before measuring components (helps close gaps)."
-        )
-        self.dl_dilate_spinbox.valueChanged.connect(
-            lambda v: setattr(self.dl_settings, "dilate_radius_px", int(v))
-        )
-        form_layout.addRow("Dilate radius (px):", self.dl_dilate_spinbox)
-
-        info_label = QLabel(
-            "Drop your trained checkpoints into <code>tracking_models/</code>.\n"
-            "Legacy fallback: <code>segmentation_models/</code>.\n"
-            "The model produces a probability mask that we threshold, clean up, and convert to ROIs based on the settings above."
-        )
-        info_label.setWordWrap(True)
-        form_layout.addRow(info_label)
-
-        self.dl_warning_label = QLabel()
-        self.dl_warning_label.setStyleSheet("color: #d9534f;")
-        self.dl_warning_label.setWordWrap(True)
-        form_layout.addRow(self.dl_warning_label)
-
-        return widget
-
-    def _build_yolo_find_spots_panel(self) -> QWidget:
-        widget = QWidget()
-        form_layout = QFormLayout(widget)
-
-        model_row_widget = QWidget()
-        model_row_layout = QHBoxLayout(model_row_widget)
-        model_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.yolo_model_combo = QComboBox()
-        self.yolo_model_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.yolo_model_combo.setToolTip(
-            "Select a YOLO checkpoint (.pt) placed in tracking_models/yolo "
-            "(legacy fallback: segmentation_models/)."
-        )
-        self.yolo_model_combo.currentIndexChanged.connect(self._on_yolo_model_selected)
-        self.yolo_refresh_models_button = QPushButton("Refresh")
-        self.yolo_refresh_models_button.setToolTip(
-            "Re-scan tracking_models/yolo and the legacy segmentation_models/ directory."
-        )
-        self.yolo_refresh_models_button.clicked.connect(self._refresh_segmentation_models)
-        model_row_layout.addWidget(self.yolo_model_combo)
-        model_row_layout.addWidget(self.yolo_refresh_models_button)
-        form_layout.addRow("YOLO model:", model_row_widget)
-
-        self.yolo_conf_spinbox = QDoubleSpinBox()
-        self.yolo_conf_spinbox.setRange(0.01, 0.99)
-        self.yolo_conf_spinbox.setSingleStep(0.01)
-        self.yolo_conf_spinbox.setValue(self.yolo_settings.confidence)
-        self.yolo_conf_spinbox.setToolTip("Detection confidence threshold (higher = fewer boxes).")
-        self.yolo_conf_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "confidence", float(v)))
-        form_layout.addRow("Confidence:", self.yolo_conf_spinbox)
-
-        self.yolo_iou_spinbox = QDoubleSpinBox()
-        self.yolo_iou_spinbox.setRange(0.05, 0.95)
-        self.yolo_iou_spinbox.setSingleStep(0.01)
-        self.yolo_iou_spinbox.setValue(self.yolo_settings.iou)
-        self.yolo_iou_spinbox.setToolTip("NMS IoU threshold used by YOLO.")
-        self.yolo_iou_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "iou", float(v)))
-        form_layout.addRow("NMS IoU:", self.yolo_iou_spinbox)
-
-        self.yolo_max_det_spinbox = QSpinBox()
-        self.yolo_max_det_spinbox.setRange(1, 9999)
-        self.yolo_max_det_spinbox.setValue(self.yolo_settings.max_det)
-        self.yolo_max_det_spinbox.setToolTip("Maximum number of detections to keep.")
-        self.yolo_max_det_spinbox.valueChanged.connect(lambda v: setattr(self.yolo_settings, "max_det", int(v)))
-        form_layout.addRow("Max detections:", self.yolo_max_det_spinbox)
-
-        self.yolo_bbox_margin_spinbox = QSpinBox()
-        self.yolo_bbox_margin_spinbox.setRange(-50, 50)
-        self.yolo_bbox_margin_spinbox.setValue(self.yolo_settings.bbox_margin_px)
-        self.yolo_bbox_margin_spinbox.setToolTip(
-            "Padding around YOLO boxes when creating SpotROI. "
-            "Positive expands, negative shrinks."
-        )
-        self.yolo_bbox_margin_spinbox.valueChanged.connect(
-            lambda v: setattr(self.yolo_settings, "bbox_margin_px", int(v))
-        )
-        form_layout.addRow("BBox margin (px):", self.yolo_bbox_margin_spinbox)
-
-        warn = QLabel(
-            "YOLO backend requires ultralytics installed. Detected boxes are converted to SpotROI; adjust confidence/IoU to control clutter."
-        )
-        warn.setWordWrap(True)
-        form_layout.addRow(warn)
-
-        self.yolo_warning_label = QLabel()
-        self.yolo_warning_label.setStyleSheet("color: #d9534f;")
-        self.yolo_warning_label.setWordWrap(True)
-        form_layout.addRow(self.yolo_warning_label)
-
-        return widget
-
-    def _refresh_segmentation_models(self):
-        dl_model_paths = self._collect_model_paths(
-            self.dl_models_dir,
-            self.legacy_segmentation_models_dir,
-        )
-        yolo_model_paths = self._collect_model_paths(
-            self.yolo_models_dir,
-            self.legacy_segmentation_models_dir,
-        )
-
-        # DL models
-        self.dl_model_combo.blockSignals(True)
-        self.dl_model_combo.clear()
-        if not dl_model_paths:
-            self.dl_model_combo.addItem("No models found", userData=None)
-            self.dl_model_combo.setEnabled(False)
-            self._dl_models_available = False
-            self.dl_settings.model_path = None
-            if hasattr(self, "dl_warning_label"):
-                self.dl_warning_label.setText(
-                    "No models detected. Copy .pt checkpoints into tracking_models/ "
-                    "(legacy fallback: segmentation_models/) and press Refresh."
-                )
-        else:
-            self.dl_model_combo.setEnabled(True)
-            for path in dl_model_paths:
-                self.dl_model_combo.addItem(path.name, userData=str(path.resolve()))
-            self._dl_models_available = True
-            if self.dl_settings.model_path:
-                idx = self.dl_model_combo.findData(self.dl_settings.model_path)
-                if idx >= 0:
-                    self.dl_model_combo.setCurrentIndex(idx)
-            if not self.dl_settings.model_path and self.dl_model_combo.count() > 0:
-                self.dl_model_combo.setCurrentIndex(0)
-                self.dl_settings.model_path = self.dl_model_combo.currentData()
-            if hasattr(self, "dl_warning_label"):
-                self.dl_warning_label.setText("")
-        self.dl_model_combo.blockSignals(False)
-
-        # YOLO models
-        self.yolo_model_combo.blockSignals(True)
-        self.yolo_model_combo.clear()
-        if not yolo_model_paths:
-            self.yolo_model_combo.addItem("No models found", userData=None)
-            self.yolo_model_combo.setEnabled(False)
-            self._yolo_models_available = False
-            self.yolo_settings.model_path = None
-            if hasattr(self, "yolo_warning_label"):
-                self.yolo_warning_label.setText(
-                    "No YOLO models detected. Copy .pt checkpoints into tracking_models/yolo "
-                    "(legacy fallback: segmentation_models/) and press Refresh."
-                )
-        else:
-            self.yolo_model_combo.setEnabled(True)
-            for path in yolo_model_paths:
-                self.yolo_model_combo.addItem(path.name, userData=str(path.resolve()))
-            self._yolo_models_available = True
-            if self.yolo_settings.model_path:
-                idx = self.yolo_model_combo.findData(self.yolo_settings.model_path)
-                if idx >= 0:
-                    self.yolo_model_combo.setCurrentIndex(idx)
-            if not self.yolo_settings.model_path and self.yolo_model_combo.count() > 0:
-                self.yolo_model_combo.setCurrentIndex(0)
-                self.yolo_settings.model_path = self.yolo_model_combo.currentData()
-            if hasattr(self, "yolo_warning_label"):
-                self.yolo_warning_label.setText("")
-        self.yolo_model_combo.blockSignals(False)
-
-        self._update_find_spots_button_state()
 
     def _refresh_tapir_checkpoints(self):
         tracker_spec = require_tracker_spec(
@@ -8054,68 +7732,6 @@ class MainWindow(QMainWindow):
         self.tapir_center_x_spinbox.setEnabled(manual)
         self.tapir_center_y_spinbox.setEnabled(manual)
 
-    def _collect_model_paths(self, *directories: Path) -> list[Path]:
-        resolved_paths: dict[str, Path] = {}
-        for directory in directories:
-            if not directory.exists():
-                continue
-            for path in sorted(directory.glob("*.pt")):
-                resolved_paths[str(path.resolve())] = path.resolve()
-        return sorted(
-            resolved_paths.values(),
-            key=lambda path: (path.name.lower(), str(path).lower()),
-        )
-
-    def _on_spot_backend_changed(self, backend: str):
-        self.current_spot_backend = backend
-        index = 0 if backend == "Classic" else 1 if backend == "Deep Learning" else 2
-        self.spot_backend_stack.setCurrentIndex(index)
-        self._update_find_spots_button_state()
-
-    def _on_dl_model_selected(self, index: int):
-        model_path = self.dl_model_combo.itemData(index)
-        self.dl_settings.model_path = model_path
-        self._update_find_spots_button_state()
-
-    def _on_yolo_model_selected(self, index: int):
-        model_path = self.yolo_model_combo.itemData(index)
-        self.yolo_settings.model_path = model_path
-        self._update_find_spots_button_state()
-
-    def _update_find_spots_button_state(self):
-        if not hasattr(self, "find_spots_button"):
-            return
-        buttons = [self.find_spots_button, getattr(self, "find_all_spots_button", None)]
-        if self.current_spot_backend == "Deep Learning":
-            enabled = self._dl_models_available and bool(self.dl_settings.model_path)
-            for btn in buttons:
-                if btn:
-                    btn.setEnabled(enabled)
-                    if not enabled:
-                        btn.setToolTip(
-                            "Add a .pt model to tracking_models/ "
-                            "(legacy fallback: segmentation_models/) and click Refresh, then pick it from the list."
-                        )
-                    else:
-                        btn.setToolTip("")
-        elif self.current_spot_backend == "YOLO":
-            enabled = self._yolo_models_available and bool(self.yolo_settings.model_path)
-            for btn in buttons:
-                if btn:
-                    btn.setEnabled(enabled)
-                    if not enabled:
-                        btn.setToolTip(
-                            "Add a YOLO .pt checkpoint to tracking_models/yolo "
-                            "(legacy fallback: segmentation_models/) and click Refresh."
-                        )
-                    else:
-                        btn.setToolTip("")
-        else:
-            for btn in buttons:
-                if btn:
-                    btn.setEnabled(True)
-                    btn.setToolTip("")
-
     def _tapir_runtime_mode(self, scenario: str | None = None) -> str:
         if scenario is None:
             scenario = self.tracking_scenario_combo.currentText()
@@ -9341,22 +8957,66 @@ class MainWindow(QMainWindow):
             files, is_batch=True, title="Detecting spots on all frames..."
         )
 
-    def _start_spot_detection(self, files, *, is_batch: bool, title: str):
+    def show_spot_detection_dialog(self):
+        """Open the catalog-bound detector dialog and run its accepted request."""
+        current_item = self.file_list_widget.currentItem()
+        current_file = (
+            current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
+        )
+        files = tuple(leed_file for leed_file in self.data_files if not leed_file.is_background)
+        dialog = SpotDetectionDialog(
+            context=SpotDetectionDialogContext(
+                current_file=current_file,
+                series_files=files,
+                background_file=self.background_file,
+                metadata_masks=tuple(self.metadata_mask_list),
+                analysis_circle=self.analysis_circle,
+                analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
+            ),
+            settings=SpotDetectionDialogSettings.from_mapping(
+                self._collect_spot_settings()
+            ),
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted or dialog.decision is None:
+            return
+        decision = dialog.decision
+        self._apply_spot_settings(decision.settings.to_mapping())
+        is_batch = decision.scope is SpotDetectionScope.ALL_FRAMES
+        title = (
+            "Detecting spots on all frames..." if is_batch else "Detecting spots..."
+        )
+        self._start_spot_detection(
+            decision.files,
+            is_batch=is_batch,
+            title=title,
+            request=decision.request,
+        )
+
+    def _start_spot_detection(
+        self,
+        files,
+        *,
+        is_batch: bool,
+        title: str,
+        request: DetectionRequest | None = None,
+    ):
         if self._tracking_worker_is_active():
             QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
             return
-        try:
-            request = build_detection_request(
-                files=files,
-                spot_settings=self._collect_spot_settings(),
-                background_file=self.background_file,
-                metadata_masks=self.metadata_mask_list,
-                analysis_circle=self.analysis_circle,
-                analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
-            )
-        except (TypeError, ValueError) as exc:
-            QMessageBox.critical(self, "Detector Error", str(exc))
-            return
+        if request is None:
+            try:
+                request = build_detection_request(
+                    files=files,
+                    spot_settings=self._collect_spot_settings(),
+                    background_file=self.background_file,
+                    metadata_masks=self.metadata_mask_list,
+                    analysis_circle=self.analysis_circle,
+                    analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
+                )
+            except (TypeError, ValueError) as exc:
+                QMessageBox.critical(self, "Detector Error", str(exc))
+                return
         cancel_event = Event()
         worker = GenericWorker(
             run_spot_detection_job,
@@ -9506,7 +9166,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Data", "Load images before normalizing ROIs.")
             return
 
-        target_size = int(self.roi_size_spinbox.value())
+        target_size = self.spot_detection_settings.classic.roi_size
         if target_size <= 0:
             QMessageBox.warning(self, "Invalid ROI Size", "ROI Size must be greater than 0.")
             return
@@ -9567,101 +9227,11 @@ class MainWindow(QMainWindow):
 
     def _collect_spot_settings(self) -> dict:
         """Serialize the current spot-finding UI state for persistence or reuse."""
-        classic_settings = {
-            'wth_radius': self.wth_radius_spinbox.value(),
-            'blur_sigma': self.blur_sigma_spinbox.value(),
-            'min_distance': self.min_distance_spinbox.value(),
-            'threshold_rel': self.threshold_rel_spinbox.value(),
-            'roi_size': self.roi_size_spinbox.value(),
-        }
-
-        dl_settings = {
-            'model_path': self.dl_settings.model_path,
-            'confidence': self.dl_confidence_spinbox.value(),
-            'min_area_px': self.dl_min_area_spinbox.value(),
-            'max_area_px': self.dl_max_area_spinbox.value(),
-            'bbox_margin_px': self.dl_bbox_margin_spinbox.value(),
-            'dilate_radius_px': self.dl_dilate_spinbox.value(),
-            'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
-            'device': self.dl_device_combo.currentText(),
-        }
-
-        yolo_settings = {
-            'model_path': self.yolo_settings.model_path,
-            'confidence': self.yolo_conf_spinbox.value(),
-            'iou': self.yolo_iou_spinbox.value(),
-            'max_det': self.yolo_max_det_spinbox.value(),
-            'bbox_margin_px': self.yolo_bbox_margin_spinbox.value(),
-            'subtract_bg': self.det_subtract_bg_checkbox.isChecked(),
-            'device': self.dl_device_combo.currentText(),
-        }
-
-        return {
-            'backend': self.current_spot_backend,
-            'classic': classic_settings,
-            'dl': dl_settings,
-            'yolo': yolo_settings,
-        }
+        return self.spot_detection_settings.to_mapping()
 
     def _apply_spot_settings(self, settings: dict) -> None:
-        """Apply serialized spot-finding settings back to the UI widgets."""
-        classic = settings.get('classic', {})
-        if classic:
-            self.wth_radius_spinbox.setValue(int(classic.get('wth_radius', self.wth_radius_spinbox.value())))
-            self.blur_sigma_spinbox.setValue(float(classic.get('blur_sigma', self.blur_sigma_spinbox.value())))
-            self.min_distance_spinbox.setValue(int(classic.get('min_distance', self.min_distance_spinbox.value())))
-            self.threshold_rel_spinbox.setValue(float(classic.get('threshold_rel', self.threshold_rel_spinbox.value())))
-            self.roi_size_spinbox.setValue(int(classic.get('roi_size', self.roi_size_spinbox.value())))
-
-        dl = settings.get('dl', {})
-        if dl:
-            if 'confidence' in dl:
-                self.dl_confidence_spinbox.setValue(float(dl['confidence']))
-            if 'min_area_px' in dl:
-                self.dl_min_area_spinbox.setValue(int(dl['min_area_px']))
-            if 'max_area_px' in dl:
-                self.dl_max_area_spinbox.setValue(int(dl['max_area_px']))
-            if 'bbox_margin_px' in dl:
-                self.dl_bbox_margin_spinbox.setValue(int(dl['bbox_margin_px']))
-            if 'dilate_radius_px' in dl:
-                self.dl_dilate_spinbox.setValue(int(dl['dilate_radius_px']))
-            if 'subtract_bg' in dl:
-                self.det_subtract_bg_checkbox.setChecked(bool(dl['subtract_bg']))
-            if 'device' in dl:
-                idx = self.dl_device_combo.findText(str(dl['device']))
-                if idx >= 0:
-                    self.dl_device_combo.setCurrentIndex(idx)
-            if 'model_path' in dl and dl['model_path']:
-                idx = self.dl_model_combo.findData(dl['model_path'])
-                if idx >= 0:
-                    self.dl_model_combo.setCurrentIndex(idx)
-
-        yolo = settings.get('yolo', {})
-        if yolo:
-            if 'confidence' in yolo:
-                self.yolo_conf_spinbox.setValue(float(yolo['confidence']))
-            if 'iou' in yolo:
-                self.yolo_iou_spinbox.setValue(float(yolo['iou']))
-            if 'max_det' in yolo:
-                self.yolo_max_det_spinbox.setValue(int(yolo['max_det']))
-            if 'bbox_margin_px' in yolo:
-                self.yolo_bbox_margin_spinbox.setValue(int(yolo['bbox_margin_px']))
-            if 'subtract_bg' in yolo:
-                self.det_subtract_bg_checkbox.setChecked(bool(yolo['subtract_bg']))
-            if 'device' in yolo:
-                idx = self.dl_device_combo.findText(str(yolo['device']))
-                if idx >= 0:
-                    self.dl_device_combo.setCurrentIndex(idx)
-            if 'model_path' in yolo and yolo['model_path']:
-                idx = self.yolo_model_combo.findData(yolo['model_path'])
-                if idx >= 0:
-                    self.yolo_model_combo.setCurrentIndex(idx)
-
-        backend = settings.get('backend')
-        if backend:
-            idx = self.spot_backend_combo.findText(backend)
-            if idx >= 0:
-                self.spot_backend_combo.setCurrentIndex(idx)
+        """Restore accepted spot-detection settings from a session mapping."""
+        self.spot_detection_settings = SpotDetectionDialogSettings.from_mapping(settings)
 
     def _analysis_circle_to_dict(self):
         if not self.analysis_circle:
@@ -9894,7 +9464,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.tapir_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.tapir_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.tapir_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_locotrack_tracking_params(self) -> dict:
@@ -9943,7 +9513,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.locotrack_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.locotrack_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.locotrack_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_cotracker_tracking_params(self) -> dict:
@@ -9977,7 +9547,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.cotracker_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.cotracker_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.cotracker_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_tapnext_tracking_params(self) -> dict:
@@ -10013,7 +9583,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.tapnext_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.tapnext_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.tapnext_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_trackonr_tracking_params(self) -> dict:
@@ -10056,7 +9626,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.trackonr_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.trackonr_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.trackonr_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_pipspp_tracking_params(self) -> dict:
@@ -10098,7 +9668,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.pipspp_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.pipspp_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.pipspp_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_mftiq_tracking_params(self) -> dict:
@@ -10139,7 +9709,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.mftiq_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.mftiq_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.mftiq_centroid_max_shift_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_cutie_tracking_params(self) -> dict:
@@ -10184,7 +9754,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.cutie_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.cutie_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.cutie_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_tomp_tracking_params(self) -> dict:
@@ -10224,7 +9794,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.tomp_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.tomp_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.tomp_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_ostrack_tracking_params(self) -> dict:
@@ -10262,7 +9832,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.ostrack_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.ostrack_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.ostrack_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_xmem2_tracking_params(self) -> dict:
@@ -10307,7 +9877,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.xmem2_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.xmem2_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.xmem2_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_sam2_tracking_params(self) -> dict:
@@ -10362,7 +9932,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.sam2_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.sam2_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.sam2_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_dam4sam_tracking_params(self) -> dict:
@@ -10412,7 +9982,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.dam4sam_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.dam4sam_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.dam4sam_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_samurai_tracking_params(self) -> dict:
@@ -10462,7 +10032,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.samurai_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.samurai_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.samurai_max_radial_jump_spinbox.value(),
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _collect_deva_tracking_params(self) -> dict:
@@ -10503,7 +10073,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.deva_settings.direction_mode,
             "lateral_angle_tolerance_deg": self.deva_settings.lateral_angle_tolerance_deg,
             "max_radial_jump_px": self.deva_settings.max_radial_jump_px,
-            "roi_size": self.roi_size_spinbox.value(),
+            "roi_size": self.spot_detection_settings.classic.roi_size,
         }
 
     def _tracking_reference_file_or_warn(self, requirement_label: str):
@@ -11222,7 +10792,7 @@ class MainWindow(QMainWindow):
         worker = None
         cancel_event = Event()
         if "Optical Flow" in selected_scenario:
-            optical_params = {"roi_size": self.roi_size_spinbox.value()}
+            optical_params = {"roi_size": self.spot_detection_settings.classic.roi_size}
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
                 QMessageBox.warning(self, "No Reference", "Optical Flow requires selecting a reference frame.")
@@ -11513,7 +11083,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Tracking Data", "Please run the tracking analysis first.")
             return
         
-        current_roi_size = self.roi_size_spinbox.value()
+        current_roi_size = self.spot_detection_settings.classic.roi_size
         lk_win_size = self.lk_win_size_spinbox.value()
         lk_max_level = self.lk_max_level_spinbox.value()
         tracking_dialog_params = self._collect_tracking_dialog_backend_params()

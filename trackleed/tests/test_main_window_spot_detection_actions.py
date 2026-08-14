@@ -4,7 +4,17 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from trackleed.gui.spot_detection_adapter import SpotDetectionCompletion
-from trackleed.logic.workflows.spot_detection import DetectionResult, FrameDetections
+from trackleed.gui.spot_detection_dialog import (
+    SpotDetectionDialogDecision,
+    SpotDetectionDialogSettings,
+    SpotDetectionScope,
+)
+from trackleed.logic.workflows.spot_detection import (
+    DetectionFrame,
+    DetectionRequest,
+    DetectionResult,
+    FrameDetections,
+)
 from trackleed.tests.test_main_window_registry_dispatch import MainWindowImportMixin
 
 
@@ -76,7 +86,11 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
         self.assertEqual(request.frames[0].frame_id, 11)
         self.assertEqual(request.frames[0].source_path, Path("one.tif"))
         self.assertIs(leed_file.spots, original_spots)
-        self.assertEqual(self.recorded["launch"][1]["cancel_label"], "Detection")
+        launch_args, launch_kwargs = self.recorded["launch"]
+        self.assertIs(launch_args[2], worker.args[2])
+        self.assertEqual(launch_kwargs["cancel_label"], "Detection")
+        worker.args[2].set()
+        self.assertTrue(worker.args[2].is_set())
 
     def test_full_series_action_uses_the_same_public_workflow_worker(self) -> None:
         files = [
@@ -131,3 +145,106 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
 
         self.assertEqual([file.spots for file in files], [[], []])
         self.assertIn("files", calls)
+
+    def test_detect_spots_dialog_starts_accepted_request_with_shared_host(self) -> None:
+        current = SimpleNamespace(
+            id=11,
+            filepath=Path("one.tif"),
+            spots=[],
+            is_background=False,
+        )
+        second = SimpleNamespace(
+            id=12,
+            filepath=Path("two.tif"),
+            spots=[],
+            is_background=False,
+        )
+        settings = SpotDetectionDialogSettings.from_mapping(
+            {"backend": "Classic", "classic": {"roi_size": 40}}
+        )
+        request = DetectionRequest(
+            "classic",
+            (DetectionFrame(11, Path("one.tif")),),
+            settings.classic,
+        )
+        decision = SpotDetectionDialogDecision(
+            request,
+            (current,),
+            SpotDetectionScope.CURRENT_FRAME,
+            settings,
+        )
+        captured: dict[str, object] = {}
+
+        class Dialog:
+            def __init__(self, **kwargs):
+                captured["dialog"] = kwargs
+                self.decision = decision
+
+            def exec(self):
+                return 1
+
+        original_dialog = self.main_window.SpotDetectionDialog
+        original_dialog_code = getattr(self.main_window.QDialog, "DialogCode", None)
+        self.main_window.SpotDetectionDialog = Dialog
+        self.main_window.QDialog.DialogCode = SimpleNamespace(Accepted=1)
+        self.addCleanup(setattr, self.main_window, "SpotDetectionDialog", original_dialog)
+        self.addCleanup(
+            setattr,
+            self.main_window.QDialog,
+            "DialogCode",
+            original_dialog_code,
+        )
+        item = SimpleNamespace(data=lambda _role: current)
+        fake = SimpleNamespace(
+            file_list_widget=SimpleNamespace(currentItem=lambda: item),
+            data_files=[current, second],
+            background_file=None,
+            metadata_mask_list=[],
+            analysis_circle=None,
+            analysis_ellipse=None,
+            _normalize_analysis_ellipse=lambda value: value,
+            _collect_spot_settings=lambda: settings.to_mapping(),
+            _apply_spot_settings=lambda values: captured.update(
+                {"accepted_settings": values}
+            ),
+            _start_spot_detection=lambda *args, **kwargs: captured.update(
+                {"start": (args, kwargs)}
+            ),
+        )
+
+        self.main_window.MainWindow.show_spot_detection_dialog(fake)
+
+        context = captured["dialog"]["context"]
+        self.assertIs(context.current_file, current)
+        self.assertEqual(context.series_files, (current, second))
+        self.assertEqual(captured["accepted_settings"]["classic"]["roi_size"], 40)
+        self.assertIs(captured["start"][1]["request"], request)
+        self.assertFalse(captured["start"][1]["is_batch"])
+
+    def test_session_settings_round_trip_without_detector_widgets(self) -> None:
+        fake = SimpleNamespace(
+            spot_detection_settings=SpotDetectionDialogSettings.from_mapping({})
+        )
+        session_settings = {
+            "backend": "YOLO",
+            "classic": {"roi_size": 48, "threshold_rel": 0.15},
+            "dl": {"confidence": 0.6, "model_path": "legacy.pt"},
+            "yolo": {
+                "model_path": "spots.pt",
+                "confidence": 0.35,
+                "iou": 0.5,
+                "max_det": 120,
+                "bbox_margin_px": 4,
+                "subtract_bg": True,
+                "device": "cpu",
+            },
+        }
+
+        self.main_window.MainWindow._apply_spot_settings(fake, session_settings)
+        serialized = self.main_window.MainWindow._collect_spot_settings(fake)
+
+        self.assertEqual(fake.spot_detection_settings.selected_method_id, "yolo")
+        self.assertEqual(serialized["classic"]["roi_size"], 48)
+        self.assertEqual(serialized["dl"], session_settings["dl"])
+        self.assertEqual(serialized["yolo"]["model_path"], "spots.pt")
+        self.assertTrue(serialized["yolo"]["subtract_bg"])
