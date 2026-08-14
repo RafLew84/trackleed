@@ -23,9 +23,16 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.file_parser import parse_directory, repair_duplicate_frame_ids
 from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
-from trackleed.analysis.spot_finding import find_spots
-from trackleed.analysis.dl_spot_finder import detect_spots_with_model, DLSpotDetectionError
-from trackleed.analysis.yolo_detector import detect_spots_with_yolo, YOLODetectionError, YOLOSettings
+from trackleed.gui.spot_detection_adapter import (
+    build_detection_request,
+    publish_detection_result,
+)
+from trackleed.logic.workflows.spot_detection import (
+    RunContext,
+    SpotDetectionCancelled,
+    SpotDetectionError,
+    run_spot_detection,
+)
 from trackleed.analysis.dam4sam_backend import (
     DAM4SAM_TRACKER_VARIANTS,
     DEFAULT_DAM4SAM_TRACKER_NAME,
@@ -9316,18 +9323,26 @@ class MainWindow(QMainWindow):
 
     def run_spot_finding(self):
         """Gathers parameters and runs the spot finding algorithm."""
-        # 1. Get the current image file
         current_list_item = self.file_list_widget.currentItem()
         if not current_list_item:
             QMessageBox.warning(self, "No Image", "Please select an image to analyze.")
             return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
-
-        spot_settings = self._collect_spot_settings()
+        files = (leed_file,)
+        request = build_detection_request(
+            files=files,
+            spot_settings=self._collect_spot_settings(),
+            background_file=self.background_file,
+            metadata_masks=self.metadata_mask_list,
+            analysis_circle=self.analysis_circle,
+            analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
+        )
         try:
-            found_spots = self._detect_spots_on_leed_file(leed_file, spot_settings)
-            leed_file.spots = found_spots
-        except (DLSpotDetectionError, YOLODetectionError) as exc:
+            result = run_spot_detection(request, RunContext(image_reader=load_tiff))
+            publish_detection_result(files, result)
+        except SpotDetectionCancelled:
+            return
+        except SpotDetectionError as exc:
             QMessageBox.critical(self, "Detector Error", str(exc))
             return
         except Exception as exc:
@@ -9337,100 +9352,63 @@ class MainWindow(QMainWindow):
                 f"Unexpected error during detection:\n{exc}",
             )
             return
-        
-        # 5. Update the UI with results
-        self.populate_spot_list(found_spots)
+        self.populate_spot_list(leed_file.spots)
         self.refresh_current_view()
-
-    def _detect_spots_on_leed_file(self, leed_file: LeedFile, spot_settings: dict):
-        """Core spot detection logic shared by single-frame and batch runs."""
-        backend = spot_settings["backend"]
-        main_image = load_tiff(leed_file.filepath)
-        background_image = load_tiff(self.background_file.filepath) if self.background_file else None
-        if main_image is None or main_image.size == 0:
-            raise ValueError(f"Could not load image: {leed_file.filepath}")
-        main_image = self._apply_analysis_region_mask(main_image)
-        if background_image is not None and background_image.size > 0:
-            background_image = self._apply_analysis_region_mask(background_image)
-        subtract_bg = False
-        if backend in ("Deep Learning", "YOLO"):
-            subtract_bg = bool(spot_settings.get(backend.lower(), {}).get("subtract_bg")) or bool(
-                spot_settings.get("dl", {}).get("subtract_bg") if backend == "Deep Learning" else spot_settings.get("yolo", {}).get("subtract_bg")
-            )
-        if subtract_bg:
-            if background_image is None or background_image.size == 0:
-                raise ValueError("Background file not loaded. Load a background image before subtracting.")
-            main_image = self._subtract_background_image(main_image, background_image)
-
-        if backend == "Deep Learning":
-            dl_cfg = spot_settings["dl"]
-            if not dl_cfg.get("model_path"):
-                raise ValueError("Select a deep-learning model before running detection.")
-            device = dl_cfg.get("device", "Auto")
-            return detect_spots_with_model(main_image, self.metadata_mask_list, dl_cfg)
-        elif backend == "YOLO":
-            y_cfg = spot_settings["yolo"]
-            if not y_cfg.get("model_path"):
-                raise ValueError("Select a YOLO model before running detection.")
-            yolo_settings = YOLOSettings(
-                model_path=y_cfg.get("model_path"),
-                confidence=float(y_cfg.get("confidence", 0.25)),
-                iou=float(y_cfg.get("iou", 0.45)),
-                max_det=int(y_cfg.get("max_det", 300)),
-                bbox_margin_px=int(y_cfg.get("bbox_margin_px", 2)),
-                device=y_cfg.get("device", "auto"),
-            )
-            return detect_spots_with_yolo(main_image, self.metadata_mask_list, yolo_settings)
-        else:
-            params = spot_settings["classic"]
-            return find_spots(main_image, background_image, self.metadata_mask_list, params)
-
-    def _subtract_background_image(self, main_image: np.ndarray, background_image: np.ndarray) -> np.ndarray:
-        """Simple background subtraction with mean scaling and respecting metadata masks."""
-        try:
-            main_float = img_as_float(main_image)
-            bg_float = rgb2gray(background_image) if background_image.ndim == 3 else img_as_float(background_image)
-            main_masked_for_mean = main_float.copy()
-            bg_masked_for_mean = bg_float.copy()
-            for rect in self.metadata_mask_list:
-                x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
-                main_masked_for_mean[y:y+h, x:x+w] = 0
-                bg_masked_for_mean[y:y+h, x:x+w] = 0
-            main_mean = main_masked_for_mean[main_masked_for_mean > 0].mean() if (main_masked_for_mean > 0).any() else 0
-            bg_mean = bg_masked_for_mean[bg_masked_for_mean > 0].mean() if (bg_masked_for_mean > 0).any() else 0
-            scale = (main_mean / bg_mean) if bg_mean > 1e-9 else 1.0
-            subtracted = main_float - (bg_float * scale)
-            return subtracted
-        except Exception as exc:
-            print(f"Background subtraction failed, returning original image: {exc}")
-            return main_image
 
     def run_spot_finding_all(self):
         """Run spot detection on all frames in the list using the current backend."""
         if not self.data_files:
             QMessageBox.information(self, "No Data", "Load images before running batch detection.")
             return
-        spot_settings = self._collect_spot_settings()
         files = [f for f in self.data_files if not f.is_background]
         if not files:
             QMessageBox.information(self, "No Frames", "No frames available for detection.")
             return
-
+        request = build_detection_request(
+            files=files,
+            spot_settings=self._collect_spot_settings(),
+            background_file=self.background_file,
+            metadata_masks=self.metadata_mask_list,
+            analysis_circle=self.analysis_circle,
+            analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
+        )
         progress = QProgressDialog("Detecting spots on all frames...", "Cancel", 0, len(files), self)
         progress.setWindowModality(Qt.WindowModality.WindowModal)
-        processed = 0
-        for idx, lf in enumerate(files, start=1):
-            progress.setValue(idx - 1)
-            QApplication.processEvents()
-            if progress.wasCanceled():
-                break
-            try:
-                lf.spots = self._detect_spots_on_leed_file(lf, spot_settings)
-            except Exception as exc:
-                progress.cancel()
-                QMessageBox.critical(self, "Detector Error", f"Failed on {lf.filename}:\n{exc}")
-                return
-            processed += 1
+        progress.setValue(0)
+        QApplication.processEvents()
+        try:
+            result = run_spot_detection(
+                request,
+                RunContext(
+                    image_reader=load_tiff,
+                    report_progress=lambda update: (
+                        progress.setValue(update.completed),
+                        QApplication.processEvents(),
+                    ),
+                    is_cancelled=progress.wasCanceled,
+                ),
+            )
+            publish_detection_result(files, result)
+        except SpotDetectionCancelled:
+            progress.cancel()
+            QMessageBox.information(
+                self,
+                "Find All Spots",
+                "Detection cancelled. No frames were changed.",
+            )
+            return
+        except SpotDetectionError as exc:
+            progress.cancel()
+            QMessageBox.critical(self, "Detector Error", str(exc))
+            return
+        except Exception as exc:
+            progress.cancel()
+            QMessageBox.critical(
+                self,
+                "Detector Error",
+                f"Unexpected error during detection:\n{exc}",
+            )
+            return
         progress.setValue(len(files))
         self.populate_file_list()
         current_item = self.file_list_widget.currentItem()
@@ -9439,7 +9417,7 @@ class MainWindow(QMainWindow):
             current_item = self.file_list_widget.currentItem()
         if current_item:
             self.display_selected_image(current_item, None)
-        QMessageBox.information(self, "Find All Spots", f"Processed {processed} frame(s).")
+        QMessageBox.information(self, "Find All Spots", f"Processed {len(files)} frame(s).")
 
     def copy_spots_to_all_frames(self):
         """Copy spots from the currently selected frame to all other frames."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ class YOLOSettings:
     device: str = "auto"
 
 
-_model_cache = {}
+_model_cache: dict[str, Any] = {}
 
 
 def detect_spots_with_yolo(
@@ -180,7 +180,7 @@ def _load_model(path_str: str, device: str = "auto"):
         raise YOLODetectionError("Ultralytics YOLO is not installed. Please `pip install ultralytics`.") from exc
     try:
         model = YOLO(str(path))
-        dev = device.lower() if isinstance(device, str) else "auto"
+        dev: int | str = device.lower() if isinstance(device, str) else "auto"
         if dev == "auto":
             dev = 0 if torch.cuda.is_available() else "cpu"
         elif dev == "gpu":
