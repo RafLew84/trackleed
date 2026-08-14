@@ -3,10 +3,13 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from trackleed.gui.spot_detection_adapter import SpotDetectionCompletion
+from trackleed.gui.spot_detection_adapter import (
+    SpotDetectionCompletion,
+    SpotDetectionDialogSettings,
+    SpotDetectionSettingsBinding,
+)
 from trackleed.gui.spot_detection_dialog import (
     SpotDetectionDialogDecision,
-    SpotDetectionDialogSettings,
     SpotDetectionScope,
 )
 from trackleed.logic.workflows.spot_detection import (
@@ -174,6 +177,7 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             settings,
         )
         captured: dict[str, object] = {}
+        binding = SpotDetectionSettingsBinding()
 
         class Dialog:
             def __init__(self, **kwargs):
@@ -202,11 +206,8 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             metadata_mask_list=[],
             analysis_circle=None,
             analysis_ellipse=None,
+            spot_detection_binding=binding,
             _normalize_analysis_ellipse=lambda value: value,
-            _collect_spot_settings=lambda: settings.to_mapping(),
-            _apply_spot_settings=lambda values: captured.update(
-                {"accepted_settings": values}
-            ),
             _start_spot_detection=lambda *args, **kwargs: captured.update(
                 {"start": (args, kwargs)}
             ),
@@ -217,14 +218,12 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
         context = captured["dialog"]["context"]
         self.assertIs(context.current_file, current)
         self.assertEqual(context.series_files, (current, second))
-        self.assertEqual(captured["accepted_settings"]["classic"]["roi_size"], 40)
+        self.assertEqual(binding.roi_size, 40)
         self.assertIs(captured["start"][1]["request"], request)
         self.assertFalse(captured["start"][1]["is_batch"])
 
     def test_session_settings_round_trip_without_detector_widgets(self) -> None:
-        fake = SimpleNamespace(
-            spot_detection_settings=SpotDetectionDialogSettings.from_mapping({})
-        )
+        fake = SimpleNamespace(spot_detection_binding=SpotDetectionSettingsBinding())
         session_settings = {
             "backend": "YOLO",
             "classic": {"roi_size": 48, "threshold_rel": 0.15},
@@ -243,7 +242,10 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
         self.main_window.MainWindow._apply_spot_settings(fake, session_settings)
         serialized = self.main_window.MainWindow._collect_spot_settings(fake)
 
-        self.assertEqual(fake.spot_detection_settings.selected_method_id, "yolo")
+        self.assertEqual(
+            fake.spot_detection_binding.dialog_settings.selected_method_id,
+            "yolo",
+        )
         self.assertEqual(serialized["classic"]["roi_size"], 48)
         self.assertEqual(serialized["dl"], session_settings["dl"])
         self.assertEqual(serialized["yolo"]["model_path"], "spots.pt")

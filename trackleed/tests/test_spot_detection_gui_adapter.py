@@ -8,6 +8,7 @@ from PyQt6.QtCore import QRect
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.spot_detection_adapter import (
     SpotDetectionCompletion,
+    SpotDetectionSettingsBinding,
     build_detection_request,
     publish_detection_result,
     run_spot_detection_job,
@@ -43,6 +44,26 @@ def _spot(spot_id: int, x: int) -> SpotROI:
 
 
 class SpotDetectionGuiAdapterTests(unittest.TestCase):
+    def test_settings_binding_exposes_neutral_roi_and_preview_operations(self) -> None:
+        binding = SpotDetectionSettingsBinding(
+            {
+                "classic": {
+                    "blur_sigma": 1.0,
+                    "wth_radius": 2,
+                    "roi_size": 24,
+                }
+            }
+        )
+        image = np.zeros((16, 16), dtype=np.uint8)
+        image[7:9, 7:9] = 255
+
+        preview = binding.processed_preview(image, None, ())
+
+        self.assertEqual(binding.roi_size, 24)
+        self.assertEqual(preview.shape, image.shape)
+        self.assertTrue(np.isfinite(preview).all())
+        self.assertEqual(image[7, 7], 255)
+
     def test_worker_signals_map_to_typed_completion_states(self) -> None:
         result = DetectionResult((FrameDetections(4, ()),))
 

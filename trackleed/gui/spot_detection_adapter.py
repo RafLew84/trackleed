@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Protocol
 
 import numpy as np
 from PyQt6.QtCore import QRect
+from scipy.ndimage import gaussian_filter  # type: ignore[import-untyped]
+from skimage.color import rgb2gray
+from skimage.morphology import disk, white_tophat
+from skimage.util import img_as_float
 
 from trackleed.core.data_models import LeedFile
 from trackleed.core.spot_roi_adapter import spot_roi_from_detection
@@ -26,10 +32,124 @@ from trackleed.logic.workflows.spot_detection import (
     RectSnapshot,
     RunContext,
     SpotDetectionCancelled,
+    YoloDetectionConfig,
     classic_config_from_mapping,
     run_spot_detection,
     yolo_config_from_mapping,
 )
+
+SPOT_DETECTION_METHOD_LABELS: Mapping[str, str] = MappingProxyType(
+    {"classic": "Classic", "yolo": "YOLO"}
+)
+
+
+def spot_detection_method_id(value: str) -> str:
+    normalized = value.strip()
+    for method_id, label in SPOT_DETECTION_METHOD_LABELS.items():
+        if normalized.casefold() == label.casefold():
+            return method_id
+    return normalized.lower()
+
+
+@dataclass(frozen=True)
+class SpotDetectionDialogSettings:
+    selected_method_id: str
+    classic: ClassicDetectionConfig
+    yolo: YoloDetectionConfig
+    legacy_dl: Mapping[str, Any]
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, Any]) -> SpotDetectionDialogSettings:
+        return cls(
+            selected_method_id=spot_detection_method_id(
+                str(values.get("backend", "Classic"))
+            ),
+            classic=classic_config_from_mapping(values.get("classic", {})),
+            yolo=yolo_config_from_mapping(values.get("yolo", {})),
+            legacy_dl=MappingProxyType(deepcopy(dict(values.get("dl", {})))),
+        )
+
+    def to_mapping(self) -> dict[str, Any]:
+        return {
+            "backend": SPOT_DETECTION_METHOD_LABELS.get(
+                self.selected_method_id,
+                self.selected_method_id,
+            ),
+            "classic": {
+                "blur_sigma": self.classic.blur_sigma,
+                "wth_radius": self.classic.wth_radius,
+                "min_distance": self.classic.min_distance,
+                "threshold_rel": self.classic.threshold_rel,
+                "roi_size": self.classic.roi_size,
+            },
+            "dl": deepcopy(dict(self.legacy_dl)),
+            "yolo": {
+                "model_path": str(self.yolo.model_path) if self.yolo.model_path else None,
+                "confidence": self.yolo.confidence,
+                "iou": self.yolo.iou,
+                "max_det": self.yolo.max_detections,
+                "bbox_margin_px": self.yolo.bbox_margin_px,
+                "subtract_bg": self.yolo.subtract_background,
+                "device": self.yolo.device,
+            },
+        }
+
+
+class SpotDetectionSettingsBinding:
+    """Own detector settings while exposing only neutral MainWindow operations."""
+
+    def __init__(self, values: Mapping[str, Any] | None = None) -> None:
+        self._settings = SpotDetectionDialogSettings.from_mapping(values or {})
+
+    @property
+    def dialog_settings(self) -> SpotDetectionDialogSettings:
+        return self._settings
+
+    @property
+    def roi_size(self) -> int:
+        """Return the shared ROI size used by detection, editing, and tracking."""
+        return self._settings.classic.roi_size
+
+    def accept(self, settings: SpotDetectionDialogSettings) -> None:
+        self._settings = settings
+
+    def restore(self, values: Mapping[str, Any]) -> None:
+        self._settings = SpotDetectionDialogSettings.from_mapping(values)
+
+    def to_mapping(self) -> dict[str, Any]:
+        return self._settings.to_mapping()
+
+    def processed_preview(
+        self,
+        image: np.ndarray,
+        background: np.ndarray | None,
+        metadata_masks: Sequence[QRect],
+    ) -> np.ndarray:
+        """Render the legacy Classic preprocessing preview."""
+        config = self._settings.classic
+        main_float = img_as_float(image.copy())
+        subtracted_image = main_float
+        if background is not None:
+            bg_float = (
+                rgb2gray(background)
+                if background.ndim == 3
+                else img_as_float(background)
+            )
+            main_for_mean, bg_for_mean = main_float.copy(), bg_float.copy()
+            for rect in metadata_masks:
+                x, y = rect.x(), rect.y()
+                width, height = rect.width(), rect.height()
+                main_for_mean[y : y + height, x : x + width] = 0
+                bg_for_mean[y : y + height, x : x + width] = 0
+            main_mean = main_for_mean[main_for_mean > 0].mean()
+            bg_mean = bg_for_mean[bg_for_mean > 0].mean()
+            if bg_mean > 1e-9:
+                subtracted_image = main_float - bg_float * (main_mean / bg_mean)
+        residual = gaussian_filter(subtracted_image, sigma=config.blur_sigma)
+        return white_tophat(
+            subtracted_image - residual,
+            footprint=disk(config.wth_radius),
+        )
 
 
 class CancellationSignal(Protocol):
@@ -95,7 +215,7 @@ def build_detection_request(
 ) -> DetectionRequest:
     """Snapshot mutable GUI state into neutral immutable workflow values."""
     backend = str(spot_settings.get("backend", ""))
-    method_id = {"Classic": "classic", "YOLO": "yolo"}.get(backend, backend.lower())
+    method_id = spot_detection_method_id(backend)
     if method_id == "classic":
         values = spot_settings.get("classic", {})
         config: DetectionConfig = classic_config_from_mapping(values)

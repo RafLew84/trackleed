@@ -214,6 +214,22 @@ class SpotDetectionDialogTests(unittest.TestCase):
         self.assertEqual(dialog.preflight_report.issues[0].code, "model_required")
         self.assertIn("[model_required]", dialog.preflight_label.text())
 
+    def test_gpu_selection_preserves_fallback_device_semantics(self) -> None:
+        current = _leed_file(7)
+        dialog = SpotDetectionDialog(
+            context=SpotDetectionDialogContext(current, (current,)),
+            settings=SpotDetectionDialogSettings.from_mapping(
+                {"backend": "YOLO", "yolo": {"device": "GPU"}}
+            ),
+            catalog=_catalog(),
+        )
+        self.addCleanup(dialog.deleteLater)
+
+        dialog.detect_current_button.click()
+
+        self.assertEqual(dialog.decision.settings.yolo.device, "gpu")
+        self.assertEqual(dialog.decision.settings.to_mapping()["yolo"]["device"], "gpu")
+
     def test_legacy_hidden_backend_falls_back_without_losing_session_values(self) -> None:
         current = _leed_file(7)
         settings = SpotDetectionDialogSettings.from_mapping(

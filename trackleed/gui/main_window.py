@@ -25,6 +25,7 @@ from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.gui.spot_detection_adapter import (
     SpotDetectionCompletion,
+    SpotDetectionSettingsBinding,
     build_detection_request,
     publish_detection_result,
     run_spot_detection_job,
@@ -32,7 +33,6 @@ from trackleed.gui.spot_detection_adapter import (
 from trackleed.gui.spot_detection_dialog import (
     SpotDetectionDialog,
     SpotDetectionDialogContext,
-    SpotDetectionDialogSettings,
     SpotDetectionScope,
 )
 from trackleed.gui.spots_menu import SpotsMenuActions, add_spots_menu
@@ -80,13 +80,6 @@ from trackleed.analysis.tracking import (
     track_spots_hungarian,
     track_spots_hungarian_directional,
 )
-
-from skimage.util import img_as_float
-from skimage.color import rgb2gray
-from scipy.ndimage import gaussian_filter
-from skimage.feature import peak_local_max
-from skimage.morphology import white_tophat, disk
-
 
 OPTICAL_FLOW_SCENARIO = "Optical Flow Tracking"
 OPTICAL_FLOW_SKIP_SCENARIO = "Optical Flow (skip, anchor)"
@@ -783,7 +776,7 @@ class MainWindow(QMainWindow):
         self.worker: GenericWorker | None = None
         self._tracking_progress_dialog: QProgressDialog | None = None
         self._active_tracking_cancel_requested = False
-        self.spot_detection_settings = SpotDetectionDialogSettings.from_mapping({})
+        self.spot_detection_binding = SpotDetectionSettingsBinding()
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
@@ -1219,7 +1212,7 @@ class MainWindow(QMainWindow):
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
 
         # Get ROI size from the GUI
-        roi_size = self.spot_detection_settings.classic.roi_size
+        roi_size = self.spot_detection_binding.roi_size
         roi_half = roi_size // 2
 
         # Create a new QRect centered on the click position
@@ -1564,25 +1557,11 @@ class MainWindow(QMainWindow):
         if self.show_processed_checkbox.isChecked() and not leed_file.is_background:
             try:
                 bg_img = load_tiff(self.background_file.filepath) if self.background_file else None
-                params = {
-                    'blur_sigma': self.spot_detection_settings.classic.blur_sigma,
-                    'wth_radius': self.spot_detection_settings.classic.wth_radius,
-                }
-                main_float = img_as_float(original_image_data.copy())
-                subtracted_image = main_float
-                if bg_img is not None:
-                    bg_float = rgb2gray(bg_img) if bg_img.ndim == 3 else img_as_float(bg_img)
-                    main_masked_for_mean, bg_masked_for_mean = main_float.copy(), bg_float.copy()
-                    for rect in self.metadata_mask_list:
-                        x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
-                        main_masked_for_mean[y:y+h, x:x+w] = 0
-                        bg_masked_for_mean[y:y+h, x:x+w] = 0
-                    main_mean = main_masked_for_mean[main_masked_for_mean > 0].mean()
-                    bg_mean = bg_masked_for_mean[bg_masked_for_mean > 0].mean()
-                    if bg_mean > 1e-9: subtracted_image = main_float - (bg_float * (main_mean / bg_mean))
-                residual_bg = gaussian_filter(subtracted_image, sigma=params['blur_sigma'])
-                processed_image = subtracted_image - residual_bg
-                return white_tophat(processed_image, footprint=disk(params['wth_radius']))
+                return self.spot_detection_binding.processed_preview(
+                    original_image_data,
+                    bg_img,
+                    self.metadata_mask_list,
+                )
             except Exception as e:
                 print(f"Could not generate processed preview: {e}")
         return original_image_data
@@ -8973,15 +8952,13 @@ class MainWindow(QMainWindow):
                 analysis_circle=self.analysis_circle,
                 analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
             ),
-            settings=SpotDetectionDialogSettings.from_mapping(
-                self._collect_spot_settings()
-            ),
+            settings=self.spot_detection_binding.dialog_settings,
             parent=self,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted or dialog.decision is None:
             return
         decision = dialog.decision
-        self._apply_spot_settings(decision.settings.to_mapping())
+        self.spot_detection_binding.accept(decision.settings)
         is_batch = decision.scope is SpotDetectionScope.ALL_FRAMES
         title = (
             "Detecting spots on all frames..." if is_batch else "Detecting spots..."
@@ -9166,7 +9143,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Data", "Load images before normalizing ROIs.")
             return
 
-        target_size = self.spot_detection_settings.classic.roi_size
+        target_size = self.spot_detection_binding.roi_size
         if target_size <= 0:
             QMessageBox.warning(self, "Invalid ROI Size", "ROI Size must be greater than 0.")
             return
@@ -9227,11 +9204,11 @@ class MainWindow(QMainWindow):
 
     def _collect_spot_settings(self) -> dict:
         """Serialize the current spot-finding UI state for persistence or reuse."""
-        return self.spot_detection_settings.to_mapping()
+        return self.spot_detection_binding.to_mapping()
 
     def _apply_spot_settings(self, settings: dict) -> None:
         """Restore accepted spot-detection settings from a session mapping."""
-        self.spot_detection_settings = SpotDetectionDialogSettings.from_mapping(settings)
+        self.spot_detection_binding.restore(settings)
 
     def _analysis_circle_to_dict(self):
         if not self.analysis_circle:
@@ -9464,7 +9441,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.tapir_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.tapir_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.tapir_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_locotrack_tracking_params(self) -> dict:
@@ -9513,7 +9490,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.locotrack_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.locotrack_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.locotrack_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_cotracker_tracking_params(self) -> dict:
@@ -9547,7 +9524,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.cotracker_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.cotracker_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.cotracker_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_tapnext_tracking_params(self) -> dict:
@@ -9583,7 +9560,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.tapnext_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.tapnext_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.tapnext_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_trackonr_tracking_params(self) -> dict:
@@ -9626,7 +9603,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.trackonr_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.trackonr_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.trackonr_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_pipspp_tracking_params(self) -> dict:
@@ -9668,7 +9645,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.pipspp_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.pipspp_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.pipspp_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_mftiq_tracking_params(self) -> dict:
@@ -9709,7 +9686,7 @@ class MainWindow(QMainWindow):
             "recenter_patch_multiplier": self.mftiq_centroid_multiplier_spinbox.value(),
             "centroid_rel_threshold": self.mftiq_centroid_rel_thr_spinbox.value(),
             "centroid_max_shift_ratio": self.mftiq_centroid_max_shift_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_cutie_tracking_params(self) -> dict:
@@ -9754,7 +9731,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.cutie_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.cutie_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.cutie_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_tomp_tracking_params(self) -> dict:
@@ -9794,7 +9771,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.tomp_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.tomp_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.tomp_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_ostrack_tracking_params(self) -> dict:
@@ -9832,7 +9809,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.ostrack_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.ostrack_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.ostrack_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_xmem2_tracking_params(self) -> dict:
@@ -9877,7 +9854,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.xmem2_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.xmem2_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.xmem2_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_sam2_tracking_params(self) -> dict:
@@ -9932,7 +9909,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.sam2_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.sam2_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.sam2_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_dam4sam_tracking_params(self) -> dict:
@@ -9982,7 +9959,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.dam4sam_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.dam4sam_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.dam4sam_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_samurai_tracking_params(self) -> dict:
@@ -10032,7 +10009,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.samurai_direction_mode_combo.currentData(),
             "lateral_angle_tolerance_deg": self.samurai_lateral_tol_spinbox.value(),
             "max_radial_jump_px": self.samurai_max_radial_jump_spinbox.value(),
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _collect_deva_tracking_params(self) -> dict:
@@ -10073,7 +10050,7 @@ class MainWindow(QMainWindow):
             "direction_mode": self.deva_settings.direction_mode,
             "lateral_angle_tolerance_deg": self.deva_settings.lateral_angle_tolerance_deg,
             "max_radial_jump_px": self.deva_settings.max_radial_jump_px,
-            "roi_size": self.spot_detection_settings.classic.roi_size,
+            "roi_size": self.spot_detection_binding.roi_size,
         }
 
     def _tracking_reference_file_or_warn(self, requirement_label: str):
@@ -10792,7 +10769,7 @@ class MainWindow(QMainWindow):
         worker = None
         cancel_event = Event()
         if "Optical Flow" in selected_scenario:
-            optical_params = {"roi_size": self.spot_detection_settings.classic.roi_size}
+            optical_params = {"roi_size": self.spot_detection_binding.roi_size}
             ref_item = self.file_list_widget.currentItem()
             if not ref_item:
                 QMessageBox.warning(self, "No Reference", "Optical Flow requires selecting a reference frame.")
@@ -11083,7 +11060,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "No Tracking Data", "Please run the tracking analysis first.")
             return
         
-        current_roi_size = self.spot_detection_settings.classic.roi_size
+        current_roi_size = self.spot_detection_binding.roi_size
         lk_win_size = self.lk_win_size_spinbox.value()
         lk_max_level = self.lk_max_level_spinbox.value()
         tracking_dialog_params = self._collect_tracking_dialog_backend_params()

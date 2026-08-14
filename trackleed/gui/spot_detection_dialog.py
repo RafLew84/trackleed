@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from copy import deepcopy
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
-from types import MappingProxyType
-from typing import Any
 
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import (
@@ -28,16 +24,17 @@ from PyQt6.QtWidgets import (
 )
 
 from trackleed.core.data_models import LeedFile
-from trackleed.gui.spot_detection_adapter import build_detection_request
+from trackleed.gui.spot_detection_adapter import (
+    SpotDetectionDialogSettings,
+    build_detection_request,
+)
 from trackleed.logic.workflows.spot_detection import (
     ClassicDetectionConfig,
     DetectionRequest,
     PreflightReport,
     SpotDetectionCatalog,
     YoloDetectionConfig,
-    classic_config_from_mapping,
     default_spot_detection_catalog,
-    yolo_config_from_mapping,
 )
 
 
@@ -54,53 +51,6 @@ class SpotDetectionDialogContext:
     metadata_masks: tuple[QRect, ...] = ()
     analysis_circle: tuple[int, int, int] | None = None
     analysis_ellipse: tuple[int, int, int, int, float] | None = None
-
-
-@dataclass(frozen=True)
-class SpotDetectionDialogSettings:
-    selected_method_id: str
-    classic: ClassicDetectionConfig
-    yolo: YoloDetectionConfig
-    legacy_dl: Mapping[str, Any]
-
-    @classmethod
-    def from_mapping(cls, values: Mapping[str, Any]) -> SpotDetectionDialogSettings:
-        backend = str(values.get("backend", "Classic"))
-        method_id = {"Classic": "classic", "YOLO": "yolo"}.get(
-            backend,
-            backend.lower(),
-        )
-        return cls(
-            selected_method_id=method_id,
-            classic=classic_config_from_mapping(values.get("classic", {})),
-            yolo=yolo_config_from_mapping(values.get("yolo", {})),
-            legacy_dl=MappingProxyType(deepcopy(dict(values.get("dl", {})))),
-        )
-
-    def to_mapping(self) -> dict[str, Any]:
-        return {
-            "backend": {"classic": "Classic", "yolo": "YOLO"}.get(
-                self.selected_method_id,
-                self.selected_method_id,
-            ),
-            "classic": {
-                "blur_sigma": self.classic.blur_sigma,
-                "wth_radius": self.classic.wth_radius,
-                "min_distance": self.classic.min_distance,
-                "threshold_rel": self.classic.threshold_rel,
-                "roi_size": self.classic.roi_size,
-            },
-            "dl": deepcopy(dict(self.legacy_dl)),
-            "yolo": {
-                "model_path": str(self.yolo.model_path) if self.yolo.model_path else None,
-                "confidence": self.yolo.confidence,
-                "iou": self.yolo.iou,
-                "max_det": self.yolo.max_detections,
-                "bbox_margin_px": self.yolo.bbox_margin_px,
-                "subtract_bg": self.yolo.subtract_background,
-                "device": self.yolo.device,
-            },
-        }
 
 
 @dataclass(frozen=True)
@@ -179,9 +129,9 @@ class YoloDetectionPage(QWidget):
         self.subtract_background_checkbox.setChecked(config.subtract_background)
         layout.addRow(self.subtract_background_checkbox)
         self.device_combo = QComboBox()
-        for label, device in (("Auto", "auto"), ("CPU", "cpu"), ("GPU", "cuda")):
+        for label, device in (("Auto", "auto"), ("CPU", "cpu"), ("GPU", "gpu")):
             self.device_combo.addItem(label, device)
-        device_id = {"gpu": "cuda"}.get(config.device.lower(), config.device.lower())
+        device_id = {"cuda": "gpu"}.get(config.device.lower(), config.device.lower())
         device_index = self.device_combo.findData(device_id)
         self.device_combo.setCurrentIndex(max(device_index, 0))
         layout.addRow("Device:", self.device_combo)
@@ -221,12 +171,16 @@ class SpotDetectionDialog(QDialog):
         self.method_tabs = QTabWidget()
         self.classic_page = ClassicDetectionPage(settings.classic)
         self.yolo_page = YoloDetectionPage(settings.yolo)
-        pages = {"classic": self.classic_page, "yolo": self.yolo_page}
+        pages_by_method_id = {
+            "classic": self.classic_page,
+            "yolo": self.yolo_page,
+        }
         for method in self._catalog.methods:
-            if method.method_id not in {"classic", "yolo"}:
+            page = pages_by_method_id.get(method.method_id)
+            if page is None:
                 continue
             self._method_ids.append(method.method_id)
-            self.method_tabs.addTab(pages[method.method_id], method.display_name)
+            self.method_tabs.addTab(page, method.display_name)
         selected_index = (
             self._method_ids.index(settings.selected_method_id)
             if settings.selected_method_id in self._method_ids
@@ -244,10 +198,10 @@ class SpotDetectionDialog(QDialog):
         self.detect_all_button = QPushButton("Detect All Frames")
         self.cancel_button = QPushButton("Cancel")
         self.detect_current_button.clicked.connect(
-            lambda: self._attempt(SpotDetectionScope.CURRENT_FRAME)
+            lambda: self._preflight_and_accept(SpotDetectionScope.CURRENT_FRAME)
         )
         self.detect_all_button.clicked.connect(
-            lambda: self._attempt(SpotDetectionScope.ALL_FRAMES)
+            lambda: self._preflight_and_accept(SpotDetectionScope.ALL_FRAMES)
         )
         self.cancel_button.clicked.connect(self.reject)
         action_layout.addWidget(self.cancel_button)
@@ -255,7 +209,7 @@ class SpotDetectionDialog(QDialog):
         action_layout.addWidget(self.detect_all_button)
         layout.addLayout(action_layout)
 
-    def _attempt(self, scope: SpotDetectionScope) -> None:
+    def _preflight_and_accept(self, scope: SpotDetectionScope) -> None:
         method_id = self._method_ids[self.method_tabs.currentIndex()]
         settings = replace(
             self._settings,
@@ -290,7 +244,7 @@ class SpotDetectionDialog(QDialog):
             )
             return
         self.preflight_label.setText(
-            f"Ready — {self._catalog.method(method_id).display_name} can run."
+            f"Ready - {self._catalog.method(method_id).display_name} can run."
         )
         self.decision = SpotDetectionDialogDecision(request, files, scope, settings)
         self.accept()
