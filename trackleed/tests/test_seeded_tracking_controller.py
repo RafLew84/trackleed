@@ -194,6 +194,14 @@ class SeededTrackingControllerTests(unittest.TestCase):
         self.assertEqual(defaults.lk_win_size, 41)
         self.assertEqual(defaults.lk_max_level, 4)
 
+    def test_dialog_series_preserves_legacy_frame_id_ordering(self) -> None:
+        self.host.data_files.reverse()
+
+        self.controller.show_dialog()
+
+        shown_files = _Dialog.last_kwargs["series_files"]
+        self.assertEqual([file.id for file in shown_files], [1, 2])
+
 
 if __name__ == "__main__":
     unittest.main()

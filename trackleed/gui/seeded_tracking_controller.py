@@ -142,7 +142,15 @@ class SeededTrackingController:
         reference_file = (
             current_item.data(Qt.ItemDataRole.UserRole) if current_item else None
         )
-        files = tuple(file for file in self._host.data_files if not file.is_background)
+        files = tuple(
+            sorted(
+                (file for file in self._host.data_files if not file.is_background),
+                key=lambda file: (
+                    file.id is None,
+                    int(file.id) if file.id is not None else 0,
+                ),
+            )
+        )
         dialog = self._dialog_factory(
             reference_file=reference_file,
             series_files=files,
