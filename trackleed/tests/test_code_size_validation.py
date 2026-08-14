@@ -1,21 +1,28 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 
+from trackleed.tests.validation_test_support import (
+    initialize_repository,
+    run_git,
+    write_manifest,
+)
 from trackleed.validation.code_size import validate_code_size
 
 
 class CodeSizeValidationTests(unittest.TestCase):
+    _initialize_repository = staticmethod(initialize_repository)
+    _git = staticmethod(run_git)
+    _write_manifest = staticmethod(write_manifest)
+
     def test_small_repository_passes(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            self._initialize_repository(root, {"module.py": "def answer():\n    return 42\n"})
-            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
-            manifest_path = self._write_manifest(root, fixed_point, {})
+            initialize_repository(root, {"module.py": "def answer():\n    return 42\n"})
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = write_manifest(root, fixed_point, {})
 
             report = validate_code_size(root, manifest_path)
 
@@ -279,6 +286,123 @@ class CodeSizeValidationTests(unittest.TestCase):
             report.format_errors(),
         )
 
+    def test_manifest_ratchet_can_be_lowered_while_file_remains_oversized(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"legacy.py": "# baseline\n" * 1005})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = self._write_manifest(
+                root,
+                fixed_point,
+                {
+                    "legacy.py": {
+                        "lines": 1002,
+                        "definitions": 0,
+                        "oversized_definitions": {},
+                    }
+                },
+            )
+            (root / "legacy.py").write_text("# reduced\n" * 1002, encoding="utf-8")
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertTrue(report.ok, report.format_errors())
+
+    def test_recorded_fixed_point_cannot_be_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"module.py": "value = 1\n"})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = self._write_manifest(root, fixed_point, {})
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "record ratchet")
+            self._git(root, "commit", "--allow-empty", "-m", "later change")
+            replacement = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            self._write_manifest(root, replacement, {})
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("fixed point changed", report.format_errors())
+
+    def test_manifest_ratchet_cannot_be_raised_after_prior_reduction(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"legacy.py": "# baseline\n" * 1005})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = self._write_manifest(
+                root,
+                fixed_point,
+                {
+                    "legacy.py": {
+                        "lines": 1002,
+                        "definitions": 0,
+                        "oversized_definitions": {},
+                    }
+                },
+            )
+            (root / "legacy.py").write_text("# reduced\n" * 1002, encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "lower ratchet")
+            self._write_manifest(
+                root,
+                fixed_point,
+                {
+                    "legacy.py": {
+                        "lines": 1003,
+                        "definitions": 0,
+                        "oversized_definitions": {},
+                    }
+                },
+            )
+            (root / "legacy.py").write_text("# regrown\n" * 1003, encoding="utf-8")
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("raised from 1002 to 1003", report.format_errors())
+
+    def test_malformed_committed_manifest_history_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"module.py": "value = 1\n"})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = root / "code_size_baseline.json"
+            manifest_path.write_text("[]", encoding="utf-8")
+            self._git(root, "add", ".")
+            self._git(root, "commit", "-m", "malformed ratchet")
+            self._write_manifest(root, fixed_point, {})
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("Code-size manifest at", report.format_errors())
+        self.assertIn("root must be an object", report.format_errors())
+
+    def test_invalid_fixed_point_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"module.py": "value = 1\n"})
+            manifest_path = self._write_manifest(root, "not-a-commit", {})
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("Cannot read fixed point not-a-commit", report.format_errors())
+
+    def test_fixed_point_parse_error_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self._initialize_repository(root, {"broken.py": "def unfinished(\n"})
+            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
+            manifest_path = self._write_manifest(root, fixed_point, {})
+            (root / "broken.py").write_text("value = 1\n", encoding="utf-8")
+
+            report = validate_code_size(root, manifest_path)
+
+        self.assertFalse(report.ok)
+        self.assertIn("broken.py cannot be parsed at fixed point", report.format_errors())
+
     def test_malformed_manifest_fails_closed_without_running_the_checker(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -291,46 +415,6 @@ class CodeSizeValidationTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(report.checked_files, 0)
         self.assertIn("manifest root must be an object", report.format_errors())
-
-    def _initialize_repository(self, root: Path, files: dict[str, str]) -> None:
-        self._git(root, "init")
-        self._git(root, "config", "user.email", "validation@example.invalid")
-        self._git(root, "config", "user.name", "Validation Test")
-        for relative_path, source in files.items():
-            path = root / relative_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(source, encoding="utf-8")
-        self._git(root, "add", ".")
-        self._git(root, "commit", "-m", "baseline")
-
-    def _write_manifest(
-        self,
-        root: Path,
-        fixed_point: str,
-        files: dict[str, object],
-    ) -> Path:
-        path = root / "code_size_baseline.json"
-        path.write_text(
-            json.dumps(
-                {
-                    "schema_version": 1,
-                    "fixed_point": fixed_point,
-                    "files": files,
-                }
-            ),
-            encoding="utf-8",
-        )
-        return path
-
-    def _git(self, root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *arguments],
-            cwd=root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

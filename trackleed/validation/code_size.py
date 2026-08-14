@@ -7,6 +7,8 @@ from pathlib import Path, PurePosixPath
 import subprocess
 from typing import cast, TypedDict
 
+from trackleed.validation import ValidationReport
+
 
 SCHEMA_VERSION = 1
 PRODUCTION_LIMITS = (1000, 50)
@@ -16,16 +18,8 @@ EXCLUDED_COMPONENTS = frozenset({"generated", "vendored", "frozen", "third_party
 
 
 @dataclass(frozen=True)
-class CodeSizeReport:
+class CodeSizeReport(ValidationReport):
     checked_files: int
-    errors: tuple[str, ...]
-
-    @property
-    def ok(self) -> bool:
-        return not self.errors
-
-    def format_errors(self) -> str:
-        return "\n".join(self.errors)
 
 
 @dataclass(frozen=True)
@@ -87,7 +81,8 @@ def validate_code_size(repo_root: Path, manifest_path: Path) -> CodeSizeReport:
 
     fixed_metrics, fixed_errors = _read_fixed_point_metrics(root, manifest.fixed_point)
     current_metrics, current_errors = _read_current_metrics(root)
-    errors = [*fixed_errors, *current_errors]
+    history_errors = _validate_manifest_history(root, manifest_path, manifest)
+    errors = [*history_errors, *fixed_errors, *current_errors]
     if not fixed_errors:
         errors.extend(_validate_manifest(manifest, fixed_metrics, current_metrics))
     errors.extend(_validate_current_files(manifest, current_metrics))
@@ -96,11 +91,22 @@ def validate_code_size(repo_root: Path, manifest_path: Path) -> CodeSizeReport:
 
 def _load_manifest(path: Path) -> tuple[BaselineManifest | None, tuple[str, ...]]:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
         return None, (f"Cannot read code-size manifest: {exc}",)
+    return _parse_manifest_text(text, "code-size manifest")
+
+
+def _parse_manifest_text(
+    text: str,
+    source: str,
+) -> tuple[BaselineManifest | None, tuple[str, ...]]:
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return None, (f"Cannot parse {source}: {exc}",)
     if not isinstance(raw, dict):
-        return None, ("Code-size manifest root must be an object.",)
+        return None, (f"{source.capitalize()} root must be an object.",)
 
     errors: list[str] = []
     if raw.get("schema_version") != SCHEMA_VERSION:
@@ -117,6 +123,98 @@ def _load_manifest(path: Path) -> tuple[BaselineManifest | None, tuple[str, ...]
         return None, tuple(errors)
     typed_files = cast(dict[str, ManifestEntry], files)
     return BaselineManifest(fixed_point=fixed_point, files=typed_files), ()
+
+
+def _validate_manifest_history(
+    root: Path,
+    manifest_path: Path,
+    current: BaselineManifest,
+) -> list[str]:
+    try:
+        relative_path = manifest_path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return ["Code-size manifest must be located inside the repository."]
+
+    shallow = _run_git(root, "rev-parse", "--is-shallow-repository")
+    if shallow.returncode != 0:
+        return ["Cannot determine whether code-size manifest history is complete."]
+    if shallow.stdout.strip() == "true":
+        return ["Cannot validate code-size manifest history in a shallow repository."]
+
+    parents = _run_git(root, "rev-list", "--parents", "-n", "1", "HEAD")
+    if parents.returncode != 0 or not parents.stdout.strip():
+        return ["Cannot read code-size manifest commit history."]
+    revisions = parents.stdout.split()
+    head, errors = _read_manifest_at_revision(root, revisions[0], relative_path)
+    if errors:
+        return errors
+    if head is not None and head != current:
+        return _validate_manifest_reduction(head, current)
+
+    history_errors: list[str] = []
+    for parent_revision in revisions[1:]:
+        previous, errors = _read_manifest_at_revision(root, parent_revision, relative_path)
+        history_errors.extend(errors)
+        if previous is not None and previous != current:
+            history_errors.extend(_validate_manifest_reduction(previous, current))
+    return history_errors
+
+
+def _read_manifest_at_revision(
+    root: Path,
+    revision: str,
+    relative_path: str,
+) -> tuple[BaselineManifest | None, list[str]]:
+    listing = _run_git(root, "ls-tree", "--name-only", revision, "--", relative_path)
+    if listing.returncode != 0:
+        return None, [f"Cannot inspect code-size manifest at {revision}."]
+    if relative_path not in listing.stdout.splitlines():
+        return None, []
+    shown = _run_git(root, "show", f"{revision}:{relative_path}")
+    if shown.returncode != 0:
+        return None, [f"Cannot read code-size manifest at {revision}."]
+    previous, errors = _parse_manifest_text(
+        shown.stdout,
+        f"code-size manifest at {revision}",
+    )
+    return previous, list(errors)
+
+
+def _validate_manifest_reduction(
+    previous: BaselineManifest,
+    current: BaselineManifest,
+) -> list[str]:
+    errors: list[str] = []
+    if current.fixed_point != previous.fixed_point:
+        errors.append(
+            "Code-size manifest fixed point changed from "
+            f"{previous.fixed_point} to {current.fixed_point}."
+        )
+    for relative_path, entry in current.files.items():
+        prior_entry = previous.files.get(relative_path)
+        if prior_entry is None:
+            errors.append(f"Code-size manifest re-added or introduced {relative_path}.")
+            continue
+        for metric_name in ("lines", "definitions"):
+            current_value = entry[metric_name]
+            previous_value = prior_entry[metric_name]
+            if current_value > previous_value:
+                errors.append(
+                    f"{relative_path} manifest {metric_name} ratchet was raised "
+                    f"from {previous_value} to {current_value}."
+                )
+        for qualified_name, line_count in entry["oversized_definitions"].items():
+            previous_count = prior_entry["oversized_definitions"].get(qualified_name)
+            if previous_count is None:
+                errors.append(
+                    f"{relative_path}:{qualified_name} manifest ratchet was re-added or introduced."
+                )
+            elif line_count > previous_count:
+                errors.append(
+                    f"{relative_path}:{qualified_name} manifest ratchet was raised "
+                    f"from {previous_count} to {line_count}."
+                )
+    return errors
 
 
 def _validate_manifest_entries(files: dict[object, object]) -> list[str]:

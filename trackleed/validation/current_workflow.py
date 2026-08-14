@@ -6,33 +6,42 @@ from pathlib import Path
 import sys
 import unittest
 
+from trackleed.validation import ValidationReport
 from trackleed.validation.code_size import validate_code_size
 
 
-REFERENCE_ONLY_TEST_PREFIXES = (
-    "test_content_revision",
-    "test_controlled_translation",
-    "test_cross_contract",
-    "test_experimental_metadata",
-    "test_pre_rebaseline",
-    "test_publication",
-    "test_scientific",
-    "test_viperleed",
+LOCAL_REFERENCE_TEST_MODULES = frozenset(
+    {
+        "test_content_revision_completion",
+        "test_controlled_translation_evidence",
+        "test_cross_contract_claim_boundary",
+        "test_cross_contract_draft_package",
+        "test_cross_contract_figures",
+        "test_cross_contract_manuscript",
+        "test_cross_contract_outcomes",
+        "test_cross_contract_supplement",
+        "test_experimental_metadata_contract",
+        "test_pre_rebaseline_validation",
+        "test_publication_exporter",
+        "test_publication_line_endings",
+        "test_publication_status_contract",
+        "test_scientific_baseline_contract",
+        "test_scientific_core_fingerprint",
+        "test_scientific_core_replacement",
+        "test_scientific_panel",
+        "test_scientific_sensitivity",
+        "test_scientific_sensitivity_evidence",
+        "test_scientific_tracer",
+        "test_viperleed_pilot_contract",
+        "test_viperleed_principal_contract",
+    }
 )
 
 
 @dataclass(frozen=True)
-class CurrentWorkflowValidationReport:
+class CurrentWorkflowValidationReport(ValidationReport):
     checked_python_files: int
     tests_run: int
-    errors: tuple[str, ...]
-
-    @property
-    def ok(self) -> bool:
-        return not self.errors
-
-    def format_errors(self) -> str:
-        return "\n".join(self.errors)
 
 
 def validate_current_workflow(repo_root: Path) -> CurrentWorkflowValidationReport:
@@ -49,7 +58,7 @@ def validate_current_workflow(repo_root: Path) -> CurrentWorkflowValidationRepor
     stream = io.StringIO()
     tests_root = root / "trackleed" / "tests"
     try:
-        suite = _load_automatic_test_suite(tests_root)
+        suite = _load_ci_test_suite(tests_root)
         result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
     except Exception as exc:
         _purge_test_modules(tests_root)
@@ -83,13 +92,13 @@ def validate_current_workflow(repo_root: Path) -> CurrentWorkflowValidationRepor
     )
 
 
-def _load_automatic_test_suite(tests_root: Path) -> unittest.TestSuite:
+def _load_ci_test_suite(tests_root: Path) -> unittest.TestSuite:
     if not tests_root.is_dir():
         raise FileNotFoundError(f"test directory does not exist: {tests_root}")
     module_names = [
         path.stem
         for path in sorted(tests_root.glob("test_*.py"))
-        if not path.stem.startswith(REFERENCE_ONLY_TEST_PREFIXES)
+        if path.stem not in LOCAL_REFERENCE_TEST_MODULES
     ]
     if not module_names:
         return unittest.TestSuite()

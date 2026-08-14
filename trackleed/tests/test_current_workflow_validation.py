@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -8,6 +7,11 @@ import sys
 import tempfile
 import unittest
 
+from trackleed.tests.validation_test_support import (
+    initialize_repository,
+    run_git,
+    write_manifest,
+)
 from trackleed.validation.current_workflow import validate_current_workflow
 
 
@@ -24,21 +28,68 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 "    def test_known_value(self):\n"
                 "        self.assertEqual(2 + 2, 4)\n"
             )
-            self._initialize_repository(
+            initialize_repository(
                 root,
                 {"trackleed/tests/test_synthetic.py": test_source},
             )
-            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
-            (root / "code_size_baseline.json").write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "fixed_point": fixed_point,
-                        "files": {},
-                    }
-                ),
-                encoding="utf-8",
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
+
+            report = validate_current_workflow(root)
+
+        self.assertTrue(report.ok, report.format_errors())
+        self.assertEqual(report.tests_run, 1)
+
+    def test_public_validator_runs_every_existing_test_module(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initialize_repository(
+                root,
+                {
+                    "trackleed/tests/test_synthetic.py": (
+                        "import unittest\n\n"
+                        "class SyntheticTest(unittest.TestCase):\n"
+                        "    def test_first(self):\n"
+                        "        self.assertTrue(True)\n"
+                    ),
+                    "trackleed/tests/test_scientific_synthetic.py": (
+                        "import unittest\n\n"
+                        "class ScientificSyntheticTest(unittest.TestCase):\n"
+                        "    def test_second(self):\n"
+                        "        self.assertTrue(True)\n"
+                    ),
+                },
             )
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
+
+            report = validate_current_workflow(root)
+
+        self.assertTrue(report.ok, report.format_errors())
+        self.assertEqual(report.tests_run, 2)
+
+    def test_public_validator_keeps_local_reference_modules_out_of_ci_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initialize_repository(
+                root,
+                {
+                    "trackleed/tests/test_synthetic.py": (
+                        "import unittest\n\n"
+                        "class SyntheticTest(unittest.TestCase):\n"
+                        "    def test_ci_behavior(self):\n"
+                        "        self.assertTrue(True)\n"
+                    ),
+                    "trackleed/tests/test_scientific_panel.py": (
+                        "import unittest\n\n"
+                        "class LocalReferenceTest(unittest.TestCase):\n"
+                        "    def test_requires_local_data(self):\n"
+                        "        self.fail('local reference data is unavailable')\n"
+                    ),
+                },
+            )
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
 
             report = validate_current_workflow(root)
 
@@ -55,21 +106,12 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 "    def test_known_failure(self):\n"
                 "        self.fail('known red test')\n"
             )
-            self._initialize_repository(
+            initialize_repository(
                 root,
                 {"trackleed/tests/test_synthetic.py": test_source},
             )
-            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
-            (root / "code_size_baseline.json").write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "fixed_point": fixed_point,
-                        "files": {},
-                    }
-                ),
-                encoding="utf-8",
-            )
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
 
             report = validate_current_workflow(root)
 
@@ -86,21 +128,12 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 "    def test_required_dependency(self):\n"
                 "        pass\n"
             )
-            self._initialize_repository(
+            initialize_repository(
                 root,
                 {"trackleed/tests/test_synthetic.py": test_source},
             )
-            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
-            (root / "code_size_baseline.json").write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "fixed_point": fixed_point,
-                        "files": {},
-                    }
-                ),
-                encoding="utf-8",
-            )
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
 
             report = validate_current_workflow(root)
 
@@ -121,7 +154,7 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 destination = root / relative_path
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(REPOSITORY_ROOT / relative_path, destination)
-            self._initialize_repository(
+            initialize_repository(
                 root,
                 {
                     "trackleed/tests/test_synthetic.py": (
@@ -132,17 +165,8 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                     )
                 },
             )
-            fixed_point = self._git(root, "rev-parse", "HEAD").stdout.strip()
-            (root / "code_size_baseline.json").write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "fixed_point": fixed_point,
-                        "files": {},
-                    }
-                ),
-                encoding="utf-8",
-            )
+            fixed_point = run_git(root, "rev-parse", "HEAD").stdout.strip()
+            write_manifest(root, fixed_point, {})
 
             completed = subprocess.run(
                 [sys.executable, "scripts/validate_current_workflow.py"],
@@ -154,27 +178,6 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
 
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         self.assertIn("Current workflow validation passed", completed.stdout)
-
-    def _initialize_repository(self, root: Path, files: dict[str, str]) -> None:
-        self._git(root, "init")
-        self._git(root, "config", "user.email", "validation@example.invalid")
-        self._git(root, "config", "user.name", "Validation Test")
-        for relative_path, source in files.items():
-            path = root / relative_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(source, encoding="utf-8")
-        self._git(root, "add", ".")
-        self._git(root, "commit", "-m", "baseline")
-
-    def _git(self, root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *arguments],
-            cwd=root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

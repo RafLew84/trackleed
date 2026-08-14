@@ -18,6 +18,54 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          lfs: false
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/.scratch/
+            !/data/
+            !/tmp_test_positions_export/
+            !/manuscript/**/*.bmp
+            !/manuscript/**/*.csv
+            !/manuscript/**/*.docx
+            !/manuscript/**/*.gif
+            !/manuscript/**/*.jpeg
+            !/manuscript/**/*.jpg
+            !/manuscript/**/*.json
+            !/manuscript/**/*.npy
+            !/manuscript/**/*.npz
+            !/manuscript/**/*.pdf
+            !/manuscript/**/*.png
+            !/manuscript/**/*.tif
+            !/manuscript/**/*.tiff
+            !/manuscript/**/*.webp
+            !/manuscript/**/*.xls
+            !/manuscript/**/*.xlsx
+            !/manuscript/**/*.zip
+
+      - name: Assert prohibited artifacts are absent
+        shell: pwsh
+        run: |
+          $artifactExtensions = @(
+            '.bmp', '.csv', '.docx', '.gif', '.jpeg', '.jpg', '.json',
+            '.npy', '.npz', '.pdf', '.png', '.tif', '.tiff', '.webp',
+            '.xls', '.xlsx', '.zip'
+          )
+          $forbidden = @(
+            Get-ChildItem data -Recurse -File -ErrorAction SilentlyContinue
+            Get-ChildItem tmp_test_positions_export -Recurse -File `
+              -ErrorAction SilentlyContinue
+            Get-ChildItem manuscript -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension.ToLowerInvariant() -in $artifactExtensions }
+          )
+          if ($forbidden.Count -gt 0) {
+            $paths = $forbidden.FullName -join "`n"
+            throw "Prohibited CI artifacts were checked out:`n$paths"
+          }
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v7
