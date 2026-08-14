@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -108,8 +109,16 @@ class YoloDetectionRuntime:
                     "Background file not loaded. Load a background image before subtracting."
                 )
             background = _apply_analysis_regions(background, runtime_input)
-            image = _subtract_background(image, background, runtime_input.metadata_masks)
-        return _run_legacy_yolo(image, runtime_input, config)
+            image = _subtract_background(
+                image,
+                background,
+                runtime_input.analysis_region.metadata_masks,
+            )
+        return _detect_yolo(
+            image,
+            runtime_input.analysis_region.metadata_masks,
+            config,
+        )
 
 
 def _detect_classic(
@@ -119,19 +128,14 @@ def _detect_classic(
     config: ClassicDetectionConfig,
 ) -> tuple[DetectedSpot, ...]:
     main_float = img_as_float(main_image.copy())
-    _zero_rectangles(main_float, runtime_input.metadata_masks)
+    _zero_rectangles(main_float, runtime_input.analysis_region.metadata_masks)
     subtracted_image = main_float
     if background_image is not None:
-        bg_float = img_as_float(background_image.copy())
-        if bg_float.ndim == 3:
-            bg_float = rgb2gray(bg_float)
-        _zero_rectangles(bg_float, runtime_input.metadata_masks)
-        main_values = main_float[main_float > 0]
-        bg_values = bg_float[bg_float > 0]
-        main_mean = float(main_values.mean()) if main_values.size else 0.0
-        bg_mean = float(bg_values.mean()) if bg_values.size else 0.0
-        if bg_mean > 1e-6:
-            subtracted_image = main_float - bg_float * (main_mean / bg_mean)
+        subtracted_image = _subtract_background(
+            main_image,
+            background_image,
+            runtime_input.analysis_region.metadata_masks,
+        )
 
     residual = gaussian_filter(subtracted_image, sigma=config.blur_sigma)
     enhanced = white_tophat(
@@ -167,8 +171,8 @@ def _apply_analysis_regions(
     image: np.ndarray,
     runtime_input: DetectionRuntimeInput,
 ) -> np.ndarray:
-    circle = runtime_input.circle_region
-    ellipse = runtime_input.ellipse_region
+    circle = runtime_input.analysis_region.circle
+    ellipse = runtime_input.analysis_region.ellipse
     if circle is None and ellipse is None:
         return image
     output = image.copy()
@@ -223,39 +227,132 @@ def _zero_rectangles(
         ] = 0
 
 
-def _run_legacy_yolo(
+_YOLO_MODEL_CACHE: dict[str, Any] = {}
+
+
+def _detect_yolo(
     image: np.ndarray,
-    runtime_input: DetectionRuntimeInput,
+    masks: tuple[RectSnapshot, ...],
     config: YoloDetectionConfig,
 ) -> tuple[DetectedSpot, ...]:
-    from PyQt6.QtCore import QRect
+    if config.model_path is None:
+        raise RuntimeError("No YOLO model selected")
+    model = _load_yolo_model(config.model_path, config.device)
+    if image.ndim == 2:
+        inference_image = np.stack([image] * 3, axis=-1)
+    elif image.ndim == 3 and image.shape[2] == 1:
+        inference_image = np.repeat(image, 3, axis=2)
+    else:
+        inference_image = image
+    if masks:
+        inference_image = inference_image.copy()
+        _zero_rectangles(inference_image, masks)
+    try:
+        results = model.predict(
+            source=inference_image,
+            conf=config.confidence,
+            iou=config.iou,
+            max_det=config.max_detections,
+            verbose=False,
+        )
+    except Exception as exc:
+        raise RuntimeError(f"YOLO inference failed: {exc}") from exc
+    if not results:
+        return ()
+    boxes = results[0].boxes if hasattr(results[0], "boxes") else ()
+    if boxes is None:
+        return ()
+    spots: list[DetectedSpot] = []
+    image_height, image_width = inference_image.shape[:2]
+    for box in boxes:
+        try:
+            xyxy = box.xyxy.cpu().numpy().reshape(-1)
+            score = (
+                float(box.conf.cpu().item())
+                if getattr(box, "conf", None) is not None
+                else 0.0
+            )
+        except (AttributeError, TypeError, ValueError, RuntimeError):
+            continue
+        x0, y0, x1, y1 = (float(value) for value in xyxy.tolist())
+        center_x = (x0 + x1) / 2.0
+        center_y = (y0 + y1) / 2.0
+        if any(_contains(mask, center_x, center_y) for mask in masks):
+            continue
+        spots.append(
+            DetectedSpot(
+                id=len(spots) + 1,
+                roi=_rect_from_xyxy(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    config.bbox_margin_px,
+                    image_width,
+                    image_height,
+                ),
+                center_x=center_x,
+                center_y=center_y,
+                intensity=score,
+                source="yolo",
+            )
+        )
+    return tuple(spots)
 
-    from trackleed.analysis.yolo_detector import YOLOSettings, detect_spots_with_yolo
 
-    masks = [QRect(mask.x, mask.y, mask.width, mask.height) for mask in runtime_input.metadata_masks]
-    settings = YOLOSettings(
-        model_path=str(config.model_path) if config.model_path is not None else None,
-        confidence=config.confidence,
-        iou=config.iou,
-        max_det=config.max_detections,
-        bbox_margin_px=config.bbox_margin_px,
-        device=config.device,
+def _load_yolo_model(model_path: Path, device: str) -> Any:
+    key = str(model_path.resolve())
+    if key in _YOLO_MODEL_CACHE:
+        return _YOLO_MODEL_CACHE[key]
+    if not model_path.is_file():
+        raise RuntimeError(f"Model file not found: {model_path}")
+    try:
+        import torch
+        from ultralytics import YOLO
+    except Exception as exc:
+        raise RuntimeError("Ultralytics YOLO and PyTorch are required") from exc
+    try:
+        model = YOLO(str(model_path))
+        selected_device: int | str = device.lower()
+        if selected_device in {"auto", "gpu"}:
+            selected_device = 0 if torch.cuda.is_available() else "cpu"
+        elif selected_device != "cpu":
+            selected_device = device
+        model.to(selected_device)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load YOLO model: {exc}") from exc
+    _YOLO_MODEL_CACHE[key] = model
+    return model
+
+
+def _contains(rect: RectSnapshot, x: float, y: float) -> bool:
+    return (
+        rect.x <= x < rect.x + rect.width
+        and rect.y <= y < rect.y + rect.height
     )
-    return tuple(_from_legacy_spot(spot) for spot in detect_spots_with_yolo(image, masks, settings))
 
 
-def _from_legacy_spot(spot: Any) -> DetectedSpot:
-    rect = spot.roi_rect
-    polygon = tuple(
-        (float(point[0]), float(point[1]))
-        for point in getattr(spot, "polygon_seed_points", ())
-    )
-    return DetectedSpot(
-        id=int(spot.id),
-        roi=RectSnapshot(rect.x(), rect.y(), rect.width(), rect.height()),
-        center_x=float(spot.center_x),
-        center_y=float(spot.center_y),
-        intensity=float(getattr(spot, "intensity", 0.0)),
-        source=str(getattr(spot, "source", "yolo")),
-        polygon_seed_points=polygon,
+def _rect_from_xyxy(
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+    margin_px: int,
+    image_width: int,
+    image_height: int,
+    min_size: int = 4,
+) -> RectSnapshot:
+    width = max(x1 - x0 + 2.0 * margin_px, min(min_size, image_width))
+    height = max(y1 - y0 + 2.0 * margin_px, min(min_size, image_height))
+    width = min(width, image_width)
+    height = min(height, image_height)
+    center_x = (x0 + x1) / 2.0
+    center_y = (y0 + y1) / 2.0
+    left = min(max(0.0, center_x - width / 2.0), max(0.0, image_width - round(width)))
+    top = min(max(0.0, center_y - height / 2.0), max(0.0, image_height - round(height)))
+    return RectSnapshot(
+        round(left),
+        round(top),
+        max(1, round(width)),
+        max(1, round(height)),
     )

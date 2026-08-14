@@ -26,13 +26,9 @@ from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.gui.spot_detection_adapter import (
     build_detection_request,
     publish_detection_result,
+    run_spot_detection_job,
 )
-from trackleed.logic.workflows.spot_detection import (
-    RunContext,
-    SpotDetectionCancelled,
-    SpotDetectionError,
-    run_spot_detection,
-)
+from trackleed.logic.workflows.spot_detection import DetectionResult
 from trackleed.analysis.dam4sam_backend import (
     DAM4SAM_TRACKER_VARIANTS,
     DEFAULT_DAM4SAM_TRACKER_NAME,
@@ -9323,93 +9319,108 @@ class MainWindow(QMainWindow):
 
     def run_spot_finding(self):
         """Gathers parameters and runs the spot finding algorithm."""
+        if self._tracking_worker_is_active():
+            QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
+            return
         current_list_item = self.file_list_widget.currentItem()
         if not current_list_item:
             QMessageBox.warning(self, "No Image", "Please select an image to analyze.")
             return
         leed_file: LeedFile = current_list_item.data(Qt.ItemDataRole.UserRole)
         files = (leed_file,)
-        request = build_detection_request(
-            files=files,
-            spot_settings=self._collect_spot_settings(),
-            background_file=self.background_file,
-            metadata_masks=self.metadata_mask_list,
-            analysis_circle=self.analysis_circle,
-            analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
-        )
         try:
-            result = run_spot_detection(request, RunContext(image_reader=load_tiff))
-            publish_detection_result(files, result)
-        except SpotDetectionCancelled:
-            return
-        except SpotDetectionError as exc:
+            request = build_detection_request(
+                files=files,
+                spot_settings=self._collect_spot_settings(),
+                background_file=self.background_file,
+                metadata_masks=self.metadata_mask_list,
+                analysis_circle=self.analysis_circle,
+                analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
+            )
+        except (TypeError, ValueError) as exc:
             QMessageBox.critical(self, "Detector Error", str(exc))
             return
-        except Exception as exc:
-            QMessageBox.critical(
-                self,
-                "Detector Error",
-                f"Unexpected error during detection:\n{exc}",
-            )
-            return
-        self.populate_spot_list(leed_file.spots)
-        self.refresh_current_view()
+        cancel_event = Event()
+        worker = GenericWorker(
+            run_spot_detection_job,
+            request,
+            load_tiff,
+            cancel_event,
+        )
+        self._pending_spot_detection_files = files
+        self._pending_spot_detection_is_batch = False
+        self._launch_worker_with_progress(
+            worker,
+            "Detecting spots...",
+            cancel_event,
+            on_finished=self._on_spot_detection_finished,
+            on_error=self._on_spot_detection_error,
+            cancel_label="Detection",
+        )
 
     def run_spot_finding_all(self):
         """Run spot detection on all frames in the list using the current backend."""
+        if self._tracking_worker_is_active():
+            QMessageBox.information(self, "Busy", "Wait for the active operation to finish.")
+            return
         if not self.data_files:
             QMessageBox.information(self, "No Data", "Load images before running batch detection.")
             return
-        files = [f for f in self.data_files if not f.is_background]
+        files = tuple(f for f in self.data_files if not f.is_background)
         if not files:
             QMessageBox.information(self, "No Frames", "No frames available for detection.")
             return
-        request = build_detection_request(
-            files=files,
-            spot_settings=self._collect_spot_settings(),
-            background_file=self.background_file,
-            metadata_masks=self.metadata_mask_list,
-            analysis_circle=self.analysis_circle,
-            analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
-        )
-        progress = QProgressDialog("Detecting spots on all frames...", "Cancel", 0, len(files), self)
-        progress.setWindowModality(Qt.WindowModality.WindowModal)
-        progress.setValue(0)
-        QApplication.processEvents()
         try:
-            result = run_spot_detection(
-                request,
-                RunContext(
-                    image_reader=load_tiff,
-                    report_progress=lambda update: (
-                        progress.setValue(update.completed),
-                        QApplication.processEvents(),
-                    ),
-                    is_cancelled=progress.wasCanceled,
-                ),
+            request = build_detection_request(
+                files=files,
+                spot_settings=self._collect_spot_settings(),
+                background_file=self.background_file,
+                metadata_masks=self.metadata_mask_list,
+                analysis_circle=self.analysis_circle,
+                analysis_ellipse=self._normalize_analysis_ellipse(self.analysis_ellipse),
             )
-            publish_detection_result(files, result)
-        except SpotDetectionCancelled:
-            progress.cancel()
+        except (TypeError, ValueError) as exc:
+            QMessageBox.critical(self, "Detector Error", str(exc))
+            return
+        cancel_event = Event()
+        worker = GenericWorker(
+            run_spot_detection_job,
+            request,
+            load_tiff,
+            cancel_event,
+        )
+        self._pending_spot_detection_files = files
+        self._pending_spot_detection_is_batch = True
+        self._launch_worker_with_progress(
+            worker,
+            "Detecting spots on all frames...",
+            cancel_event,
+            on_finished=self._on_spot_detection_finished,
+            on_error=self._on_spot_detection_error,
+            cancel_label="Detection",
+        )
+
+    def _on_spot_detection_finished(self, result: DetectionResult | None):
+        files = tuple(getattr(self, "_pending_spot_detection_files", ()))
+        is_batch = bool(getattr(self, "_pending_spot_detection_is_batch", False))
+        self._pending_spot_detection_files = ()
+        self._pending_spot_detection_is_batch = False
+        if result is None:
             QMessageBox.information(
                 self,
-                "Find All Spots",
+                "Find Spots",
                 "Detection cancelled. No frames were changed.",
             )
             return
-        except SpotDetectionError as exc:
-            progress.cancel()
+        try:
+            publish_detection_result(files, result)
+        except (TypeError, ValueError) as exc:
             QMessageBox.critical(self, "Detector Error", str(exc))
             return
-        except Exception as exc:
-            progress.cancel()
-            QMessageBox.critical(
-                self,
-                "Detector Error",
-                f"Unexpected error during detection:\n{exc}",
-            )
+        if not is_batch:
+            self.populate_spot_list(files[0].spots)
+            self.refresh_current_view()
             return
-        progress.setValue(len(files))
         self.populate_file_list()
         current_item = self.file_list_widget.currentItem()
         if current_item is None and self.file_list_widget.count() > 0:
@@ -9418,6 +9429,15 @@ class MainWindow(QMainWindow):
         if current_item:
             self.display_selected_image(current_item, None)
         QMessageBox.information(self, "Find All Spots", f"Processed {len(files)} frame(s).")
+
+    def _on_spot_detection_error(self, error_message: str):
+        self._pending_spot_detection_files = ()
+        self._pending_spot_detection_is_batch = False
+        QMessageBox.critical(
+            self,
+            "Detector Error",
+            f"An error occurred during detection:\n{error_message}",
+        )
 
     def copy_spots_to_all_frames(self):
         """Copy spots from the currently selected frame to all other frames."""
@@ -11387,7 +11407,16 @@ class MainWindow(QMainWindow):
 
         return file_map, sorted(file_map.keys())
 
-    def _launch_worker_with_progress(self, worker: GenericWorker, title: str, cancel_event: Event):
+    def _launch_worker_with_progress(
+        self,
+        worker: GenericWorker,
+        title: str,
+        cancel_event: Event,
+        *,
+        on_finished=None,
+        on_error=None,
+        cancel_label: str = "Tracking",
+    ):
         """Helper method to run any worker with a progress dialog."""
         progress_dialog = QProgressDialog(title, "Cancel", 0, 100, self)
         progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -11402,10 +11431,16 @@ class MainWindow(QMainWindow):
         self._active_tracking_cancel_requested = False
         self.worker.moveToThread(thread)
 
-        progress_dialog.canceled.connect(lambda: self._handle_worker_cancel(cancel_event, progress_dialog))
+        progress_dialog.canceled.connect(
+            lambda: self._handle_worker_cancel(
+                cancel_event,
+                progress_dialog,
+                cancel_label,
+            )
+        )
         self.worker.progress.connect(progress_dialog.setValue)
-        self.worker.finished.connect(self.on_tracking_finished)
-        self.worker.error.connect(self.on_tracking_error)
+        self.worker.finished.connect(on_finished or self.on_tracking_finished)
+        self.worker.error.connect(on_error or self.on_tracking_error)
 
         # Cleanup
         self.worker.finished.connect(progress_dialog.accept)
@@ -11428,10 +11463,14 @@ class MainWindow(QMainWindow):
         thread.started.connect(self.worker.run)
         thread.start()
 
-    def _set_tracking_cancel_progress_state(self, dialog: QProgressDialog) -> None:
+    def _set_tracking_cancel_progress_state(
+        self,
+        dialog: QProgressDialog,
+        operation_label: str = "Tracking",
+    ) -> None:
         """Convert the active progress dialog into an indeterminate cancel-wait state."""
-        dialog.setWindowTitle("Cancelling Tracking")
-        dialog.setLabelText("Cancelling tracking, please wait...")
+        dialog.setWindowTitle(f"Cancelling {operation_label}")
+        dialog.setLabelText(f"Cancelling {operation_label.lower()}, please wait...")
         dialog.setRange(0, 0)
         dialog.setValue(0)
         try:
@@ -11442,12 +11481,17 @@ class MainWindow(QMainWindow):
         dialog.setEnabled(True)
         QApplication.processEvents()
 
-    def _handle_worker_cancel(self, cancel_event: Event, dialog: QProgressDialog):
+    def _handle_worker_cancel(
+        self,
+        cancel_event: Event,
+        dialog: QProgressDialog,
+        operation_label: str = "Tracking",
+    ):
         """Signal handler invoked when the user clicks Cancel on a progress dialog."""
         if cancel_event:
             cancel_event.set()
         self._active_tracking_cancel_requested = True
-        self._set_tracking_cancel_progress_state(dialog)
+        self._set_tracking_cancel_progress_state(dialog, operation_label)
         if self.thread:
             try:
                 self.thread.requestInterruption()

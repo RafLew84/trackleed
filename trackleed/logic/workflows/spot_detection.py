@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Protocol, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 import numpy as np
 
@@ -35,12 +36,33 @@ class EllipseRegion:
 
 
 @dataclass(frozen=True)
+class AnalysisRegionSnapshot:
+    metadata_masks: tuple[RectSnapshot, ...] = ()
+    circle: CircleRegion | None = None
+    ellipse: EllipseRegion | None = None
+
+
+@dataclass(frozen=True)
 class ClassicDetectionConfig:
     blur_sigma: float = 20.0
     wth_radius: int = 8
     min_distance: int = 10
     threshold_rel: float = 0.1
     roi_size: int = 32
+
+
+def classic_config_from_mapping(
+    values: Mapping[str, Any],
+) -> ClassicDetectionConfig:
+    """Normalize a legacy settings mapping using the contract defaults."""
+    defaults = ClassicDetectionConfig()
+    return ClassicDetectionConfig(
+        blur_sigma=float(values.get("blur_sigma", defaults.blur_sigma)),
+        wth_radius=int(values.get("wth_radius", defaults.wth_radius)),
+        min_distance=int(values.get("min_distance", defaults.min_distance)),
+        threshold_rel=float(values.get("threshold_rel", defaults.threshold_rel)),
+        roi_size=int(values.get("roi_size", defaults.roi_size)),
+    )
 
 
 @dataclass(frozen=True)
@@ -69,9 +91,9 @@ class DetectionRequest:
     frames: tuple[DetectionFrame, ...]
     config: DetectionConfig
     background_path: Path | None = None
-    metadata_masks: tuple[RectSnapshot, ...] = ()
-    circle_region: CircleRegion | None = None
-    ellipse_region: EllipseRegion | None = None
+    analysis_region: AnalysisRegionSnapshot = field(
+        default_factory=AnalysisRegionSnapshot
+    )
 
 
 @dataclass(frozen=True)
@@ -126,13 +148,16 @@ class DetectionCapabilities:
     requires_model: bool
 
 
+class DetectionFamily(str, Enum):
+    CLASSICAL = "classical"
+    NEURAL = "neural"
+
+
 @dataclass(frozen=True)
 class DetectionRuntimeInput:
     image: np.ndarray
     background_image: np.ndarray | None
-    metadata_masks: tuple[RectSnapshot, ...]
-    circle_region: CircleRegion | None
-    ellipse_region: EllipseRegion | None
+    analysis_region: AnalysisRegionSnapshot
 
 
 class DetectionRuntimeAdapter(Protocol):
@@ -149,6 +174,7 @@ class DetectionRuntimeAdapter(Protocol):
 class DetectionMethod:
     method_id: str
     display_name: str
+    family: DetectionFamily
     capabilities: DetectionCapabilities
     runtime: DetectionRuntimeAdapter
 
@@ -213,12 +239,14 @@ def default_spot_detection_catalog() -> SpotDetectionCatalog:
             DetectionMethod(
                 method_id="classic",
                 display_name="Classic",
+                family=DetectionFamily.CLASSICAL,
                 capabilities=DetectionCapabilities(True, True, False),
                 runtime=ClassicDetectionRuntime(),
             ),
             DetectionMethod(
                 method_id="yolo",
                 display_name="YOLO",
+                family=DetectionFamily.NEURAL,
                 capabilities=DetectionCapabilities(True, True, True),
                 runtime=YoloDetectionRuntime(),
             ),
@@ -257,9 +285,7 @@ def run_spot_detection(
                 DetectionRuntimeInput(
                     image=image,
                     background_image=background,
-                    metadata_masks=request.metadata_masks,
-                    circle_region=request.circle_region,
-                    ellipse_region=request.ellipse_region,
+                    analysis_region=request.analysis_region,
                 ),
                 request.config,
             )

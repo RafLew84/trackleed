@@ -1,12 +1,9 @@
+import types
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-from trackleed.logic.workflows.spot_detection import (
-    DetectionProgress,
-    DetectionResult,
-    FrameDetections,
-)
+from trackleed.logic.workflows.spot_detection import DetectionResult, FrameDetections
 from trackleed.tests.test_main_window_registry_dispatch import MainWindowImportMixin
 
 
@@ -27,26 +24,33 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
     def setUp(self) -> None:
         _registry, self.main_window = self.import_main_window()
         self.recorded: dict[str, object] = {}
-        original_run = self.main_window.run_spot_detection
-        self.addCleanup(setattr, self.main_window, "run_spot_detection", original_run)
+        original_worker = self.main_window.GenericWorker
+        self.addCleanup(setattr, self.main_window, "GenericWorker", original_worker)
+        recorded = self.recorded
 
-        def run(request, context):
-            self.recorded["request"] = request
-            self.recorded["context"] = context
-            for completed, frame in enumerate(request.frames, start=1):
-                context.report_progress(
-                    DetectionProgress(completed, len(request.frames), frame.frame_id)
-                )
-            return DetectionResult(
-                tuple(FrameDetections(frame.frame_id, ()) for frame in request.frames)
-            )
+        class Worker:
+            def __init__(self, function, *args, **kwargs):
+                self.function = function
+                self.args = args
+                self.kwargs = kwargs
+                recorded["worker"] = self
 
-        self.main_window.run_spot_detection = run
+        self.main_window.GenericWorker = Worker
 
-    def test_current_frame_action_delegates_to_public_workflow(self) -> None:
-        leed_file = SimpleNamespace(filepath=Path("one.tif"), spots=[object()])
+    def _bind_detection_handlers(self, fake: SimpleNamespace) -> None:
+        fake._on_spot_detection_finished = types.MethodType(
+            self.main_window.MainWindow._on_spot_detection_finished,
+            fake,
+        )
+        fake._on_spot_detection_error = types.MethodType(
+            self.main_window.MainWindow._on_spot_detection_error,
+            fake,
+        )
+
+    def test_current_frame_action_delegates_to_public_workflow_worker(self) -> None:
+        original_spots = [object()]
+        leed_file = SimpleNamespace(id=11, filepath=Path("one.tif"), spots=original_spots)
         item = SimpleNamespace(data=lambda _role: leed_file)
-        calls: list[object] = []
         fake = SimpleNamespace(
             file_list_widget=SimpleNamespace(currentItem=lambda: item),
             background_file=None,
@@ -55,46 +59,30 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             analysis_ellipse=None,
             _normalize_analysis_ellipse=lambda value: value,
             _collect_spot_settings=_classic_settings,
-            populate_spot_list=lambda spots: calls.append(("spots", spots)),
-            refresh_current_view=lambda: calls.append("refresh"),
+            _tracking_worker_is_active=lambda: False,
+            _launch_worker_with_progress=lambda *args, **kwargs: self.recorded.update(
+                {"launch": (args, kwargs)}
+            ),
         )
+        self._bind_detection_handlers(fake)
 
         self.main_window.MainWindow.run_spot_finding(fake)
 
-        request = self.recorded["request"]
+        worker = self.recorded["worker"]
+        request = worker.args[0]
+        self.assertIs(worker.function, self.main_window.run_spot_detection_job)
         self.assertEqual(request.method_id, "classic")
-        self.assertEqual(tuple(frame.source_path for frame in request.frames), (Path("one.tif"),))
-        self.assertEqual(leed_file.spots, [])
-        self.assertIn("refresh", calls)
+        self.assertEqual(request.frames[0].frame_id, 11)
+        self.assertEqual(request.frames[0].source_path, Path("one.tif"))
+        self.assertIs(leed_file.spots, original_spots)
+        self.assertEqual(self.recorded["launch"][1]["cancel_label"], "Detection")
 
-    def test_full_series_action_uses_same_workflow_and_progress_context(self) -> None:
+    def test_full_series_action_uses_the_same_public_workflow_worker(self) -> None:
         files = [
-            SimpleNamespace(filepath=Path("one.tif"), spots=[object()], is_background=False),
-            SimpleNamespace(filepath=Path("two.tif"), spots=[object()], is_background=False),
+            SimpleNamespace(id=11, filepath=Path("one.tif"), spots=[object()], is_background=False),
+            SimpleNamespace(id=12, filepath=Path("two.tif"), spots=[object()], is_background=False),
         ]
-        progress_values: list[int] = []
-
-        class ProgressDialog:
-            def __init__(self, *_args):
-                pass
-
-            def setWindowModality(self, _value):
-                pass
-
-            def setValue(self, value):
-                progress_values.append(value)
-
-            def wasCanceled(self):
-                return False
-
-            def cancel(self):
-                pass
-
-        original_dialog = self.main_window.QProgressDialog
-        self.addCleanup(setattr, self.main_window, "QProgressDialog", original_dialog)
-        self.main_window.QProgressDialog = ProgressDialog
-        self.main_window.QApplication.processEvents = lambda: None
-        item = SimpleNamespace()
+        original_spots = [file.spots for file in files]
         fake = SimpleNamespace(
             data_files=files,
             background_file=None,
@@ -103,18 +91,39 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
             analysis_ellipse=None,
             _normalize_analysis_ellipse=lambda value: value,
             _collect_spot_settings=_classic_settings,
-            populate_file_list=lambda: None,
-            file_list_widget=SimpleNamespace(
-                currentItem=lambda: item,
-                count=lambda: 1,
-                setCurrentRow=lambda _row: None,
+            _tracking_worker_is_active=lambda: False,
+            _launch_worker_with_progress=lambda *args, **kwargs: self.recorded.update(
+                {"launch": (args, kwargs)}
             ),
-            display_selected_image=lambda *_args: None,
         )
+        self._bind_detection_handlers(fake)
 
         self.main_window.MainWindow.run_spot_finding_all(fake)
 
-        request = self.recorded["request"]
-        self.assertEqual(len(request.frames), 2)
-        self.assertEqual(progress_values, [0, 1, 2, 2])
+        worker = self.recorded["worker"]
+        request = worker.args[0]
+        self.assertIs(worker.function, self.main_window.run_spot_detection_job)
+        self.assertEqual(tuple(frame.frame_id for frame in request.frames), (11, 12))
+        self.assertEqual([file.spots for file in files], original_spots)
+        self.assertIn("all frames", self.recorded["launch"][0][1])
+
+    def test_worker_result_is_published_only_on_the_gui_completion_handler(self) -> None:
+        files = [
+            SimpleNamespace(id=11, filepath=Path("one.tif"), spots=[object()]),
+            SimpleNamespace(id=12, filepath=Path("two.tif"), spots=[object()]),
+        ]
+        calls: list[object] = []
+        fake = SimpleNamespace(
+            _pending_spot_detection_files=tuple(files),
+            _pending_spot_detection_is_batch=True,
+            populate_file_list=lambda: calls.append("files"),
+            file_list_widget=SimpleNamespace(currentItem=lambda: None, count=lambda: 0),
+        )
+        result = DetectionResult(
+            (FrameDetections(11, ()), FrameDetections(12, ()))
+        )
+
+        self.main_window.MainWindow._on_spot_detection_finished(fake, result)
+
         self.assertEqual([file.spots for file in files], [[], []])
+        self.assertIn("files", calls)
