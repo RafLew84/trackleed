@@ -307,7 +307,7 @@ def _advance_points(
         observations[track_id].append(
             TrackObservation(
                 frame_id,
-                _centered_rect(x, y, config.roi_size, current.shape),
+                _tracked_rect(x, y, config.roi_size),
                 x,
                 y,
                 source="optical_flow",
@@ -340,7 +340,7 @@ def _advance_skip_anchor_points(
             observations[seed.seed_id].append(
                 TrackObservation(
                     frame_id,
-                    _centered_rect(x, y, config.roi_size, current.shape),
+                    _tracked_rect(x, y, config.roi_size),
                     x,
                     y,
                     source="optical_flow_skip_anchor",
@@ -501,17 +501,18 @@ def _lk_parameters(config: OpticalFlowConfig) -> dict[str, object]:
     }
 
 
-def _centered_rect(
+def _tracked_rect(
     center_x: float,
     center_y: float,
     roi_size: int,
-    image_shape: tuple[int, ...],
 ) -> SeedRect:
-    height, width = image_shape[:2]
-    size = max(1, min(roi_size, width, height))
-    x = max(0, min(width - size, round(center_x - size / 2)))
-    y = max(0, min(height - size, round(center_y - size / 2)))
-    return SeedRect(x, y, size, size)
+    half_size = roi_size // 2
+    return SeedRect(
+        int(center_x - half_size),
+        int(center_y - half_size),
+        roi_size,
+        roi_size,
+    )
 
 
 def normalized_grayscale(image: np.ndarray) -> np.ndarray:

@@ -147,6 +147,15 @@ class SeededTrackingWorkflowTests(unittest.TestCase):
         tracked = result.tracks[0].observations[-1]
         self.assertAlmostEqual(tracked.center_x, 31.0, delta=0.75)
         self.assertAlmostEqual(tracked.center_y, 30.0, delta=0.75)
+        self.assertEqual(
+            tracked.roi,
+            SeedRect(
+                int(tracked.center_x - request.config.roi_size // 2),
+                int(tracked.center_y - request.config.roi_size // 2),
+                request.config.roi_size,
+                request.config.roi_size,
+            ),
+        )
         self.assertEqual(progress, [(1, 1)])
 
     def test_skip_anchor_optical_flow_uses_its_stable_catalog_identity(self) -> None:
