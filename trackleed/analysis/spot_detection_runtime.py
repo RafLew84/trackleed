@@ -139,20 +139,11 @@ def _detect_classic(
     runtime_input: DetectionRuntimeInput,
     config: ClassicDetectionConfig,
 ) -> tuple[DetectedSpot, ...]:
-    main_float = img_as_float(main_image.copy())
-    _zero_rectangles(main_float, runtime_input.analysis_region.metadata_masks)
-    subtracted_image = main_float
-    if background_image is not None:
-        subtracted_image = _subtract_background(
-            main_image,
-            background_image,
-            runtime_input.analysis_region.metadata_masks,
-        )
-
-    residual = gaussian_filter(subtracted_image, sigma=config.blur_sigma)
-    enhanced = white_tophat(
-        subtracted_image - residual,
-        footprint=disk(config.wth_radius),
+    enhanced = prepare_classic_image(
+        main_image,
+        background_image,
+        runtime_input.analysis_region.metadata_masks,
+        config,
     )
     coordinates = peak_local_max(
         enhanced,
@@ -176,6 +167,33 @@ def _detect_classic(
             source="auto",
         )
         for index, (y, x) in enumerate(coordinates, start=1)
+    )
+
+
+def prepare_classic_image(
+    image: np.ndarray,
+    background: np.ndarray | None,
+    masks: tuple[RectSnapshot, ...],
+    config: ClassicDetectionConfig,
+    *,
+    zero_masked_pixels: bool = True,
+) -> np.ndarray:
+    """Build the enhanced Classic image shared by detection and GUI preview."""
+    if background is None:
+        subtracted = img_as_float(image.copy())
+        if zero_masked_pixels:
+            _zero_rectangles(subtracted, masks)
+    else:
+        subtracted = _subtract_background(
+            image,
+            background,
+            masks,
+            zero_masked_pixels=zero_masked_pixels,
+        )
+    residual = gaussian_filter(subtracted, sigma=config.blur_sigma)
+    return white_tophat(
+        subtracted - residual,
+        footprint=disk(config.wth_radius),
     )
 
 
@@ -213,20 +231,26 @@ def _subtract_background(
     image: np.ndarray,
     background: np.ndarray,
     masks: tuple[RectSnapshot, ...],
+    *,
+    zero_masked_pixels: bool = True,
 ) -> np.ndarray:
     main_float = img_as_float(image).copy()
     converted_background = (
         rgb2gray(background) if background.ndim == 3 else img_as_float(background)
     )
     bg_float = converted_background.copy()
-    _zero_rectangles(main_float, masks)
-    _zero_rectangles(bg_float, masks)
-    main_values = main_float[main_float > 0]
-    bg_values = bg_float[bg_float > 0]
+    main_for_mean, bg_for_mean = main_float.copy(), bg_float.copy()
+    _zero_rectangles(main_for_mean, masks)
+    _zero_rectangles(bg_for_mean, masks)
+    main_values = main_for_mean[main_for_mean > 0]
+    bg_values = bg_for_mean[bg_for_mean > 0]
     main_mean = float(main_values.mean()) if main_values.size else 0.0
     bg_mean = float(bg_values.mean()) if bg_values.size else 0.0
     scale = main_mean / bg_mean if bg_mean > 1e-9 else 1.0
-    return main_float - bg_float * scale
+    subtracted = main_float - bg_float * scale
+    if zero_masked_pixels:
+        _zero_rectangles(subtracted, masks)
+    return subtracted
 
 
 def _zero_rectangles(

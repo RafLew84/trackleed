@@ -12,11 +12,8 @@ from typing import Any, Protocol
 
 import numpy as np
 from PyQt6.QtCore import QRect
-from scipy.ndimage import gaussian_filter  # type: ignore[import-untyped]
-from skimage.color import rgb2gray
-from skimage.morphology import disk, white_tophat
-from skimage.util import img_as_float
 
+from trackleed.analysis.spot_detection_runtime import prepare_classic_image
 from trackleed.core.data_models import LeedFile
 from trackleed.core.spot_roi_adapter import spot_roi_from_detection
 from trackleed.logic.workflows.spot_detection import (
@@ -126,29 +123,16 @@ class SpotDetectionSettingsBinding:
         metadata_masks: Sequence[QRect],
     ) -> np.ndarray:
         """Render the legacy Classic preprocessing preview."""
-        config = self._settings.classic
-        main_float = img_as_float(image.copy())
-        subtracted_image = main_float
-        if background is not None:
-            bg_float = (
-                rgb2gray(background)
-                if background.ndim == 3
-                else img_as_float(background)
-            )
-            main_for_mean, bg_for_mean = main_float.copy(), bg_float.copy()
-            for rect in metadata_masks:
-                x, y = rect.x(), rect.y()
-                width, height = rect.width(), rect.height()
-                main_for_mean[y : y + height, x : x + width] = 0
-                bg_for_mean[y : y + height, x : x + width] = 0
-            main_mean = main_for_mean[main_for_mean > 0].mean()
-            bg_mean = bg_for_mean[bg_for_mean > 0].mean()
-            if bg_mean > 1e-9:
-                subtracted_image = main_float - bg_float * (main_mean / bg_mean)
-        residual = gaussian_filter(subtracted_image, sigma=config.blur_sigma)
-        return white_tophat(
-            subtracted_image - residual,
-            footprint=disk(config.wth_radius),
+        masks = tuple(
+            RectSnapshot(rect.x(), rect.y(), rect.width(), rect.height())
+            for rect in metadata_masks
+        )
+        return prepare_classic_image(
+            image,
+            background,
+            masks,
+            self._settings.classic,
+            zero_masked_pixels=False,
         )
 
 

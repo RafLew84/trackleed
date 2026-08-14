@@ -217,6 +217,40 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
 
         self.assertEqual(result.frames[0].spots, ())
 
+    def test_classic_preprocessing_shares_detection_and_preview_pipeline(self) -> None:
+        image = np.ones((8, 8), dtype=np.float32)
+        mask = (RectSnapshot(2, 2, 3, 3),)
+        config = ClassicDetectionConfig(blur_sigma=1.0, wth_radius=2)
+
+        with (
+            patch.object(
+                spot_detection_runtime,
+                "gaussian_filter",
+                side_effect=lambda values, sigma: np.zeros_like(values),
+            ),
+            patch.object(
+                spot_detection_runtime,
+                "white_tophat",
+                side_effect=lambda values, footprint: values,
+            ),
+        ):
+            detection_image = spot_detection_runtime.prepare_classic_image(
+                image,
+                None,
+                mask,
+                config,
+            )
+            preview_image = spot_detection_runtime.prepare_classic_image(
+                image,
+                None,
+                mask,
+                config,
+                zero_masked_pixels=False,
+            )
+
+        self.assertEqual(detection_image[3, 3], 0)
+        self.assertEqual(preview_image[3, 3], 1)
+
     def test_preflight_rejects_empty_or_duplicate_frame_identity(self) -> None:
         empty = DetectionRequest("classic", (), ClassicDetectionConfig())
         duplicate = DetectionRequest(
