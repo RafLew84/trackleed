@@ -16,8 +16,6 @@ from PyQt6.QtCore import QRect
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import linear_sum_assignment
 from skimage.color import rgb2gray
-from skimage.morphology import white_tophat, disk
-from skimage.util import img_as_ubyte
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.image_reader import load_tiff
@@ -138,6 +136,12 @@ from trackleed.analysis.tracking_windowing_utils import (
     build_tracking_window_plans,
     build_plain_tracking_window_context,
     build_reseed_tracking_window_context,
+)
+from trackleed.analysis.seeded_tracking_runtime import (
+    ncc_around as _ncc_around,
+    normalized_grayscale,
+    prepare_optical_flow_image,
+    refine_center_by_centroid,
 )
 
 _PUBLIC_TRACKING_SHIM_EXPORTS = {
@@ -303,34 +307,13 @@ def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None
     Loads a TIFF image, normalizes it, and returns an 8-bit grayscale array suitable for LK tracking.
     """
     image_raw = load_tiff(filepath)
-    if image_raw is None or image_raw.size == 0:
+    try:
+        return prepare_optical_flow_image(
+            image_raw,
+            background_image if subtract_background else None,
+        )
+    except ValueError:
         return None
-
-    if image_raw.ndim == 3:
-        gray_float = rgb2gray(image_raw)
-    else:
-        image_float = image_raw.astype(np.float32)
-        min_val, max_val = np.min(image_float), np.max(image_float)
-        if max_val > min_val:
-            gray_float = (image_float - min_val) / (max_val - min_val)
-        else:
-            gray_float = np.zeros_like(image_float)
-
-    working_image = gray_float.copy()
-    if subtract_background and background_image is not None and background_image.shape == working_image.shape:
-        working_image = working_image - background_image
-        np.clip(working_image, 0.0, None, out=working_image)
-
-    blurred = gaussian_filter(working_image, sigma=5)
-    processed_image = working_image - blurred
-    footprint = disk(5)
-    final_for_tracking = white_tophat(processed_image, footprint=footprint)
-    min_val, max_val = np.min(final_for_tracking), np.max(final_for_tracking)
-    if max_val > min_val:
-        normalized_final = (final_for_tracking - min_val) / (max_val - min_val)
-    else:
-        normalized_final = np.zeros_like(final_for_tracking)
-    return img_as_ubyte(normalized_final)
 
 
 def _load_background_image(filepath: Optional[str | Path]) -> Optional[np.ndarray]:
@@ -340,13 +323,7 @@ def _load_background_image(filepath: Optional[str | Path]) -> Optional[np.ndarra
     bg_raw = load_tiff(path)
     if bg_raw is None or bg_raw.size == 0:
         return None
-    if bg_raw.ndim == 3:
-        return rgb2gray(bg_raw)
-    image_float = bg_raw.astype(np.float32)
-    min_val, max_val = np.min(image_float), np.max(image_float)
-    if max_val > min_val:
-        return (image_float - min_val) / (max_val - min_val)
-    return np.zeros_like(image_float)
+    return normalized_grayscale(bg_raw)
 
 
 def _centered_roi_rect(
@@ -3487,76 +3464,6 @@ def _append_tomp_sequence_to_track(
         },
     )
     return True
-
-
-def _ncc_around(img_a: np.ndarray, img_b: np.ndarray, pt_a: np.ndarray, pt_b: np.ndarray, radius: int) -> float:
-    x_a, y_a = int(round(pt_a[0])), int(round(pt_a[1]))
-    x_b, y_b = int(round(pt_b[0])), int(round(pt_b[1]))
-    if (
-        x_a - radius < 0
-        or y_a - radius < 0
-        or x_a + radius >= img_a.shape[1]
-        or y_a + radius >= img_a.shape[0]
-    ):
-        return -1.0
-    if (
-        x_b - radius < 0
-        or y_b - radius < 0
-        or x_b + radius >= img_b.shape[1]
-        or y_b + radius >= img_b.shape[0]
-    ):
-        return -1.0
-    patch_a = img_a[y_a - radius : y_a + radius + 1, x_a - radius : x_a + radius + 1].astype(np.float32)
-    patch_b = img_b[y_b - radius : y_b + radius + 1, x_b - radius : x_b + radius + 1].astype(np.float32)
-    patch_a -= patch_a.mean()
-    patch_b -= patch_b.mean()
-    denom = (np.linalg.norm(patch_a) * np.linalg.norm(patch_b)) + 1e-6
-    if denom == 0:
-        return -1.0
-    return float((patch_a * patch_b).sum() / denom)
-
-
-def refine_center_by_centroid(
-    image: np.ndarray,
-    approx_xy: np.ndarray,
-    patch_radius: float,
-    rel_threshold: float = 0.4,
-    max_expand: int = 1,
-) -> np.ndarray:
-    H, W = image.shape[:2]
-    cx, cy = map(int, np.round(approx_xy))
-    r = max(1, int(patch_radius))
-    for _ in range(max_expand + 1):
-        x0, x1 = max(0, cx - r), min(W, cx + r + 1)
-        y0, y1 = max(0, cy - r), min(H, cy + r + 1)
-        patch = image[y0:y1, x0:x1].astype(np.float32)
-        if patch.size == 0:
-            return approx_xy
-        m = patch.max()
-        thr = max(1.0, rel_threshold * m)
-        mask = (patch >= thr).astype(np.float32)
-        wsum = mask.sum()
-        if wsum < 10:
-            _, mask = cv2.threshold(patch.astype(np.uint8), 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            wsum = mask.sum()
-            if wsum < 10:
-                r = int(r * 1.5)
-                continue
-        ys, xs = np.nonzero(mask)
-        vals = patch[ys, xs]
-        w = vals / (vals.sum() + 1e-6)
-        cx_loc = (xs * w).sum()
-        cy_loc = (ys * w).sum()
-        new_x, new_y = x0 + cx_loc, y0 + cy_loc
-        edge_margin = 2
-        if (
-            abs(cx_loc - (x1 - x0) / 2) > (r - edge_margin)
-            or abs(cy_loc - (y1 - y0) / 2) > (r - edge_margin)
-        ):
-            r = int(r * 1.5)
-            continue
-        return np.array([new_x, new_y], dtype=np.float32)
-    return approx_xy
 
 
 # --- Directional geometry helpers -------------------------------------------------------------
