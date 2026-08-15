@@ -126,6 +126,14 @@ class DetectedSpot:
     polygon_seed_points: tuple[tuple[float, float], ...] = ()
 
 
+INDEPENDENT_DETECTION_SOURCES = frozenset({"auto", "yolo"})
+
+
+def is_independent_detection(spot: DetectedSpot) -> bool:
+    """Return whether a spot came from an independent detector run."""
+    return spot.source in INDEPENDENT_DETECTION_SOURCES
+
+
 @dataclass(frozen=True)
 class FrameDetections:
     frame_id: int

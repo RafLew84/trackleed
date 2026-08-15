@@ -3575,94 +3575,46 @@ def track_spots_hungarian(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: Optional[Event] = None,
 ) -> List[Track]:
-    """
-    Link per-frame detections (SpotROI) into tracks using Hungarian assignment.
+    """Compatibility adapter for the catalog-backed Hungarian workflow."""
+    from trackleed.gui.detection_linking_adapter import (
+        build_detection_linking_request,
+    )
+    from trackleed.gui.tracking_publisher import project_tracking_result
+    from trackleed.logic.workflows.detection_linking import (
+        DetectionLinkingCancelled,
+        HungarianLinkingConfig,
+        RunContext,
+        run_detection_linking,
+    )
 
-    params: {
-        "max_distance_px": float,
-        "max_gap": int,           # allowed missing frames
-        "min_track_length": int,  # discard shorter tracks
-    }
-    """
-    max_dist = float(params.get("max_distance_px", 20.0))
-    max_gap = int(params.get("max_gap", 2))
-    min_len = int(params.get("min_track_length", 2))
-
-    next_track_id = 1
-    active_tracks: Dict[int, dict] = {}  # track_id -> {"last_frame": fid, "last_xy": (x,y), "gap": 0, "spots": {fid: spot}}
-    finished: List[Track] = []
-
-    total_frames = len(sorted_frame_ids)
-    for idx, fid in enumerate(sorted_frame_ids):
-        if cancel_event and cancel_event.is_set():
-            return []
-        if progress_callback:
-            progress_callback(int(100 * idx / max(1, total_frames)))
-
-        lf = file_map.get(fid)
-        if not lf:
-            continue
-        detections = lf.spots or []
-        det_points = np.array([[s.center_x, s.center_y] for s in detections], dtype=np.float32)
-
-        # Build assignment between active tracks and current detections
-        track_ids = list(active_tracks.keys())
-        if len(track_ids) and len(det_points):
-            cost = np.zeros((len(track_ids), len(det_points)), dtype=np.float32)
-            for i, tid in enumerate(track_ids):
-                last_xy = np.array(active_tracks[tid]["last_xy"])
-                dists = np.linalg.norm(det_points - last_xy[None, :], axis=1)
-                cost[i] = dists
-            row_ind, col_ind = linear_sum_assignment(cost)
-            assigned_tracks = set()
-            assigned_dets = set()
-            for r, c in zip(row_ind, col_ind):
-                if cost[r, c] <= max_dist:
-                    tid = track_ids[r]
-                    spot = detections[c]
-                    active_tracks[tid]["last_xy"] = (spot.center_x, spot.center_y)
-                    active_tracks[tid]["last_frame"] = fid
-                    active_tracks[tid]["gap"] = 0
-                    active_tracks[tid]["spots"][fid] = spot
-                    assigned_tracks.add(tid)
-                    assigned_dets.add(c)
-            # Increase gap for unassigned tracks
-            for tid in track_ids:
-                if tid in assigned_tracks:
-                    continue
-                active_tracks[tid]["gap"] += 1
-        else:
-            assigned_dets = set()
-
-        # Start new tracks for unmatched detections
-        for j, spot in enumerate(detections):
-            if j in assigned_dets:
-                continue
-            tid = next_track_id
-            next_track_id += 1
-            active_tracks[tid] = {
-                "last_frame": fid,
-                "last_xy": (spot.center_x, spot.center_y),
-                "gap": 0,
-                "spots": {fid: spot},
-            }
-
-        # Retire tracks that exceeded gap
-        to_remove = []
-        for tid, data in active_tracks.items():
-            if data["gap"] > max_gap:
-                if len(data["spots"]) >= min_len:
-                    finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
-                to_remove.append(tid)
-        for tid in to_remove:
-            active_tracks.pop(tid, None)
-
-    # Flush remaining active tracks
-    for tid, data in active_tracks.items():
-        if len(data["spots"]) >= min_len:
-            finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
-
-    return finished
+    files = tuple(
+        file_map[frame_id]
+        for frame_id in sorted_frame_ids
+        if frame_id in file_map
+    )
+    request = build_detection_linking_request(
+        files,
+        HungarianLinkingConfig(
+            float(params.get("max_distance_px", 20.0)),
+            int(params.get("max_gap", 2)),
+            int(params.get("min_track_length", 2)),
+        ),
+    )
+    context = RunContext(
+        report_progress=(
+            lambda progress: progress_callback(
+                round(100 * progress.completed / progress.total)
+            )
+            if progress_callback
+            else None
+        ),
+        is_cancelled=(cancel_event.is_set if cancel_event else lambda: False),
+    )
+    try:
+        result = run_detection_linking(request, context)
+    except DetectionLinkingCancelled:
+        return []
+    return project_tracking_result(result)
 
 
 def track_spots_hungarian_directional(

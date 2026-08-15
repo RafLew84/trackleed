@@ -11,10 +11,12 @@ from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingSettingsBinding,
     build_seeded_retrack_request,
     build_seeded_tracking_request,
+    run_seeded_tracking_job,
+)
+from trackleed.gui.tracking_publisher import (
     clone_tracks_for_review,
     publish_edited_tracks,
     publish_tracking_result,
-    run_seeded_tracking_job,
 )
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
@@ -304,6 +306,35 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         self.assertEqual(active[0].spots_by_image_id[1].center_x, 88.0)
         self.assertIsNot(active[0].spots_by_image_id[1], first.spots[0])
         self.assertEqual(second.spots[0].center_x, 22.0)
+
+    def test_accept_preserves_fits_only_for_unchanged_observation_rois(self) -> None:
+        first = _leed_file(1, [])
+        second = _leed_file(2, [])
+        raw = [
+            Track(
+                7,
+                {
+                    1: _spot(7, 20, 21),
+                    2: _spot(7, 22, 23),
+                },
+            )
+        ]
+        raw[0].analysis_results = {
+            1: {"radius": 10.0, "history": [1]},
+            2: {"radius": 11.0},
+        }
+        review = clone_tracks_for_review(raw)
+        review[0].analysis_results[1]["history"].append(2)
+        review[0].spots_by_image_id[2].roi_rect.translate(1, 0)
+
+        active = publish_edited_tracks(
+            (first, second),
+            review,
+            previous_tracks=raw,
+        )
+
+        self.assertEqual(active[0].analysis_results, {1: raw[0].analysis_results[1]})
+        self.assertEqual(raw[0].analysis_results[1]["history"], [1])
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QMenu, QMenuBar, QWidget
 @dataclass(frozen=True)
 class TrackingMenuActions:
     seeded: Callable[[], None]
+    hungarian: Callable[[], None]
     review: Callable[[], None]
 
 
@@ -27,6 +28,9 @@ def add_tracking_menu(
     seeded_action = QAction("Seeded Spot Tracking...", parent)
     seeded_action.triggered.connect(actions.seeded)
     menu.addAction(seeded_action)
+    hungarian_action = QAction("Detection Linking (Hungarian)...", parent)
+    hungarian_action.triggered.connect(actions.hungarian)
+    menu.addAction(hungarian_action)
     menu.addSeparator()
     review_action = QAction("Review / Edit Tracks", parent)
     review_action.triggered.connect(actions.review)

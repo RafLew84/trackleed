@@ -23,6 +23,7 @@ class TrackingMenuTests(unittest.TestCase):
             window,
             TrackingMenuActions(
                 seeded=lambda: calls.append("seeded"),
+                hungarian=lambda: calls.append("hungarian"),
                 review=lambda: calls.append("review"),
             ),
         )
@@ -32,11 +33,19 @@ class TrackingMenuTests(unittest.TestCase):
         labels = [
             action.text() for action in menu.actions() if not action.isSeparator()
         ]
-        self.assertEqual(labels, ["Seeded Spot Tracking...", "Review / Edit Tracks"])
+        self.assertEqual(
+            labels,
+            [
+                "Seeded Spot Tracking...",
+                "Detection Linking (Hungarian)...",
+                "Review / Edit Tracks",
+            ],
+        )
         menu.actions()[0].trigger()
+        menu.actions()[1].trigger()
         menu.actions()[-1].trigger()
 
-        self.assertEqual(calls, ["seeded", "review"])
+        self.assertEqual(calls, ["seeded", "hungarian", "review"])
 
 
 if __name__ == "__main__":

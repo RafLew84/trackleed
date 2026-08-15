@@ -37,9 +37,9 @@ from trackleed.gui.seeded_mask_tracking_compatibility import (
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
     SeededTrackingSettingsBinding,
-    publish_tracking_result,
     run_seeded_tracking_job,
 )
+from trackleed.gui.tracking_publisher import publish_tracking_result
 from trackleed.gui.seeded_tracking_dialog import (
     SeededTrackingDialog,
     SeededTrackingDialogDecision,

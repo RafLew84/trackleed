@@ -35,11 +35,12 @@ from trackleed.gui.spot_detection_dialog import (
     SpotDetectionScope,
 )
 from trackleed.gui.spots_menu import SpotsMenuActions, add_spots_menu
-from trackleed.gui.seeded_tracking_adapter import (
+from trackleed.gui.tracking_publisher import (
     clone_tracks_for_review,
     publish_edited_tracks,
 )
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
+from trackleed.gui.detection_linking_controller import DetectionLinkingController
 from trackleed.gui.seeded_point_tracking_compatibility import point_tracker_gui_spec
 from trackleed.gui.tracking_menu import TrackingMenuActions, add_tracking_menu
 from trackleed.logic.workflows.spot_detection import DetectionRequest
@@ -82,7 +83,6 @@ from trackleed.gui.tracker_registry import (
 )
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.analysis.tracking import (
-    track_spots_hungarian,
     track_spots_hungarian_directional,
 )
 OPTICAL_FLOW_SCENARIO = "Optical Flow Tracking"
@@ -785,6 +785,7 @@ class MainWindow(QMainWindow):
             self,
             roi_size=self.spot_detection_binding.roi_size,
         )
+        self.detection_linking_controller = DetectionLinkingController(self)
         self.tapir_settings = TapirTrackingSettings()
         self.locotrack_settings = LocotrackTrackingSettings()
         self.cotracker_settings = CotrackerTrackingSettings()
@@ -1007,6 +1008,7 @@ class MainWindow(QMainWindow):
             self,
             TrackingMenuActions(
                 seeded=self.seeded_tracking_controller.show_dialog,
+                hungarian=self.detection_linking_controller.show_hungarian_dialog,
                 review=self.show_tracking_visualizer,
             ),
         )
@@ -5814,27 +5816,6 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.deva_group)
 
-        # --- Detection linking (Hungarian) params ---
-        self.hungarian_group = QGroupBox("Detection Linking (Hungarian)")
-        hung_layout = QFormLayout(self.hungarian_group)
-        self.hung_max_dist_spinbox = QDoubleSpinBox()
-        self.hung_max_dist_spinbox.setRange(1.0, 200.0)
-        self.hung_max_dist_spinbox.setValue(20.0)
-        self.hung_max_dist_spinbox.setSingleStep(1.0)
-        self.hung_max_dist_spinbox.setToolTip("Maximum distance (px) to associate detections between consecutive frames.")
-        hung_layout.addRow("Max distance (px):", self.hung_max_dist_spinbox)
-        self.hung_max_gap_spinbox = QSpinBox()
-        self.hung_max_gap_spinbox.setRange(0, 9999)
-        self.hung_max_gap_spinbox.setValue(2)
-        self.hung_max_gap_spinbox.setToolTip("Allowed gap (frames) to keep a track alive when no detection is matched.")
-        hung_layout.addRow("Max gap (frames):", self.hung_max_gap_spinbox)
-        self.hung_min_len_spinbox = QSpinBox()
-        self.hung_min_len_spinbox.setRange(1, 200)
-        self.hung_min_len_spinbox.setValue(2)
-        self.hung_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
-        hung_layout.addRow("Min track length:", self.hung_min_len_spinbox)
-        form_layout.addRow(self.hungarian_group)
-
         # --- Directional detection linking params ---
         self.dir_group = QGroupBox("Directional Detection Linking")
         dir_layout = QFormLayout(self.dir_group)
@@ -7888,7 +7869,6 @@ class MainWindow(QMainWindow):
             scenario = self.tracking_scenario_combo.currentText()
         tracker_spec = self._tracker_spec_for_scenario(scenario)
 
-        show_hungarian = scenario == HUNGARIAN_SCENARIO
         show_dir = scenario == DIRECTIONAL_LINKING_SCENARIO
         active_panel_attr = tracker_spec.panel_group_attr if tracker_spec is not None else None
         tracker_panel_attrs = {
@@ -7900,8 +7880,6 @@ class MainWindow(QMainWindow):
         for panel_attr in sorted(tracker_panel_attrs):
             if hasattr(self, panel_attr):
                 getattr(self, panel_attr).setVisible(panel_attr == active_panel_attr)
-        if hasattr(self, "hungarian_group"):
-            self.hungarian_group.setVisible(show_hungarian)
         if hasattr(self, "dir_group"):
             self.dir_group.setVisible(show_dir)
         if hasattr(self, "polygon_seed_group"):
@@ -10617,6 +10595,8 @@ class MainWindow(QMainWindow):
         selected_tracker_spec = self._tracker_spec_for_scenario(selected_scenario)
         if self.seeded_tracking_controller.show_legacy_scenario(selected_scenario):
             return
+        if self.detection_linking_controller.show_legacy_scenario(selected_scenario):
+            return
         worker = None
         cancel_event = Event()
         if selected_tracker_spec is not None:
@@ -10624,28 +10604,6 @@ class MainWindow(QMainWindow):
             if worker is None:
                 return
 
-        elif selected_scenario == "Detection Linking (Hungarian)":
-            params = {
-                "max_distance_px": self.hung_max_dist_spinbox.value(),
-                "max_gap": self.hung_max_gap_spinbox.value(),
-                "min_track_length": self.hung_min_len_spinbox.value(),
-            }
-            file_map, sorted_ids = self._build_detection_linking_file_map()
-            if file_map is None:
-                return
-            if not sorted_ids:
-                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
-                return
-            if all((not lf.spots) for lf in file_map.values()):
-                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before linking.")
-                return
-            worker = GenericWorker(
-                track_spots_hungarian,
-                file_map,
-                sorted_ids,
-                params,
-                cancel_event=cancel_event,
-            )
         elif selected_scenario == "Detection Linking (Directional)":
             params = {
                 "center_mode": "manual" if self.dir_center_mode_combo.currentIndex() == 1 else "auto",
@@ -10864,6 +10822,7 @@ class MainWindow(QMainWindow):
                 self.tracking_results = publish_edited_tracks(
                     self.data_files,
                     dialog.get_updated_tracks(),
+                    previous_tracks=self.tracking_results,
                 )
             except (TypeError, ValueError) as exc:
                 QMessageBox.critical(self, "Tracking Error", str(exc))

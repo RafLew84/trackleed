@@ -32,10 +32,8 @@ from trackleed.gui.seeded_mask_tracking_compatibility import (
     run_legacy_mask_retracker,
     run_legacy_mask_tracker,
 )
-from trackleed.gui.seeded_tracking_legacy_models import (
-    apply_spot_diagnostics,
-    spot_diagnostics,
-)
+from trackleed.gui.seeded_tracking_legacy_models import spot_diagnostics
+from trackleed.gui.tracking_publisher import project_tracking_result
 from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
 from trackleed.logic.workflows.mask_tracking import MaskTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
@@ -231,43 +229,6 @@ def build_seeded_retrack_request(
     )
 
 
-def publish_tracking_result(
-    files: Sequence[LeedFile],
-    result: TrackingResult,
-) -> list[Track]:
-    """Project a complete neutral result without aliasing tracks and frame spots."""
-    tracks = [_track_from_identity(identity) for identity in result.tracks]
-    return publish_edited_tracks(files, tracks)
-
-
-def clone_tracks_for_review(tracks: Sequence[Track]) -> list[Track]:
-    """Create an editable copy without sharing mutable observations."""
-    return [_clone_track(track) for track in tracks]
-
-
-def publish_edited_tracks(
-    files: Sequence[LeedFile],
-    edited_tracks: Sequence[Track],
-) -> list[Track]:
-    """Atomically publish edited tracks and independent frame projections."""
-    frame_ids = _stable_frame_ids(files)
-    files_by_id = dict(zip(frame_ids, files, strict=True))
-    observation_ids = {
-        frame_id for track in edited_tracks for frame_id in track.spots_by_image_id
-    }
-    missing_ids = observation_ids - files_by_id.keys()
-    if missing_ids:
-        raise ValueError(f"Tracking result contains unknown frame IDs: {missing_ids}")
-    active_tracks = clone_tracks_for_review(edited_tracks)
-    frame_spots: dict[int, list[SpotROI]] = {frame_id: [] for frame_id in files_by_id}
-    for track in edited_tracks:
-        for frame_id, spot in track.spots_by_image_id.items():
-            frame_spots[frame_id].append(_clone_spot(spot))
-    for frame_id, file in files_by_id.items():
-        file.spots = frame_spots[frame_id]
-    return active_tracks
-
-
 def run_seeded_tracking_job(
     request: SeededTrackingRequest,
     image_reader: Callable[[Path], np.ndarray],
@@ -316,20 +277,7 @@ def run_seeded_retrack_job(
         return None
     if len(result.tracks) != 1:
         raise ValueError("Re-tracking must return exactly one tracked identity")
-    return _track_from_identity(result.tracks[0])
-
-
-def _track_from_identity(identity: TrackedSpotIdentity) -> Track:
-    return Track(
-        track_id=identity.track_id,
-        spots_by_image_id={
-            observation.frame_id: _spot_from_observation(
-                identity.track_id,
-                observation,
-            )
-            for observation in identity.observations
-        },
-    )
+    return project_tracking_result(result)[0]
 
 
 def _observation_from_spot(frame_id: int, spot: SpotROI) -> TrackObservation:
@@ -344,47 +292,6 @@ def _observation_from_spot(frame_id: int, spot: SpotROI) -> TrackObservation:
         tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
         spot_diagnostics(spot),
     )
-
-
-def _spot_from_observation(
-    track_id: int,
-    observation: TrackObservation,
-) -> SpotROI:
-    rect = observation.roi
-    spot = SpotROI(
-        id=track_id,
-        roi_rect=QRect(rect.x, rect.y, rect.width, rect.height),
-        center_x=observation.center_x,
-        center_y=observation.center_y,
-        intensity=observation.intensity,
-        source=observation.source,
-        polygon_seed_points=list(observation.polygon_seed_points),
-    )
-    return apply_spot_diagnostics(spot, observation.diagnostics)
-
-
-def _clone_track(track: Track) -> Track:
-    return Track(
-        track_id=track.track_id,
-        spots_by_image_id={
-            frame_id: _clone_spot(spot)
-            for frame_id, spot in track.spots_by_image_id.items()
-        },
-    )
-
-
-def _clone_spot(spot: SpotROI) -> SpotROI:
-    rect = spot.roi_rect
-    clone = SpotROI(
-        id=spot.id,
-        roi_rect=QRect(rect.x(), rect.y(), rect.width(), rect.height()),
-        center_x=spot.center_x,
-        center_y=spot.center_y,
-        intensity=spot.intensity,
-        source=spot.source,
-        polygon_seed_points=list(spot.polygon_seed_points),
-    )
-    return apply_spot_diagnostics(clone, spot_diagnostics(spot))
 
 
 def _progress_percentage(progress: TrackingProgress) -> int:

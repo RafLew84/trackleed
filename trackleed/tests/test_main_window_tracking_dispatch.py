@@ -54,65 +54,18 @@ class MainWindowTrackingDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         self.assertNotIn("launched", recorded)
 
-    def test_detection_linking_repairs_duplicate_frame_ids_before_dispatch(
+    def test_legacy_hungarian_choice_routes_to_detection_linking_controller(
         self,
     ) -> None:
-        recorded: dict[str, object] = {}
-        original_generic_worker = self.main_window.GenericWorker
-        original_repair_duplicate_frame_ids = (
-            self.main_window.repair_duplicate_frame_ids
-        )
-        self.addCleanup(
-            setattr, self.main_window, "GenericWorker", original_generic_worker
-        )
-        self.addCleanup(
-            setattr,
-            self.main_window,
-            "repair_duplicate_frame_ids",
-            original_repair_duplicate_frame_ids,
-        )
-
-        class _GenericWorker:
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-
-        def _repair_duplicate_frame_ids(files):
-            files[0].id = 14
-            files[1].id = 15
-            return "temperature"
-
-        self.main_window.GenericWorker = _GenericWorker
-        self.main_window.repair_duplicate_frame_ids = _repair_duplicate_frame_ids
+        calls: list[str] = []
         fake = self._tracking_host("Detection Linking (Hungarian)")
-        fake.data_files = [
-            SimpleNamespace(
-                id=0, filename="a_T0014_E1100_C0000.tiff", spots=[object()]
-            ),
-            SimpleNamespace(
-                id=0, filename="b_T0015_E1100_C0000.tiff", spots=[object()]
-            ),
-        ]
-        fake.hung_max_dist_spinbox = SimpleNamespace(value=lambda: 20.0)
-        fake.hung_max_gap_spinbox = SimpleNamespace(value=lambda: 2)
-        fake.hung_min_len_spinbox = SimpleNamespace(value=lambda: 2)
-        fake._build_detection_linking_file_map = types.MethodType(
-            self.main_window.MainWindow._build_detection_linking_file_map,
-            fake,
-        )
-        fake._launch_worker_with_progress = (
-            lambda worker, title, cancel_event: recorded.update(
-                {"worker": worker, "title": title, "cancel_event": cancel_event}
-            )
+        fake.detection_linking_controller = SimpleNamespace(
+            show_legacy_scenario=lambda scenario: calls.append(scenario) or True
         )
 
         self.main_window.MainWindow.run_tracking(fake)
 
-        worker = recorded["worker"]
-        self.assertEqual(recorded["title"], "Running tracking...")
-        self.assertEqual(worker.args[2], [14, 15])
-        self.assertEqual(set(worker.args[1]), {14, 15})
-        self.assertEqual([file.id for file in fake.data_files], [14, 15])
+        self.assertEqual(calls, ["Detection Linking (Hungarian)"])
 
     def test_run_tracking_blocks_when_previous_tracking_is_still_active(self) -> None:
         recorded: dict[str, object] = {}
@@ -146,6 +99,9 @@ class MainWindowTrackingDispatchTests(MainWindowImportMixin, unittest.TestCase):
             thread=None,
             seeded_tracking_controller=SimpleNamespace(
                 show_legacy_scenario=show_legacy or (lambda _scenario: False)
+            ),
+            detection_linking_controller=SimpleNamespace(
+                show_legacy_scenario=lambda _scenario: False
             ),
         )
         fake._tracker_spec_for_scenario = types.MethodType(
