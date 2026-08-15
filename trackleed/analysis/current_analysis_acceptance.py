@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from importlib import import_module
 from importlib.metadata import version
+import json
 from pathlib import Path
 import platform
 import tempfile
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
+from threadpoolctl import threadpool_info, threadpool_limits  # type: ignore[import-untyped]
 
 from trackleed.core.data_models import LeedFile, Track
 from trackleed.io import results_exporter
@@ -41,6 +44,20 @@ PERFORMANCE_BUDGETS = {
 }
 MAX_LEGACY_RERUN_RATIO = 0.20
 REFERENCE_FRAME_COUNT = 120
+
+
+@contextmanager
+def enforce_native_thread_limit(limit: int) -> Iterator[None]:
+    """Keep native numerical libraries within the acceptance thread budget."""
+    with threadpool_limits(limits=limit):
+        oversized = [
+            pool
+            for pool in threadpool_info()
+            if int(pool.get("num_threads", limit)) > limit
+        ]
+        if oversized:
+            raise RuntimeError(f"Native thread limit is not effective: {oversized!r}")
+        yield
 
 
 def require_reference_frame_count(actual: int) -> None:
@@ -145,14 +162,8 @@ def assert_reference_compatibility(
     reference: AnalysisSnapshot,
 ) -> None:
     """Require exact fits, tolerant geometry and byte-identical numeric CSVs."""
-    fit_keys = tuple(
-        (item.track_id, item.frame_id, item.fingerprint.sha256, item.status)
-        for item in actual.fit_set.observations
-    )
-    reference_fit_keys = tuple(
-        (item.track_id, item.frame_id, item.fingerprint.sha256, item.status)
-        for item in reference.fit_set.observations
-    )
+    if _exact_fit_snapshot(actual.fit_set) != _exact_fit_snapshot(reference.fit_set):
+        raise RuntimeError("Geometry benchmark exact fit compatibility failed")
     structure = (
         actual.geometry.status,
         actual.geometry.requested_method,
@@ -169,8 +180,6 @@ def assert_reference_compatibility(
         ),
         tuple(frame.frame_id for frame in reference.geometry.frames),
     )
-    if fit_keys != reference_fit_keys:
-        raise RuntimeError("Geometry benchmark fit compatibility failed")
     if structure != reference_structure:
         raise RuntimeError(
             "Geometry benchmark structural compatibility failed: "
@@ -218,6 +227,16 @@ def assert_reference_compatibility(
         reference.tracks, reference.files
     ):
         raise RuntimeError("Geometry benchmark CSV compatibility failed")
+
+
+def _exact_fit_snapshot(fit_set: FitSet) -> str:
+    """Canonicalize complete fit observations while treating NaNs as stable values."""
+    return json.dumps(
+        [asdict(item) for item in fit_set.observations],
+        default=str,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _numeric_csv_snapshot(

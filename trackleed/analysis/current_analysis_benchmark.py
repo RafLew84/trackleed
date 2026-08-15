@@ -16,7 +16,6 @@ from statistics import median
 from time import perf_counter
 from typing import Any
 from unittest.mock import patch
-
 # Pin native libraries so small least-squares repetitions remain comparable.
 NATIVE_THREAD_LIMIT = int(os.environ.get("TRACKLEED_BENCHMARK_NATIVE_THREADS", "1"))
 for _thread_variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
@@ -28,6 +27,7 @@ from trackleed.core.data_models import LeedFile, Track  # noqa: E402
 from trackleed.analysis.current_analysis_acceptance import (  # noqa: E402
     AnalysisSnapshot,
     assert_reference_compatibility,
+    enforce_native_thread_limit,
     enforce_performance_budgets as _enforce_performance_budgets,
     environment_metadata,
     require_reference_frame_count,
@@ -172,28 +172,29 @@ class _CallGapProfiler:
 def run_benchmark(config: BenchmarkConfig) -> dict[str, Any]:
     """Run every configured stratum and write JSON plus a sibling CSV."""
     _validate_config(config)
-    records: list[BenchmarkRecord] = []
-    case_metadata: list[dict[str, Any]] = []
-    for case in config.cases:
-        metadata, case_records = _benchmark_case(config, case)
-        case_metadata.append(metadata)
-        records.extend(case_records)
+    with enforce_native_thread_limit(NATIVE_THREAD_LIMIT):
+        records: list[BenchmarkRecord] = []
+        case_metadata: list[dict[str, Any]] = []
+        for case in config.cases:
+            metadata, case_records = _benchmark_case(config, case)
+            case_metadata.append(metadata)
+            records.extend(case_records)
 
-    report = _build_report(config, case_metadata, records)
-    if config.acceptance:
-        _enforce_performance_budgets(report["summaries"])
-        report["acceptance_status"] = "passed"
-    else:
-        report["acceptance_status"] = "diagnostic_not_gated"
-    config.output_path.parent.mkdir(parents=True, exist_ok=True)
-    csv_path = config.output_path.with_suffix(".csv")
-    _write_summary_csv(csv_path, report["summaries"])
-    report["artifacts"] = {
-        "json": str(config.output_path.resolve()),
-        "csv": str(csv_path.resolve()),
-    }
-    config.output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-    return report
+        report = _build_report(config, case_metadata, records)
+        if config.acceptance:
+            _enforce_performance_budgets(report["summaries"])
+            report["acceptance_status"] = "passed"
+        else:
+            report["acceptance_status"] = "diagnostic_not_gated"
+        config.output_path.parent.mkdir(parents=True, exist_ok=True)
+        csv_path = config.output_path.with_suffix(".csv")
+        _write_summary_csv(csv_path, report["summaries"])
+        report["artifacts"] = {
+            "json": str(config.output_path.resolve()),
+            "csv": str(csv_path.resolve()),
+        }
+        config.output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        return report
 
 
 def _validate_config(config: BenchmarkConfig) -> None:
@@ -531,15 +532,14 @@ def _time_numeric_result_write(prepared: _PreparedCase) -> tuple[float, int]:
 
 
 def _load_case(case: BenchmarkCase, frame_limit: int | None) -> _PreparedCase:
-    (
-        files,
-        background,
-        masks,
-        tracks,
-        spot_settings,
-        analysis_circle,
-        analysis_ellipse,
-    ) = load_session_from_file(case.session_path)
+    contents = load_session_from_file(case.session_path)
+    files = contents.files
+    background = contents.background
+    masks = contents.masks
+    tracks = contents.tracks
+    spot_settings = contents.spot_settings
+    analysis_circle = contents.analysis_circle
+    analysis_ellipse = contents.analysis_ellipse
     if len(tracks) != case.expected_track_count:
         raise ValueError(
             f"{case.name}: expected {case.expected_track_count} tracks, found {len(tracks)}"
