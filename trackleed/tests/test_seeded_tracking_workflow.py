@@ -13,6 +13,7 @@ from trackleed.logic.workflows.seeded_tracking import (
     SeededTrackingExecutionError,
     SeededTrackingRequest,
     SkipAnchorOpticalFlowConfig,
+    TrackingFamily,
     TrackingSeed,
     default_seeded_tracking_catalog,
     run_seeded_tracking,
@@ -56,6 +57,14 @@ class SeededTrackingWorkflowTests(unittest.TestCase):
             catalog.method("optical_flow_skip_anchor").capabilities.preserves_gaps
         )
         self.assertTrue(catalog.method("optical_flow").capabilities.supports_background)
+        self.assertIs(
+            catalog.method("optical_flow").family,
+            TrackingFamily.CLASSICAL,
+        )
+        self.assertEqual(
+            SkipAnchorOpticalFlowConfig().forward_backward_threshold,
+            8.2,
+        )
 
     def test_preflight_rejects_config_for_a_different_method(self) -> None:
         request = SeededTrackingRequest(

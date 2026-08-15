@@ -59,7 +59,7 @@ class OutOfBoundsPolicy(Enum):
 @dataclass(frozen=True)
 class SkipAnchorOpticalFlowConfig(OpticalFlowConfig):
     error_threshold: float = 30.0
-    forward_backward_threshold: float = 8.0
+    forward_backward_threshold: float = 8.2
     use_forward_backward: bool = True
     max_skip_frames: int = 0
     out_of_bounds: OutOfBoundsPolicy = OutOfBoundsPolicy.SKIP
@@ -74,6 +74,13 @@ SeededTrackingConfig: TypeAlias = OpticalFlowConfig | SkipAnchorOpticalFlowConfi
 class SeedRepresentation(Enum):
     POINT = "point"
     BOUNDING_BOX = "bounding_box"
+    MASK = "mask"
+
+
+class TrackingFamily(Enum):
+    CLASSICAL = "classical"
+    POINT = "point"
+    BOUNDING_BOX = "bbox"
     MASK = "mask"
 
 
@@ -155,6 +162,7 @@ class SeededTrackingCapabilities:
 class SeededTrackingMethod:
     method_id: str
     display_name: str
+    family: TrackingFamily
     capabilities: SeededTrackingCapabilities
     runtime: SeededTrackingRuntime
 
@@ -219,6 +227,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
             SeededTrackingMethod(
                 "optical_flow",
                 "Optical Flow Tracking",
+                TrackingFamily.CLASSICAL,
                 SeededTrackingCapabilities(
                     SeedRepresentation.POINT,
                     supports_background=True,
@@ -229,6 +238,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
             SeededTrackingMethod(
                 "optical_flow_skip_anchor",
                 "Optical Flow (skip, anchor)",
+                TrackingFamily.CLASSICAL,
                 SeededTrackingCapabilities(
                     SeedRepresentation.POINT,
                     supports_background=True,
@@ -275,6 +285,16 @@ def _structural_preflight(
                 "Requested seed representation is not supported by this method.",
             )
         )
+    issues.extend(_frame_preflight_issues(request))
+    issues.extend(_seed_preflight_issues(request))
+    issues.extend(_background_preflight_issues(request, method))
+    return tuple(issues)
+
+
+def _frame_preflight_issues(
+    request: SeededTrackingRequest,
+) -> tuple[TrackingPreflightIssue, ...]:
+    issues: list[TrackingPreflightIssue] = []
     frame_ids = tuple(frame.frame_id for frame in request.frames)
     if len(frame_ids) < 2:
         issues.append(
@@ -300,6 +320,13 @@ def _structural_preflight(
                 "At least one frame must follow the reference frame.",
             )
         )
+    return tuple(issues)
+
+
+def _seed_preflight_issues(
+    request: SeededTrackingRequest,
+) -> tuple[TrackingPreflightIssue, ...]:
+    issues: list[TrackingPreflightIssue] = []
     seed_ids = tuple(seed.seed_id for seed in request.seeds)
     if not seed_ids:
         issues.append(
@@ -322,6 +349,14 @@ def _structural_preflight(
                 "Seed centers must be finite and seed ROIs must have positive size.",
             )
         )
+    return tuple(issues)
+
+
+def _background_preflight_issues(
+    request: SeededTrackingRequest,
+    method: SeededTrackingMethod | None,
+) -> tuple[TrackingPreflightIssue, ...]:
+    issues: list[TrackingPreflightIssue] = []
     if request.config.subtract_background and request.background_path is None:
         issues.append(
             TrackingPreflightIssue(

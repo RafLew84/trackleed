@@ -138,10 +138,23 @@ from trackleed.analysis.tracking_windowing_utils import (
     build_reseed_tracking_window_context,
 )
 from trackleed.analysis.seeded_tracking_runtime import (
-    ncc_around as _ncc_around,
-    normalized_grayscale,
     prepare_optical_flow_image,
     refine_center_by_centroid,
+)
+from trackleed.logic.workflows.seeded_tracking import (
+    OpticalFlowConfig,
+    OutOfBoundsPolicy,
+    RunContext as SeededTrackingRunContext,
+    SeedRect,
+    SeededTrackingCancelled,
+    SeededTrackingExecutionError,
+    SeededTrackingFrame,
+    SeededTrackingPreflightError,
+    SeededTrackingRequest,
+    SkipAnchorOpticalFlowConfig,
+    TrackingResult,
+    TrackingSeed,
+    run_seeded_tracking,
 )
 
 _PUBLIC_TRACKING_SHIM_EXPORTS = {
@@ -314,16 +327,6 @@ def _load_and_prep_image(filepath, background_image: Optional[np.ndarray] = None
         )
     except ValueError:
         return None
-
-
-def _load_background_image(filepath: Optional[str | Path]) -> Optional[np.ndarray]:
-    if not filepath:
-        return None
-    path = Path(filepath)
-    bg_raw = load_tiff(path)
-    if bg_raw is None or bg_raw.size == 0:
-        return None
-    return normalized_grayscale(bg_raw)
 
 
 def _centered_roi_rect(
@@ -3911,6 +3914,156 @@ def track_spots_hungarian_directional(
 
     return finished
 
+
+def _run_legacy_seeded_tracking(
+    *,
+    method_id: str,
+    all_files_map: Dict[int, LeedFile],
+    sorted_frame_ids: List[int],
+    reference_frame_id: int,
+    config: OpticalFlowConfig | SkipAnchorOpticalFlowConfig,
+    background_filepath: object,
+    progress_callback: Callable[[int], None] | None,
+    cancel_event: Optional[Event],
+) -> Optional[List[Track]]:
+    missing_ids = [frame_id for frame_id in sorted_frame_ids if frame_id not in all_files_map]
+    if missing_ids:
+        raise ValueError(f"Missing frame IDs: {missing_ids}")
+    reference = all_files_map.get(reference_frame_id)
+    seeds = (
+        tuple(
+            TrackingSeed(
+                seed_id=spot.id,
+                center_x=float(spot.center_x),
+                center_y=float(spot.center_y),
+                roi=SeedRect(
+                    spot.roi_rect.x(),
+                    spot.roi_rect.y(),
+                    spot.roi_rect.width(),
+                    spot.roi_rect.height(),
+                ),
+                intensity=float(spot.intensity),
+                source=str(spot.source),
+            )
+            for spot in reference.spots
+        )
+        if reference
+        else ()
+    )
+    request = SeededTrackingRequest(
+        method_id=method_id,
+        frames=tuple(
+            SeededTrackingFrame(frame_id, all_files_map[frame_id].filepath)
+            for frame_id in sorted_frame_ids
+        ),
+        reference_frame_id=reference_frame_id,
+        seeds=seeds,
+        config=config,
+        background_path=(
+            Path(str(background_filepath)) if background_filepath else None
+        ),
+    )
+    context = SeededTrackingRunContext(
+        image_reader=load_tiff,
+        report_progress=(
+            lambda progress: progress_callback(
+                100
+                if progress.total <= 0
+                else round(100 * progress.completed / progress.total)
+            )
+            if progress_callback is not None
+            else lambda _progress: None
+        ),
+        is_cancelled=(cancel_event.is_set if cancel_event is not None else lambda: False),
+    )
+    try:
+        result = run_seeded_tracking(request, context)
+    except SeededTrackingCancelled:
+        return None
+    except (SeededTrackingExecutionError, SeededTrackingPreflightError) as exc:
+        message = (
+            "; ".join(issue.message for issue in exc.report.issues)
+            if isinstance(exc, SeededTrackingPreflightError)
+            else str(exc)
+        )
+        raise ValueError(message) from exc
+    return _track_models_from_tracking_result(result)
+
+
+def _track_models_from_tracking_result(result: TrackingResult) -> List[Track]:
+    return [
+        Track(
+            track_id=identity.track_id,
+            spots_by_image_id={
+                observation.frame_id: SpotROI(
+                    id=identity.track_id,
+                    roi_rect=QRect(
+                        observation.roi.x,
+                        observation.roi.y,
+                        observation.roi.width,
+                        observation.roi.height,
+                    ),
+                    center_x=observation.center_x,
+                    center_y=observation.center_y,
+                    intensity=observation.intensity,
+                    source=observation.source,
+                )
+                for observation in identity.observations
+            },
+        )
+        for identity in result.tracks
+    ]
+
+
+def _legacy_optical_flow_config(params: dict) -> OpticalFlowConfig:
+    return OpticalFlowConfig(
+        roi_size=int(params.get("roi_size", 32)),
+        win_size=int(params.get("lk_win_size", 31)),
+        max_level=int(params.get("lk_max_level", 3)),
+        max_iterations=int(params.get("lk_max_iterations", 10)),
+        epsilon=float(params.get("lk_epsilon", 0.03)),
+        min_eigen_threshold=float(params.get("lk_min_eigen_threshold", 1e-5)),
+        use_centroid_refinement=bool(params.get("use_centroid_refinement", False)),
+        centroid_patch_multiplier=float(params.get("centroid_patch_multiplier", 1.5)),
+        centroid_rel_threshold=float(params.get("centroid_rel_threshold", 0.4)),
+        centroid_max_expand=int(params.get("centroid_max_expand", 1)),
+        subtract_background=bool(
+            params.get("subtract_background") and params.get("background_filepath")
+        ),
+    )
+
+
+def _legacy_skip_anchor_config(params: dict) -> SkipAnchorOpticalFlowConfig:
+    policy_value = str(params.get("oob_behavior", "skip")).lower()
+    policy = (
+        OutOfBoundsPolicy(policy_value)
+        if policy_value in {item.value for item in OutOfBoundsPolicy}
+        else OutOfBoundsPolicy.SKIP
+    )
+    return SkipAnchorOpticalFlowConfig(
+        roi_size=int(params.get("roi_size", 32)),
+        win_size=int(params.get("lk_win_size", 41)),
+        max_level=int(params.get("lk_max_level", 4)),
+        max_iterations=int(params.get("lk_max_iterations", 50)),
+        epsilon=float(params.get("lk_epsilon", 0.01)),
+        min_eigen_threshold=float(params.get("lk_min_eigen_threshold", 1e-5)),
+        use_centroid_refinement=bool(params.get("use_centroid_refinement", False)),
+        centroid_patch_multiplier=float(params.get("centroid_patch_multiplier", 1.5)),
+        centroid_rel_threshold=float(params.get("centroid_rel_threshold", 0.4)),
+        centroid_max_expand=int(params.get("centroid_max_expand", 1)),
+        subtract_background=bool(
+            params.get("subtract_background") and params.get("background_filepath")
+        ),
+        error_threshold=float(params.get("lk_err_threshold", 30.0)),
+        forward_backward_threshold=float(params.get("lk_fb_threshold", 8.2)),
+        use_forward_backward=bool(params.get("use_forward_backward", True)),
+        max_skip_frames=int(params.get("max_skip_frames", 0)),
+        out_of_bounds=policy,
+        use_ncc_check=bool(params.get("use_ncc_check", False)),
+        ncc_threshold=float(params.get("ncc_threshold", 0.65)),
+        ncc_patch_radius=int(params.get("ncc_patch_radius", 4)),
+    )
+
 def track_spots_optical_flow(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
@@ -3919,146 +4072,17 @@ def track_spots_optical_flow(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: Optional[Event] = None,
 ) -> Optional[List[Track]]:
-    """
-    Tracks spots from a reference frame using the sparse Lucas-Kanade optical flow.
-
-    This method identifies a set of feature points (spots) on a single
-    reference frame and attempts to follow them through the subsequent frames
-    in the sequence. It includes image preprocessing to enhance spot visibility
-    for the tracking algorithm.
-
-    Args:
-        all_files_map: A dictionary mapping frame IDs to their LeedFile objects.
-        sorted_frame_ids: A chronologically sorted list of all frame IDs to process.
-        reference_frame_id: The ID of the frame containing the initial spots to track.
-        params: A dictionary of parameters for the LK algorithm (e.g., 'lk_win_size')
-                and for creating new ROIs ('roi_size').
-        progress_callback: An optional function to report progress as an int percentage.
-
-    Returns:
-        A list of Track objects for the successfully tracked spots.
-        
-    Raises:
-        ValueError: If the reference frame contains no spots or cannot be loaded.
-    """
-    
-    subtract_background = bool(params.get("subtract_background"))
-    background_image = None
-    if subtract_background:
-        background_image = _load_background_image(params.get("background_filepath"))
-        if background_image is None:
-            subtract_background = False
-
-    # --- 1. Initialization ---
-    # Get the reference file and the initial spots to track.
-    ref_file = all_files_map.get(reference_frame_id)
-    if not ref_file or not ref_file.spots:
-        raise ValueError("Reference frame must contain at least one defined spot.")
-
-    # Convert SpotROI objects into the numpy format required by OpenCV: (N, 1, 2)
-    initial_spots = ref_file.spots
-    points_to_track = np.array([[s.center_x, s.center_y] for s in initial_spots], dtype=np.float32).reshape(-1, 1, 2)
-
-    # Setup parameters for the Lucas-Kanade optical flow algorithm.
-    tracks_map = {
-        spot.id: build_track_with_initial_spot(
-            track_id=spot.id,
-            frame_id=reference_frame_id,
-            spot=spot,
-        )
-        for spot in initial_spots
-    }
-    
-    # Setup parameters for the Lucas-Kanade optical flow algorithm.
-    win_size = params.get('lk_win_size', 31)
-    max_level = params.get('lk_max_level', 3)
-    max_iterations = params.get('lk_max_iterations', 10)
-    epsilon = params.get('lk_epsilon', 0.03)
-    min_eig = params.get('lk_min_eigen_threshold', 1e-5)
-
-    lk_params = dict(
-        winSize=(win_size, win_size),
-        maxLevel=max_level,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, max_iterations, epsilon),
-        minEigThreshold=min_eig,
+    """Compatibility adapter for the typed optical-flow workflow."""
+    return _run_legacy_seeded_tracking(
+        method_id="optical_flow",
+        all_files_map=all_files_map,
+        sorted_frame_ids=sorted_frame_ids,
+        reference_frame_id=reference_frame_id,
+        config=_legacy_optical_flow_config(params),
+        background_filepath=params.get("background_filepath"),
+        progress_callback=progress_callback,
+        cancel_event=cancel_event,
     )
-    use_centroid_refinement = params.get("use_centroid_refinement", False)
-    centroid_patch_multiplier = params.get("centroid_patch_multiplier", 1.5)
-    centroid_rel_threshold = params.get("centroid_rel_threshold", 0.4)
-    centroid_max_expand = params.get("centroid_max_expand", 1)
-    
-    # Load and prepare the first frame.
-    prev_gray = _load_and_prep_image(ref_file.filepath, background_image, subtract_background)
-    if prev_gray is None: raise ValueError("Could not load reference image.")
-        
-    ref_frame_index = sorted_frame_ids.index(reference_frame_id)
-    total_steps = len(sorted_frame_ids) - 1
-    
-    # --- 2. Forward Pass ---
-    # This loop tracks the points from the reference frame to the end of the sequence.
-    p0 = points_to_track
-    good_track_ids = list(tracks_map.keys())  # Keep track of which tracks are still active.
-
-    for i in range(ref_frame_index + 1, len(sorted_frame_ids)):
-        if cancel_event and cancel_event.is_set():
-            return None
-        if progress_callback:
-            progress_percent = int(((i - ref_frame_index) / total_steps) * 100)
-            progress_callback(progress_percent)
-
-        # Stop if all points have been lost.
-        if len(p0) == 0: break
-        
-        frame_id = sorted_frame_ids[i]
-        current_gray = _load_and_prep_image(
-            all_files_map[frame_id].filepath,
-            background_image,
-            subtract_background,
-        )
-        if current_gray is None: continue
-        
-        # Calculate optical flow. p1 contains new positions, status indicates success.
-        p1, status, err = cv2.calcOpticalFlowPyrLK(prev_gray, current_gray, p0, None, **lk_params)
-        
-        # Filter out points that were lost during tracking (status == 0).
-        good_new = p1[status == 1] if p1 is not None else np.array([])
-        surviving_track_ids = [good_track_ids[j] for j, s in enumerate(status) if s == 1]
-
-        # Update the tracks with the new, successfully tracked points.
-        for idx, (track_id, (x, y)) in enumerate(zip(surviving_track_ids, good_new)):
-            roi_size = params.get('roi_size', 32); roi_half = roi_size//2
-            if use_centroid_refinement and current_gray.size:
-                patch_r = max(1.0, (roi_size / 2) * float(centroid_patch_multiplier))
-                refined = refine_center_by_centroid(
-                    current_gray,
-                    np.array([x, y], dtype=np.float32),
-                    patch_r,
-                    float(centroid_rel_threshold),
-                    int(max(0, centroid_max_expand)),
-                )
-                x, y = refined.tolist()
-                good_new[idx] = refined
-            new_rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
-            new_spot = build_spot_roi(
-                spot_id=track_id,
-                roi_rect=new_rect,
-                center_x=x,
-                center_y=y,
-                source="optical_flow",
-                intensity=0.0,
-            )
-            tracks_map[track_id].spots_by_image_id[frame_id] = new_spot
-            
-        # Prepare for the next iteration.
-        prev_gray = current_gray.copy()
-        p0 = good_new.reshape(-1, 1, 2)
-        good_track_ids = surviving_track_ids
-    
-    print("Tracking finished.")
-    if progress_callback: progress_callback(100)
-    
-    # Return the final list of tracks.
-    return list(tracks_map.values())
 
 
 def _build_direction_filter_context_for_legacy_tracking(
@@ -10876,191 +10900,6 @@ def _legacy_retrack_single_spot_optical_flow(
         
     return track_to_update
 
-def optical_flow_with_skip_anchor(
-    frames: List[np.ndarray],
-    points0: List[Tuple[float, float]],
-    lk_params: Optional[Dict] = None,
-    err_threshold: float = 30.0,
-    fb_threshold: float = 8.0,
-    use_forward_backward: bool = True,
-    max_skip_frames_per_point: int = 0,
-    oob_behavior: str = "skip",
-    use_ncc_check: bool = False,
-    ncc_threshold: float = 0.65,
-    ncc_patch_radius: int = 4,
-    use_centroid_refinement: bool = False,
-    centroid_patch_multiplier: float = 1.5,
-    centroid_rel_threshold: float = 0.4,
-    centroid_max_expand: int = 1,
-    roi_size: int = 32,
-    cancel_event: Optional[Event] = None,
-) -> Optional[List[List[Tuple[int, float, float]]]]:
-    """
-    Skip-anchor tracker: when a frame fails to produce a match we do not append
-    a point and we keep the anchor on the last successful frame. The next LK
-    solve always starts from that anchor frame instead of the previous attempt.
-
-    Args:
-        frames: list of grayscale images (uint8) with identical shape.
-        points0: list of (x, y) coordinates defined on frame 0.
-        err_threshold: maximum acceptable LK residual (smaller is stricter).
-        fb_threshold: closure distance for the forward-backward check in pixels.
-        max_skip_frames_per_point: how many consecutive misses are tolerated.
-        oob_behavior: either 'skip' (ignore) or 'mark_lost' when leaving frame.
-        use_ncc_check: enable an extra NCC gate around the tracked point.
-        ncc_threshold: minimum NCC value to treat the match as valid.
-        ncc_patch_radius: NCC patch radius (e.g., 4 → 9x9 window).
-        use_centroid_refinement: recenter ROI via centroid after a success.
-        centroid_patch_multiplier: ROI radius multiplier for centroid cutout.
-        centroid_rel_threshold: relative intensity threshold for centroid mask.
-        centroid_max_expand: how many times the centroid patch can expand.
-        roi_size: base ROI size used for centroid operations.
-
-    Returns:
-        tracks: list of polylines; each entry is a list of (frame_idx, x, y)
-                recorded only for successful frames.
-    """
-    if frames is None or len(frames) < 2:
-        raise ValueError("At least two frames are required for skip-anchor tracking.")
-
-    H, W = frames[0].shape[:2]
-    base_lk = dict(
-        winSize=(41, 41),
-        maxLevel=4,
-        criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.01),
-        minEigThreshold=1e-5,
-        flags=0
-    )
-    if lk_params:
-        base_lk.update(lk_params)
-
-    n = len(points0)
-    max_skip_frames_per_point = max(0, int(max_skip_frames_per_point or 0))
-    oob_behavior = (oob_behavior or "skip").lower()
-    if oob_behavior not in {"skip", "mark_lost"}:
-        oob_behavior = "skip"
-    centroid_patch_multiplier = float(centroid_patch_multiplier)
-    centroid_rel_threshold = float(centroid_rel_threshold)
-    centroid_max_expand = int(max(0, centroid_max_expand))
-    roi_radius = max(1.0, roi_size / 2)
-    tracks: List[List[Tuple[int, float, float]]] = [[] for _ in range(n)]
-
-    # Per-point anchors (frame index and position). Update them only after success.
-    anchor_idx = np.zeros(n, dtype=int)
-    anchor_pos = np.array(points0, dtype=np.float32)  # (N,2)
-    alive = np.ones(n, dtype=bool)
-    skip_counters = np.zeros(n, dtype=int)
-
-    # Store the initial detections (frame 0)
-    for i, (x, y) in enumerate(points0):
-        if 0 <= x < W and 0 <= y < H:
-            tracks[i].append((0, float(x), float(y)))
-        else:
-            alive[i] = False  # Initial position is outside the image
-
-    # Main loop over target frames
-    for t in range(1, len(frames)):
-        if cancel_event and cancel_event.is_set():
-            return None
-        img_t = frames[t]
-
-        # Consider only living tracks whose anchor frame is older than t
-        idxs = [i for i in range(n) if alive[i] and anchor_idx[i] < t]
-        if not idxs:
-            continue
-
-        # Group by shared anchor; OpenCV runs LK on an image pair
-        from collections import defaultdict
-        groups = defaultdict(list)
-        for i in idxs:
-            groups[anchor_idx[i]].append(i)
-
-        for a_idx, group in groups.items():
-            if cancel_event and cancel_event.is_set():
-                return None
-            img_anchor = frames[a_idx]
-            p0 = anchor_pos[group].reshape(-1, 1, 2).astype(np.float32)
-
-            # LK always starts from the anchor frame, never the previous attempt
-            p1, st, err = cv2.calcOpticalFlowPyrLK(img_anchor, img_t, p0, None, **base_lk)
-
-            # Optional forward-backward verification
-            fb_ok = np.ones(len(group), dtype=bool)
-            if use_forward_backward:
-                p0_fb, st_fb, _ = cv2.calcOpticalFlowPyrLK(
-                    img_t, img_anchor, p1, None,
-                    winSize=base_lk["winSize"],
-                    maxLevel=base_lk["maxLevel"],
-                    criteria=base_lk["criteria"],
-                    minEigThreshold=base_lk["minEigThreshold"]
-                )
-                for k in range(len(group)):
-                    if st[k, 0] != 1 or st_fb is None or st_fb[k, 0] != 1:
-                        fb_ok[k] = False
-                    else:
-                        fb_dist = float(np.linalg.norm(p0_fb[k, 0] - p0[k, 0]))
-                        if fb_dist > fb_threshold:
-                            fb_ok[k] = False
-
-            # Record only successful matches; failures simply keep the previous anchor.
-            for k, gi in enumerate(group):
-                success = True
-                out_of_bounds = False
-
-                if st[k, 0] != 1:
-                    success = False
-                elif err is not None and float(err[k, 0]) > float(err_threshold):
-                    success = False
-                elif use_forward_backward and not fb_ok[k]:
-                    success = False
-
-                if success:
-                    x, y = float(p1[k, 0, 0]), float(p1[k, 0, 1])
-                    if not (0 <= x < W and 0 <= y < H):
-                        success = False
-                        out_of_bounds = True
-
-                if success and use_ncc_check:
-                    ncc_val = _ncc_around(
-                        img_anchor,
-                        img_t,
-                        p0[k, 0],
-                        p1[k, 0],
-                        max(1, int(ncc_patch_radius)),
-                    )
-                    if ncc_val < float(ncc_threshold):
-                        success = False
-
-                if success and use_centroid_refinement:
-                    patch_r = max(1.0, roi_radius * centroid_patch_multiplier)
-                    refined = refine_center_by_centroid(
-                        img_t,
-                        np.array([x, y], dtype=np.float32),
-                        patch_r,
-                        centroid_rel_threshold,
-                        centroid_max_expand,
-                    )
-                    x, y = refined.tolist()
-
-                if success:
-                    tracks[gi].append((t, x, y))
-                    # Only now do we move the anchor to frame t
-                    anchor_idx[gi] = t
-                    anchor_pos[gi] = np.array([x, y], dtype=np.float32)
-                    skip_counters[gi] = 0
-                else:
-                    if out_of_bounds and oob_behavior == "mark_lost":
-                        alive[gi] = False
-                        continue
-
-                    if max_skip_frames_per_point > 0:
-                        skip_counters[gi] += 1
-                        if skip_counters[gi] > max_skip_frames_per_point:
-                            alive[gi] = False
-
-    return tracks
-
-
 def track_spots_optical_flow_skip_anchor(
     all_files_map: Dict[int, LeedFile],
     sorted_frame_ids: List[int],
@@ -11069,106 +10908,14 @@ def track_spots_optical_flow_skip_anchor(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: Optional[Event] = None,
 ) -> Optional[List[Track]]:
-    """
-    Wrapper that prepares image stacks and converts the skip-anchor LK output into Track objects.
-    """
-    ref_file = all_files_map.get(reference_frame_id)
-    if not ref_file or not ref_file.spots:
-        raise ValueError("Reference frame must contain at least one defined spot.")
-
-    if reference_frame_id not in sorted_frame_ids:
-        raise ValueError("Reference frame is missing from the provided frame list.")
-
-    ref_index = sorted_frame_ids.index(reference_frame_id)
-    subset_frame_ids = sorted_frame_ids[ref_index:]
-    if len(subset_frame_ids) < 2:
-        raise ValueError("Optical Flow (skip, anchor) requires at least two frames starting from the reference.")
-
-    subtract_background = bool(params.get("subtract_background"))
-    background_image = None
-    if subtract_background:
-        background_image = _load_background_image(params.get("background_filepath"))
-        if background_image is None:
-            subtract_background = False
-
-    frames: List[np.ndarray] = []
-    for idx, frame_id in enumerate(subset_frame_ids):
-        if cancel_event and cancel_event.is_set():
-            return None
-        prepared = _load_and_prep_image(
-            all_files_map[frame_id].filepath,
-            background_image,
-            subtract_background,
-        )
-        if prepared is None:
-            raise ValueError(f"Could not load image for frame {frame_id}.")
-        frames.append(prepared)
-        if progress_callback:
-            progress = int(((idx + 1) / len(subset_frame_ids)) * 40)
-            progress_callback(progress)
-
-    points0 = [(float(spot.center_x), float(spot.center_y)) for spot in ref_file.spots]
-    win_size = params.get("lk_win_size", 41)
-    lk_params = {
-        "winSize": (win_size, win_size),
-        "maxLevel": params.get("lk_max_level", 4),
-        "criteria": (
-            cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
-            params.get("lk_max_iterations", 50),
-            params.get("lk_epsilon", 0.01),
-        ),
-        "minEigThreshold": params.get("lk_min_eigen_threshold", 1e-5),
-    }
-
-    raw_tracks = optical_flow_with_skip_anchor(
-        frames=frames,
-        points0=points0,
-        lk_params=lk_params,
-        err_threshold=params.get("lk_err_threshold", 30.0),
-        fb_threshold=params.get("lk_fb_threshold", 8.0),
-        use_forward_backward=params.get("use_forward_backward", True),
-        max_skip_frames_per_point=params.get("max_skip_frames", 0),
-        oob_behavior=params.get("oob_behavior", "skip"),
-        use_ncc_check=params.get("use_ncc_check", False),
-        ncc_threshold=params.get("ncc_threshold", 0.65),
-        ncc_patch_radius=params.get("ncc_patch_radius", 4),
-        use_centroid_refinement=params.get("use_centroid_refinement", False),
-        centroid_patch_multiplier=params.get("centroid_patch_multiplier", 1.5),
-        centroid_rel_threshold=params.get("centroid_rel_threshold", 0.4),
-        centroid_max_expand=params.get("centroid_max_expand", 1),
-        roi_size=params.get("roi_size", 32),
+    """Compatibility adapter for the typed skip-anchor workflow."""
+    return _run_legacy_seeded_tracking(
+        method_id="optical_flow_skip_anchor",
+        all_files_map=all_files_map,
+        sorted_frame_ids=sorted_frame_ids,
+        reference_frame_id=reference_frame_id,
+        config=_legacy_skip_anchor_config(params),
+        background_filepath=params.get("background_filepath"),
+        progress_callback=progress_callback,
         cancel_event=cancel_event,
     )
-    if raw_tracks is None:
-        return None
-
-    roi_size = params.get("roi_size", 32)
-    roi_half = roi_size // 2
-    converted_tracks: List[Track] = []
-
-    for spot, positions in zip(ref_file.spots, raw_tracks):
-        if cancel_event and cancel_event.is_set():
-            return None
-        if not positions:
-            continue
-        track = build_track(track_id=spot.id)
-        for rel_frame_idx, x, y in positions:
-            frame_id = subset_frame_ids[rel_frame_idx]
-            if rel_frame_idx == 0:
-                track.spots_by_image_id[frame_id] = spot
-                continue
-
-            rect = QRect(int(x - roi_half), int(y - roi_half), roi_size, roi_size)
-            track.spots_by_image_id[frame_id] = build_spot_roi(
-                spot_id=spot.id,
-                roi_rect=rect,
-                center_x=x,
-                center_y=y,
-                source="optical_flow_skip_anchor",
-                intensity=0.0,
-            )
-        converted_tracks.append(track)
-
-    if progress_callback:
-        progress_callback(100)
-    return converted_tracks

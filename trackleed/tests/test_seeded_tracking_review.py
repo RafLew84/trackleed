@@ -118,6 +118,39 @@ class SeededTrackingReviewTests(unittest.TestCase):
         accept_button = dialog.button_box.button(QDialogButtonBox.StandardButton.Ok)
         self.assertEqual(accept_button.text(), "Accept Tracks")
 
+    def test_save_session_from_review_does_not_publish_working_copy(self) -> None:
+        frame = _frame()
+        raw_tracks = [Track(7, {1: _spot(16.0)})]
+        edited_tracks = [Track(7, {1: _spot(44.0)})]
+        saved: dict[str, object] = {}
+        host = SimpleNamespace(
+            data_files=[frame],
+            metadata_mask_list=[],
+            background_file=None,
+            tracking_results=raw_tracks,
+            _collect_spot_settings=lambda: {},
+            _analysis_circle_to_dict=lambda: None,
+            _analysis_ellipse_to_dict=lambda: None,
+        )
+        original_save = main_window.save_session_to_file
+        main_window.save_session_to_file = lambda *args: saved.update(tracks=args[4])
+        self.addCleanup(
+            setattr,
+            main_window,
+            "save_session_to_file",
+            original_save,
+        )
+
+        main_window.MainWindow._save_session(
+            host,
+            Path("ignored.lts.json"),
+            edited_tracks,
+        )
+
+        self.assertIs(host.tracking_results, raw_tracks)
+        self.assertEqual(frame.spots[0].center_x, 16.0)
+        self.assertEqual(saved["tracks"][0].spots_by_image_id[1].center_x, 44.0)
+
 
 if __name__ == "__main__":
     unittest.main()

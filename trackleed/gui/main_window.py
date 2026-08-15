@@ -10933,9 +10933,7 @@ class MainWindow(QMainWindow):
     def _save_session(self, path: Path, tracks_override: List[Track] | None = None):
         tracks_list: List[Track] = []
         if isinstance(tracks_override, list):
-            tracks_list = tracks_override
-            self.tracking_results = tracks_override
-            self._apply_tracks_to_files(tracks_override)
+            tracks_list = clone_tracks_for_review(tracks_override)
         elif self.tracking_results:
             tracks_list = self.tracking_results
         spot_settings = self._collect_spot_settings()
