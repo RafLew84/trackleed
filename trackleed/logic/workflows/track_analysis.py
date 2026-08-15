@@ -15,15 +15,18 @@ import numpy as np
 from skimage.color import rgb2gray
 from skimage.util import img_as_float
 
-from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian
-
-
-@dataclass(frozen=True)
-class Rect:
-    x: int
-    y: int
-    width: int
-    height: int
+from trackleed.logic.workflows.gaussian_fit_recovery import (
+    FitRecoveryConfig,
+    FitValidation,
+    GaussianFitterConfig,
+    GaussianRecoveryCancelled,
+    RecoveryAttemptStatus as RecoveryAttemptStatus,
+    RecoveryRecord,
+    RecoverySelectionReason as RecoverySelectionReason,
+    RecoveryStatus as RecoveryStatus,
+    Rect,
+    fit_gaussian_with_recovery,
+)
 
 
 @dataclass(frozen=True)
@@ -31,21 +34,6 @@ class PreprocessingConfig:
     grayscale_mode: str = "skimage_rgb2gray_v1"
     float_conversion: str = "skimage_img_as_float_v1"
     clamp_negative: bool = True
-
-
-@dataclass(frozen=True)
-class GaussianFitterConfig:
-    fitter_id: str = "trackleed_gaussian_curve_fit_v1"
-    center_preference_factor: float | None = None
-    theta_bounds: tuple[float, float] | None = None
-
-
-@dataclass(frozen=True)
-class FitValidation:
-    min_r_squared: float = 0.85
-    min_amplitude: float = 0.05
-    center_margin: float = 2.0
-    min_sigma: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -82,7 +70,7 @@ class FitRequest:
     preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
     fitter: GaussianFitterConfig = field(default_factory=GaussianFitterConfig)
     validation: FitValidation = field(default_factory=FitValidation)
-    recovery_policy_version: str = "disabled-v1"
+    recovery: FitRecoveryConfig = field(default_factory=FitRecoveryConfig)
     previous: FitSet | None = field(default=None, compare=False, repr=False)
 
 
@@ -107,8 +95,7 @@ class FitFingerprint:
 
     def __post_init__(self) -> None:
         is_hex = all(
-            character in "0123456789abcdef"
-            for character in self.sha256.lower()
+            character in "0123456789abcdef" for character in self.sha256.lower()
         )
         if len(self.sha256) != 64 or not is_hex:
             raise ValueError("FitFingerprint must contain a SHA-256 hex digest")
@@ -212,7 +199,11 @@ class FitProvenance:
     preprocessing: PreprocessingConfig
     fitter: GaussianFitterConfig
     validation: FitValidation
-    recovery_policy_version: str
+    recovery: RecoveryRecord
+
+    @property
+    def recovery_policy_version(self) -> str:
+        return self.recovery.policy_version
 
 
 @dataclass(frozen=True)
@@ -264,7 +255,9 @@ class FitExecutionError(FitError):
     def __init__(self, track_id: int, frame_id: int, cause: Exception):
         self.track_id = track_id
         self.frame_id = frame_id
-        super().__init__(f"Gaussian fit failed for track {track_id}, frame {frame_id}: {cause}")
+        super().__init__(
+            f"Gaussian fit failed for track {track_id}, frame {frame_id}: {cause}"
+        )
 
 
 def fit(
@@ -305,20 +298,24 @@ def fit(
             background = loaded_backgrounds[fit_input.background_path]
         _validate_decoded_input(fit_input, pixels, background)
         fingerprint = _fingerprint(fit_input, request, pixels, background)
-        provenance = _provenance(fit_input, request, pixels, background)
         cached = cached_by_fingerprint.get(fingerprint)
         if cached is not None:
-            observation = _reuse_cached_observation(
-                cached, fit_input, provenance
+            provenance = _provenance(
+                fit_input,
+                request,
+                pixels,
+                background,
+                cached.provenance.recovery,
             )
+            observation = _reuse_cached_observation(cached, fit_input, provenance)
         else:
             observation = _fit_observation(
                 fit_input,
                 request,
                 fingerprint,
-                provenance,
                 pixels,
                 background,
+                context.is_cancelled,
             )
         completed.append(observation)
         context.report_progress(
@@ -330,8 +327,8 @@ def fit(
 
 
 def _validate_request(request: FitRequest) -> None:
-    if not request.recovery_policy_version.strip():
-        raise FitPreflightError("recovery_policy_version must not be empty")
+    if not request.recovery.policy_version.strip():
+        raise FitPreflightError("Recovery policy version must not be empty")
     validation_values = (
         request.validation.min_r_squared,
         request.validation.min_amplitude,
@@ -411,7 +408,12 @@ def _validate_roi(
     if roi.width <= 0 or roi.height <= 0:
         raise FitPreflightError(f"ROI must be non-empty for observation {key}")
     height, width = image_shape[:2]
-    if roi.x < 0 or roi.y < 0 or roi.x + roi.width > width or roi.y + roi.height > height:
+    if (
+        roi.x < 0
+        or roi.y < 0
+        or roi.x + roi.width > width
+        or roi.y + roi.height > height
+    ):
         raise FitPreflightError(f"ROI is outside decoded pixels for observation {key}")
 
 
@@ -429,7 +431,7 @@ def _fingerprint(
         "preprocessing": asdict(request.preprocessing),
         "fitter": asdict(request.fitter),
         "validation": asdict(request.validation),
-        "recovery_policy_version": request.recovery_policy_version,
+        "recovery": asdict(request.recovery),
     }
     digest.update(json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode())
     if fit_input.subtract_background:
@@ -474,35 +476,39 @@ def _fit_observation(
     fit_input: FitObservationInput,
     request: FitRequest,
     fingerprint: FitFingerprint,
-    provenance: FitProvenance,
     pixels: np.ndarray,
     background: np.ndarray | None,
+    is_cancelled: Callable[[], bool],
 ) -> FitObservation:
-    roi_pixels = _prepare_roi(
+    prepared_image = _prepare_image(
         fit_input,
         request.preprocessing,
         pixels,
         background,
     )
     try:
-        raw_result = fit_spot_to_gaussian(
-            roi_pixels,
-            center_preference_factor=request.fitter.center_preference_factor,
-            theta_bounds=request.fitter.theta_bounds,
+        outcome = fit_gaussian_with_recovery(
+            prepared_image,
+            fit_input.roi,
+            request.fitter,
+            request.validation,
+            request.recovery,
+            is_cancelled,
         )
+    except GaussianRecoveryCancelled as cause:
+        raise FitCancelled(str(cause)) from cause
     except Exception as cause:
-        raise FitExecutionError(fit_input.track_id, fit_input.frame_id, cause) from cause
-    if raw_result is None:
-        return FitObservation(
-            fit_input.track_id,
-            fit_input.frame_id,
-            fingerprint,
-            FitStatus.FAILED,
-            provenance,
-            failure=FitFailure("fit_failed", "Gaussian optimizer returned no fit"),
-        )
-    reasons = _validation_failures(raw_result, roi_pixels.shape, request.validation)
-    if reasons:
+        raise FitExecutionError(
+            fit_input.track_id, fit_input.frame_id, cause
+        ) from cause
+    provenance = _provenance(
+        fit_input,
+        request,
+        pixels,
+        background,
+        outcome.record,
+    )
+    if outcome.result is None:
         return FitObservation(
             fit_input.track_id,
             fit_input.frame_id,
@@ -510,10 +516,17 @@ def _fit_observation(
             FitStatus.FAILED,
             provenance,
             failure=FitFailure(
-                "validation_failed",
-                "Gaussian fit did not pass physical validation",
-                reasons,
+                outcome.failure_code.value if outcome.failure_code else "fit_failed",
+                outcome.failure_message or "Gaussian optimizer returned no fit",
+                outcome.failure_reasons,
             ),
+        )
+    effective_roi = outcome.record.effective_roi
+    if effective_roi is None:
+        raise FitExecutionError(
+            fit_input.track_id,
+            fit_input.frame_id,
+            ValueError("Accepted Gaussian fit has no effective ROI"),
         )
     return FitObservation(
         fit_input.track_id,
@@ -521,32 +534,28 @@ def _fit_observation(
         fingerprint,
         FitStatus.FITTED,
         provenance,
-        result=_freeze_result(raw_result, fit_input.roi),
+        result=_freeze_result(outcome.result, effective_roi),
     )
 
 
-def _prepare_roi(
+def _prepare_image(
     fit_input: FitObservationInput,
     config: PreprocessingConfig,
     pixels: np.ndarray,
     background_pixels: np.ndarray | None,
 ) -> np.ndarray:
-    image = _grayscale_float(pixels, config)
-    roi = fit_input.roi
-    prepared = image[roi.y : roi.y + roi.height, roi.x : roi.x + roi.width].copy()
+    prepared = _grayscale_float(pixels, config).copy()
     if fit_input.subtract_background:
         background = _grayscale_float(background_pixels, config)
-        background_roi = background[
-            roi.y : roi.y + roi.height,
-            roi.x : roi.x + roi.width,
-        ]
-        prepared -= background_roi
+        prepared -= background
         if config.clamp_negative:
             np.maximum(prepared, 0.0, out=prepared)
     return prepared
 
 
-def _grayscale_float(values: np.ndarray | None, config: PreprocessingConfig) -> np.ndarray:
+def _grayscale_float(
+    values: np.ndarray | None, config: PreprocessingConfig
+) -> np.ndarray:
     array = np.asarray(values)
     if array.ndim == 3:
         if config.grayscale_mode != "skimage_rgb2gray_v1":
@@ -557,28 +566,12 @@ def _grayscale_float(values: np.ndarray | None, config: PreprocessingConfig) -> 
     raise FitPreflightError(f"Unsupported float conversion: {config.float_conversion}")
 
 
-def _validation_failures(
-    result: Mapping[str, Any],
-    roi_shape: tuple[int, ...],
-    config: FitValidation,
-) -> tuple[str, ...]:
-    height, width = roi_shape[:2]
-    checks = (
-        (float(result.get("r_squared", 0.0)) < config.min_r_squared, "r_squared"),
-        (float(result.get("amplitude", 0.0)) < config.min_amplitude, "amplitude"),
-        (not -config.center_margin < float(result.get("center_x", 0.0)) < width + config.center_margin, "center_x"),
-        (not -config.center_margin < float(result.get("center_y", 0.0)) < height + config.center_margin, "center_y"),
-        (not config.min_sigma < float(result.get("sigma_x", 0.0)) < width, "sigma_x"),
-        (not config.min_sigma < float(result.get("sigma_y", 0.0)) < height, "sigma_y"),
-    )
-    return tuple(name for failed, name in checks if failed)
-
-
 def _provenance(
     fit_input: FitObservationInput,
     request: FitRequest,
     pixels: np.ndarray,
     background: np.ndarray | None,
+    recovery: RecoveryRecord,
 ) -> FitProvenance:
     pixels = np.ascontiguousarray(pixels)
     pixel_digest = sha256(pixels.tobytes(order="C")).hexdigest()
@@ -601,7 +594,7 @@ def _provenance(
         preprocessing=request.preprocessing,
         fitter=request.fitter,
         validation=request.validation,
-        recovery_policy_version=request.recovery_policy_version,
+        recovery=recovery,
     )
 
 
@@ -611,12 +604,34 @@ def _float_value(result: Mapping[str, Any], name: str) -> float:
 
 def _freeze_result(result: Mapping[str, Any], roi: Rect) -> GaussianFitResult:
     value = partial(_float_value, result)
-    parameters = GaussianParameters(*(value(name) for name in (
-        "amplitude", "center_x", "center_y", "sigma_x", "sigma_y", "theta", "offset"
-    )))
-    errors = GaussianErrors(*(value(f"{name}_error") for name in (
-        "amplitude", "center_x", "center_y", "sigma_x", "sigma_y", "theta", "offset"
-    )))
+    parameters = GaussianParameters(
+        *(
+            value(name)
+            for name in (
+                "amplitude",
+                "center_x",
+                "center_y",
+                "sigma_x",
+                "sigma_y",
+                "theta",
+                "offset",
+            )
+        )
+    )
+    errors = GaussianErrors(
+        *(
+            value(f"{name}_error")
+            for name in (
+                "amplitude",
+                "center_x",
+                "center_y",
+                "sigma_x",
+                "sigma_y",
+                "theta",
+                "offset",
+            )
+        )
+    )
     width_names = tuple(GaussianWidths.__dataclass_fields__)
     widths = GaussianWidths(*(value(name) for name in width_names))
     covariance = np.asarray(result["covariance_matrix"], dtype=float)
@@ -626,7 +641,9 @@ def _freeze_result(result: Mapping[str, Any], roi: Rect) -> GaussianFitResult:
         intensity=GaussianIntensity(value("volume"), value("volume_error")),
         widths=widths,
         quality=FitQuality(value("r_squared"), value("chi_squared_reduced")),
-        covariance_matrix=tuple(tuple(float(cell) for cell in row) for row in covariance),
+        covariance_matrix=tuple(
+            tuple(float(cell) for cell in row) for row in covariance
+        ),
         global_center_x=float(roi.x) + parameters.center_x,
         global_center_y=float(roi.y) + parameters.center_y,
     )

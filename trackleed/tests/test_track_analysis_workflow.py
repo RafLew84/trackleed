@@ -18,6 +18,7 @@ from trackleed.logic.workflows.track_analysis import (
     FitCancelled,
     FitObservationInput,
     FitPreflightError,
+    FitRecoveryConfig,
     FitRequest,
     FitRunContext,
     FitStatus,
@@ -25,6 +26,9 @@ from trackleed.logic.workflows.track_analysis import (
     GaussianFitterConfig,
     PreprocessingConfig,
     Rect,
+    RecoveryAttemptStatus,
+    RecoverySelectionReason,
+    RecoveryStatus,
     fit,
 )
 
@@ -45,6 +49,24 @@ def _gaussian_frame(
             + ((yy - center_y) ** 2) / (2.0 * 4.0**2)
         )
     )
+
+
+def _isotropic_gaussian_frame(
+    center_x: float,
+    center_y: float,
+    sigma: float = 1.0,
+) -> np.ndarray:
+    yy, xx = np.indices((31, 31), dtype=np.float64)
+    return 0.05 + 0.8 * np.exp(
+        -((xx - center_x) ** 2 + (yy - center_y) ** 2) / (2.0 * sigma**2)
+    )
+
+
+def _two_spot_frame() -> np.ndarray:
+    yy, xx = np.indices((31, 31), dtype=np.float64)
+    first = np.exp(-((xx - 8.2) ** 2 + (yy - 13.0) ** 2) / 8.0)
+    second = np.exp(-((xx - 15.0) ** 2 + (yy - 13.0) ** 2) / 8.0)
+    return 0.02 + first + second
 
 
 def _observation(
@@ -90,7 +112,9 @@ def _run(
 
 
 class TrackAnalysisWorkflowTests(unittest.TestCase):
-    def test_request_is_a_value_snapshot_and_runtime_dependencies_are_separate(self) -> None:
+    def test_request_is_a_value_snapshot_and_runtime_dependencies_are_separate(
+        self,
+    ) -> None:
         observation_fields = set(FitObservationInput.__dataclass_fields__)
         request_fields = set(FitRequest.__dataclass_fields__)
 
@@ -153,7 +177,9 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         self.assertEqual(relocated.observation(1, 10).provenance.energy, 250.0)
         self.assertEqual(relocated.observation(1, 10).provenance.temperature, 950.0)
 
-    def test_fingerprint_selectively_tracks_pixels_roi_and_used_background(self) -> None:
+    def test_fingerprint_selectively_tracks_pixels_roi_and_used_background(
+        self,
+    ) -> None:
         background = np.full((31, 31), 0.01, dtype=np.float64)
         inputs = (
             _observation(track_id=1, subtract_background=False, background=background),
@@ -229,7 +255,7 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
             ),
             FitRequest(
                 observations=(_observation(),),
-                recovery_policy_version="disabled-v2",
+                recovery=FitRecoveryConfig(policy_version="bounded-v2"),
                 previous=baseline,
             ),
         )
@@ -260,9 +286,7 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
 
     def test_cache_hit_returns_the_exact_stored_observation(self) -> None:
         baseline = _run(FitRequest(observations=(_observation(),)))
-        cached = _run(
-            FitRequest(observations=(_observation(),), previous=baseline)
-        )
+        cached = _run(FitRequest(observations=(_observation(),), previous=baseline))
 
         self.assertIs(cached.observation(1, 10), baseline.observation(1, 10))
         self.assertEqual(cached, baseline)
@@ -271,9 +295,7 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         flat_pixels = np.ones((31, 31), dtype=np.float64)
         request = FitRequest(observations=(_observation(pixels=flat_pixels),))
         failed = _run(request)
-        cached = _run(
-            FitRequest(observations=request.observations, previous=failed)
-        )
+        cached = _run(FitRequest(observations=request.observations, previous=failed))
 
         observation = failed.observation(1, 10)
         self.assertEqual(observation.status, FitStatus.FAILED)
@@ -281,6 +303,275 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         self.assertIsNone(observation.result)
         self.assertIsNone(failed.observation(99, 10))
         self.assertIs(cached.observation(1, 10), observation)
+
+    def test_recovery_is_opt_in_and_disabled_run_has_only_baseline_attempt(
+        self,
+    ) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(_observation(pixels=np.ones((31, 31), dtype=np.float64)),)
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        self.assertEqual(
+            observation.provenance.recovery.status, RecoveryStatus.DISABLED
+        )
+        self.assertEqual(len(observation.provenance.recovery.attempts), 1)
+        self.assertEqual(
+            observation.provenance.recovery.attempts[0].effective_roi,
+            Rect(4, 3, 23, 23),
+        )
+
+    def test_disabled_recovery_preserves_the_baseline_validation_margin(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(
+                        pixels=_isotropic_gaussian_frame(17.5, 12.5),
+                        roi=Rect(10, 10, 5, 5),
+                    ),
+                ),
+                validation=FitValidation(center_margin=5.0),
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        self.assertEqual(observation.status, FitStatus.FITTED)
+        self.assertEqual(
+            observation.provenance.recovery.status, RecoveryStatus.DISABLED
+        )
+        self.assertEqual(len(observation.provenance.recovery.attempts), 1)
+
+    def test_enabled_recovery_stops_after_successful_baseline_fit(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(_observation(),),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        self.assertEqual(observation.status, FitStatus.FITTED)
+        self.assertEqual(
+            observation.provenance.recovery.status,
+            RecoveryStatus.NOT_NEEDED,
+        )
+        self.assertEqual(len(observation.provenance.recovery.attempts), 1)
+
+    def test_opt_in_recovery_recovers_fit_without_changing_original_roi(self) -> None:
+        original_roi = Rect(10, 10, 5, 5)
+        fit_input = _observation(
+            track_id=7,
+            pixels=_isotropic_gaussian_frame(8.25, 8.25),
+            roi=original_roi,
+        )
+        input_identity = (fit_input.track_id, fit_input.roi)
+        fit_set = _run(
+            FitRequest(
+                observations=(fit_input,),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        observation = fit_set.observation(7, 10)
+        self.assertEqual(observation.status, FitStatus.FITTED)
+        self.assertEqual((fit_input.track_id, fit_input.roi), input_identity)
+        self.assertEqual((observation.track_id, observation.frame_id), (7, 10))
+        self.assertEqual(observation.provenance.original_roi, original_roi)
+        self.assertEqual(
+            observation.provenance.recovery.status, RecoveryStatus.RECOVERED
+        )
+        self.assertNotEqual(observation.provenance.recovery.effective_roi, original_roi)
+        self.assertAlmostEqual(observation.result.global_center_x, 8.25, places=3)
+        self.assertAlmostEqual(observation.result.global_center_y, 8.25, places=3)
+
+    def test_disagreeing_recovery_candidates_fail_as_ambiguous(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(
+                        pixels=_two_spot_frame(),
+                        roi=Rect(10, 10, 7, 7),
+                    ),
+                ),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        self.assertEqual(observation.status, FitStatus.FAILED)
+        self.assertEqual(observation.failure.code, "ambiguous_recovery")
+        self.assertEqual(
+            observation.provenance.recovery.status,
+            RecoveryStatus.AMBIGUOUS,
+        )
+        self.assertIsNone(observation.provenance.recovery.effective_roi)
+
+    def test_failed_recovery_has_bounded_deterministic_attempt_history(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(
+                        pixels=np.ones((31, 31), dtype=np.float64),
+                    ),
+                ),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        attempts = observation.provenance.recovery.attempts
+        self.assertEqual(observation.failure.code, "recovery_failed")
+        self.assertEqual(observation.provenance.recovery.status, RecoveryStatus.FAILED)
+        self.assertEqual(len(attempts), 11)
+        self.assertEqual(
+            tuple((item.offset_x, item.offset_y, item.expand_by) for item in attempts),
+            (
+                (0, 0, 0),
+                (-1, -1, 0),
+                (0, -1, 0),
+                (1, -1, 0),
+                (-1, 0, 0),
+                (1, 0, 0),
+                (-1, 1, 0),
+                (0, 1, 0),
+                (1, 1, 0),
+                (0, 0, 1),
+                (0, 0, 2),
+            ),
+        )
+
+    def test_recovery_rejects_positions_outside_original_roi_margin(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(
+                        pixels=_isotropic_gaussian_frame(7.5, 12.5),
+                        roi=Rect(10, 10, 5, 5),
+                    ),
+                ),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        observation = fit_set.observation(1, 10)
+        statuses = {item.status for item in observation.provenance.recovery.attempts}
+        self.assertEqual(observation.status, FitStatus.FAILED)
+        self.assertIn(RecoveryAttemptStatus.OUTSIDE_ORIGINAL_MARGIN, statuses)
+        self.assertNotIn(RecoveryAttemptStatus.ACCEPTED, statuses)
+
+    def test_recovery_tie_break_uses_highest_quality_small_transform(self) -> None:
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(
+                        pixels=_isotropic_gaussian_frame(17.5, 12.5),
+                        roi=Rect(10, 10, 5, 5),
+                    ),
+                ),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        recovery = fit_set.observation(1, 10).provenance.recovery
+        self.assertEqual(recovery.status, RecoveryStatus.RECOVERED)
+        self.assertEqual(recovery.effective_roi, Rect(10, 9, 5, 5))
+        self.assertGreater(
+            recovery.attempts[2].r_squared,
+            recovery.attempts[3].r_squared,
+        )
+        self.assertEqual(
+            recovery.selection_reason,
+            RecoverySelectionReason.SMALLEST_TRANSFORM_HIGHEST_QUALITY,
+        )
+
+    def test_recovery_prefers_smaller_transform_over_higher_quality(self) -> None:
+        pixels = _isotropic_gaussian_frame(8.25, 8.25)
+        yy, xx = np.indices(pixels.shape)
+        pixels = pixels + 0.002 * np.sin(xx * 0.7 + yy * 0.2)
+        fit_set = _run(
+            FitRequest(
+                observations=(_observation(pixels=pixels, roi=Rect(10, 10, 5, 5)),),
+                recovery=FitRecoveryConfig(enabled=True),
+            )
+        )
+
+        recovery = fit_set.observation(1, 10).provenance.recovery
+        selected = next(
+            item
+            for item in recovery.attempts
+            if item.effective_roi == recovery.effective_roi
+        )
+        larger = next(item for item in recovery.attempts if item.expand_by == 2)
+        self.assertEqual(recovery.status, RecoveryStatus.RECOVERED)
+        self.assertEqual(selected.expand_by, 1)
+        self.assertEqual(larger.status, RecoveryAttemptStatus.ACCEPTED)
+        self.assertGreater(larger.r_squared, selected.r_squared)
+
+    def test_cancellation_after_any_recovery_attempt_exposes_no_partial_fit_set(
+        self,
+    ) -> None:
+        previous = _run(FitRequest(observations=(_observation(),)))
+        previous_snapshot = previous
+        fit_input = _observation(pixels=np.ones((31, 31), dtype=np.float64))
+        input_identity = (fit_input.track_id, fit_input.roi)
+
+        for attempt_index in range(11):
+            checks = 0
+            cancel_at = 3 + 2 * attempt_index
+
+            def cancel_after_attempt() -> bool:
+                nonlocal checks
+                checks += 1
+                return checks == cancel_at
+
+            with self.subTest(attempt_index=attempt_index):
+                with self.assertRaises(FitCancelled):
+                    _run(
+                        FitRequest(
+                            observations=(fit_input,),
+                            recovery=FitRecoveryConfig(enabled=True),
+                            previous=previous,
+                        ),
+                        is_cancelled=cancel_after_attempt,
+                    )
+                self.assertIs(previous, previous_snapshot)
+                self.assertEqual(len(previous.observations), 1)
+                self.assertEqual(previous.observation(1, 10).status, FitStatus.FITTED)
+                self.assertEqual((fit_input.track_id, fit_input.roi), input_identity)
+
+    def test_recovery_policy_version_caches_and_invalidates_controlled_failure(
+        self,
+    ) -> None:
+        fit_input = _observation(pixels=np.ones((31, 31), dtype=np.float64))
+        first = _run(
+            FitRequest(
+                observations=(fit_input,),
+                recovery=FitRecoveryConfig(enabled=True, policy_version="bounded-v1"),
+            )
+        )
+        cached = _run(
+            FitRequest(
+                observations=(fit_input,),
+                recovery=FitRecoveryConfig(enabled=True, policy_version="bounded-v1"),
+                previous=first,
+            )
+        )
+        invalidated = _run(
+            FitRequest(
+                observations=(fit_input,),
+                recovery=FitRecoveryConfig(enabled=True, policy_version="bounded-v2"),
+                previous=first,
+            )
+        )
+
+        self.assertIs(cached.observation(1, 10), first.observation(1, 10))
+        self.assertNotEqual(
+            invalidated.observation(1, 10).fingerprint,
+            first.observation(1, 10).fingerprint,
+        )
+        self.assertEqual(invalidated.observation(1, 10).status, FitStatus.FAILED)
 
     def test_track_set_change_reuses_only_identical_fingerprints(self) -> None:
         baseline = _run(
@@ -362,14 +653,18 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         self.assertIsNone(projection[2][10])
 
     def test_legacy_geometry_consumes_fit_set_without_mutating_it(self) -> None:
-        fit_set = _run(FitRequest(observations=(
-            _observation(track_id=1),
-            _observation(
-                track_id=2,
-                pixels=_gaussian_frame(center_x=20.0),
-                source_path=Path("first-location/geometry-frame.tif"),
-            ),
-        )))
+        fit_set = _run(
+            FitRequest(
+                observations=(
+                    _observation(track_id=1),
+                    _observation(
+                        track_id=2,
+                        pixels=_gaussian_frame(center_x=20.0),
+                        source_path=Path("first-location/geometry-frame.tif"),
+                    ),
+                )
+            )
+        )
         request = LegacyGeometryRequest(
             observation_rois=(
                 GeometryObservationRoi(1, 10, Rect(4, 3, 23, 23)),
@@ -385,12 +680,15 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         self.assertAlmostEqual(geometry.observations[0].radius, 0.0, places=5)
         self.assertGreater(geometry.observations[1].radius, 0.0)
         self.assertFalse(hasattr(fit_set.observations[0].result, "radius"))
-        self.assertEqual(dict(geometry.frames[0].pattern_center), {
-            "center_x": 15.0,
-            "center_y": 14.0,
-            "error_x": 0.0,
-            "error_y": 0.0,
-        })
+        self.assertEqual(
+            dict(geometry.frames[0].pattern_center),
+            {
+                "center_x": 15.0,
+                "center_y": 14.0,
+                "error_x": 0.0,
+                "error_y": 0.0,
+            },
+        )
 
 
 if __name__ == "__main__":
