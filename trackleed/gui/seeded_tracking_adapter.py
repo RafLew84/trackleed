@@ -32,6 +32,10 @@ from trackleed.gui.seeded_mask_tracking_compatibility import (
     run_legacy_mask_retracker,
     run_legacy_mask_tracker,
 )
+from trackleed.gui.seeded_tracking_legacy_models import (
+    apply_spot_diagnostics,
+    spot_diagnostics,
+)
 from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
 from trackleed.logic.workflows.mask_tracking import MaskTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
@@ -338,6 +342,7 @@ def _observation_from_spot(frame_id: int, spot: SpotROI) -> TrackObservation:
         float(spot.intensity),
         str(spot.source),
         tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
+        spot_diagnostics(spot),
     )
 
 
@@ -346,7 +351,7 @@ def _spot_from_observation(
     observation: TrackObservation,
 ) -> SpotROI:
     rect = observation.roi
-    return SpotROI(
+    spot = SpotROI(
         id=track_id,
         roi_rect=QRect(rect.x, rect.y, rect.width, rect.height),
         center_x=observation.center_x,
@@ -355,6 +360,7 @@ def _spot_from_observation(
         source=observation.source,
         polygon_seed_points=list(observation.polygon_seed_points),
     )
+    return apply_spot_diagnostics(spot, observation.diagnostics)
 
 
 def _clone_track(track: Track) -> Track:
@@ -369,7 +375,7 @@ def _clone_track(track: Track) -> Track:
 
 def _clone_spot(spot: SpotROI) -> SpotROI:
     rect = spot.roi_rect
-    return SpotROI(
+    clone = SpotROI(
         id=spot.id,
         roi_rect=QRect(rect.x(), rect.y(), rect.width(), rect.height()),
         center_x=spot.center_x,
@@ -378,6 +384,7 @@ def _clone_spot(spot: SpotROI) -> SpotROI:
         source=spot.source,
         polygon_seed_points=list(spot.polygon_seed_points),
     )
+    return apply_spot_diagnostics(clone, spot_diagnostics(spot))
 
 
 def _progress_percentage(progress: TrackingProgress) -> int:

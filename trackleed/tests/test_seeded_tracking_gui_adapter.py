@@ -143,6 +143,46 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
             (16.0, 17.0),
         )
 
+    def test_mask_diagnostics_survive_retrack_snapshot_and_publication(self) -> None:
+        seed = _spot(7, 20, 21)
+        seed.cutie_visibility = False
+        seed.cutie_mask_area = 37.5
+        seed.cutie_history = [1.0, 2.0]
+        reference = _leed_file(1, [seed])
+
+        request = build_seeded_retrack_request(
+            files=(reference,),
+            track=Track(7, {1: seed}),
+            start_frame_id=1,
+            method_id="cutie_offline",
+            config=CutieMaskConfig(),
+        )
+        diagnostics = dict(request.track.observations[0].diagnostics)
+        seed.cutie_history.append(3.0)
+        result = TrackingResult(
+            (
+                TrackedSpotIdentity(
+                    7,
+                    (
+                        TrackObservation(
+                            1,
+                            SeedRect(16, 17, 8, 8),
+                            20.0,
+                            21.0,
+                            diagnostics=tuple(diagnostics.items()),
+                        ),
+                    ),
+                ),
+            )
+        )
+
+        tracks = publish_tracking_result((reference,), result)
+
+        self.assertEqual(diagnostics["cutie_mask_area"], 37.5)
+        self.assertEqual(diagnostics["cutie_history"], (1.0, 2.0))
+        self.assertFalse(tracks[0].spots_by_image_id[1].cutie_visibility)
+        self.assertEqual(reference.spots[0].cutie_mask_area, 37.5)
+
     def test_settings_binding_changes_only_after_accept(self) -> None:
         binding = SeededTrackingSettingsBinding(roi_size=18)
         candidate = SeededTrackingDialogSettings.defaults(roi_size=40)

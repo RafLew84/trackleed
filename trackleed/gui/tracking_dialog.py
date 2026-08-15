@@ -13,11 +13,9 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
-from trackleed.gui.seeded_retrack_controller import launch_seeded_retrack
-from trackleed.gui.seeded_point_tracking_compatibility import point_review_spec_for_source, point_tracker_gui_spec
-from trackleed.gui.seeded_bbox_tracking_compatibility import bbox_review_spec_for_source
-from trackleed.gui.seeded_mask_tracking_compatibility import mask_review_spec_for_source
-from trackleed.gui.tracker_registry import get_tracker_spec_for_source, require_tracker_spec
+from trackleed.gui.seeded_retrack_controller import launch_seeded_retrack, review_spec_for_source
+from trackleed.gui.seeded_point_tracking_compatibility import point_tracker_gui_spec
+from trackleed.gui.tracker_registry import require_tracker_spec
 from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.tomp_backend import select_default_tamos_checkpoint_for_variant, select_default_tomp_checkpoint_for_variant
 from trackleed.analysis.tracking_retrack import (
@@ -489,12 +487,7 @@ class TrackingDialog(QDialog):
         normalized_source = self._normalized_source_name(source_name)
         if not normalized_source or normalized_source in MANUAL_TRACK_SOURCES:
             return None
-        return (
-            point_review_spec_for_source(normalized_source)
-            or bbox_review_spec_for_source(normalized_source)
-            or mask_review_spec_for_source(normalized_source)
-            or get_tracker_spec_for_source(normalized_source)
-        )
+        return review_spec_for_source(normalized_source)
 
     def _tracker_spec_for_track(self, track: Track | None):
         if track is None:

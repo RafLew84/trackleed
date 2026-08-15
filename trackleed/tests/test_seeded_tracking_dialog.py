@@ -41,7 +41,17 @@ class _ReadyRuntime:
 
 def _frame(frame_id: int, *, with_seed: bool = False) -> LeedFile:
     spots = (
-        [SpotROI(7, QRect(16, 17, 8, 8), 20.0, 21.0, 12.0, "manual")]
+        [
+            SpotROI(
+                7,
+                QRect(16, 17, 8, 8),
+                20.0,
+                21.0,
+                12.0,
+                "manual",
+                [(16.0, 17.0), (24.0, 17.0), (20.0, 25.0)],
+            )
+        ]
         if with_seed
         else []
     )

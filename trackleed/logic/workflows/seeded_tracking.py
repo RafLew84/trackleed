@@ -80,6 +80,9 @@ SeededTrackingConfig: TypeAlias = (
     | BoundingBoxTrackerConfig
     | MaskTrackerConfig
 )
+DiagnosticValue: TypeAlias = (
+    bool | int | float | str | None | tuple["DiagnosticValue", ...]
+)
 
 
 class SeedRepresentation(Enum):
@@ -115,6 +118,7 @@ class TrackObservation:
     intensity: float = 0.0
     source: str = "tracking"
     polygon_seed_points: tuple[tuple[float, float], ...] = ()
+    diagnostics: tuple[tuple[str, DiagnosticValue], ...] = ()
 
 
 @dataclass(frozen=True)

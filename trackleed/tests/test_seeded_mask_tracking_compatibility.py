@@ -11,6 +11,7 @@ import numpy as np
 from trackleed.analysis.seeded_mask_tracking_runtime import (
     default_mask_tracker_configs,
 )
+from trackleed.core.data_models import Track
 
 from trackleed.gui.seeded_mask_tracking_compatibility import (
     legacy_mask_tracker_params,
@@ -19,7 +20,12 @@ from trackleed.gui.seeded_mask_tracking_compatibility import (
     run_legacy_mask_retracker,
     run_legacy_mask_tracker,
 )
-from trackleed.logic.workflows.mask_tracking import Dam4SamMaskConfig, MaskTrackerConfig
+from trackleed.gui.seeded_tracking_legacy_models import legacy_spot
+from trackleed.logic.workflows.mask_tracking import (
+    CutieMaskConfig,
+    Dam4SamMaskConfig,
+    MaskTrackerConfig,
+)
 from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
     SeededRetrackRequest,
@@ -79,6 +85,68 @@ class SeededMaskTrackingCompatibilityTests(unittest.TestCase):
         self.assertEqual(params["dam4sam_models_dir"], "models/dam4sam")
         self.assertEqual(params["dam4sam_tracker_name"], "sam21pp-B")
         self.assertEqual(params["checkpoint_path"], "models/dam4sam/model.pt")
+
+    def test_legacy_result_preserves_mask_diagnostics(self) -> None:
+        request = _request("cutie_offline", CutieMaskConfig())
+
+        def runner(*_args, **_kwargs):
+            spot = legacy_spot(
+                7,
+                SeedRect(18, 19, 8, 8),
+                22.0,
+                23.0,
+                1.0,
+                "cutie_offline",
+            )
+            spot.cutie_visibility = False
+            spot.cutie_mask_area = 37.5
+            spot.cutie_filter_reason = "area_jump"
+            spot.cutie_mask_bbox_xyxy = np.array([1.0, 2.0, 3.0, 4.0])
+            return [Track(7, {2: spot})]
+
+        result = run_legacy_mask_tracker(
+            "cutie_offline",
+            request,
+            RunContext(image_reader=lambda _path: np.zeros((2, 2))),
+            runner=runner,
+        )
+
+        diagnostics = dict(result.tracks[0].observations[0].diagnostics)
+        self.assertEqual(
+            diagnostics,
+            {
+                "cutie_filter_reason": "area_jump",
+                "cutie_mask_area": 37.5,
+                "cutie_mask_bbox_xyxy": (1.0, 2.0, 3.0, 4.0),
+                "cutie_visibility": False,
+            },
+        )
+
+    def test_legacy_result_rejects_non_neutral_diagnostics(self) -> None:
+        request = _request("cutie_offline", CutieMaskConfig())
+
+        def runner(*_args, **_kwargs):
+            spot = legacy_spot(
+                7,
+                SeedRect(18, 19, 8, 8),
+                22.0,
+                23.0,
+                1.0,
+                "cutie_offline",
+            )
+            spot.cutie_widget = object()
+            return [Track(7, {2: spot})]
+
+        with self.assertRaisesRegex(
+            TypeError,
+            "Unsupported tracking diagnostic value",
+        ):
+            run_legacy_mask_tracker(
+                "cutie_offline",
+                request,
+                RunContext(image_reader=lambda _path: np.zeros((2, 2))),
+                runner=runner,
+            )
 
     def test_public_workflows_resolve_every_legacy_mask_runner(self) -> None:
         calls: list[str] = []

@@ -48,7 +48,6 @@ class MaskTrackerDefinition:
     default_config: MaskTrackerConfig
     backend_module: str
     probe_name: str
-    source_names: tuple[str, ...]
     requires_polygon_seed: bool = False
     supports_subprocess: bool = True
 
@@ -61,7 +60,7 @@ _MASK_METHODS = (
         CutieMaskConfig(),
         "trackleed.analysis.cutie_backend",
         "probe_cutie_environment",
-        ("cutie_offline",),
+        requires_polygon_seed=True,
     ),
     MaskTrackerDefinition(
         "xmem2_offline",
@@ -70,7 +69,6 @@ _MASK_METHODS = (
         Xmem2MaskConfig(),
         "trackleed.analysis.xmem2_backend",
         "probe_xmem2_environment",
-        ("xmem2_offline",),
         requires_polygon_seed=True,
     ),
     MaskTrackerDefinition(
@@ -80,7 +78,6 @@ _MASK_METHODS = (
         Sam2MaskConfig(),
         "trackleed.analysis.sam2_backend",
         "probe_sam2_environment",
-        ("sam2_offline",),
     ),
     MaskTrackerDefinition(
         "dam4sam_offline",
@@ -89,7 +86,6 @@ _MASK_METHODS = (
         Dam4SamMaskConfig(),
         "trackleed.analysis.dam4sam_backend",
         "probe_dam4sam_environment",
-        ("dam4sam_offline",),
     ),
     MaskTrackerDefinition(
         "samurai_offline",
@@ -98,7 +94,6 @@ _MASK_METHODS = (
         SamuraiMaskConfig(),
         "trackleed.analysis.samurai_backend",
         "probe_samurai_environment",
-        ("samurai_offline",),
     ),
     MaskTrackerDefinition(
         "deva_offline",
@@ -107,7 +102,6 @@ _MASK_METHODS = (
         DevaMaskConfig(),
         "trackleed.analysis.deva_backend",
         "probe_deva_environment",
-        ("deva_offline",),
     ),
 )
 
@@ -229,7 +223,11 @@ def _config_issues(
     config: MaskTrackerConfig,
     definition: MaskTrackerDefinition,
 ) -> tuple[TrackingPreflightIssue, ...]:
-    if _common_config_valid(config) and _variant_config_valid(config):
+    try:
+        valid = _common_config_valid(config) and _variant_config_valid(config)
+    except (TypeError, ValueError):
+        valid = False
+    if valid:
         return ()
     return (
         TrackingPreflightIssue(

@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from dataclasses import fields
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Never
 
+import numpy as np
 from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
+    DiagnosticValue,
     SeededTrackingCancelled,
     SeedRect,
     TrackedSpotIdentity,
@@ -35,6 +38,7 @@ _GUI_BINDING_FIELDS = (
     "default_conda_env_name",
     "checkpoint_selector_attr",
 )
+_SPOT_MODEL_FIELDS = frozenset(field.name for field in fields(SpotROI))
 
 
 def legacy_tracker_gui_spec(
@@ -126,6 +130,7 @@ def legacy_track(identity: TrackedSpotIdentity) -> Track:
                 item.intensity,
                 item.source,
                 item.polygon_seed_points,
+                item.diagnostics,
             )
             for item in identity.observations
         },
@@ -140,8 +145,9 @@ def legacy_spot(
     intensity: float,
     source: str,
     polygon_seed_points: Iterable[tuple[float, float]] = (),
+    diagnostics: Iterable[tuple[str, DiagnosticValue]] = (),
 ) -> SpotROI:
-    return SpotROI(
+    spot = SpotROI(
         spot_id,
         QRect(roi.x, roi.y, roi.width, roi.height),
         center_x,
@@ -149,6 +155,41 @@ def legacy_spot(
         intensity,
         source,
         [(float(x), float(y)) for x, y in polygon_seed_points],
+    )
+    return apply_spot_diagnostics(spot, diagnostics)
+
+
+def spot_diagnostics(spot: SpotROI) -> tuple[tuple[str, DiagnosticValue], ...]:
+    """Snapshot backend-specific attributes without coupling the workflow model."""
+    return tuple(
+        (name, _neutral_diagnostic_value(value))
+        for name, value in sorted(vars(spot).items())
+        if name not in _SPOT_MODEL_FIELDS
+    )
+
+
+def apply_spot_diagnostics(
+    spot: SpotROI,
+    diagnostics: Iterable[tuple[str, DiagnosticValue]],
+) -> SpotROI:
+    """Restore a diagnostics snapshot onto a fresh legacy spot model."""
+    for name, value in diagnostics:
+        if name not in _SPOT_MODEL_FIELDS:
+            setattr(spot, name, value)
+    return spot
+
+
+def _neutral_diagnostic_value(value: object) -> DiagnosticValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, np.generic):
+        return _neutral_diagnostic_value(value.item())
+    if isinstance(value, np.ndarray):
+        return _neutral_diagnostic_value(value.tolist())
+    if isinstance(value, (list, tuple)):
+        return tuple(_neutral_diagnostic_value(item) for item in value)
+    raise TypeError(
+        f"Unsupported tracking diagnostic value: {type(value).__name__}"
     )
 
 
@@ -185,6 +226,7 @@ def neutral_observation(frame_id: int, spot: SpotROI) -> TrackObservation:
         float(spot.intensity),
         str(spot.source),
         tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
+        spot_diagnostics(spot),
     )
 
 

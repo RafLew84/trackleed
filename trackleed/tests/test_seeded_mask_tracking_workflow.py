@@ -40,7 +40,12 @@ from trackleed.logic.workflows.seeded_tracking import (
 )
 
 
-def _request(method_id: str, config: MaskTrackerConfig) -> SeededTrackingRequest:
+def _request(
+    method_id: str,
+    config: MaskTrackerConfig,
+    *,
+    with_polygon: bool = True,
+) -> SeededTrackingRequest:
     return SeededTrackingRequest(
         method_id=method_id,
         frames=(
@@ -48,7 +53,19 @@ def _request(method_id: str, config: MaskTrackerConfig) -> SeededTrackingRequest
             SeededTrackingFrame(2, Path("two.tif")),
         ),
         reference_frame_id=1,
-        seeds=(TrackingSeed(7, 20.0, 21.0, SeedRect(16, 17, 8, 8)),),
+        seeds=(
+            TrackingSeed(
+                7,
+                20.0,
+                21.0,
+                SeedRect(16, 17, 8, 8),
+                polygon_seed_points=(
+                    ((16.0, 17.0), (24.0, 17.0), (20.0, 25.0))
+                    if with_polygon
+                    else ()
+                ),
+            ),
+        ),
         config=config,
         seed_representation=SeedRepresentation.MASK,
     )
@@ -79,6 +96,9 @@ class SeededMaskTrackingWorkflowTests(unittest.TestCase):
                 for item in methods
             )
         )
+        methods_by_id = {item.method_id: item for item in methods}
+        self.assertTrue(methods_by_id["cutie_offline"].capabilities.requires_polygon_seed)
+        self.assertTrue(methods_by_id["xmem2_offline"].capabilities.requires_polygon_seed)
 
     def test_mask_runtime_has_no_gui_or_widget_dependency(self) -> None:
         source = inspect.getsource(mask_runtime)
@@ -226,29 +246,51 @@ class SeededMaskTrackingWorkflowTests(unittest.TestCase):
             ("invalid_config",),
         )
 
-    def test_xmem2_requires_polygon_seed_before_dispatch(self) -> None:
-        executed = False
+    def test_wrongly_typed_mask_config_fails_closed_before_probe(self) -> None:
+        config = CutieMaskConfig(window_size="invalid")  # type: ignore[arg-type]
 
-        def execute(*_args):
-            nonlocal executed
-            executed = True
-            return TrackingResult(())
-
-        with self.assertRaises(SeededTrackingPreflightError) as caught:
-            run_seeded_tracking(
-                _request("xmem2_offline", Xmem2MaskConfig()),
-                RunContext(
-                    image_reader=lambda _path: None,
-                    mask_tracker_preflight=lambda _method_id, _config: (),
-                    mask_tracker_executor=execute,
-                ),
+        with patch.object(
+            mask_runtime,
+            "import_module",
+            side_effect=AssertionError("invalid config must not probe"),
+        ):
+            report = default_seeded_tracking_catalog().preflight(
+                _request("cutie_offline", config)
             )
 
-        self.assertFalse(executed)
-        self.assertIn(
-            "polygon_seed_required",
-            {issue.code for issue in caught.exception.report.issues},
+        self.assertEqual(
+            tuple(issue.code for issue in report.issues),
+            ("invalid_config",),
         )
+
+    def test_polygon_mask_trackers_require_seed_before_dispatch(self) -> None:
+        for method_id, config in (
+            ("cutie_offline", CutieMaskConfig()),
+            ("xmem2_offline", Xmem2MaskConfig()),
+        ):
+            with self.subTest(method_id=method_id):
+                executed = False
+
+                def execute(*_args):
+                    nonlocal executed
+                    executed = True
+                    return TrackingResult(())
+
+                with self.assertRaises(SeededTrackingPreflightError) as caught:
+                    run_seeded_tracking(
+                        _request(method_id, config, with_polygon=False),
+                        RunContext(
+                            image_reader=lambda _path: None,
+                            mask_tracker_preflight=lambda _method_id, _config: (),
+                            mask_tracker_executor=execute,
+                        ),
+                    )
+
+                self.assertFalse(executed)
+                self.assertIn(
+                    "polygon_seed_required",
+                    {issue.code for issue in caught.exception.report.issues},
+                )
 
     def test_xmem2_retrack_requires_polygon_seed_before_dispatch(self) -> None:
         config = Xmem2MaskConfig()
