@@ -15,7 +15,6 @@ from trackleed.analysis.seeded_bbox_tracking_runtime import (
 from trackleed.core.data_models import SpotROI, Track
 from trackleed.gui.seeded_bbox_tracking_compatibility import (
     bbox_review_spec_for_source,
-    bbox_tracker_gui_spec,
     bbox_tracker_legacy_bindings,
     legacy_bbox_tracker_params,
     run_legacy_bbox_retracker,
@@ -52,23 +51,6 @@ def _request() -> SeededTrackingRequest:
 
 
 class SeededBboxTrackingCompatibilityTests(unittest.TestCase):
-    def test_gui_spec_exposes_subprocess_capability_from_definition(self) -> None:
-        functions = SimpleNamespace(
-            probe_ostrack_environment=lambda **_kwargs: None,
-            format_ostrack_environment_report=lambda _status: "",
-            track_spots_ostrack_offline=lambda *_args, **_kwargs: [],
-            retrack_single_spot_ostrack_offline=lambda track, *_args, **_kwargs: track,
-        )
-
-        with patch(
-            "trackleed.gui.seeded_tracking_legacy_models.import_module",
-            return_value=functions,
-        ):
-            spec = bbox_tracker_gui_spec("ostrack_offline")
-
-        self.assertTrue(spec.supports_subprocess)
-        self.assertEqual(spec.family, "bbox")
-
     def test_public_workflows_resolve_every_legacy_bbox_runner(self) -> None:
         calls: list[str] = []
         functions = {}

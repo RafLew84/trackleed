@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import inspect
 import sys
 import types
 import unittest
@@ -59,7 +58,6 @@ class ShimImportMixin:
         "trackleed.analysis.tracking_mask_backends",
         "trackleed.analysis.tracking_retrack",
         "trackleed.analysis.tracking",
-        "trackleed.gui.tracker_registry",
     )
 
     def import_shim_modules(self):
@@ -375,7 +373,6 @@ class ShimImportMixin:
             "mask_backends": importlib.import_module("trackleed.analysis.tracking_mask_backends"),
             "tracking_retrack": importlib.import_module("trackleed.analysis.tracking_retrack"),
             "tracking": importlib.import_module("trackleed.analysis.tracking"),
-            "tracker_registry": importlib.import_module("trackleed.gui.tracker_registry"),
         }
         self.addCleanup(self._cleanup_runtime_modules)
         return modules
@@ -421,7 +418,6 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.mask_backends = self.modules["mask_backends"]
         self.tracking_retrack = self.modules["tracking_retrack"]
         self.tracking = self.modules["tracking"]
-        self.tracker_registry = self.modules["tracker_registry"]
 
     def test_tracking_shim_reexports_family_tracking_entrypoints(self) -> None:
         self.assertTrue(callable(self.tracking.estimate_pattern_center_from_detections))
@@ -539,52 +535,3 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
                 "_legacy_retrack_single_spot_optical_flow",
             ],
         )
-
-    def test_registry_uses_family_tracking_modules_and_tracking_retrack_module(self) -> None:
-        allowed_tracking_modules = {
-            "trackleed.analysis.tracking_point_backends",
-            "trackleed.analysis.tracking_bbox_backends",
-            "trackleed.analysis.tracking_mask_backends",
-        }
-        retrack_exports = {
-            name: getattr(self.tracking_retrack, name)
-            for name in dir(self.tracking_retrack)
-            if name.startswith("retrack_single_spot_")
-        }
-        for spec in self.tracker_registry.iter_tracker_specs():
-            self.assertIn(spec.run_tracking.__module__, allowed_tracking_modules)
-            self.assertIn(spec.run_retrack.__module__, allowed_tracking_modules)
-            self.assertIn(spec.run_retrack.__name__, retrack_exports)
-            self.assertIs(spec.run_retrack, retrack_exports[spec.run_retrack.__name__])
-
-        self.assertIsNone(self.tracker_registry.get_tracker_spec("tomp_offline"))
-        self.assertIsNone(self.tracker_registry.get_tracker_spec("ostrack_offline"))
-        self.assertIs(
-            self.tracker_registry.require_tracker_spec("sam2_offline").run_retrack,
-            self.tracking_retrack.retrack_single_spot_sam2_offline,
-        )
-
-    def test_registry_and_family_entrypoint_signatures_match_contract(self) -> None:
-        expected_tracking_params = [
-            "all_files_map",
-            "sorted_frame_ids",
-            "reference_frame_id",
-            "params",
-            "progress_callback",
-            "cancel_event",
-        ]
-        expected_retrack_params = [
-            "track_to_update",
-            "start_frame_id",
-            "all_files_map",
-            "sorted_frame_ids",
-            "params",
-            "progress_callback",
-            "cancel_event",
-        ]
-
-        for spec in self.tracker_registry.iter_tracker_specs():
-            tracking_signature = inspect.signature(spec.run_tracking)
-            retrack_signature = inspect.signature(spec.run_retrack)
-            self.assertEqual(list(tracking_signature.parameters), expected_tracking_params)
-            self.assertEqual(list(retrack_signature.parameters), expected_retrack_params)

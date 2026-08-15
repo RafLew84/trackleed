@@ -178,9 +178,7 @@ class DetectionLinkingControllerTests(unittest.TestCase):
             )
         )
         self.assertEqual(self.host.review_calls, 1)
-        self.assertTrue(
-            controller.show_legacy_scenario("Detection Linking (Directional)")
-        )
+        self.assertFalse(hasattr(controller, "show_legacy_scenario"))
 
     def test_directional_cancel_does_not_replace_accepted_settings(self) -> None:
         _Dialog.result = QDialog.DialogCode.Rejected

@@ -13,7 +13,6 @@ from trackleed.gui.seeded_tracking_legacy_models import (
     legacy_files,
     legacy_spot,
     legacy_track,
-    legacy_tracker_gui_spec,
     neutral_result,
     plain_legacy_value,
     progress_callback,
@@ -40,18 +39,6 @@ class MaskTrackerLegacyBinding:
     retrack_runner_name: str
     review_argument_name: str
     source_names: tuple[str, ...]
-    settings_type_name: str
-    runtime_settings_type_name: str
-    collect_params_method_name: str
-    settings_attr_name: str
-    panel_group_attr: str
-    warning_label_attr: str
-    backend_mode_widget_attr: str
-    repo_path_attr: str
-    python_executable_attr: str
-    default_conda_env_name: str
-    checkpoint_selector_attr: str
-    variant_selector_attr: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,114 +49,30 @@ class MaskReviewSpec:
 
 _MASK_BINDINGS = (
     MaskTrackerLegacyBinding(
-        "cutie_offline",
-        "track_spots_cutie_offline",
-        "retrack_single_spot_cutie_offline",
-        "cutie_params",
-        ("cutie_offline",),
-        "CutieTrackingSettings",
-        "CutieRuntimeSettings",
-        "_collect_cutie_tracking_params",
-        "cutie_settings",
-        "cutie_group",
-        "cutie_warning_label",
-        "cutie_backend_mode_combo",
-        "cutie_repo_path_edit",
-        "cutie_python_executable_edit",
-        "cutie",
-        "cutie_checkpoint_combo",
+        "cutie_offline", "track_spots_cutie_offline",
+        "retrack_single_spot_cutie_offline", "cutie_params", ("cutie_offline",),
     ),
     MaskTrackerLegacyBinding(
-        "xmem2_offline",
-        "track_spots_xmem2_offline",
-        "retrack_single_spot_xmem2_offline",
-        "xmem2_params",
-        ("xmem2_offline",),
-        "XMem2TrackingSettings",
-        "XMem2RuntimeSettings",
-        "_collect_xmem2_tracking_params",
-        "xmem2_settings",
-        "xmem2_group",
-        "xmem2_warning_label",
-        "xmem2_backend_mode_combo",
-        "xmem2_repo_path_edit",
-        "xmem2_python_executable_edit",
-        "xmem2",
-        "xmem2_checkpoint_combo",
+        "xmem2_offline", "track_spots_xmem2_offline",
+        "retrack_single_spot_xmem2_offline", "xmem2_params", ("xmem2_offline",),
     ),
     MaskTrackerLegacyBinding(
-        "sam2_offline",
-        "track_spots_sam2_offline",
-        "retrack_single_spot_sam2_offline",
-        "sam2_params",
-        ("sam2_offline",),
-        "Sam2TrackingSettings",
-        "Sam2RuntimeSettings",
-        "_collect_sam2_tracking_params",
-        "sam2_settings",
-        "sam2_group",
-        "sam2_warning_label",
-        "sam2_backend_mode_combo",
-        "sam2_repo_path_edit",
-        "sam2_python_executable_edit",
-        "sam2",
-        "sam2_checkpoint_combo",
+        "sam2_offline", "track_spots_sam2_offline",
+        "retrack_single_spot_sam2_offline", "sam2_params", ("sam2_offline",),
     ),
     MaskTrackerLegacyBinding(
-        "dam4sam_offline",
-        "track_spots_dam4sam_offline",
-        "retrack_single_spot_dam4sam_offline",
-        "dam4sam_params",
+        "dam4sam_offline", "track_spots_dam4sam_offline",
+        "retrack_single_spot_dam4sam_offline", "dam4sam_params",
         ("dam4sam_offline",),
-        "Dam4SamTrackingSettings",
-        "Dam4SamRuntimeSettings",
-        "_collect_dam4sam_tracking_params",
-        "dam4sam_settings",
-        "dam4sam_group",
-        "dam4sam_warning_label",
-        "dam4sam_backend_mode_combo",
-        "dam4sam_repo_path_edit",
-        "dam4sam_python_executable_edit",
-        "dam4sam",
-        "dam4sam_checkpoint_combo",
-        "dam4sam_tracker_variant_combo",
     ),
     MaskTrackerLegacyBinding(
-        "samurai_offline",
-        "track_spots_samurai_offline",
-        "retrack_single_spot_samurai_offline",
-        "samurai_params",
+        "samurai_offline", "track_spots_samurai_offline",
+        "retrack_single_spot_samurai_offline", "samurai_params",
         ("samurai_offline",),
-        "SamuraiTrackingSettings",
-        "SamuraiRuntimeSettings",
-        "_collect_samurai_tracking_params",
-        "samurai_settings",
-        "samurai_group",
-        "samurai_warning_label",
-        "samurai_backend_mode_combo",
-        "samurai_repo_path_edit",
-        "samurai_python_executable_edit",
-        "samurai",
-        "samurai_checkpoint_combo",
-        "samurai_model_variant_combo",
     ),
     MaskTrackerLegacyBinding(
-        "deva_offline",
-        "track_spots_deva_offline",
-        "retrack_single_spot_deva_offline",
-        "deva_params",
-        ("deva_offline",),
-        "DevaTrackingSettings",
-        "DevaRuntimeSettings",
-        "_collect_deva_tracking_params",
-        "deva_settings",
-        "deva_group",
-        "deva_warning_label",
-        "deva_backend_mode_combo",
-        "deva_repo_path_edit",
-        "deva_python_executable_edit",
-        "deva",
-        "deva_checkpoint_combo",
+        "deva_offline", "track_spots_deva_offline",
+        "retrack_single_spot_deva_offline", "deva_params", ("deva_offline",),
     ),
 )
 
@@ -192,25 +95,6 @@ def mask_review_spec_for_source(source_name: str) -> MaskReviewSpec | None:
         if normalized in binding.source_names:
             return MaskReviewSpec(binding.method_id)
     return None
-
-
-def mask_tracker_gui_spec(method_id: str) -> Any:
-    """Expose legacy panel metadata without re-registering seeded methods."""
-    from trackleed.analysis.seeded_mask_tracking_runtime import (
-        mask_tracking_definition,
-    )
-
-    definition = mask_tracking_definition(method_id)
-    binding = mask_tracker_legacy_binding(method_id)
-    extra_fields = ("variant_selector_attr",) if binding.variant_selector_attr else ()
-    return legacy_tracker_gui_spec(
-        definition,
-        binding,
-        family="mask",
-        source_names=binding.source_names,
-        tracking_module_name="trackleed.analysis.tracking_mask_backends",
-        extra_binding_fields=extra_fields,
-    )
 
 
 def legacy_mask_tracker_params(

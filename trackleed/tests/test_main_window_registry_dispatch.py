@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import importlib
 import sys
-import tempfile
 import types
 import unittest
-from pathlib import Path
 from types import SimpleNamespace
 
 
@@ -34,14 +32,6 @@ class _Dummy:
         return False
 
 
-class _DummyCombo:
-    def __init__(self, text: str) -> None:
-        self._text = text
-
-    def currentText(self) -> str:
-        return self._text
-
-
 class _Qt:
     class ItemDataRole:
         UserRole = 0
@@ -51,7 +41,6 @@ class _Qt:
 
 
 class MainWindowImportMixin:
-    tracker_registry_module_name = "trackleed.gui.tracker_registry"
     main_window_module_name = "trackleed.gui.main_window"
 
     def import_main_window(self):
@@ -101,7 +90,6 @@ class MainWindowImportMixin:
             "skimage.morphology",
             "scipy",
             "scipy.ndimage",
-            self.tracker_registry_module_name,
             self.main_window_module_name,
         ):
             originals[module_name] = sys.modules.get(module_name)
@@ -156,7 +144,6 @@ class MainWindowImportMixin:
             "QListWidgetItem",
             "QApplication",
             "QDialog",
-            "QDockWidget",
             "QFormLayout",
             "QSpinBox",
             "QDoubleSpinBox",
@@ -511,11 +498,9 @@ class MainWindowImportMixin:
 
         self.addCleanup(self._restore_modules, originals)
 
-        tracker_registry = importlib.import_module(self.tracker_registry_module_name)
         main_window = importlib.import_module(self.main_window_module_name)
         self.addCleanup(sys.modules.pop, self.main_window_module_name, None)
-        self.addCleanup(sys.modules.pop, self.tracker_registry_module_name, None)
-        return tracker_registry, main_window
+        return None, main_window
 
     def _install_simple_stub(self, originals, module_name: str, **attrs) -> None:
         stub_module = types.ModuleType(module_name)
@@ -531,49 +516,9 @@ class MainWindowImportMixin:
                 sys.modules[module_name] = original_module
 
 
-class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
+class MainWindowWorkerHostTests(MainWindowImportMixin, unittest.TestCase):
     def setUp(self) -> None:
         self.registry, self.main_window = self.import_main_window()
-
-    def test_tracker_spec_lookup_uses_registry_for_selected_scenario(self) -> None:
-        fake = SimpleNamespace(tracking_scenario_combo=_DummyCombo("  Offline ToMP  "))
-        fake._tracker_spec_for_scenario = types.MethodType(
-            self.main_window.MainWindow._tracker_spec_for_scenario,
-            fake,
-        )
-        fake._current_tracker_spec = types.MethodType(
-            self.main_window.MainWindow._current_tracker_spec,
-            fake,
-        )
-
-        spec = fake._current_tracker_spec()
-
-        self.assertIsNone(spec)
-
-    def test_collect_tracking_dialog_backend_params_deduplicates_argument_names(self) -> None:
-        calls: list[str] = []
-
-        def _collect(tracker_spec):
-            calls.append(tracker_spec.tracker_id)
-            return {"tracker_id": tracker_spec.tracker_id}
-
-        fake = SimpleNamespace(_collect_tracker_params_for_spec=_collect)
-
-        params = self.main_window.MainWindow._collect_tracking_dialog_backend_params(fake)
-
-        expected_argument_names = []
-        seen_argument_names = set()
-        for spec in self.registry.iter_tracker_specs():
-            argument_name = str(spec.params_argument_name or "").strip()
-            if not argument_name or argument_name in seen_argument_names:
-                continue
-            seen_argument_names.add(argument_name)
-            expected_argument_names.append(argument_name)
-
-        self.assertEqual(set(params), set(expected_argument_names))
-        self.assertEqual(len(calls), len(expected_argument_names))
-        self.assertNotIn("tapir_offline", calls)
-        self.assertNotIn("tapir_online", calls)
 
     def test_clear_active_tracking_worker_only_clears_matching_objects(self) -> None:
         fake = SimpleNamespace(
@@ -667,9 +612,8 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.assertIn(("process_events", True), calls)
         self.assertIn(("interrupt", True), calls)
 
-    def test_launch_worker_with_progress_disables_qprogressdialog_autoclose(self) -> None:
-        calls: list[tuple[str, object]] = []
-
+    @staticmethod
+    def _worker_host_doubles(calls):
         class _Signal:
             def __init__(self) -> None:
                 self.callbacks = []
@@ -729,12 +673,18 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
             def run(self):
                 calls.append(("worker_run", True))
 
+        return _ProgressDialog, _Thread, _Worker
+
+    def test_launch_worker_with_progress_disables_qprogressdialog_autoclose(self) -> None:
+        calls: list[tuple[str, object]] = []
+        progress_dialog, thread_type, worker_type = self._worker_host_doubles(calls)
+
         original_progress_dialog = self.main_window.QProgressDialog
         original_qthread = self.main_window.QThread
         self.addCleanup(setattr, self.main_window, "QProgressDialog", original_progress_dialog)
         self.addCleanup(setattr, self.main_window, "QThread", original_qthread)
-        self.main_window.QProgressDialog = _ProgressDialog
-        self.main_window.QThread = _Thread
+        self.main_window.QProgressDialog = progress_dialog
+        self.main_window.QThread = thread_type
 
         fake = SimpleNamespace(
             thread=None,
@@ -753,7 +703,7 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
             fake,
         )
 
-        worker = _Worker()
+        worker = worker_type()
         cancel_event = SimpleNamespace(set=lambda: calls.append(("cancel_set", True)))
 
         self.main_window.MainWindow._launch_worker_with_progress(
@@ -769,78 +719,3 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self.assertIs(fake.worker, worker)
         self.assertIsNotNone(fake.thread)
         self.assertIsNotNone(fake._tracking_progress_dialog)
-
-    def test_default_subprocess_python_executables_are_filled_from_conda_envs(self) -> None:
-        self.assertEqual(self.main_window.CutieTrackingSettings().backend_mode, "subprocess")
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            conda_root = Path(temp_dir)
-            sam2_python = conda_root / "envs" / "sam2" / "python.exe"
-            dam4sam_python = conda_root / "envs" / "dam4sam" / "python.exe"
-            samurai_python = conda_root / "envs" / "samurai" / "python.exe"
-            sam2_python.parent.mkdir(parents=True)
-            dam4sam_python.parent.mkdir(parents=True)
-            samurai_python.parent.mkdir(parents=True)
-            sam2_python.touch()
-            dam4sam_python.touch()
-            samurai_python.touch()
-
-            fake = SimpleNamespace(
-                sam2_settings=self.main_window.Sam2TrackingSettings(
-                    python_executable="C:/custom/sam2/python.exe"
-                ),
-                dam4sam_settings=self.main_window.Dam4SamTrackingSettings(),
-                samurai_settings=self.main_window.SamuraiTrackingSettings(),
-            )
-            fake._tracker_settings_for_spec = types.MethodType(
-                self.main_window.MainWindow._tracker_settings_for_spec,
-                fake,
-            )
-            fake._candidate_conda_roots = lambda: [conda_root]
-            fake._default_conda_python_executable = types.MethodType(
-                self.main_window.MainWindow._default_conda_python_executable,
-                fake,
-            )
-
-            self.main_window.MainWindow._apply_default_subprocess_python_executables(fake)
-
-            self.assertEqual(
-                fake.sam2_settings.python_executable,
-                "C:/custom/sam2/python.exe",
-            )
-            self.assertEqual(
-                fake.dam4sam_settings.python_executable,
-                str(dam4sam_python.resolve()),
-            )
-            self.assertEqual(
-                fake.samurai_settings.python_executable,
-                str(samurai_python.resolve()),
-            )
-
-    def test_ostrack_variant_options_and_presets_cover_supported_configs(self) -> None:
-        supported = set(self.main_window.SUPPORTED_OSTRACK_CONFIG_NAMES)
-
-        self.assertEqual(set(self.main_window.OSTRACK_MODEL_VARIANT_LABELS), supported)
-        self.assertEqual(set(self.main_window.OSTRACK_VARIANT_PRESETS), supported)
-        self.assertIn("dim_low_contrast", self.main_window.OSTRACK_SCENARIO_PRESETS)
-        self.assertIn("crowded_spots", self.main_window.OSTRACK_SCENARIO_PRESETS)
-        self.assertIn("low_vram", self.main_window.OSTRACK_SCENARIO_PRESETS)
-
-        for variant_key, preset in self.main_window.OSTRACK_VARIANT_PRESETS.items():
-            with self.subTest(variant_key=variant_key):
-                self.assertIn(
-                    preset["representative_point_mode"],
-                    {"bbox_center", "peak_in_bbox", "gaussian_in_bbox"},
-                )
-                self.assertGreaterEqual(int(preset["window_size"]), 2)
-                self.assertGreaterEqual(int(preset["window_overlap"]), 0)
-                self.assertFalse(bool(preset["use_presence_score_gating"]))
-
-    def test_samurai_variant_options_cover_supported_configs(self) -> None:
-        supported = set(self.main_window.SAMURAI_MODEL_VARIANTS)
-
-        self.assertEqual(set(self.main_window.SAMURAI_MODEL_VARIANT_LABELS), supported)
-        self.assertEqual(
-            self.main_window.SamuraiTrackingSettings().model_variant,
-            self.main_window.DEFAULT_SAMURAI_MODEL_VARIANT,
-        )

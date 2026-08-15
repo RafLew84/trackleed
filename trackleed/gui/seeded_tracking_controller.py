@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from threading import Event
@@ -13,15 +13,6 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
-from trackleed.analysis.seeded_bbox_tracking_runtime import (
-    bbox_tracking_definitions,
-)
-from trackleed.analysis.seeded_point_tracking_runtime import (
-    point_tracking_definitions,
-)
-from trackleed.analysis.seeded_mask_tracking_runtime import (
-    mask_tracking_definitions,
-)
 from trackleed.gui.seeded_bbox_tracking_compatibility import (
     bbox_tracker_legacy_binding,
     legacy_bbox_tracker_params,
@@ -152,7 +143,13 @@ class SeededTrackingController:
         bbox_configs = dict(settings.bbox_configs)
         mask_configs = dict(settings.mask_configs)
         params: dict[str, object] = {
-            "seeded_tracking_configs": point_configs | bbox_configs | mask_configs,
+            "seeded_tracking_configs": {
+                "optical_flow": settings.optical_flow,
+                "optical_flow_skip_anchor": settings.skip_anchor,
+            }
+            | point_configs
+            | bbox_configs
+            | mask_configs,
         }
         point_config = point_configs.get(settings.selected_method_id)
         if point_config is not None:
@@ -181,46 +178,6 @@ class SeededTrackingController:
 
     def show_dialog(self) -> None:
         self._show_dialog(self.settings.dialog_settings)
-
-    def show_legacy_scenario(self, scenario: str) -> bool:
-        """Route legacy seeded selectors through the canonical dialog."""
-        method_id = {
-            "Optical Flow Tracking": "optical_flow",
-            "Optical Flow (skip, anchor)": "optical_flow_skip_anchor",
-        }.get(scenario)
-        if method_id is None:
-            method_id = next(
-                (
-                    item.method_id
-                    for item in point_tracking_definitions()
-                    if item.display_name == scenario
-                ),
-                None,
-            )
-        if method_id is None:
-            method_id = next(
-                (
-                    item.method_id
-                    for item in mask_tracking_definitions()
-                    if item.display_name == scenario
-                ),
-                None,
-            )
-        if method_id is None:
-            method_id = next(
-                (
-                    item.method_id
-                    for item in bbox_tracking_definitions()
-                    if item.display_name == scenario
-                ),
-                None,
-            )
-        if method_id is None:
-            return False
-        self._show_dialog(
-            replace(self.settings.dialog_settings, selected_method_id=method_id)
-        )
-        return True
 
     def _show_dialog(self, settings: SeededTrackingDialogSettings) -> None:
         if self._host._tracking_worker_is_active():

@@ -13,7 +13,6 @@ from trackleed.gui.seeded_tracking_legacy_models import (
     legacy_files,
     legacy_spot,
     legacy_track,
-    legacy_tracker_gui_spec,
     neutral_result,
     plain_legacy_value,
     progress_callback,
@@ -36,18 +35,7 @@ class PointTrackerLegacyBinding:
     retrack_runner_name: str
     models_param_name: str
     review_argument_name: str
-    settings_type_name: str
-    runtime_settings_type_name: str
-    collect_params_method_name: str
-    settings_attr_name: str
-    panel_group_attr: str
-    warning_label_attr: str
-    checkpoint_selector_attr: str
     repo_param_names: tuple[str, ...] = ()
-    backend_mode_widget_attr: str | None = None
-    repo_path_attr: str | None = None
-    python_executable_attr: str | None = None
-    default_conda_env_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,138 +46,42 @@ class PointReviewSpec:
 
 _POINT_BINDINGS = (
     PointTrackerLegacyBinding(
-        "tapir_offline",
-        "track_spots_tapir_offline",
-        "retrack_single_spot_tapir_offline",
-        "tapir_models_dir",
-        "tapir_params",
-        "TapirTrackingSettings",
-        "TapirRuntimeSettings",
-        "_collect_tapir_tracking_params",
-        "tapir_settings",
-        "tapir_group",
-        "tapir_warning_label",
-        "tapir_checkpoint_combo",
+        "tapir_offline", "track_spots_tapir_offline",
+        "retrack_single_spot_tapir_offline", "tapir_models_dir", "tapir_params",
     ),
     PointTrackerLegacyBinding(
-        "tapir_online",
-        "track_spots_tapir_online",
-        "retrack_single_spot_tapir_online",
-        "tapir_models_dir",
-        "tapir_params",
-        "TapirTrackingSettings",
-        "TapirOnlineRuntimeSettings",
-        "_collect_tapir_tracking_params",
-        "tapir_settings",
-        "tapir_group",
-        "tapir_warning_label",
-        "tapir_checkpoint_combo",
+        "tapir_online", "track_spots_tapir_online",
+        "retrack_single_spot_tapir_online", "tapir_models_dir", "tapir_params",
     ),
     PointTrackerLegacyBinding(
-        "locotrack_offline",
-        "track_spots_locotrack_offline",
-        "retrack_single_spot_locotrack_offline",
-        "locotrack_models_dir",
-        "locotrack_params",
-        "LocotrackTrackingSettings",
-        "LocotrackRuntimeSettings",
-        "_collect_locotrack_tracking_params",
-        "locotrack_settings",
-        "locotrack_group",
-        "locotrack_warning_label",
-        "locotrack_checkpoint_combo",
-        ("locotrack_repo_path",),
-        "locotrack_backend_mode_combo",
-        "locotrack_repo_path_edit",
-        "locotrack_python_executable_edit",
-        "locotrack-pytorch",
+        "locotrack_offline", "track_spots_locotrack_offline",
+        "retrack_single_spot_locotrack_offline", "locotrack_models_dir",
+        "locotrack_params", ("locotrack_repo_path",),
     ),
     PointTrackerLegacyBinding(
-        "cotracker3_offline",
-        "track_spots_cotracker3_offline",
-        "retrack_single_spot_cotracker3_offline",
-        "cotracker3_models_dir",
-        "cotracker_params",
-        "CotrackerTrackingSettings",
-        "CotrackerRuntimeSettings",
-        "_collect_cotracker_tracking_params",
-        "cotracker_settings",
-        "cotracker_group",
-        "cotracker_warning_label",
-        "cotracker_checkpoint_combo",
-        ("cotracker3_repo_path", "cotracker_repo_path"),
+        "cotracker3_offline", "track_spots_cotracker3_offline",
+        "retrack_single_spot_cotracker3_offline", "cotracker3_models_dir",
+        "cotracker_params", ("cotracker3_repo_path", "cotracker_repo_path"),
     ),
     PointTrackerLegacyBinding(
-        "tapnext_offline",
-        "track_spots_tapnext_offline",
-        "retrack_single_spot_tapnext_offline",
-        "tapnext_models_dir",
-        "tapnext_params",
-        "TapnextTrackingSettings",
-        "TapnextRuntimeSettings",
-        "_collect_tapnext_tracking_params",
-        "tapnext_settings",
-        "tapnext_group",
-        "tapnext_warning_label",
-        "tapnext_checkpoint_combo",
-        ("tapnext_repo_path",),
+        "tapnext_offline", "track_spots_tapnext_offline",
+        "retrack_single_spot_tapnext_offline", "tapnext_models_dir",
+        "tapnext_params", ("tapnext_repo_path",),
     ),
     PointTrackerLegacyBinding(
-        "trackonr_offline",
-        "track_spots_trackonr_offline",
-        "retrack_single_spot_trackonr_offline",
-        "trackonr_models_dir",
-        "trackonr_params",
-        "TrackonrTrackingSettings",
-        "TrackonrRuntimeSettings",
-        "_collect_trackonr_tracking_params",
-        "trackonr_settings",
-        "trackonr_group",
-        "trackonr_warning_label",
-        "trackonr_checkpoint_combo",
-        ("trackonr_repo_path", "track_on_repo_path"),
-        "trackonr_backend_mode_combo",
-        "trackonr_repo_path_edit",
-        "trackonr_python_executable_edit",
-        "trackonr2",
+        "trackonr_offline", "track_spots_trackonr_offline",
+        "retrack_single_spot_trackonr_offline", "trackonr_models_dir",
+        "trackonr_params", ("trackonr_repo_path", "track_on_repo_path"),
     ),
     PointTrackerLegacyBinding(
-        "pipspp_offline",
-        "track_spots_pipspp_offline",
-        "retrack_single_spot_pipspp_offline",
-        "pipspp_models_dir",
-        "pipspp_params",
-        "PipsppTrackingSettings",
-        "PipsppRuntimeSettings",
-        "_collect_pipspp_tracking_params",
-        "pipspp_settings",
-        "pipspp_group",
-        "pipspp_warning_label",
-        "pipspp_checkpoint_combo",
-        ("pipspp_repo_path",),
-        "pipspp_backend_mode_combo",
-        "pipspp_repo_path_edit",
-        "pipspp_python_executable_edit",
-        "pipspp",
+        "pipspp_offline", "track_spots_pipspp_offline",
+        "retrack_single_spot_pipspp_offline", "pipspp_models_dir",
+        "pipspp_params", ("pipspp_repo_path",),
     ),
     PointTrackerLegacyBinding(
-        "mftiq_offline",
-        "track_spots_mftiq_offline",
-        "retrack_single_spot_mftiq_offline",
-        "mftiq_models_dir",
-        "mftiq_params",
-        "MftiqTrackingSettings",
-        "MftiqRuntimeSettings",
-        "_collect_mftiq_tracking_params",
-        "mftiq_settings",
-        "mftiq_group",
-        "mftiq_warning_label",
-        "mftiq_checkpoint_combo",
-        ("mftiq_repo_path",),
-        "mftiq_backend_mode_combo",
-        "mftiq_repo_path_edit",
-        "mftiq_python_executable_edit",
-        "mftiq",
+        "mftiq_offline", "track_spots_mftiq_offline",
+        "retrack_single_spot_mftiq_offline", "mftiq_models_dir",
+        "mftiq_params", ("mftiq_repo_path",),
     ),
 )
 
@@ -213,23 +105,6 @@ def point_review_spec_for_source(source_name: str) -> PointReviewSpec | None:
     except KeyError:
         return None
     return PointReviewSpec(binding.method_id)
-
-
-def point_tracker_gui_spec(method_id: str) -> Any:
-    """Expose legacy settings-panel metadata without re-registering point methods."""
-    from trackleed.analysis.seeded_point_tracking_runtime import (
-        point_tracking_definition,
-    )
-
-    definition = point_tracking_definition(method_id)
-    binding = point_tracker_legacy_binding(method_id)
-    return legacy_tracker_gui_spec(
-        definition,
-        binding,
-        family="point",
-        source_names=(definition.method_id,),
-        tracking_module_name="trackleed.analysis.tracking_point_backends",
-    )
 
 
 def legacy_point_tracker_params(

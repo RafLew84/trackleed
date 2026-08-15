@@ -13,7 +13,6 @@ from trackleed.gui.seeded_tracking_legacy_models import (
     legacy_files,
     legacy_spot,
     legacy_track,
-    legacy_tracker_gui_spec,
     neutral_result,
     plain_legacy_value,
     progress_callback,
@@ -36,18 +35,6 @@ class BboxTrackerLegacyBinding:
     retrack_runner_name: str
     review_argument_name: str
     source_names: tuple[str, ...]
-    settings_type_name: str
-    runtime_settings_type_name: str
-    collect_params_method_name: str
-    settings_attr_name: str
-    panel_group_attr: str
-    warning_label_attr: str
-    backend_mode_widget_attr: str
-    repo_path_attr: str
-    python_executable_attr: str
-    default_conda_env_name: str
-    checkpoint_selector_attr: str
-    variant_selector_attr: str
 
 
 @dataclass(frozen=True)
@@ -58,42 +45,14 @@ class BboxReviewSpec:
 
 _BBOX_BINDINGS = (
     BboxTrackerLegacyBinding(
-        "tomp_offline",
-        "track_spots_tomp_offline",
-        "retrack_single_spot_tomp_offline",
-        "tomp_params",
+        "tomp_offline", "track_spots_tomp_offline",
+        "retrack_single_spot_tomp_offline", "tomp_params",
         ("tomp_offline", "tamos_offline"),
-        "TompTrackingSettings",
-        "TompRuntimeSettings",
-        "_collect_tomp_tracking_params",
-        "tomp_settings",
-        "tomp_group",
-        "tomp_warning_label",
-        "tomp_backend_mode_combo",
-        "tomp_repo_path_edit",
-        "tomp_python_executable_edit",
-        "tomp",
-        "tomp_checkpoint_combo",
-        "tomp_model_variant_combo",
     ),
     BboxTrackerLegacyBinding(
-        "ostrack_offline",
-        "track_spots_ostrack_offline",
-        "retrack_single_spot_ostrack_offline",
-        "ostrack_params",
+        "ostrack_offline", "track_spots_ostrack_offline",
+        "retrack_single_spot_ostrack_offline", "ostrack_params",
         ("ostrack_offline",),
-        "OstrackTrackingSettings",
-        "OstrackRuntimeSettings",
-        "_collect_ostrack_tracking_params",
-        "ostrack_settings",
-        "ostrack_group",
-        "ostrack_warning_label",
-        "ostrack_backend_mode_combo",
-        "ostrack_repo_path_edit",
-        "ostrack_python_executable_edit",
-        "ostrack",
-        "ostrack_checkpoint_combo",
-        "ostrack_model_variant_combo",
     ),
 )
 
@@ -116,24 +75,6 @@ def bbox_review_spec_for_source(source_name: str) -> BboxReviewSpec | None:
         if normalized in binding.source_names:
             return BboxReviewSpec(binding.method_id)
     return None
-
-
-def bbox_tracker_gui_spec(method_id: str) -> Any:
-    """Expose legacy panel metadata without re-registering seeded methods."""
-    from trackleed.analysis.seeded_bbox_tracking_runtime import (
-        bbox_tracking_definition,
-    )
-
-    definition = bbox_tracking_definition(method_id)
-    binding = bbox_tracker_legacy_binding(method_id)
-    return legacy_tracker_gui_spec(
-        definition,
-        binding,
-        family="bbox",
-        source_names=binding.source_names,
-        tracking_module_name="trackleed.analysis.tracking_bbox_backends",
-        extra_binding_fields=("variant_selector_attr",),
-    )
 
 
 def legacy_bbox_tracker_params(

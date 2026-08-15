@@ -20,20 +20,18 @@ from trackleed.gui.seeded_mask_tracking_compatibility import (
 from trackleed.gui.seeded_point_tracking_compatibility import (
     point_review_spec_for_source,
 )
-from trackleed.gui.tracker_registry import get_tracker_spec_for_source
 from trackleed.io.image_reader import load_tiff
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.workflows.seeded_tracking import default_seeded_tracking_catalog
 
 
 def review_spec_for_source(source_name: str) -> Any | None:
-    """Resolve migrated families before the remaining legacy registry entries."""
+    """Resolve a catalog-backed review specification for a track source."""
     normalized = str(source_name).strip().lower()
     return (
         point_review_spec_for_source(normalized)
         or bbox_review_spec_for_source(normalized)
         or mask_review_spec_for_source(normalized)
-        or get_tracker_spec_for_source(normalized)
     )
 
 

@@ -127,15 +127,6 @@ class DetectionLinkingController:
         self.settings.accept(dialog.decision.settings)
         self._start(dialog.decision)
 
-    def show_legacy_scenario(self, scenario: str) -> bool:
-        if scenario == "Detection Linking (Hungarian)":
-            self.show_hungarian_dialog()
-            return True
-        if scenario == "Detection Linking (Directional)":
-            self.show_directional_dialog()
-            return True
-        return False
-
     def _start(self, decision: DetectionLinkingDialogDecision) -> None:
         if self._host._tracking_worker_is_active():
             self._notifications.information(
@@ -199,10 +190,6 @@ class DetectionLinkingController:
         self._host.show_tracking_visualizer()
 
     def _refresh_host(self, decision: DetectionLinkingDialogDecision) -> None:
-        for name in ("visualize_button", "analysis_button", "positions_analysis_button"):
-            button = getattr(self._host, name, None)
-            if button is not None:
-                button.setEnabled(True)
         current_item = self._host.file_list_widget.currentItem()
         if current_item is None:
             return

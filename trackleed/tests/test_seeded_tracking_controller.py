@@ -175,34 +175,8 @@ class SeededTrackingControllerTests(unittest.TestCase):
         self.assertEqual(self.files[1].spots[0].center_x, 18.0)
         self.assertEqual(self.host.review_calls, 1)
 
-    def test_legacy_optical_choice_only_becomes_memory_after_accept(self) -> None:
-        _Dialog.result = QDialog.DialogCode.Rejected
-
-        handled = self.controller.show_legacy_scenario("Optical Flow (skip, anchor)")
-
-        self.assertTrue(handled)
-        shown_settings = _Dialog.last_kwargs["settings"]
-        self.assertEqual(shown_settings.selected_method_id, "optical_flow_skip_anchor")
-        self.assertEqual(
-            self.controller.settings.dialog_settings.selected_method_id,
-            "optical_flow",
-        )
-        self.assertTrue(self.controller.show_legacy_scenario("Offline TAPIR"))
-        self.assertEqual(
-            _Dialog.last_kwargs["settings"].selected_method_id,
-            "tapir_offline",
-        )
-        self.assertTrue(self.controller.show_legacy_scenario("Offline OSTrack"))
-        self.assertEqual(
-            _Dialog.last_kwargs["settings"].selected_method_id,
-            "ostrack_offline",
-        )
-        self.assertTrue(self.controller.show_legacy_scenario("Offline Cutie"))
-        self.assertEqual(
-            _Dialog.last_kwargs["settings"].selected_method_id,
-            "cutie_offline",
-        )
-        self.assertFalse(self.controller.show_legacy_scenario("Unknown tracker"))
+    def test_controller_has_no_legacy_scenario_dispatch(self) -> None:
+        self.assertFalse(hasattr(self.controller, "show_legacy_scenario"))
 
     def test_review_defaults_come_from_last_accepted_method_config(self) -> None:
         self.controller.show_dialog()
@@ -235,6 +209,10 @@ class SeededTrackingControllerTests(unittest.TestCase):
         backend_params = self.controller.review_backend_params
 
         self.assertEqual(defaults.roi_size, 26)
+        self.assertIs(
+            backend_params["seeded_tracking_configs"]["optical_flow"],
+            settings.optical_flow,
+        )
         self.assertIs(
             backend_params["seeded_tracking_configs"]["tapir_offline"],
             settings.point_config("tapir_offline"),

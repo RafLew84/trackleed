@@ -5,9 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import fields
 from enum import Enum
-from importlib import import_module
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Never
 
 import numpy as np
@@ -25,58 +23,7 @@ from trackleed.logic.workflows.seeded_tracking import (
     TrackObservation,
 )
 
-_GUI_BINDING_FIELDS = (
-    "settings_type_name",
-    "runtime_settings_type_name",
-    "collect_params_method_name",
-    "settings_attr_name",
-    "panel_group_attr",
-    "warning_label_attr",
-    "backend_mode_widget_attr",
-    "repo_path_attr",
-    "python_executable_attr",
-    "default_conda_env_name",
-    "checkpoint_selector_attr",
-)
 _SPOT_MODEL_FIELDS = frozenset(field.name for field in fields(SpotROI))
-
-
-def legacy_tracker_gui_spec(
-    definition: Any,
-    binding: Any,
-    *,
-    family: str,
-    source_names: tuple[str, ...],
-    tracking_module_name: str,
-    extra_binding_fields: tuple[str, ...] = (),
-) -> Any:
-    """Build transitional panel metadata from one canonical definition."""
-    backend = import_module(definition.backend_module)
-    formatter_name = definition.probe_name.replace(
-        "probe_",
-        "format_",
-    ).replace("_environment", "_environment_report")
-    tracking_module = import_module(tracking_module_name)
-    retrack_module = import_module("trackleed.analysis.tracking_retrack")
-    return SimpleNamespace(
-        tracker_id=definition.method_id,
-        display_name=definition.display_name,
-        scenario_name=definition.display_name,
-        family=family,
-        source_names=source_names,
-        has_visualizer_retrack=True,
-        params_argument_name=binding.review_argument_name,
-        supports_direct=True,
-        supports_subprocess=definition.supports_subprocess,
-        probe_environment=getattr(backend, definition.probe_name),
-        format_environment_report=getattr(backend, formatter_name),
-        run_tracking=getattr(tracking_module, binding.tracking_runner_name),
-        run_retrack=getattr(retrack_module, binding.retrack_runner_name),
-        **{
-            field: getattr(binding, field)
-            for field in _GUI_BINDING_FIELDS + extra_binding_fields
-        },
-    )
 
 
 def plain_legacy_value(value: Any) -> Any:
