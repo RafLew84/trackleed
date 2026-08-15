@@ -133,7 +133,6 @@ class AnalysisResultsDialog(QDialog):
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(main_splitter)
 
-        # Create the main UI panels using helper methods.
         config_panel = self._create_config_panel()
         visualization_panel = self._create_visualization_panel()
         
@@ -141,32 +140,25 @@ class AnalysisResultsDialog(QDialog):
         main_splitter.addWidget(visualization_panel)
         main_splitter.setSizes([400, 2000]) # Initial proportions for the split panes
 
-        # Create and add the bottom panel with action buttons (Perform, Export, OK).
         action_panel = self._create_action_panel()
         main_layout.addLayout(action_panel)
         
-        # Fill the configuration table with data from the tracks.
         self.populate_config_table()
-
-        # --- Signal and Slot Connections ---
-        # This section connects all user interactions to the appropriate handler methods
-        # to ensure the UI updates dynamically.
-
-        # General selection changes (main table, frame slider) trigger a full refresh.
+        self.export_button.setEnabled(
+            any(getattr(track, "analysis_results", {}) for track in self.tracks)
+        )
+        self.perform_analysis_button.setEnabled(self.analysis_state.can_recompute)
         self.config_table.itemSelectionChanged.connect(self.on_selection_changed)
         self.frame_slider.valueChanged.connect(self.on_selection_changed)
 
-        # Changes in the "Dependency Plots" tab also trigger a refresh.
         self.y_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
         self.x_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
 
-        # Changes in the "Position Plot" tab trigger its specific update logic.
         self.track_checklist.itemChanged.connect(self.on_position_plot_config_changed)
         self.show_center_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
         self.show_trace_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
         self.show_center_trace_checkbox.stateChanged.connect(self.on_position_plot_config_changed)
 
-        # Changes in the "Comparative Plots" tab trigger a full refresh.
         self.compare_track_checklist.itemChanged.connect(self.on_selection_changed)
         self.compare_y_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
         self.compare_x_axis_combo.currentIndexChanged.connect(self.on_selection_changed)
@@ -188,7 +180,7 @@ class AnalysisResultsDialog(QDialog):
     def _on_save_session(self):
         """Trigger saving the current session from inside the dialog."""
         if self.save_session_callback:
-            self.save_session_callback(self.tracks)
+            self.save_session_callback(self.tracks, self.analysis_state)
         else:
             QMessageBox.information(self, "Save Session", "Save session is not available in this context.")
 
@@ -1707,6 +1699,13 @@ class AnalysisResultsDialog(QDialog):
     
     def start_analysis_task(self):
         """Launch a fit-aware atomic analysis job from the current controls."""
+        if not self.analysis_state.can_recompute:
+            QMessageBox.warning(
+                self, "Analysis Source Unavailable",
+                "Saved results can be inspected and exported, but source images "
+                "must be restored before running Track Analysis.",
+            )
+            return
         tracks_to_analyze = self.tracks
         analysis_config = {}
         for row in range(self.config_table.rowCount()):
@@ -1767,6 +1766,7 @@ class AnalysisResultsDialog(QDialog):
         cache_arguments = {"previous_geometry_result": self.analysis_state.geometry_result}
         if not geometry_only:
             cache_arguments["previous_fit_set"] = self.analysis_state.fit_set
+            cache_arguments["analysis_state"] = self.analysis_state
         worker = GenericWorker(
             analysis_runner,
             *analysis_args,

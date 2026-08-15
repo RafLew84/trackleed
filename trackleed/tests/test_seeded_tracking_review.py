@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QDialogButtonBox
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui import main_window
+from trackleed.gui import session_controller
 from trackleed.logic.active_analysis_state import ActiveAnalysisState
 
 
@@ -65,7 +66,7 @@ def _host(frame: LeedFile) -> SimpleNamespace:
         ),
         _collect_tracking_dialog_backend_params=lambda: {},
         file_list_widget=SimpleNamespace(currentItem=lambda: None),
-        save_session_dialog=lambda _tracks: None,
+        session_controller=SimpleNamespace(save_dialog=lambda _tracks: None),
         _active_analysis_state=ActiveAnalysisState(),
     )
 
@@ -134,18 +135,20 @@ class SeededTrackingReviewTests(unittest.TestCase):
             _collect_spot_settings=lambda: {},
             _analysis_circle_to_dict=lambda: None,
             _analysis_ellipse_to_dict=lambda: None,
+            _active_analysis_state=ActiveAnalysisState(),
         )
-        original_save = main_window.save_session_to_file
-        main_window.save_session_to_file = lambda *args: saved.update(tracks=args[4])
+        original_save = session_controller.save_session_to_file
+        session_controller.save_session_to_file = lambda _path, contents: saved.update(
+            tracks=contents.tracks
+        )
         self.addCleanup(
             setattr,
-            main_window,
+            session_controller,
             "save_session_to_file",
             original_save,
         )
 
-        main_window.MainWindow._save_session(
-            host,
+        session_controller.SessionController(host).save(
             Path("ignored.lts.json"),
             edited_tracks,
         )

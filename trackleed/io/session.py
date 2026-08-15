@@ -1,14 +1,37 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, List
 
 from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.io.analysis_session import (
+    decode_analysis_state,
+    encode_analysis_state,
+)
+from trackleed.logic.active_analysis_state import (
+    ActiveAnalysisState,
+    AnalysisResultStatus,
+    AnalysisSourceState,
+    AnalysisSourceStatus,
+)
 
-SESSION_VERSION = 1
+SESSION_VERSION = 2
+
+
+@dataclass(frozen=True)
+class SessionContents:
+    files: List[LeedFile]
+    background: LeedFile | None
+    masks: List[QRect]
+    tracks: List[Track]
+    spot_settings: Dict
+    analysis_circle: Dict | None
+    analysis_ellipse: Dict | None
+    analysis_state: ActiveAnalysisState
 
 
 def _rect_to_dict(rect: QRect) -> Dict:
@@ -118,8 +141,6 @@ def _analysis_result_to_dict(result: Dict | None) -> Dict | None:
         return None
     cleaned = {}
     for key, value in result.items():
-        if key == "covariance_matrix":
-            continue
         cleaned[key] = _clean_value(value)
     return cleaned
 
@@ -170,35 +191,45 @@ def _leedfile_from_dict(data: Dict) -> LeedFile:
 
 
 def serialize_session(
-    files: Iterable[LeedFile],
-    masks: List[QRect],
-    background: LeedFile | None,
-    tracks: Iterable[Track],
-    spot_settings: Dict | None = None,
-    analysis_circle: Dict | None = None,
-    analysis_ellipse: Dict | None = None,
+    contents: SessionContents,
+    session_path: Path | None = None,
 ) -> Dict:
+    state = _analysis_state_for_save(contents.analysis_state, session_path)
     return {
         "version": SESSION_VERSION,
-        "data_files": [_leedfile_to_dict(f) for f in files],
-        "background_file": _leedfile_to_dict(background) if background else None,
-        "metadata_masks": [_rect_to_dict(r) for r in masks],
-        "tracks": [_track_to_dict(t) for t in tracks],
-        "spot_settings": spot_settings or {},
-        "analysis_circle": analysis_circle,
-        "analysis_ellipse": analysis_ellipse,
+        "data_files": [_leedfile_to_dict(item) for item in contents.files],
+        "background_file": (
+            _leedfile_to_dict(contents.background) if contents.background else None
+        ),
+        "metadata_masks": [_rect_to_dict(rect) for rect in contents.masks],
+        "tracks": [_track_to_dict(track) for track in contents.tracks],
+        "spot_settings": contents.spot_settings,
+        "analysis_circle": contents.analysis_circle,
+        "analysis_ellipse": contents.analysis_ellipse,
+        "analysis_state": encode_analysis_state(state),
     }
 
 
-def deserialize_session(data: Dict) -> Tuple[
-    List[LeedFile],
-    LeedFile | None,
-    List[QRect],
-    List[Track],
-    Dict,
-    Dict | None,
-    Dict | None,
-]:
+def _analysis_state_for_save(
+    state: ActiveAnalysisState,
+    session_path: Path | None,
+) -> ActiveAnalysisState:
+    if session_path is None:
+        return state
+    sources = []
+    for source in state.sources:
+        try:
+            relative_path = source.path.relative_to(session_path.parent)
+        except ValueError:
+            relative_path = Path(source.path.name)
+        sources.append(replace(source, relative_path=relative_path))
+    return replace(state, sources=tuple(sources))
+
+
+def deserialize_session(
+    data: Dict,
+    session_path: Path | None = None,
+) -> SessionContents:
     data_files_raw = data.get("data_files", [])
     if data_files_raw is None:
         data_files_raw = []
@@ -224,33 +255,154 @@ def deserialize_session(data: Dict) -> Tuple[
     spot_settings = data.get("spot_settings", {})
     analysis_circle = data.get("analysis_circle")
     analysis_ellipse = data.get("analysis_ellipse")
-    return files, background, masks, tracks, spot_settings, analysis_circle, analysis_ellipse
+    version = data.get("version", 1)
+    if version == 1:
+        analysis_state = _legacy_analysis_state(
+            files,
+            background,
+            tracks,
+            session_path,
+        )
+    elif version == SESSION_VERSION:
+        analysis_state = _analysis_state_after_load(
+            decode_analysis_state(data.get("analysis_state")),
+            files,
+            background,
+            session_path,
+        )
+    else:
+        raise ValueError(f"Invalid session: unsupported version {version}")
+    return SessionContents(
+        files,
+        background,
+        masks,
+        tracks,
+        spot_settings,
+        analysis_circle,
+        analysis_ellipse,
+        analysis_state,
+    )
+
+
+def _analysis_state_after_load(
+    state: ActiveAnalysisState,
+    files: List[LeedFile],
+    background: LeedFile | None,
+    session_path: Path | None,
+) -> ActiveAnalysisState:
+    sources = tuple(
+        _source_after_load(source, files, background, session_path)
+        for source in state.sources
+    )
+    return ActiveAnalysisState(
+        state.fit_set,
+        state.geometry_result,
+        state.fit_set is not None,
+        state.result_status,
+        sources,
+    )
+
+
+def _source_after_load(
+    source: AnalysisSourceState,
+    files: List[LeedFile],
+    background: LeedFile | None,
+    session_path: Path | None,
+) -> AnalysisSourceState:
+    file = _source_file(source, files, background)
+    candidates = [source.path]
+    if session_path is not None:
+        candidates.extend(
+            (session_path.parent / source.relative_path, session_path.parent / source.path.name)
+        )
+    candidate = next((item for item in candidates if item.is_file()), None)
+    if file is not None and candidate is not None:
+        file.filepath = candidate
+    status = (
+        AnalysisSourceStatus.UNVERIFIED
+        if candidate is not None and source.pixel_sha256 is not None
+        else (
+            AnalysisSourceStatus.AVAILABLE
+            if candidate is not None
+            else AnalysisSourceStatus.SOURCE_UNAVAILABLE
+        )
+    )
+    return replace(source, path=candidate or source.path, status=status)
+
+
+def _source_file(
+    source: AnalysisSourceState,
+    files: List[LeedFile],
+    background: LeedFile | None,
+) -> LeedFile | None:
+    if source.is_background:
+        return background
+    return next((item for item in files if item.id == source.frame_id), None)
+
+
+def _legacy_analysis_state(
+    files: List[LeedFile],
+    background: LeedFile | None,
+    tracks: List[Track],
+    session_path: Path | None,
+) -> ActiveAnalysisState:
+    has_results = any(
+        bool(getattr(track, "analysis_results", {})) for track in tracks
+    ) or any(
+        file.pattern_center is not None
+        or getattr(file, "post_analysis_results", None) is not None
+        for file in files
+    )
+    if not has_results:
+        return ActiveAnalysisState()
+    sources = tuple(
+        _legacy_source_state(file, session_path, is_background=False)
+        for file in files
+    )
+    if background is not None:
+        sources += (_legacy_source_state(background, session_path, True),)
+    return ActiveAnalysisState(
+        result_status=AnalysisResultStatus.LEGACY_UNVERIFIED,
+        sources=sources,
+    )
+
+
+def _legacy_source_state(
+    file: LeedFile,
+    session_path: Path | None,
+    is_background: bool,
+) -> AnalysisSourceState:
+    relative_path = Path(file.filename)
+    if session_path is not None:
+        try:
+            relative_path = file.filepath.relative_to(session_path.parent)
+        except ValueError:
+            pass
+    status = (
+        AnalysisSourceStatus.AVAILABLE
+        if file.filepath.is_file()
+        else AnalysisSourceStatus.SOURCE_UNAVAILABLE
+    )
+    return AnalysisSourceState(
+        frame_id=None if is_background else file.id,
+        path=file.filepath,
+        relative_path=relative_path,
+        pixel_sha256=None,
+        status=status,
+        is_background=is_background,
+    )
 
 
 def save_session_to_file(
     path: Path,
-    files: Iterable[LeedFile],
-    masks: List[QRect],
-    background: LeedFile | None,
-    tracks: Iterable[Track],
-    spot_settings: Dict | None = None,
-    analysis_circle: Dict | None = None,
-    analysis_ellipse: Dict | None = None,
+    contents: SessionContents,
 ) -> None:
-    payload = serialize_session(files, masks, background, tracks, spot_settings, analysis_circle, analysis_ellipse)
+    payload = serialize_session(contents, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def load_session_from_file(path: Path) -> Tuple[
-    List[LeedFile],
-    LeedFile | None,
-    List[QRect],
-    List[Track],
-    Dict,
-    Dict | None,
-    Dict | None,
-]:
+def load_session_from_file(path: Path) -> SessionContents:
     raw = path.read_text(encoding="utf-8")
     data = json.loads(raw)
-    return deserialize_session(data)
+    return deserialize_session(data, path)

@@ -10,7 +10,7 @@ from trackleed.logic.workflows.track_geometry import GeometryResult
 
 class ActiveAnalysisStateTests(unittest.TestCase):
     def test_transitions_keep_selective_invalidation_consistent(self) -> None:
-        fit_set = cast(FitSet, object())
+        fit_set = FitSet(())
         geometry = cast(GeometryResult, object())
         published = ActiveAnalysisState().publish(fit_set, geometry)
 

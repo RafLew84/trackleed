@@ -13,6 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PyQt6.QtWidgets import QApplication, QDockWidget, QToolBar
 
 from trackleed.gui.main_window import MainWindow
+from trackleed.io.session import SessionContents
 from trackleed.logic.active_analysis_state import ActiveAnalysisState
 
 
@@ -202,16 +203,16 @@ class MainWindowCutoverTests(unittest.TestCase):
         )
         with (
             patch(
-                "trackleed.gui.main_window.load_session_from_file",
-                return_value=([], None, [], [], {}, None, None),
+                "trackleed.gui.session_controller.load_session_from_file",
+                return_value=SessionContents(
+                    [], None, [], [], {}, None, None, ActiveAnalysisState()
+                ),
             ),
             patch.object(self.window, "populate_file_list"),
             patch("trackleed.gui.main_window.QMessageBox.information"),
         ):
-            self.window._load_session(Path("replacement.lts.json"))
-        self.assertEqual(self.window._active_analysis_state.fit_set, "stale-fit")
-        self.assertIsNone(self.window._active_analysis_state.geometry_result)
-        self.assertTrue(self.window._active_analysis_state.requires_fit_validation)
+            self.window.session_controller.load(Path("replacement.lts.json"))
+        self.assertEqual(self.window._active_analysis_state, ActiveAnalysisState())
 
         self.window._active_analysis_state = ActiveAnalysisState(
             "stale-fit", "stale-geometry"

@@ -126,7 +126,7 @@ def _save_visualization_images(tracks: List[Track], all_files_map: Dict[int, Lee
         if i % 5 != 0: continue # Process only every 5th frame
 
         image_data = load_tiff(all_files_map[frame_id].filepath)
-        if image_data is None: continue
+        if image_data is None or image_data.size == 0: continue
 
         # Convert to a drawable RGB image
         if image_data.ndim == 2: # Grayscale to RGB

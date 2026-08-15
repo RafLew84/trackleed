@@ -16,6 +16,12 @@ from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.legacy_track_geometry import (
     manual_ellipse_from_mapping,
 )
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
+from trackleed.logic.workflows.session_sources import (
+    SourceVerificationCancelled,
+    SourceVerificationContext,
+    verify_analysis_sources,
+)
 from trackleed.logic.workflows.track_analysis import (
     FitCancelled,
     FitObservationInput,
@@ -49,6 +55,10 @@ class AnalysisPublication:
     files: tuple[tuple[int, LeedFile], ...]
     fit_set: FitSet
     geometry_result: GeometryResult
+
+
+class AnalysisSourceVerificationError(RuntimeError):
+    """Raised before fitting when persisted source pixels cannot be verified."""
 
 
 def _event_is_set(cancel_event: Optional[Event]) -> bool:
@@ -87,10 +97,17 @@ def run_full_analysis_publication(
     cancel_event: Optional[Event] = None,
     previous_fit_set: FitSet | None = None,
     previous_geometry_result: GeometryResult | None = None,
+    analysis_state: ActiveAnalysisState | None = None,
 ) -> AnalysisPublication | None:
     """Run the cold workflow and publish only after every stage finishes."""
     is_cancelled = partial(_event_is_set, cancel_event)
     try:
+        previous_fit_set, previous_geometry_result = _validated_previous_analysis(
+            analysis_state,
+            previous_fit_set,
+            previous_geometry_result,
+            is_cancelled,
+        )
         request = _build_fit_request(
             tracks_to_analyze,
             analysis_config,
@@ -135,7 +152,7 @@ def run_full_analysis_publication(
         progress_callback(100)
         if is_cancelled():
             raise FitCancelled("Track Analysis was cancelled before publication")
-    except (FitCancelled, GeometryCancelled):
+    except (FitCancelled, GeometryCancelled, SourceVerificationCancelled):
         print("[Analysis] Analysis cancelled; previous publication retained.")
         return None
     print("[Analysis] Analysis completed successfully.")
@@ -145,6 +162,26 @@ def run_full_analysis_publication(
         fit_set,
         geometry,
     )
+
+
+def _validated_previous_analysis(
+    state: ActiveAnalysisState | None,
+    fit_set: FitSet | None,
+    geometry_result: GeometryResult | None,
+    is_cancelled: Callable[[], bool],
+) -> tuple[FitSet | None, GeometryResult | None]:
+    if state is None:
+        return fit_set, geometry_result
+    verification = verify_analysis_sources(
+        state,
+        SourceVerificationContext(load_tiff, is_cancelled=is_cancelled),
+    )
+    if verification.failures:
+        reasons = ", ".join(item.reason.value for item in verification.failures)
+        raise AnalysisSourceVerificationError(
+            f"Analysis source verification failed: {reasons}"
+        )
+    return verification.state.fit_set, verification.state.geometry_result
 
 
 def run_geometry_analysis_publication(

@@ -35,10 +35,13 @@ from trackleed.gui.tracking_publisher import (
     publish_edited_tracks,
 )
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
+from trackleed.gui.session_controller import SessionController
 from trackleed.gui.detection_linking_controller import DetectionLinkingController
 from trackleed.gui.tracking_menu import TrackingMenuActions, add_tracking_menu
 from trackleed.logic.workflows.spot_detection import DetectionRequest
-from trackleed.io.session import load_session_from_file, save_session_to_file
+from trackleed.logic.session_analysis_projection import (
+    retain_compatible_analysis_fits,
+)
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
@@ -75,9 +78,8 @@ class MainWindow(QMainWindow):
             roi_size=self.spot_detection_binding.roi_size,
         )
         self.detection_linking_controller = DetectionLinkingController(self)
+        self.session_controller = SessionController(self)
         self._bbox_transparency_pct = 0.0
-        self.quick_save_dir = Path("save")
-        self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
         self._init_ui()
         self._create_toolbar()
         print("MainWindow has been created and initialized.")
@@ -101,23 +103,29 @@ class MainWindow(QMainWindow):
         file_menu.addAction(import_gif_action)
 
         load_session_action = QAction("Load Session...", self)
-        load_session_action.triggered.connect(self.load_session_dialog)
+        load_session_action.triggered.connect(self.session_controller.load_dialog)
         file_menu.addAction(load_session_action)
 
+        relocate_sources_action = QAction("Relocate Analysis Sources...", self)
+        relocate_sources_action.triggered.connect(
+            self.session_controller.relocate_sources_dialog
+        )
+        file_menu.addAction(relocate_sources_action)
+
         save_session_action = QAction("Save Session...", self)
-        save_session_action.triggered.connect(self.save_session_dialog)
+        save_session_action.triggered.connect(self.session_controller.save_dialog)
         file_menu.addAction(save_session_action)
 
         quick_save_action = QAction("Quick Save", self)
         quick_save_action.setShortcut("Ctrl+S")
         quick_save_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        quick_save_action.triggered.connect(self.quick_save_session)
+        quick_save_action.triggered.connect(self.session_controller.quick_save)
         file_menu.addAction(quick_save_action)
 
         quick_load_action = QAction("Quick Load", self)
         quick_load_action.setShortcut("Ctrl+L")
         quick_load_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        quick_load_action.triggered.connect(self.quick_load_session)
+        quick_load_action.triggered.connect(self.session_controller.quick_load)
         file_menu.addAction(quick_load_action)
 
         load_bg_action = QAction("&Load Background File...", self)
@@ -1484,7 +1492,7 @@ class MainWindow(QMainWindow):
             self.background_file,
             analysis_ellipse=normalized_ellipse,
             analysis_state=self._active_analysis_state, parent=self,
-            save_session_callback=lambda tracks: self.save_session_dialog(tracks),
+            save_session_callback=self.session_controller.save_dialog,
         )
         result = dialog.exec()
         self._active_analysis_state = dialog.analysis_state
@@ -1642,7 +1650,10 @@ class MainWindow(QMainWindow):
             return
         print("Tracking task finished successfully.")
         self.tracking_results = tracks
-        self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
+        self._active_analysis_state = retain_compatible_analysis_fits(
+            self._active_analysis_state,
+            tracks,
+        )
         self._apply_tracks_to_files(tracks)
         current_item = self.file_list_widget.currentItem()
         if current_item:
@@ -1678,7 +1689,7 @@ class MainWindow(QMainWindow):
             lk_max_level=review_defaults.lk_max_level,
             **tracking_dialog_params,
             parent=self,
-            save_session_callback=lambda tracks: self.save_session_dialog(tracks),
+            save_session_callback=self.session_controller.save_dialog,
         )
 
         result = dialog.exec()
@@ -1693,7 +1704,10 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError) as exc:
                 QMessageBox.critical(self, "Tracking Error", str(exc))
                 return
-            self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
+            self._active_analysis_state = retain_compatible_analysis_fits(
+                self._active_analysis_state,
+                self.tracking_results,
+            )
             print(f"Tracking data accepted. Final number of tracks: {len(self.tracking_results)}")
             QMessageBox.information(self, "Tracks Confirmed", "Corrected tracks have been saved.")
             current_item = self.file_list_widget.currentItem()
@@ -1725,121 +1739,6 @@ class MainWindow(QMainWindow):
         current_item = self.file_list_widget.currentItem()
         if current_item:
             self.display_selected_image(current_item, None)
-
-    def save_session_dialog(self, tracks_override: List[Track] | None = None):
-        """Open dialog to save current session (data, masks, spots, tracks)."""
-        if not self.data_files:
-            QMessageBox.information(self, "No Data", "Load a directory or session before saving.")
-            return
-        path_str, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Session",
-            "",
-            "LEEDTrack Session (*.lts.json);;JSON (*.json);;All Files (*)",
-        )
-        if not path_str:
-            return
-        try:
-            self._save_session(Path(path_str), tracks_override)
-            QMessageBox.information(self, "Session Saved", f"Session saved to:\n{path_str}")
-        except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save session:\n{e}")
-
-    def quick_save_session(self):
-        """Quick-save session to save/quick_save.lts.json."""
-        if not self.data_files:
-            QMessageBox.information(self, "No Data", "Load a directory or session before quick-saving.")
-            return
-        try:
-            self.quick_save_dir.mkdir(parents=True, exist_ok=True)
-            self._save_session(self.quick_save_path)
-            QMessageBox.information(self, "Quick Save", f"Session saved to:\n{self.quick_save_path}")
-        except Exception as exc:
-            QMessageBox.critical(self, "Quick Save Error", f"Failed to quick-save session:\n{exc}")
-
-    def _save_session(self, path: Path, tracks_override: List[Track] | None = None):
-        tracks_list: List[Track] = []
-        if isinstance(tracks_override, list):
-            tracks_list = clone_tracks_for_review(tracks_override)
-        elif self.tracking_results:
-            tracks_list = self.tracking_results
-        spot_settings = self._collect_spot_settings()
-        save_session_to_file(
-            path,
-            self.data_files,
-            self.metadata_mask_list,
-            self.background_file,
-            tracks_list,
-            spot_settings,
-            self._analysis_circle_to_dict(),
-            self._analysis_ellipse_to_dict(),
-        )
-
-    def load_session_dialog(self):
-        """Open dialog to load a session from disk."""
-        path_str, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load Session",
-            "",
-            "LEEDTrack Session (*.lts.json *.json);;All Files (*)",
-        )
-        if not path_str:
-            return
-        try:
-            self._load_session(Path(path_str))
-        except Exception as e:
-            QMessageBox.critical(self, "Load Error", f"Failed to load session:\n{e}")
-
-    def quick_load_session(self):
-        """Quick-load session from save/quick_save.lts.json."""
-        if not self.quick_save_path.exists():
-            QMessageBox.information(self, "Quick Load", "No quick-save file found.")
-            return
-        try:
-            self._load_session(self.quick_save_path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Quick Load Error", f"Failed to quick-load session:\n{exc}")
-
-    def _load_session(self, path: Path):
-        files, background, masks, tracks, spot_settings, analysis_circle, analysis_ellipse = load_session_from_file(path)
-        self._active_analysis_state = self._active_analysis_state.invalidate_source()
-        missing_files = [str(f.filepath) for f in files if not f.filepath.exists()]
-        if missing_files:
-            QMessageBox.warning(
-                self,
-                "Missing Files",
-                "Some image files could not be found and were skipped:\n" + "\n".join(missing_files),
-            )
-        valid_files = [f for f in files if f.filepath.exists()]
-        self.data_files = valid_files
-
-        if background and background.filepath.exists():
-            self.background_file = background
-        else:
-            self.background_file = None
-
-        self.metadata_mask_list = masks
-        self.analysis_circle = self._analysis_circle_from_dict(analysis_circle)
-        self.analysis_ellipse = self._analysis_ellipse_from_dict(analysis_ellipse)
-
-        valid_ids = {f.id for f in self.data_files if f.id is not None}
-        filtered_tracks: List[Track] = []
-        for tr in tracks:
-            filtered_map = {fid: spot for fid, spot in tr.spots_by_image_id.items() if fid in valid_ids}
-            if filtered_map:
-                filtered_tracks.append(Track(track_id=tr.track_id, spots_by_image_id=filtered_map))
-        self.tracking_results = filtered_tracks
-        if filtered_tracks:
-            self._apply_tracks_to_files(filtered_tracks)
-
-        self.populate_file_list()
-        if spot_settings:
-            self._apply_spot_settings(spot_settings)
-
-        if self.file_list_widget.count() > 0:
-            self.file_list_widget.setCurrentRow(0)
-            self.display_selected_image(self.file_list_widget.item(0), None)
-        QMessageBox.information(self, "Session Loaded", f"Loaded session from:\n{path}")
 
     def export_spots_to_yolo(self):
         """Export current spots to YOLO label files for all loaded frames."""
