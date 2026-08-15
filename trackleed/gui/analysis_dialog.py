@@ -1684,7 +1684,7 @@ class AnalysisResultsDialog(QDialog):
         all analysis data to a CSV file and shows a confirmation or error message.
         """
         # Guard clause: Check if analysis has been performed and results exist.
-        if not self.tracks or not hasattr(self.tracks[0], 'analysis_results'):
+        if not any(getattr(track, "analysis_results", {}) for track in self.tracks):
             QMessageBox.warning(self, "No Data", "No analysis data available to export. Please run the analysis first.")
             return
 
