@@ -28,6 +28,8 @@ _PATH_FIELDS = {
 }
 
 _HIDDEN_FIELDS = {"subtract_background"}
+_OPTIONAL_INTEGER_FIELDS = {"inference_size", "mem_every"}
+_OPTIONAL_FLOAT_FIELDS = {"max_mask_area"}
 
 class TrackerConfigPage(QWidget):
     def __init__(self, config: Any) -> None:
@@ -56,6 +58,8 @@ class TrackerConfigPage(QWidget):
 
 def _field_widget(name: str, value: Any) -> QWidget:
     if name in _PATH_FIELDS:
+        return QLineEdit("" if value is None else str(value))
+    if name in _OPTIONAL_INTEGER_FIELDS | _OPTIONAL_FLOAT_FIELDS:
         return QLineEdit("" if value is None else str(value))
     if isinstance(value, Enum):
         combo = QComboBox()
@@ -105,6 +109,10 @@ def _widget_value(name: str, widget: QWidget, original: Any) -> Any:
         return _tuple_value(text, integer_items=name == "inference_resolution")
     if original is None and name == "inference_resolution":
         return _optional_resolution(text)
+    if original is None and name in _OPTIONAL_INTEGER_FIELDS:
+        return int(text) if text else None
+    if original is None and name in _OPTIONAL_FLOAT_FIELDS:
+        return float(text) if text else None
     return text
 
 

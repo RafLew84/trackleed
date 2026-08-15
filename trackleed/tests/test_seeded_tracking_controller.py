@@ -14,6 +14,7 @@ from trackleed.gui.seeded_tracking_controller import SeededTrackingController
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialogDecision
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
+from trackleed.logic.workflows.mask_tracking import CutieMaskConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     SeededTrackingFrame,
@@ -196,6 +197,11 @@ class SeededTrackingControllerTests(unittest.TestCase):
             _Dialog.last_kwargs["settings"].selected_method_id,
             "ostrack_offline",
         )
+        self.assertTrue(self.controller.show_legacy_scenario("Offline Cutie"))
+        self.assertEqual(
+            _Dialog.last_kwargs["settings"].selected_method_id,
+            "cutie_offline",
+        )
         self.assertFalse(self.controller.show_legacy_scenario("Unknown tracker"))
 
     def test_review_defaults_come_from_last_accepted_method_config(self) -> None:
@@ -261,6 +267,30 @@ class SeededTrackingControllerTests(unittest.TestCase):
         self.assertEqual(
             backend_params["ostrack_params"]["ostrack_models_dir"],
             "bbox-models",
+        )
+
+    def test_mask_review_uses_the_last_accepted_mask_configuration(self) -> None:
+        settings = SeededTrackingDialogSettings.defaults(roi_size=18)
+        settings = settings.with_mask_config(
+            "cutie_offline",
+            CutieMaskConfig(models_dir=Path("mask-models"), roi_size=30),
+        )
+        self.controller.settings.accept(
+            replace(settings, selected_method_id="cutie_offline")
+        )
+
+        defaults = self.controller.review_defaults
+        backend_params = self.controller.review_backend_params
+
+        self.assertEqual(defaults.roi_size, 30)
+        self.assertIs(
+            backend_params["seeded_tracking_configs"]["cutie_offline"],
+            settings.mask_config("cutie_offline"),
+        )
+        self.assertEqual(backend_params["cutie_params"]["roi_size"], 30)
+        self.assertEqual(
+            backend_params["cutie_params"]["cutie_models_dir"],
+            "mask-models",
         )
 
 

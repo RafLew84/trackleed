@@ -16,6 +16,9 @@ from trackleed.analysis.seeded_bbox_tracking_runtime import (
 from trackleed.analysis.seeded_point_tracking_runtime import (
     default_point_tracker_configs,
 )
+from trackleed.analysis.seeded_mask_tracking_runtime import (
+    default_mask_tracker_configs,
+)
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.seeded_bbox_tracking_compatibility import (
     run_legacy_bbox_retracker,
@@ -25,7 +28,12 @@ from trackleed.gui.seeded_point_tracking_compatibility import (
     run_legacy_point_retracker,
     run_legacy_point_tracker,
 )
+from trackleed.gui.seeded_mask_tracking_compatibility import (
+    run_legacy_mask_retracker,
+    run_legacy_mask_tracker,
+)
 from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
+from trackleed.logic.workflows.mask_tracking import MaskTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
@@ -59,6 +67,7 @@ class SeededTrackingDialogSettings:
     skip_anchor: SkipAnchorOpticalFlowConfig
     point_configs: tuple[tuple[str, PointTrackerConfig], ...]
     bbox_configs: tuple[tuple[str, BoundingBoxTrackerConfig], ...]
+    mask_configs: tuple[tuple[str, MaskTrackerConfig], ...]
 
     @classmethod
     def defaults(cls, *, roi_size: int = 32) -> SeededTrackingDialogSettings:
@@ -68,6 +77,7 @@ class SeededTrackingDialogSettings:
             skip_anchor=SkipAnchorOpticalFlowConfig(roi_size=roi_size),
             point_configs=default_point_tracker_configs(roi_size=roi_size),
             bbox_configs=default_bbox_tracker_configs(roi_size=roi_size),
+            mask_configs=default_mask_tracker_configs(roi_size=roi_size),
         )
 
     def point_config(self, method_id: str) -> PointTrackerConfig:
@@ -103,6 +113,23 @@ class SeededTrackingDialogSettings:
             raise KeyError(method_id)
         configs[method_id] = config
         return replace(self, bbox_configs=tuple(configs.items()))
+
+    def mask_config(self, method_id: str) -> MaskTrackerConfig:
+        for configured_method_id, config in self.mask_configs:
+            if configured_method_id == method_id:
+                return config
+        raise KeyError(method_id)
+
+    def with_mask_config(
+        self,
+        method_id: str,
+        config: MaskTrackerConfig,
+    ) -> SeededTrackingDialogSettings:
+        configs = dict(self.mask_configs)
+        if method_id not in configs:
+            raise KeyError(method_id)
+        configs[method_id] = config
+        return replace(self, mask_configs=tuple(configs.items()))
 
 
 class SeededTrackingSettingsBinding:
@@ -153,6 +180,9 @@ def build_seeded_tracking_request(
                 ),
                 intensity=float(spot.intensity),
                 source=str(spot.source),
+                polygon_seed_points=tuple(
+                    (float(x), float(y)) for x, y in spot.polygon_seed_points
+                ),
             )
             for spot in reference_file.spots
         ),
@@ -160,11 +190,7 @@ def build_seeded_tracking_request(
         background_path=(
             background_file.filepath if background_file is not None else None
         ),
-        seed_representation=(
-            SeedRepresentation.BOUNDING_BOX
-            if isinstance(config, BoundingBoxTrackerConfig)
-            else SeedRepresentation.POINT
-        ),
+        seed_representation=_seed_representation(config),
     )
 
 
@@ -174,7 +200,7 @@ def build_seeded_retrack_request(
     track: Track,
     start_frame_id: int,
     method_id: str,
-    config: PointTrackerConfig | BoundingBoxTrackerConfig,
+    config: PointTrackerConfig | BoundingBoxTrackerConfig | MaskTrackerConfig,
 ) -> SeededRetrackRequest:
     """Snapshot one mutable review track into a neutral re-track request."""
     frame_ids = _stable_frame_ids(files)
@@ -197,11 +223,7 @@ def build_seeded_retrack_request(
         ),
         start_frame_id=start_frame_id,
         config=config,
-        seed_representation=(
-            SeedRepresentation.BOUNDING_BOX
-            if isinstance(config, BoundingBoxTrackerConfig)
-            else SeedRepresentation.POINT
-        ),
+        seed_representation=_seed_representation(config),
     )
 
 
@@ -258,6 +280,7 @@ def run_seeded_tracking_job(
         is_cancelled=cancel_signal.is_set,
         point_tracker_executor=run_legacy_point_tracker,
         bbox_tracker_executor=run_legacy_bbox_tracker,
+        mask_tracker_executor=run_legacy_mask_tracker,
     )
     try:
         return run_seeded_tracking(request, context)
@@ -281,6 +304,7 @@ def run_seeded_retrack_job(
         is_cancelled=cancel_signal.is_set,
         point_tracker_retrack_executor=run_legacy_point_retracker,
         bbox_tracker_retrack_executor=run_legacy_bbox_retracker,
+        mask_tracker_retrack_executor=run_legacy_mask_retracker,
     )
     try:
         result = run_seeded_retrack(request, context)
@@ -313,6 +337,7 @@ def _observation_from_spot(frame_id: int, spot: SpotROI) -> TrackObservation:
         float(spot.center_y),
         float(spot.intensity),
         str(spot.source),
+        tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
     )
 
 
@@ -328,6 +353,7 @@ def _spot_from_observation(
         center_y=observation.center_y,
         intensity=observation.intensity,
         source=observation.source,
+        polygon_seed_points=list(observation.polygon_seed_points),
     )
 
 
@@ -368,3 +394,11 @@ def _stable_frame_ids(files: Sequence[LeedFile]) -> tuple[int, ...]:
     if len(set(stable_ids)) != len(stable_ids):
         raise ValueError("Seeded tracking requires unique frame IDs")
     return stable_ids
+
+
+def _seed_representation(config: SeededTrackingConfig) -> SeedRepresentation:
+    if isinstance(config, BoundingBoxTrackerConfig):
+        return SeedRepresentation.BOUNDING_BOX
+    if isinstance(config, MaskTrackerConfig):
+        return SeedRepresentation.MASK
+    return SeedRepresentation.POINT

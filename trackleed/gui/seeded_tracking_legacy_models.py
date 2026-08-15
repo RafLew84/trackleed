@@ -79,7 +79,7 @@ def plain_legacy_value(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, Path):
-        return str(value)
+        return value.as_posix()
     if isinstance(value, tuple):
         return tuple(plain_legacy_value(item) for item in value)
     return value
@@ -125,6 +125,7 @@ def legacy_track(identity: TrackedSpotIdentity) -> Track:
                 item.center_y,
                 item.intensity,
                 item.source,
+                item.polygon_seed_points,
             )
             for item in identity.observations
         },
@@ -138,6 +139,7 @@ def legacy_spot(
     center_y: float,
     intensity: float,
     source: str,
+    polygon_seed_points: Iterable[tuple[float, float]] = (),
 ) -> SpotROI:
     return SpotROI(
         spot_id,
@@ -146,6 +148,7 @@ def legacy_spot(
         center_y,
         intensity,
         source,
+        [(float(x), float(y)) for x, y in polygon_seed_points],
     )
 
 
@@ -181,6 +184,7 @@ def neutral_observation(frame_id: int, spot: SpotROI) -> TrackObservation:
         float(spot.center_y),
         float(spot.intensity),
         str(spot.source),
+        tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
     )
 
 

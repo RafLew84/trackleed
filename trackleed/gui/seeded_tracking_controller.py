@@ -19,6 +19,9 @@ from trackleed.analysis.seeded_bbox_tracking_runtime import (
 from trackleed.analysis.seeded_point_tracking_runtime import (
     point_tracking_definitions,
 )
+from trackleed.analysis.seeded_mask_tracking_runtime import (
+    mask_tracking_definitions,
+)
 from trackleed.gui.seeded_bbox_tracking_compatibility import (
     bbox_tracker_legacy_binding,
     legacy_bbox_tracker_params,
@@ -26,6 +29,10 @@ from trackleed.gui.seeded_bbox_tracking_compatibility import (
 from trackleed.gui.seeded_point_tracking_compatibility import (
     legacy_point_tracker_params,
     point_tracker_legacy_binding,
+)
+from trackleed.gui.seeded_mask_tracking_compatibility import (
+    legacy_mask_tracker_params,
+    mask_tracker_legacy_binding,
 )
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
@@ -119,7 +126,9 @@ class SeededTrackingController:
     def review_defaults(self) -> SeededTrackingReviewDefaults:
         settings = self.settings.dialog_settings
         point_configs = dict(settings.point_configs)
-        tracker_configs = point_configs | dict(settings.bbox_configs)
+        tracker_configs = (
+            point_configs | dict(settings.bbox_configs) | dict(settings.mask_configs)
+        )
         if settings.selected_method_id in tracker_configs:
             roi_size = tracker_configs[settings.selected_method_id].roi_size
             config = settings.optical_flow
@@ -141,8 +150,9 @@ class SeededTrackingController:
         settings = self.settings.dialog_settings
         point_configs = dict(settings.point_configs)
         bbox_configs = dict(settings.bbox_configs)
+        mask_configs = dict(settings.mask_configs)
         params: dict[str, object] = {
-            "seeded_tracking_configs": point_configs | bbox_configs,
+            "seeded_tracking_configs": point_configs | bbox_configs | mask_configs,
         }
         point_config = point_configs.get(settings.selected_method_id)
         if point_config is not None:
@@ -158,6 +168,14 @@ class SeededTrackingController:
             params[bbox_binding.review_argument_name] = legacy_bbox_tracker_params(
                 settings.selected_method_id,
                 bbox_config,
+            )
+            return params
+        mask_config = mask_configs.get(settings.selected_method_id)
+        if mask_config is not None:
+            mask_binding = mask_tracker_legacy_binding(settings.selected_method_id)
+            params[mask_binding.review_argument_name] = legacy_mask_tracker_params(
+                settings.selected_method_id,
+                mask_config,
             )
         return params
 
@@ -175,6 +193,15 @@ class SeededTrackingController:
                 (
                     item.method_id
                     for item in point_tracking_definitions()
+                    if item.display_name == scenario
+                ),
+                None,
+            )
+        if method_id is None:
+            method_id = next(
+                (
+                    item.method_id
+                    for item in mask_tracking_definitions()
                     if item.display_name == scenario
                 ),
                 None,

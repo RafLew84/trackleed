@@ -28,6 +28,7 @@ from trackleed.gui.seeded_tracking_adapter import (
     build_seeded_tracking_request,
 )
 from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
+from trackleed.logic.workflows.mask_tracking import MaskTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
@@ -262,6 +263,8 @@ class SeededTrackingDialog(QDialog):
                     settings = settings.with_point_config(method_id, config)
                 elif isinstance(config, BoundingBoxTrackerConfig):
                     settings = settings.with_bbox_config(method_id, config)
+                elif isinstance(config, MaskTrackerConfig):
+                    settings = settings.with_mask_config(method_id, config)
                 else:
                     raise TypeError("Unsupported seeded-tracker configuration")
             request = build_seeded_tracking_request(
@@ -295,14 +298,17 @@ class SeededTrackingDialog(QDialog):
 def _tracker_config(
     settings: SeededTrackingDialogSettings,
     method_id: str,
-) -> PointTrackerConfig | BoundingBoxTrackerConfig | None:
+) -> PointTrackerConfig | BoundingBoxTrackerConfig | MaskTrackerConfig | None:
     try:
         return settings.point_config(method_id)
     except KeyError:
         try:
             return settings.bbox_config(method_id)
         except KeyError:
-            return None
+            try:
+                return settings.mask_config(method_id)
+            except KeyError:
+                return None
 
 
 def _integer_spinbox(

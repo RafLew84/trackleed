@@ -18,6 +18,7 @@ from trackleed.gui.seeded_tracking_adapter import (
 )
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
+from trackleed.logic.workflows.mask_tracking import CutieMaskConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     SeedRepresentation,
@@ -106,6 +107,40 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         self.assertIs(
             retrack_request.seed_representation,
             SeedRepresentation.BOUNDING_BOX,
+        )
+
+    def test_mask_requests_snapshot_polygon_seed_representation(self) -> None:
+        seed = _spot(7, 20, 21)
+        seed.polygon_seed_points = [(16.0, 17.0), (24.0, 17.0), (20.0, 25.0)]
+        reference = _leed_file(1, [seed])
+        second = _leed_file(2, [])
+        config = CutieMaskConfig(roi_size=24)
+
+        tracking_request = build_seeded_tracking_request(
+            files=(reference, second),
+            reference_file=reference,
+            method_id="cutie_offline",
+            config=config,
+            background_file=None,
+        )
+        retrack_request = build_seeded_retrack_request(
+            files=(reference, second),
+            track=Track(7, {1: seed}),
+            start_frame_id=1,
+            method_id="cutie_offline",
+            config=config,
+        )
+        seed.polygon_seed_points[0] = (999.0, 999.0)
+
+        self.assertIs(tracking_request.seed_representation, SeedRepresentation.MASK)
+        self.assertIs(retrack_request.seed_representation, SeedRepresentation.MASK)
+        self.assertEqual(
+            tracking_request.seeds[0].polygon_seed_points[0],
+            (16.0, 17.0),
+        )
+        self.assertEqual(
+            retrack_request.track.observations[0].polygon_seed_points[0],
+            (16.0, 17.0),
         )
 
     def test_settings_binding_changes_only_after_accept(self) -> None:

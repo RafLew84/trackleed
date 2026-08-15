@@ -13,6 +13,7 @@ from trackleed.core.data_models import LeedFile, SpotROI
 from trackleed.gui.seeded_tracking_adapter import SeededTrackingDialogSettings
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialog
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
+from trackleed.logic.workflows.mask_tracking import CutieMaskConfig
 from trackleed.logic.workflows.seeded_tracking import (
     SeededTrackingCapabilities,
     SeededTrackingCatalog,
@@ -95,6 +96,12 @@ class SeededTrackingDialogTests(unittest.TestCase):
                 "Offline MFTIQ",
                 "Offline ToMP / TaMOs",
                 "Offline OSTrack",
+                "Offline Cutie",
+                "Offline XMem2",
+                "Offline SAM2",
+                "Offline DAM4SAM",
+                "Offline SAMURAI",
+                "Offline DEVA",
             ],
         )
         self.assertEqual(dialog.run_button.text(), "Run Seeded Tracking")
@@ -169,6 +176,65 @@ class SeededTrackingDialogTests(unittest.TestCase):
         self.assertEqual(config.roi_size, 26)
         self.assertEqual(dialog.decision.settings.point_config("tapir_offline"), config)
         self.assertEqual(runtime.preflight_calls, 0)
+
+    def test_mask_page_builds_typed_request_through_stable_catalog_id(self) -> None:
+        reference = _frame(1, with_seed=True)
+        second = _frame(2)
+        runtime = _ReadyRuntime()
+        method = SeededTrackingMethod(
+            "cutie_offline",
+            "Offline Cutie",
+            TrackingFamily.MASK,
+            SeededTrackingCapabilities(
+                SeedRepresentation.MASK,
+                supports_background=False,
+                preserves_gaps=True,
+                supports_retrack=True,
+            ),
+            runtime,
+        )
+        dialog = SeededTrackingDialog(
+            reference_file=reference,
+            series_files=(reference, second),
+            background_file=None,
+            settings=SeededTrackingDialogSettings.defaults(roi_size=18),
+            catalog=SeededTrackingCatalog((method,)),
+        )
+        self.addCleanup(dialog.deleteLater)
+
+        page = dialog.tracker_pages["cutie_offline"]
+        page.field_widgets["checkpoint_path"].setText("custom-cutie.pth")
+        page.field_widgets["roi_size"].setValue(26)
+        dialog.run_button.click()
+
+        self.assertIsNotNone(dialog.decision)
+        config = dialog.decision.request.config
+        self.assertIsInstance(config, CutieMaskConfig)
+        self.assertEqual(config.checkpoint_path, Path("custom-cutie.pth"))
+        self.assertEqual(config.roi_size, 26)
+        self.assertIs(dialog.decision.request.seed_representation, SeedRepresentation.MASK)
+        self.assertEqual(dialog.decision.settings.mask_config("cutie_offline"), config)
+        self.assertEqual(runtime.preflight_calls, 0)
+
+    def test_default_mask_page_preserves_optional_numeric_values(self) -> None:
+        reference = _frame(1, with_seed=True)
+        second = _frame(2)
+        dialog = SeededTrackingDialog(
+            reference_file=reference,
+            series_files=(reference, second),
+            background_file=None,
+            settings=SeededTrackingDialogSettings.defaults(roi_size=18),
+        )
+        self.addCleanup(dialog.deleteLater)
+        dialog.method_tabs.setCurrentIndex(dialog._method_ids.index("cutie_offline"))
+
+        dialog.run_button.click()
+
+        self.assertIsNotNone(dialog.decision)
+        config = dialog.decision.request.config
+        self.assertIsInstance(config, CutieMaskConfig)
+        self.assertIsNone(config.mem_every)
+        self.assertTrue(dialog.preflight_report.ready)
 
 
 if __name__ == "__main__":

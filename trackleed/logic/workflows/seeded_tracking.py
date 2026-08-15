@@ -12,6 +12,7 @@ from typing import Literal, Protocol, TypeAlias
 import numpy as np
 
 from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
+from trackleed.logic.workflows.mask_tracking import MaskTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 
 
@@ -37,6 +38,7 @@ class TrackingSeed:
     roi: SeedRect
     intensity: float = 0.0
     source: str = "seed"
+    polygon_seed_points: tuple[tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,7 @@ SeededTrackingConfig: TypeAlias = (
     | SkipAnchorOpticalFlowConfig
     | PointTrackerConfig
     | BoundingBoxTrackerConfig
+    | MaskTrackerConfig
 )
 
 
@@ -111,6 +114,7 @@ class TrackObservation:
     center_y: float
     intensity: float = 0.0
     source: str = "tracking"
+    polygon_seed_points: tuple[tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -189,6 +193,7 @@ class SeededTrackingCapabilities:
     supports_background: bool
     preserves_gaps: bool
     supports_retrack: bool = False
+    requires_polygon_seed: bool = False
 
 
 @dataclass(frozen=True)
@@ -288,6 +293,15 @@ class RunContext:
     bbox_tracker_retrack_executor: (
         Callable[[str, SeededRetrackRequest, RunContext], TrackingResult] | None
     ) = None
+    mask_tracker_preflight: (
+        Callable[[str, MaskTrackerConfig], tuple[TrackingPreflightIssue, ...]] | None
+    ) = None
+    mask_tracker_executor: (
+        Callable[[str, SeededTrackingRequest, RunContext], TrackingResult] | None
+    ) = None
+    mask_tracker_retrack_executor: (
+        Callable[[str, SeededRetrackRequest, RunContext], TrackingResult] | None
+    ) = None
     preflight_operation: Literal["tracking", "retrack"] = "tracking"
 
 
@@ -310,6 +324,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
     from trackleed.analysis.seeded_point_tracking_runtime import (
         point_tracking_methods,
     )
+    from trackleed.analysis.seeded_mask_tracking_runtime import mask_tracking_methods
     from trackleed.analysis.seeded_tracking_runtime import (
         OpticalFlowRuntime,
         SkipAnchorOpticalFlowRuntime,
@@ -342,6 +357,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
         )
         + point_tracking_methods()
         + bbox_tracking_methods()
+        + mask_tracking_methods()
     )
 
 
@@ -427,6 +443,19 @@ def _retrack_preflight_issues(
                 "Tracked identity has no observation at the start frame.",
             )
         )
+    elif method.capabilities.requires_polygon_seed:
+        start_observation = next(
+            item
+            for item in request.track.observations
+            if item.frame_id == request.start_frame_id
+        )
+        if len(start_observation.polygon_seed_points) < 3:
+            issues.append(
+                TrackingPreflightIssue(
+                    "polygon_seed_required",
+                    "Selected method requires a polygon seed at the re-track start.",
+                )
+            )
     if len(frame_ids) < 2 or len(set(frame_ids)) != len(frame_ids):
         issues.append(
             TrackingPreflightIssue(
@@ -454,7 +483,7 @@ def _structural_preflight(
             )
         )
     issues.extend(_frame_preflight_issues(request))
-    issues.extend(_seed_preflight_issues(request))
+    issues.extend(_seed_preflight_issues(request, method))
     issues.extend(_background_preflight_issues(request, method))
     return tuple(issues)
 
@@ -493,6 +522,7 @@ def _frame_preflight_issues(
 
 def _seed_preflight_issues(
     request: SeededTrackingRequest,
+    method: SeededTrackingMethod | None,
 ) -> tuple[TrackingPreflightIssue, ...]:
     issues: list[TrackingPreflightIssue] = []
     seed_ids = tuple(seed.seed_id for seed in request.seeds)
@@ -509,6 +539,10 @@ def _seed_preflight_issues(
         or not isfinite(seed.center_y)
         or seed.roi.width <= 0
         or seed.roi.height <= 0
+        or any(
+            not isfinite(point[0]) or not isfinite(point[1])
+            for point in seed.polygon_seed_points
+        )
         for seed in request.seeds
     ):
         issues.append(
@@ -517,6 +551,18 @@ def _seed_preflight_issues(
                 "Seed centers must be finite and seed ROIs must have positive size.",
             )
         )
+    if method is not None and method.capabilities.requires_polygon_seed:
+        missing_ids = tuple(
+            seed.seed_id for seed in request.seeds if len(seed.polygon_seed_points) < 3
+        )
+        if missing_ids:
+            issues.append(
+                TrackingPreflightIssue(
+                    "polygon_seed_required",
+                    "Selected method requires a polygon seed for every spot: "
+                    + ", ".join(map(str, missing_ids)),
+                )
+            )
     return tuple(issues)
 
 
