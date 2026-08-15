@@ -10,7 +10,7 @@ from scipy.optimize import linear_sum_assignment
 
 from trackleed.logic.workflows.detection_linking import (
     DetectionLinkingCancelled,
-    DetectionLinkingConfig,
+    DetectionLinkingMethodConfig,
     DetectionLinkingProgress,
     DetectionLinkingRequest,
     HungarianLinkingConfig,
@@ -36,7 +36,7 @@ class _ActiveTrack:
 class HungarianLinkingRuntime:
     def validate_config(
         self,
-        config: DetectionLinkingConfig,
+        config: DetectionLinkingMethodConfig,
     ) -> tuple[PreflightIssue, ...]:
         if not isinstance(config, HungarianLinkingConfig):
             return (PreflightIssue("invalid_config", "Hungarian configuration is required."),)
@@ -56,6 +56,12 @@ class HungarianLinkingRuntime:
                     "Hungarian settings are outside their valid ranges.",
                 ),
             )
+        return ()
+
+    def preflight(
+        self,
+        request: DetectionLinkingRequest,
+    ) -> tuple[PreflightIssue, ...]:
         return ()
 
     def run(

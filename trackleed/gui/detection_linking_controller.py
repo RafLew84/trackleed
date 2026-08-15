@@ -19,8 +19,12 @@ from trackleed.gui.detection_linking_adapter import (
 from trackleed.gui.detection_linking_dialog import (
     DetectionLinkingDialog,
     DetectionLinkingDialogDecision,
+    DirectionalDetectionLinkingDialog,
 )
 from trackleed.logic.generic_worker import GenericWorker
+from trackleed.logic.workflows.detection_linking import (
+    default_detection_linking_catalog,
+)
 from trackleed.logic.workflows.seeded_tracking import TrackingResult
 
 
@@ -71,23 +75,33 @@ class DetectionLinkingCompletion:
 
 
 class DetectionLinkingController:
-    """Bind the Hungarian dialog, shared worker host, and atomic publisher."""
+    """Bind catalog linking dialogs, one worker host, and atomic publication."""
 
     def __init__(
         self,
         host: Any,
         *,
         dialog_factory: Callable[..., Any] = DetectionLinkingDialog,
+        directional_dialog_factory: Callable[..., Any] = (
+            DirectionalDetectionLinkingDialog
+        ),
         worker_factory: Callable[..., Any] = GenericWorker,
         notifications: DetectionLinkingNotificationSink | None = None,
     ) -> None:
         self._host = host
         self._dialog_factory = dialog_factory
+        self._directional_dialog_factory = directional_dialog_factory
         self._worker_factory = worker_factory
         self._notifications = notifications or QtDetectionLinkingNotifications(host)
         self.settings = DetectionLinkingSettingsBinding()
 
     def show_hungarian_dialog(self) -> None:
+        self._show_dialog(self._dialog_factory)
+
+    def show_directional_dialog(self) -> None:
+        self._show_dialog(self._directional_dialog_factory)
+
+    def _show_dialog(self, dialog_factory: Callable[..., Any]) -> None:
         if self._host._tracking_worker_is_active():
             self._notifications.information(
                 "Busy",
@@ -103,7 +117,7 @@ class DetectionLinkingController:
                 ),
             )
         )
-        dialog = self._dialog_factory(
+        dialog = dialog_factory(
             files=files,
             settings=self.settings.dialog_settings,
             parent=self._host,
@@ -114,10 +128,13 @@ class DetectionLinkingController:
         self._start(dialog.decision)
 
     def show_legacy_scenario(self, scenario: str) -> bool:
-        if scenario != "Detection Linking (Hungarian)":
-            return False
-        self.show_hungarian_dialog()
-        return True
+        if scenario == "Detection Linking (Hungarian)":
+            self.show_hungarian_dialog()
+            return True
+        if scenario == "Detection Linking (Directional)":
+            self.show_directional_dialog()
+            return True
+        return False
 
     def _start(self, decision: DetectionLinkingDialogDecision) -> None:
         if self._host._tracking_worker_is_active():
@@ -132,9 +149,10 @@ class DetectionLinkingController:
             decision.request,
             cancel_event,
         )
+        display_name = _method_display_name(decision)
         self._host._launch_worker_with_progress(
             worker,
-            "Running Hungarian linking...",
+            f"Running {display_name} linking...",
             cancel_event,
             on_finished=lambda result: self._complete(
                 DetectionLinkingCompletion.from_worker_result(result),
@@ -153,9 +171,10 @@ class DetectionLinkingController:
         decision: DetectionLinkingDialogDecision,
     ) -> None:
         if completion.kind is DetectionLinkingCompletionKind.FAILED:
+            display_name = _method_display_name(decision)
             self._notifications.error(
                 "Detection Linking Error",
-                f"Hungarian linking failed:\n{completion.error_message}",
+                f"{display_name} linking failed:\n{completion.error_message}",
             )
             return
         if completion.kind is DetectionLinkingCompletionKind.CANCELLED:
@@ -194,3 +213,9 @@ class DetectionLinkingController:
             self._host.populate_spot_list(current_file.spots)
         if hasattr(self._host, "refresh_current_view"):
             self._host.refresh_current_view()
+
+
+def _method_display_name(decision: DetectionLinkingDialogDecision) -> str:
+    return default_detection_linking_catalog().method(
+        decision.request.method_id
+    ).display_name

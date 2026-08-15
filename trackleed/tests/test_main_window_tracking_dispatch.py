@@ -67,6 +67,19 @@ class MainWindowTrackingDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         self.assertEqual(calls, ["Detection Linking (Hungarian)"])
 
+    def test_legacy_directional_choice_routes_to_detection_linking_controller(
+        self,
+    ) -> None:
+        calls: list[str] = []
+        fake = self._tracking_host("Detection Linking (Directional)")
+        fake.detection_linking_controller = SimpleNamespace(
+            show_legacy_scenario=lambda scenario: calls.append(scenario) or True
+        )
+
+        self.main_window.MainWindow.run_tracking(fake)
+
+        self.assertEqual(calls, ["Detection Linking (Directional)"])
+
     def test_run_tracking_blocks_when_previous_tracking_is_still_active(self) -> None:
         recorded: dict[str, object] = {}
         original_information = self.main_window.QMessageBox.information

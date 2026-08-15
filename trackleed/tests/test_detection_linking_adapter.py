@@ -6,13 +6,17 @@ from threading import Event
 
 from PyQt6.QtCore import QRect
 
+from trackleed.analysis.tracking import track_spots_hungarian_directional
 from trackleed.core.data_models import LeedFile, SpotROI
 from trackleed.gui.detection_linking_adapter import (
+    DetectionLinkingDialogSettings,
+    DetectionLinkingSettingsBinding,
     build_detection_linking_request,
     publish_detection_linking_result,
     run_detection_linking_job,
 )
 from trackleed.logic.workflows.detection_linking import (
+    DirectionalLinkingConfig,
     RunContext,
     HungarianLinkingConfig,
     default_detection_linking_catalog,
@@ -68,6 +72,53 @@ class DetectionLinkingAdapterTests(unittest.TestCase):
         self.assertEqual(request.method_id, "hungarian")
         self.assertEqual(request.frames[0].spots[0].center_x, 10.0)
         self.assertEqual(request.config.max_distance_px, 7.0)
+
+    def test_directional_request_and_settings_bind_by_stable_method_id(self) -> None:
+        files = (_frame(1, [_spot(11, 10.0, 12.0)]), _frame(2, [_spot(21, 11.0, 13.0)]))
+        config = DirectionalLinkingConfig(
+            center_mode="manual",
+            manual_center=(20.0, 20.0),
+            direction_mode="outward",
+        )
+        binding = DetectionLinkingSettingsBinding()
+
+        request = build_detection_linking_request(
+            files,
+            config,
+            method_id="directional",
+        )
+        binding.accept(
+            DetectionLinkingDialogSettings(
+                hungarian=binding.dialog_settings.hungarian,
+                directional=config,
+            )
+        )
+
+        self.assertEqual(request.method_id, "directional")
+        self.assertIs(request.config, config)
+        self.assertIs(binding.dialog_settings.directional, config)
+
+    def test_directional_legacy_shim_delegates_to_catalog_workflow(self) -> None:
+        files = (_frame(1, [_spot(11, 70.0, 50.0)]), _frame(2, [_spot(21, 75.0, 50.0)]))
+
+        tracks = track_spots_hungarian_directional(
+            {1: files[0], 2: files[1]},
+            [1, 2],
+            {
+                "center_mode": "manual",
+                "manual_center": (50.0, 50.0),
+                "direction_mode": "outward",
+                "dynamic_max_distance": False,
+            },
+        )
+
+        self.assertEqual(tuple(tracks[0].spots_by_image_id), (1, 2))
+        self.assertEqual(tracks[0].spots_by_image_id[2].center_x, 75.0)
+        self.assertEqual(
+            tracks[0].spots_by_image_id[1].source,
+            "detection_linking:directional",
+        )
+        self.assertEqual(tracks[0].spots_by_image_id[1].detection_source, "auto")
 
     def test_cancelled_worker_job_returns_no_partial_result(self) -> None:
         files = (_frame(1, [_spot(11, 10.0, 12.0)]), _frame(2, [_spot(21, 11.0, 13.0)]))

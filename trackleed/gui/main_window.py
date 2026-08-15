@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLi
                              QScrollArea, QSizePolicy, QInputDialog, QLineEdit)
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
-from trackleed.io.file_parser import parse_directory, repair_duplicate_frame_ids
+from trackleed.io.file_parser import parse_directory
 from trackleed.io.image_reader import load_tiff
 from trackleed.gui.mask_dialog import MaskDialog
 from trackleed.gui.spot_detection_adapter import (
@@ -82,9 +82,6 @@ from trackleed.gui.tracker_registry import (
     require_tracker_spec,
 )
 from trackleed.logic.generic_worker import GenericWorker
-from trackleed.analysis.tracking import (
-    track_spots_hungarian_directional,
-)
 OPTICAL_FLOW_SCENARIO = "Optical Flow Tracking"
 OPTICAL_FLOW_SKIP_SCENARIO = "Optical Flow (skip, anchor)"
 HUNGARIAN_SCENARIO = "Detection Linking (Hungarian)"
@@ -1009,6 +1006,7 @@ class MainWindow(QMainWindow):
             TrackingMenuActions(
                 seeded=self.seeded_tracking_controller.show_dialog,
                 hungarian=self.detection_linking_controller.show_hungarian_dialog,
+                directional=self.detection_linking_controller.show_directional_dialog,
                 review=self.show_tracking_visualizer,
             ),
         )
@@ -5816,95 +5814,6 @@ class MainWindow(QMainWindow):
 
         form_layout.addRow(self.deva_group)
 
-        # --- Directional detection linking params ---
-        self.dir_group = QGroupBox("Directional Detection Linking")
-        dir_layout = QFormLayout(self.dir_group)
-
-        self.dir_center_mode_combo = QComboBox()
-        self.dir_center_mode_combo.addItems(["Auto (RANSAC)", "Manual"])
-        self.dir_center_mode_combo.setCurrentIndex(0)
-        self.dir_center_mode_combo.setToolTip("Use RANSAC-estimated pattern center (auto) or manual coordinates.")
-        self.dir_center_mode_combo.currentIndexChanged.connect(self._on_dir_center_mode_changed)
-        dir_layout.addRow("Center mode:", self.dir_center_mode_combo)
-
-        center_row = QWidget()
-        center_row_layout = QHBoxLayout(center_row)
-        center_row_layout.setContentsMargins(0, 0, 0, 0)
-        self.dir_center_x_spinbox = QDoubleSpinBox()
-        self.dir_center_x_spinbox.setRange(0.0, 10000.0)
-        self.dir_center_x_spinbox.setDecimals(1)
-        self.dir_center_x_spinbox.setValue(0.0)
-        self.dir_center_y_spinbox = QDoubleSpinBox()
-        self.dir_center_y_spinbox.setRange(0.0, 10000.0)
-        self.dir_center_y_spinbox.setDecimals(1)
-        self.dir_center_y_spinbox.setValue(0.0)
-        center_row_layout.addWidget(QLabel("Cx:"))
-        center_row_layout.addWidget(self.dir_center_x_spinbox)
-        center_row_layout.addSpacing(8)
-        center_row_layout.addWidget(QLabel("Cy:"))
-        center_row_layout.addWidget(self.dir_center_y_spinbox)
-        dir_layout.addRow("Manual center (px):", center_row)
-
-        self.dir_direction_combo = QComboBox()
-        self.dir_direction_combo.addItems(["Auto", "Inward", "Outward"])
-        self.dir_direction_combo.setCurrentIndex(0)
-        self.dir_direction_combo.setToolTip("Expected dominant radial direction; Auto infers sign from motion.")
-        dir_layout.addRow("Direction:", self.dir_direction_combo)
-
-        self.dir_lateral_tol_spinbox = QDoubleSpinBox()
-        self.dir_lateral_tol_spinbox.setRange(0.0, 90.0)
-        self.dir_lateral_tol_spinbox.setDecimals(1)
-        self.dir_lateral_tol_spinbox.setValue(20.0)
-        self.dir_lateral_tol_spinbox.setToolTip("Allowed angular deviation from the radial direction before penalty.")
-        dir_layout.addRow("Lateral tolerance (deg):", self.dir_lateral_tol_spinbox)
-
-        self.dir_ring_bin_spinbox = QDoubleSpinBox()
-        self.dir_ring_bin_spinbox.setRange(1.0, 500.0)
-        self.dir_ring_bin_spinbox.setDecimals(1)
-        self.dir_ring_bin_spinbox.setValue(25.0)
-        self.dir_ring_bin_spinbox.setToolTip("Ring bin size (px) to penalize jumps between distant rings.")
-        dir_layout.addRow("Ring bin (px):", self.dir_ring_bin_spinbox)
-
-        self.dir_base_max_dist_spinbox = QDoubleSpinBox()
-        self.dir_base_max_dist_spinbox.setRange(1.0, 500.0)
-        self.dir_base_max_dist_spinbox.setDecimals(1)
-        self.dir_base_max_dist_spinbox.setValue(20.0)
-        self.dir_base_max_dist_spinbox.setToolTip("Base max distance for matching (used when dynamic gating is off).")
-        dir_layout.addRow("Base max distance (px):", self.dir_base_max_dist_spinbox)
-
-        self.dir_dynamic_max_checkbox = QCheckBox("Dynamic max distance")
-        self.dir_dynamic_max_checkbox.setChecked(True)
-        self.dir_dynamic_max_checkbox.setToolTip("Adjust match radius from recent step median plus margin.")
-        dir_layout.addRow(self.dir_dynamic_max_checkbox)
-
-        self.dir_dynamic_margin_spinbox = QDoubleSpinBox()
-        self.dir_dynamic_margin_spinbox.setRange(0.0, 200.0)
-        self.dir_dynamic_margin_spinbox.setDecimals(1)
-        self.dir_dynamic_margin_spinbox.setValue(5.0)
-        self.dir_dynamic_margin_spinbox.setToolTip("Extra slack added to median step when dynamic gating is on.")
-        dir_layout.addRow("Dynamic margin (px):", self.dir_dynamic_margin_spinbox)
-
-        self.dir_max_gap_spinbox = QSpinBox()
-        self.dir_max_gap_spinbox.setRange(0, 9999)
-        self.dir_max_gap_spinbox.setValue(2)
-        self.dir_max_gap_spinbox.setToolTip("Allowed gap (frames) to keep a directional track alive when unmatched.")
-        dir_layout.addRow("Max gap (frames):", self.dir_max_gap_spinbox)
-
-        self.dir_max_misses_spinbox = QSpinBox()
-        self.dir_max_misses_spinbox.setRange(0, 9999)
-        self.dir_max_misses_spinbox.setValue(3)
-        self.dir_max_misses_spinbox.setToolTip("Consecutive misses tolerated before dropping a track.")
-        dir_layout.addRow("Max misses:", self.dir_max_misses_spinbox)
-
-        self.dir_min_len_spinbox = QSpinBox()
-        self.dir_min_len_spinbox.setRange(1, 200)
-        self.dir_min_len_spinbox.setValue(2)
-        self.dir_min_len_spinbox.setToolTip("Discard tracks shorter than this many detections.")
-        dir_layout.addRow("Min track length:", self.dir_min_len_spinbox)
-
-        form_layout.addRow(self.dir_group)
-        self._on_dir_center_mode_changed(self.dir_center_mode_combo.currentIndex())
-
         self.tracking_scenario_combo.currentTextChanged.connect(self._on_tracking_scenario_changed)
         self._on_tracking_scenario_changed(self.tracking_scenario_combo.currentText())
 
@@ -7869,7 +7778,6 @@ class MainWindow(QMainWindow):
             scenario = self.tracking_scenario_combo.currentText()
         tracker_spec = self._tracker_spec_for_scenario(scenario)
 
-        show_dir = scenario == DIRECTIONAL_LINKING_SCENARIO
         active_panel_attr = tracker_spec.panel_group_attr if tracker_spec is not None else None
         tracker_panel_attrs = {
             spec.panel_group_attr
@@ -7880,18 +7788,11 @@ class MainWindow(QMainWindow):
         for panel_attr in sorted(tracker_panel_attrs):
             if hasattr(self, panel_attr):
                 getattr(self, panel_attr).setVisible(panel_attr == active_panel_attr)
-        if hasattr(self, "dir_group"):
-            self.dir_group.setVisible(show_dir)
         if hasattr(self, "polygon_seed_group"):
             self.polygon_seed_group.setVisible(
                 tracker_spec is not None
                 and tracker_spec.tracker_id in {"cutie_offline", "xmem2_offline"}
             )
-
-    def _on_dir_center_mode_changed(self, idx: int):
-        manual = idx == 1
-        self.dir_center_x_spinbox.setEnabled(manual)
-        self.dir_center_y_spinbox.setEnabled(manual)
 
     def _on_locotrack_center_mode_changed(self, idx: int):
         manual = self.locotrack_center_mode_combo.itemData(idx) == "manual"
@@ -10604,73 +10505,12 @@ class MainWindow(QMainWindow):
             if worker is None:
                 return
 
-        elif selected_scenario == "Detection Linking (Directional)":
-            params = {
-                "center_mode": "manual" if self.dir_center_mode_combo.currentIndex() == 1 else "auto",
-                "manual_center": (
-                    self.dir_center_x_spinbox.value(),
-                    self.dir_center_y_spinbox.value(),
-                ),
-                "direction_mode": ["auto", "inward", "outward"][self.dir_direction_combo.currentIndex()],
-                "lateral_angle_tolerance_deg": self.dir_lateral_tol_spinbox.value(),
-                "ring_bin_px": self.dir_ring_bin_spinbox.value(),
-                "base_max_distance_px": self.dir_base_max_dist_spinbox.value(),
-                "dynamic_max_distance": self.dir_dynamic_max_checkbox.isChecked(),
-                "dynamic_margin_px": self.dir_dynamic_margin_spinbox.value(),
-                "max_gap": self.dir_max_gap_spinbox.value(),
-                "max_misses": self.dir_max_misses_spinbox.value(),
-                "min_track_length": self.dir_min_len_spinbox.value(),
-            }
-            file_map, sorted_ids = self._build_detection_linking_file_map()
-            if file_map is None:
-                return
-            if not sorted_ids:
-                QMessageBox.warning(self, "No Frames", "Load frames with detections before linking.")
-                return
-            if all((not lf.spots) for lf in file_map.values()):
-                QMessageBox.warning(self, "No Detections", "Run Find Spots / Find All before linking.")
-                return
-            worker = GenericWorker(
-                track_spots_hungarian_directional,
-                file_map,
-                sorted_ids,
-                params,
-                cancel_event=cancel_event,
-            )
-
         else:
             QMessageBox.information(self, "Not Implemented", "This scenario is not implemented yet.")
             return
 
         if worker:
             self._launch_worker_with_progress(worker, "Running tracking...", cancel_event)
-
-    def _build_detection_linking_file_map(self):
-        """Build a unique frame-id map for detection-linking trackers."""
-        repaired_source = repair_duplicate_frame_ids(self.data_files)
-        if repaired_source:
-            print(f"Repaired duplicate frame IDs from {repaired_source} filename tokens before detection linking.")
-
-        file_map = {}
-        duplicate_ids = set()
-        for leed_file in self.data_files:
-            if leed_file.id is None:
-                continue
-            if leed_file.id in file_map:
-                duplicate_ids.add(leed_file.id)
-            file_map[leed_file.id] = leed_file
-
-        if duplicate_ids:
-            sample = ", ".join(str(value) for value in sorted(duplicate_ids)[:5])
-            QMessageBox.warning(
-                self,
-                "Duplicate Frame IDs",
-                "Detection linking requires unique frame IDs, but duplicate IDs are still present "
-                f"after checking T, C and E filename tokens. Duplicate examples: {sample}.",
-            )
-            return None, []
-
-        return file_map, sorted(file_map.keys())
 
     def _launch_worker_with_progress(
         self,

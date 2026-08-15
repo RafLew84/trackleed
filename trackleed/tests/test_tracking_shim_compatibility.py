@@ -424,6 +424,7 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
         self.tracker_registry = self.modules["tracker_registry"]
 
     def test_tracking_shim_reexports_family_tracking_entrypoints(self) -> None:
+        self.assertTrue(callable(self.tracking.estimate_pattern_center_from_detections))
         self.assertIs(self.tracking.track_spots_tapir_offline, self.point_backends.track_spots_tapir_offline)
         self.assertIs(self.tracking.track_spots_tapir_online, self.point_backends.track_spots_tapir_online)
         self.assertIs(self.tracking.track_spots_locotrack_offline, self.point_backends.track_spots_locotrack_offline)

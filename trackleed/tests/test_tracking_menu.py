@@ -24,6 +24,7 @@ class TrackingMenuTests(unittest.TestCase):
             TrackingMenuActions(
                 seeded=lambda: calls.append("seeded"),
                 hungarian=lambda: calls.append("hungarian"),
+                directional=lambda: calls.append("directional"),
                 review=lambda: calls.append("review"),
             ),
         )
@@ -38,14 +39,16 @@ class TrackingMenuTests(unittest.TestCase):
             [
                 "Seeded Spot Tracking...",
                 "Detection Linking (Hungarian)...",
+                "Detection Linking (Directional)...",
                 "Review / Edit Tracks",
             ],
         )
         menu.actions()[0].trigger()
         menu.actions()[1].trigger()
+        menu.actions()[2].trigger()
         menu.actions()[-1].trigger()
 
-        self.assertEqual(calls, ["seeded", "hungarian", "review"])
+        self.assertEqual(calls, ["seeded", "hungarian", "directional", "review"])
 
 
 if __name__ == "__main__":

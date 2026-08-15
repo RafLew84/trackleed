@@ -10,8 +10,10 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.tracking_publisher import publish_tracking_result
 from trackleed.logic.workflows.detection_linking import (
     DetectionLinkingCancelled,
+    DetectionLinkingMethodConfig,
     DetectionLinkingProgress,
     DetectionLinkingRequest,
+    DirectionalLinkingConfig,
     HungarianLinkingConfig,
     RunContext,
     run_detection_linking,
@@ -27,6 +29,7 @@ from trackleed.logic.workflows.seeded_tracking import TrackingResult
 @dataclass(frozen=True)
 class DetectionLinkingDialogSettings:
     hungarian: HungarianLinkingConfig = HungarianLinkingConfig()
+    directional: DirectionalLinkingConfig = DirectionalLinkingConfig()
 
 
 class DetectionLinkingSettingsBinding:
@@ -49,12 +52,14 @@ class CancellationSignal(Protocol):
 
 def build_detection_linking_request(
     files: Sequence[LeedFile],
-    config: HungarianLinkingConfig,
+    config: DetectionLinkingMethodConfig,
+    *,
+    method_id: str = "hungarian",
 ) -> DetectionLinkingRequest:
     """Snapshot independent mutable detections into neutral workflow values."""
     frame_ids = _stable_frame_ids(files)
     return DetectionLinkingRequest(
-        "hungarian",
+        method_id,
         tuple(
             FrameDetections(
                 frame_id,

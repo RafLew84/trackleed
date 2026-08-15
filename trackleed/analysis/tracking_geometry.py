@@ -1,8 +1,41 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Tuple
 
 import numpy as np
+
+from trackleed.analysis.peak_analyzer import find_pattern_center
+
+
+def estimate_pattern_center_from_point_sets(
+    point_sets: Sequence[Sequence[tuple[float, float]]],
+    *,
+    min_points_per_set: int = 4,
+    max_points_per_set: int = 200,
+    max_sets: int = 10,
+) -> dict[str, float] | None:
+    """Aggregate per-frame RANSAC centers without depending on GUI models."""
+    candidates: list[dict[str, float]] = []
+    selected_sets = point_sets[:max_sets] if max_sets > 0 else point_sets
+    for points in selected_sets:
+        if len(points) < min_points_per_set:
+            continue
+        positions = [
+            {"center_x": float(x), "center_y": float(y)}
+            for x, y in points[:max_points_per_set]
+        ]
+        center = find_pattern_center(positions)
+        if center is not None:
+            candidates.append(center)
+    if not candidates:
+        return None
+    return {
+        "center_x": float(np.median([item["center_x"] for item in candidates])),
+        "center_y": float(np.median([item["center_y"] for item in candidates])),
+        "error_x": float(np.median([item.get("error_x", 0.0) for item in candidates])),
+        "error_y": float(np.median([item.get("error_y", 0.0) for item in candidates])),
+    }
 
 
 def radial_unit_and_radius(

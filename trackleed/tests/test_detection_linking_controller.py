@@ -11,7 +11,10 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.detection_linking_adapter import DetectionLinkingDialogSettings
 from trackleed.gui.detection_linking_controller import DetectionLinkingController
 from trackleed.gui.detection_linking_dialog import DetectionLinkingDialogDecision
-from trackleed.logic.workflows.detection_linking import HungarianLinkingConfig
+from trackleed.logic.workflows.detection_linking import (
+    DirectionalLinkingConfig,
+    HungarianLinkingConfig,
+)
 from trackleed.logic.workflows.seeded_tracking import (
     SeedRect,
     TrackObservation,
@@ -126,6 +129,76 @@ class DetectionLinkingControllerTests(unittest.TestCase):
         worker = self.host.launch["worker"]
         self.assertEqual(worker.function.__name__, "run_detection_linking_job")
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
+
+    def test_directional_uses_same_controller_worker_and_settings_binding(self) -> None:
+        from trackleed.gui.detection_linking_adapter import build_detection_linking_request
+
+        config = DirectionalLinkingConfig(
+            center_mode="manual",
+            manual_center=(50.0, 50.0),
+            direction_mode="outward",
+        )
+        _Dialog.decision = DetectionLinkingDialogDecision(
+            build_detection_linking_request(
+                self.files,
+                config,
+                method_id="directional",
+            ),
+            self.files,
+            DetectionLinkingDialogSettings(directional=config),
+        )
+        controller = DetectionLinkingController(
+            self.host,
+            dialog_factory=_Dialog,
+            directional_dialog_factory=_Dialog,
+            worker_factory=_Worker,
+            notifications=self.notifications,
+        )
+
+        controller.show_directional_dialog()
+
+        self.assertEqual(
+            controller.settings.dialog_settings.directional.direction_mode,
+            "outward",
+        )
+        self.assertEqual(self.host.launch["title"], "Running Directional linking...")
+        worker = self.host.launch["worker"]
+        self.assertEqual(worker.function.__name__, "run_detection_linking_job")
+        self.host.launch["on_finished"](
+            TrackingResult(
+                (
+                    TrackedSpotIdentity(
+                        1,
+                        (
+                            TrackObservation(1, SeedRect(6, 8, 8, 8), 10.0, 12.0),
+                            TrackObservation(2, SeedRect(8, 8, 8, 8), 12.0, 12.0),
+                        ),
+                    ),
+                )
+            )
+        )
+        self.assertEqual(self.host.review_calls, 1)
+        self.assertTrue(
+            controller.show_legacy_scenario("Detection Linking (Directional)")
+        )
+
+    def test_directional_cancel_does_not_replace_accepted_settings(self) -> None:
+        _Dialog.result = QDialog.DialogCode.Rejected
+        controller = DetectionLinkingController(
+            self.host,
+            dialog_factory=_Dialog,
+            directional_dialog_factory=_Dialog,
+            worker_factory=_Worker,
+            notifications=self.notifications,
+        )
+
+        controller.show_directional_dialog()
+
+        self.assertEqual(
+            controller.settings.dialog_settings.directional,
+            DirectionalLinkingConfig(),
+        )
+        self.assertEqual(self.host.launch, {})
 
     def test_cancelled_dialog_does_not_change_remembered_config(self) -> None:
         _Dialog.result = QDialog.DialogCode.Rejected

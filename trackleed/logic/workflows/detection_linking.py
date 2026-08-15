@@ -23,14 +23,37 @@ class HungarianLinkingConfig:
     min_track_length: int = 2
 
 
+@dataclass(frozen=True)
+class DirectionalLinkingConfig:
+    center_mode: str = "auto"
+    manual_center: tuple[float, float] | None = None
+    direction_mode: str = "auto"
+    lateral_angle_tolerance_deg: float = 20.0
+    ring_bin_px: float = 25.0
+    base_max_distance_px: float = 20.0
+    dynamic_max_distance: bool = True
+    dynamic_margin_px: float = 5.0
+    use_ring_penalty: bool = True
+    max_gap: int = 2
+    max_misses: int = 3
+    min_track_length: int = 2
+    allow_direction_flip: bool = True
+    min_tracks_for_flip: int = 5
+    flip_hold_frames: int = 2
+    min_radial_speed_for_flip: float = 1.0
+
+
 DetectionLinkingConfig: TypeAlias = HungarianLinkingConfig
+DetectionLinkingMethodConfig: TypeAlias = (
+    HungarianLinkingConfig | DirectionalLinkingConfig
+)
 
 
 @dataclass(frozen=True)
 class DetectionLinkingRequest:
     method_id: str
     frames: tuple[FrameDetections, ...]
-    config: DetectionLinkingConfig
+    config: DetectionLinkingMethodConfig
 
 
 @dataclass(frozen=True)
@@ -45,6 +68,7 @@ class DetectionLinkingCapabilities:
     consumes_detections: bool
     preserves_gaps: bool
     supports_review: bool
+    requires_pattern_center: bool = False
 
 
 class DetectionLinkingFamily(str, Enum):
@@ -54,7 +78,12 @@ class DetectionLinkingFamily(str, Enum):
 class DetectionLinkingRuntime(Protocol):
     def validate_config(
         self,
-        config: DetectionLinkingConfig,
+        config: DetectionLinkingMethodConfig,
+    ) -> tuple[PreflightIssue, ...]: ...
+
+    def preflight(
+        self,
+        request: DetectionLinkingRequest,
     ) -> tuple[PreflightIssue, ...]: ...
 
     def run(
@@ -100,43 +129,69 @@ class DetectionLinkingCatalog:
         request: DetectionLinkingRequest,
     ) -> DetectionLinkingPreflightReport:
         method = self.method(request.method_id)
-        issues = list(method.runtime.validate_config(request.config))
-        frame_ids = tuple(frame.frame_id for frame in request.frames)
-        if len(frame_ids) < 2:
-            issues.append(
-                PreflightIssue(
-                    "frames_required",
-                    "Detection linking requires at least two frames.",
-                )
-            )
-        elif len(set(frame_ids)) != len(frame_ids):
-            issues.append(PreflightIssue("duplicate_frame_id", "Frame IDs must be unique."))
-        if not any(frame.spots for frame in request.frames):
-            issues.append(
-                PreflightIssue(
-                    "detections_required",
-                    "Run spot detection before detection linking.",
-                )
-            )
-        if any(
-            not is_independent_detection(spot)
-            for frame in request.frames
-            for spot in frame.spots
+        config_issues = method.runtime.validate_config(request.config)
+        common_issues = _common_preflight_issues(request)
+        blockers = {
+            "frames_required",
+            "duplicate_frame_id",
+            "detections_required",
+            "invalid_detection",
+        }
+        runtime_issues = ()
+        if not config_issues and not any(
+            issue.code in blockers for issue in common_issues
         ):
-            issues.append(
-                PreflightIssue(
-                    "independent_detections_required",
-                    "Detection linking accepts only independent Classic or YOLO detections.",
-                )
+            runtime_issues = method.runtime.preflight(request)
+        return DetectionLinkingPreflightReport(
+            request.method_id,
+            config_issues + runtime_issues + common_issues,
+        )
+
+
+def _common_preflight_issues(
+    request: DetectionLinkingRequest,
+) -> tuple[PreflightIssue, ...]:
+    issues: list[PreflightIssue] = []
+    frame_ids = tuple(frame.frame_id for frame in request.frames)
+    if len(frame_ids) < 2:
+        issues.append(
+            PreflightIssue(
+                "frames_required",
+                "Detection linking requires at least two frames.",
             )
-        if any(not _detection_is_valid(spot) for frame in request.frames for spot in frame.spots):
-            issues.append(
-                PreflightIssue(
-                    "invalid_detection",
-                    "Every detection must have finite coordinates and a positive ROI.",
-                )
+        )
+    elif len(set(frame_ids)) != len(frame_ids):
+        issues.append(PreflightIssue("duplicate_frame_id", "Frame IDs must be unique."))
+    if not any(frame.spots for frame in request.frames):
+        issues.append(
+            PreflightIssue(
+                "detections_required",
+                "Run spot detection before detection linking.",
             )
-        return DetectionLinkingPreflightReport(request.method_id, tuple(issues))
+        )
+    if any(
+        not is_independent_detection(spot)
+        for frame in request.frames
+        for spot in frame.spots
+    ):
+        issues.append(
+            PreflightIssue(
+                "independent_detections_required",
+                "Detection linking accepts only independent Classic or YOLO detections.",
+            )
+        )
+    if any(
+        not _detection_is_valid(spot)
+        for frame in request.frames
+        for spot in frame.spots
+    ):
+        issues.append(
+            PreflightIssue(
+                "invalid_detection",
+                "Every detection must have finite coordinates and a positive ROI.",
+            )
+        )
+    return tuple(issues)
 
 
 @dataclass(frozen=True)
@@ -170,6 +225,7 @@ class DetectionLinkingExecutionError(DetectionLinkingError):
 
 def default_detection_linking_catalog() -> DetectionLinkingCatalog:
     from trackleed.analysis.detection_linking_runtime import HungarianLinkingRuntime
+    from trackleed.analysis.directional_linking_runtime import DirectionalLinkingRuntime
 
     return DetectionLinkingCatalog(
         (
@@ -179,6 +235,13 @@ def default_detection_linking_catalog() -> DetectionLinkingCatalog:
                 DetectionLinkingFamily.ASSIGNMENT,
                 DetectionLinkingCapabilities(True, True, True),
                 HungarianLinkingRuntime(),
+            ),
+            DetectionLinkingMethod(
+                "directional",
+                "Directional",
+                DetectionLinkingFamily.ASSIGNMENT,
+                DetectionLinkingCapabilities(True, True, True, True),
+                DirectionalLinkingRuntime(),
             ),
         )
     )
@@ -211,8 +274,15 @@ def _detection_is_valid(spot: object) -> bool:
     roi = getattr(spot, "roi", None)
     return bool(
         roi is not None
-        and getattr(roi, "width", 0) > 0
-        and getattr(roi, "height", 0) > 0
-        and isfinite(float(getattr(spot, "center_x", float("nan"))))
-        and isfinite(float(getattr(spot, "center_y", float("nan"))))
+        and _is_finite_number(getattr(roi, "width", None), positive=True)
+        and _is_finite_number(getattr(roi, "height", None), positive=True)
+        and _is_finite_number(getattr(spot, "center_x", None))
+        and _is_finite_number(getattr(spot, "center_y", None))
     )
+
+
+def _is_finite_number(value: object, *, positive: bool = False) -> bool:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    numeric = float(value)
+    return isfinite(numeric) and (not positive or numeric > 0.0)

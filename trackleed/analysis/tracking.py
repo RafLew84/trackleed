@@ -15,13 +15,15 @@ import cv2
 import numpy as np
 from PyQt6.QtCore import QRect
 from scipy.ndimage import gaussian_filter
-from scipy.optimize import linear_sum_assignment
 from skimage.color import rgb2gray
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.peak_analyzer import find_pattern_center, fit_spot_to_gaussian
+from trackleed.analysis.peak_analyzer import fit_spot_to_gaussian
 from trackleed.analysis.tracking_config import default_directional_hybrid_params
+from trackleed.analysis.tracking_geometry import (
+    estimate_pattern_center_from_point_sets,
+)
 from trackleed.analysis.tapir_backend import (
     DEFAULT_TAPIR_MODELS_DIR,
     TapirOnlineRuntimeSettings,
@@ -3470,8 +3472,6 @@ def _append_tomp_sequence_to_track(
     return True
 
 
-# --- Directional geometry helpers -------------------------------------------------------------
-
 def estimate_pattern_center_from_detections(
     file_map: Dict[int, LeedFile],
     frame_ids: Optional[List[int]] = None,
@@ -3480,92 +3480,44 @@ def estimate_pattern_center_from_detections(
     max_frames: int = 10,
     fallback_shape: Optional[Tuple[int, int]] = None,
 ) -> Optional[Dict[str, float]]:
-    """
-    Aggregate detections across frames and estimate the diffraction pattern center
-    using the existing RANSAC-based finder. Falls back to stored pattern_center
-    or image center when estimation fails.
-    """
-    frame_ids = frame_ids or sorted(file_map.keys())
-    frame_ids = frame_ids[:max_frames] if max_frames > 0 else frame_ids
-    centers: List[Dict[str, float]] = []
-    for fid in frame_ids:
-        lf = file_map.get(fid)
-        if not lf or not lf.spots or len(lf.spots) < min_spots_per_frame:
+    """Estimate a RANSAC center for legacy trackers with explicit fallbacks."""
+    import random
+
+    selected_ids = frame_ids or sorted(file_map)
+    if max_frames > 0:
+        selected_ids = selected_ids[:max_frames]
+    point_sets: list[tuple[tuple[float, float], ...]] = []
+    for frame_id in selected_ids:
+        leed_file = file_map.get(frame_id)
+        if leed_file is None or len(leed_file.spots) < min_spots_per_frame:
             continue
-        # Limit per-frame sample to keep RANSAC fast
-        spots = lf.spots
+        spots = leed_file.spots
         if len(spots) > max_spots_per_frame:
-            import random
-
             spots = random.sample(spots, max_spots_per_frame)
-        spot_positions = [{"center_x": s.center_x, "center_y": s.center_y} for s in spots]
-        center = find_pattern_center(spot_positions) if spot_positions else None
-        if center:
-            centers.append(center)
-
-    if centers:
-        cx = float(np.median([c["center_x"] for c in centers]))
-        cy = float(np.median([c["center_y"] for c in centers]))
-        ex = float(np.median([c.get("error_x", 0.0) for c in centers]))
-        ey = float(np.median([c.get("error_y", 0.0) for c in centers]))
-        return {"center_x": cx, "center_y": cy, "error_x": ex, "error_y": ey}
-
-    # Fallback to any precomputed pattern_center stored on files
-    for fid in frame_ids:
-        lf = file_map.get(fid)
-        if lf and lf.pattern_center:
-            return lf.pattern_center
-
-    # Last resort: geometric image center if shape is known
-    if fallback_shape:
-        h, w = fallback_shape
-        return {"center_x": w / 2.0, "center_y": h / 2.0, "error_x": 0.0, "error_y": 0.0}
-    return None
-
-
-def radial_unit_and_radius(center_xy: Tuple[float, float], point_xy: Tuple[float, float]) -> Tuple[np.ndarray, float]:
-    """
-    Compute the radial unit vector and radius from center to point.
-    Returns (unit_vector, radius). Unit vector is zero when radius is ~0.
-    """
-    vec = np.array(point_xy, dtype=np.float32) - np.array(center_xy, dtype=np.float32)
-    radius = float(np.linalg.norm(vec))
-    if radius > 1e-6:
-        return vec / radius, radius
-    return np.zeros(2, dtype=np.float32), 0.0
-
-
-def angular_offset_deg(radial_unit: np.ndarray, displacement: np.ndarray) -> float:
-    """
-    Angle in degrees between the expected radial direction and an observed displacement.
-    Returns 0 if either vector is near zero.
-    """
-    disp = np.array(displacement, dtype=np.float32)
-    ru = np.array(radial_unit, dtype=np.float32)
-    disp_norm = float(np.linalg.norm(disp))
-    ru_norm = float(np.linalg.norm(ru))
-    if disp_norm < 1e-9 or ru_norm < 1e-9:
-        return 0.0
-    cosang = float(np.clip(np.dot(ru, disp) / (ru_norm * disp_norm), -1.0, 1.0))
-    return float(np.degrees(np.arccos(cosang)))
-
-
-def ring_bin_index(radius: float, bin_size_px: float) -> int:
-    """Assign a radius to a discrete ring/bin index."""
-    if bin_size_px <= 0:
-        return 0
-    return int(np.floor(max(0.0, radius) / float(bin_size_px)))
-
-
-def median_step_magnitude(points: List[Tuple[float, float]]) -> float:
-    """Median magnitude of successive steps in a polyline of points."""
-    if len(points) < 2:
-        return 0.0
-    arr = np.array(points, dtype=np.float32)
-    diffs = np.linalg.norm(np.diff(arr, axis=0), axis=1)
-    if diffs.size == 0:
-        return 0.0
-    return float(np.median(diffs))
+        point_sets.append(
+            tuple((float(spot.center_x), float(spot.center_y)) for spot in spots)
+        )
+    center = estimate_pattern_center_from_point_sets(
+        point_sets,
+        min_points_per_set=min_spots_per_frame,
+        max_points_per_set=max_spots_per_frame,
+        max_sets=0,
+    )
+    if center is not None:
+        return center
+    for frame_id in selected_ids:
+        leed_file = file_map.get(frame_id)
+        if leed_file is not None and leed_file.pattern_center:
+            return leed_file.pattern_center
+    if fallback_shape is None:
+        return None
+    height, width = fallback_shape
+    return {
+        "center_x": width / 2.0,
+        "center_y": height / 2.0,
+        "error_x": 0.0,
+        "error_y": 0.0,
+    }
 
 
 def track_spots_hungarian(
@@ -3576,10 +3528,6 @@ def track_spots_hungarian(
     cancel_event: Optional[Event] = None,
 ) -> List[Track]:
     """Compatibility adapter for the catalog-backed Hungarian workflow."""
-    from trackleed.gui.detection_linking_adapter import (
-        build_detection_linking_request,
-    )
-    from trackleed.gui.tracking_publisher import project_tracking_result
     from trackleed.logic.workflows.detection_linking import (
         DetectionLinkingCancelled,
         HungarianLinkingConfig,
@@ -3592,13 +3540,14 @@ def track_spots_hungarian(
         for frame_id in sorted_frame_ids
         if frame_id in file_map
     )
-    request = build_detection_linking_request(
+    request = _legacy_detection_linking_request(
         files,
         HungarianLinkingConfig(
             float(params.get("max_distance_px", 20.0)),
             int(params.get("max_gap", 2)),
             int(params.get("min_track_length", 2)),
         ),
+        method_id="hungarian",
     )
     context = RunContext(
         report_progress=(
@@ -3614,7 +3563,7 @@ def track_spots_hungarian(
         result = run_detection_linking(request, context)
     except DetectionLinkingCancelled:
         return []
-    return project_tracking_result(result)
+    return _legacy_tracks_from_detection_linking_result(result)
 
 
 def track_spots_hungarian_directional(
@@ -3624,248 +3573,131 @@ def track_spots_hungarian_directional(
     progress_callback: Callable[[int], None] | None = None,
     cancel_event: Optional[Event] = None,
 ) -> List[Track]:
-    """
-    Directionally gated Hungarian linker that prefers radial motion and penalizes lateral/ring jumps.
+    """Compatibility adapter for the catalog-backed Directional workflow."""
+    from trackleed.logic.workflows.detection_linking import (
+        DetectionLinkingCancelled,
+        DirectionalLinkingConfig,
+        RunContext,
+        run_detection_linking,
+    )
 
-    params merges defaults from default_directional_hybrid_params; key overrides:
-        center_mode: "auto" or "manual"
-        manual_center: (cx, cy) when center_mode == "manual"
-        direction_mode: "inward" | "outward" | "auto"
-        lateral_angle_tolerance_deg: float
-        ring_bin_px: float
-        base_max_distance_px: float
-        dynamic_max_distance: bool
-        dynamic_margin_px: float
-        use_ring_penalty: bool
-        max_gap: int            # legacy gap counter
-        max_misses: int         # tolerated consecutive misses
-        min_track_length: int
-    """
     cfg = default_directional_hybrid_params(params or {})
+    manual_center = cfg.get("manual_center")
+    center = (
+        (float(manual_center[0]), float(manual_center[1]))
+        if manual_center is not None
+        else None
+    )
+    config = DirectionalLinkingConfig(
+        center_mode=str(cfg.get("center_mode", "auto")).lower(),
+        manual_center=center,
+        direction_mode=str(cfg.get("direction_mode", "auto")).lower(),
+        lateral_angle_tolerance_deg=float(
+            cfg.get("lateral_angle_tolerance_deg", 20.0)
+        ),
+        ring_bin_px=float(cfg.get("ring_bin_px", 25.0)),
+        base_max_distance_px=float(cfg.get("base_max_distance_px", 20.0)),
+        dynamic_max_distance=bool(cfg.get("dynamic_max_distance", True)),
+        dynamic_margin_px=float(cfg.get("dynamic_margin_px", 5.0)),
+        use_ring_penalty=bool(cfg.get("use_ring_penalty", True)),
+        max_gap=int(cfg.get("max_gap", 2)),
+        max_misses=int(cfg.get("max_misses", 3)),
+        min_track_length=int(cfg.get("min_track_length", 2)),
+        allow_direction_flip=bool(cfg.get("allow_direction_flip", True)),
+        min_tracks_for_flip=int(cfg.get("min_tracks_for_flip", 5)),
+        flip_hold_frames=int(cfg.get("flip_hold_frames", 2)),
+        min_radial_speed_for_flip=float(
+            cfg.get("min_radial_speed_for_flip", 1.0)
+        ),
+    )
+    files = tuple(
+        file_map[frame_id]
+        for frame_id in sorted_frame_ids
+        if frame_id in file_map
+    )
+    request = _legacy_detection_linking_request(
+        files,
+        config,
+        method_id="directional",
+    )
+    context = RunContext(
+        report_progress=(
+            lambda progress: progress_callback(
+                round(100 * progress.completed / progress.total)
+            )
+            if progress_callback
+            else None
+        ),
+        is_cancelled=(cancel_event.is_set if cancel_event else lambda: False),
+    )
+    try:
+        result = run_detection_linking(request, context)
+    except DetectionLinkingCancelled:
+        return []
+    return _legacy_tracks_from_detection_linking_result(result)
 
-    print(
-        "[DirectionalLink] start | frames=%d | center_mode=%s | dir=%s | dynamic_max=%s"
-        % (
-            len(sorted_frame_ids),
-            cfg.get("center_mode", "auto"),
-            cfg.get("direction_mode", "auto"),
-            cfg.get("dynamic_max_distance", True),
+
+def _legacy_detection_linking_request(
+    files: tuple[LeedFile, ...],
+    config: Any,
+    *,
+    method_id: str,
+):
+    from trackleed.logic.workflows.detection_linking import DetectionLinkingRequest
+    from trackleed.logic.workflows.spot_detection import FrameDetections
+
+    if any(file.id is None for file in files):
+        raise ValueError("Detection linking requires every frame to have an ID")
+    return DetectionLinkingRequest(
+        method_id,
+        tuple(
+            FrameDetections(
+                int(file.id),
+                tuple(_legacy_detection_snapshot(spot) for spot in file.spots),
+            )
+            for file in files
+            if file.id is not None
+        ),
+        config,
+    )
+
+
+def _legacy_detection_snapshot(spot: SpotROI):
+    from trackleed.logic.workflows.spot_detection import DetectedSpot, RectSnapshot
+
+    rect = spot.roi_rect
+    return DetectedSpot(
+        int(spot.id),
+        RectSnapshot(rect.x(), rect.y(), rect.width(), rect.height()),
+        float(spot.center_x),
+        float(spot.center_y),
+        float(spot.intensity),
+        str(spot.source),
+        tuple((float(x), float(y)) for x, y in spot.polygon_seed_points),
+    )
+
+
+def _legacy_tracks_from_detection_linking_result(result: Any) -> List[Track]:
+    tracks: List[Track] = []
+    for identity in result.tracks:
+        spots: Dict[int, SpotROI] = {}
+        for observation in identity.observations:
+            rect = observation.roi
+            spot = build_spot_roi(
+                spot_id=identity.track_id,
+                roi_rect=QRect(rect.x, rect.y, rect.width, rect.height),
+                center_x=observation.center_x,
+                center_y=observation.center_y,
+                intensity=observation.intensity,
+                source=observation.source,
+                polygon_seed_points=observation.polygon_seed_points,
+            )
+            set_spot_attributes(spot, dict(observation.diagnostics))
+            spots[observation.frame_id] = spot
+        tracks.append(
+            build_track(track_id=identity.track_id, spots_by_image_id=spots)
         )
-    )
-
-    base_max_dist = float(cfg.get("base_max_distance_px", 20.0))
-    dynamic_max = bool(cfg.get("dynamic_max_distance", True))
-    dynamic_margin = float(cfg.get("dynamic_margin_px", 5.0))
-    max_gap = int(cfg.get("max_gap", 2))
-    max_misses = int(cfg.get("max_misses", 3))
-    min_len = int(cfg.get("min_track_length", 2))
-    lateral_tol = float(cfg.get("lateral_angle_tolerance_deg", 20.0))
-    ring_bin_px = float(cfg.get("ring_bin_px", 25.0))
-    use_ring_penalty = bool(cfg.get("use_ring_penalty", True))
-    direction_mode = str(cfg.get("direction_mode", "auto")).lower()
-
-    # Determine center
-    fallback_shape = None
-    for fid in sorted_frame_ids:
-        lf = file_map.get(fid)
-        if lf and lf.filepath:
-            img = load_tiff(lf.filepath)
-            if img is not None and img.size:
-                h, w = img.shape[:2]
-                fallback_shape = (h, w)
-                break
-
-    if str(cfg.get("center_mode", "auto")).lower() == "manual" and cfg.get("manual_center"):
-        cx, cy = cfg["manual_center"]
-        center = {"center_x": float(cx), "center_y": float(cy), "error_x": 0.0, "error_y": 0.0}
-    else:
-        center = estimate_pattern_center_from_detections(file_map, sorted_frame_ids, fallback_shape=fallback_shape)
-        if not center and fallback_shape:
-            h, w = fallback_shape
-            center = {"center_x": w / 2.0, "center_y": h / 2.0, "error_x": 0.0, "error_y": 0.0}
-    if not center:
-        raise ValueError("Could not determine pattern center for directional linking.")
-    center_xy = (float(center["center_x"]), float(center["center_y"]))
-    print(
-        "[DirectionalLink] center set to (%.1f, %.1f) mode=%s"
-        % (center_xy[0], center_xy[1], cfg.get("center_mode", "auto"))
-    )
-
-    # Helpers for expected direction sign
-    def _expected_sign() -> Optional[int]:
-        if direction_mode == "inward":
-            return -1
-        if direction_mode == "outward":
-            return 1
-        return None  # auto
-
-    expected_sign = _expected_sign()
-    flip_candidate: Optional[int] = None
-    flip_counter = 0
-    min_tracks_for_flip = int(cfg.get("min_tracks_for_flip", 5))
-    flip_hold_frames = int(cfg.get("flip_hold_frames", 2))
-    min_radial_speed_for_flip = float(cfg.get("min_radial_speed_for_flip", 1.0))
-
-    next_track_id = 1
-    active_tracks: Dict[int, dict] = {}  # track_id -> {"last_frame": fid, "last_xy": (x,y), "gap": 0, "misses": 0, "spots": {fid: spot}, "history": [(x,y)]}
-    finished: List[Track] = []
-
-    total_frames = len(sorted_frame_ids)
-    for idx, fid in enumerate(sorted_frame_ids):
-        if cancel_event and cancel_event.is_set():
-            return []
-        if progress_callback:
-            progress_callback(int(100 * idx / max(1, total_frames)))
-        if total_frames > 0 and (idx % max(1, total_frames // 10) == 0):
-            print(f"[DirectionalLink] progress {idx}/{total_frames} (fid={fid})")
-
-        lf = file_map.get(fid)
-        detections = lf.spots if lf else []
-        det_points = np.array([[s.center_x, s.center_y] for s in detections], dtype=np.float32) if detections else np.zeros((0, 2), dtype=np.float32)
-        det_rings = []
-        det_radials = []
-        for pt in det_points:
-            ru, r = radial_unit_and_radius(center_xy, (float(pt[0]), float(pt[1])))
-            det_radials.append((ru, r))
-            det_rings.append(ring_bin_index(r, ring_bin_px))
-
-        track_ids = list(active_tracks.keys())
-        assigned_tracks = set()
-        assigned_dets = set()
-
-        if len(track_ids) and len(det_points):
-            cost = np.full((len(track_ids), len(det_points)), 1e9, dtype=np.float32)
-            for i, tid in enumerate(track_ids):
-                track_data = active_tracks[tid]
-                last_xy = np.array(track_data["last_xy"], dtype=np.float32)
-                ru_last, r_last = radial_unit_and_radius(center_xy, track_data["last_xy"])
-                # Dynamic max distance per track
-                max_allowed = base_max_dist
-                if dynamic_max:
-                    step = median_step_magnitude(track_data.get("history", []))
-                    if step > 0:
-                        max_allowed = step + dynamic_margin
-                for j, det_xy in enumerate(det_points):
-                    delta = det_xy - last_xy
-                    dist = float(np.linalg.norm(delta))
-                    if dist > max_allowed:
-                        continue
-                    radial_comp = float(np.dot(delta, ru_last))
-                    lateral = float(np.sqrt(max(0.0, dist * dist - radial_comp * radial_comp)))
-                    angle = angular_offset_deg(ru_last, delta)
-                    lateral_penalty = 0.0
-                    if angle > lateral_tol:
-                        lateral_penalty = (angle - lateral_tol) * 0.1 * (dist + 1.0)
-
-                    dir_penalty = 0.0
-                    if expected_sign is not None and radial_comp * expected_sign < 0:
-                        dir_penalty = abs(radial_comp) * 2.0
-
-                    ring_penalty = 0.0
-                    if use_ring_penalty:
-                        det_ring = det_rings[j]
-                        last_ring = ring_bin_index(r_last, ring_bin_px)
-                        ring_penalty = abs(det_ring - last_ring) * max(1.0, ring_bin_px * 0.1)
-
-                    cost[i, j] = abs(radial_comp) + lateral + lateral_penalty + dir_penalty + ring_penalty
-
-            row_ind, col_ind = linear_sum_assignment(cost)
-            for r, c in zip(row_ind, col_ind):
-                if cost[r, c] >= 1e9:
-                    continue
-                tid = track_ids[r]
-                spot = detections[c]
-                active_tracks[tid]["last_xy"] = (spot.center_x, spot.center_y)
-                active_tracks[tid]["last_frame"] = fid
-                active_tracks[tid]["gap"] = 0
-                active_tracks[tid]["misses"] = 0
-                active_tracks[tid]["spots"][fid] = spot
-                active_tracks[tid].setdefault("history", []).append((spot.center_x, spot.center_y))
-                assigned_tracks.add(tid)
-                assigned_dets.add(c)
-
-            # Increase gap for unassigned tracks
-            for tid in track_ids:
-                if tid in assigned_tracks:
-                    continue
-                active_tracks[tid]["gap"] += 1
-                active_tracks[tid]["misses"] += 1
-        else:
-            assigned_dets = set()
-            for tid in track_ids:
-                active_tracks[tid]["gap"] += 1
-                active_tracks[tid]["misses"] += 1
-
-        # Start new tracks for unmatched detections
-        for j, spot in enumerate(detections):
-            if j in assigned_dets:
-                continue
-            tid = next_track_id
-            next_track_id += 1
-            active_tracks[tid] = {
-                "last_frame": fid,
-                "last_xy": (spot.center_x, spot.center_y),
-                "gap": 0,
-                "misses": 0,
-                "spots": {fid: spot},
-                "history": [(spot.center_x, spot.center_y)],
-            }
-
-        # Retire tracks that exceeded gap
-        to_remove = []
-        for tid, data in active_tracks.items():
-            if data["gap"] > max_gap or data.get("misses", 0) > max_misses:
-                if len(data["spots"]) >= min_len:
-                    finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
-                to_remove.append(tid)
-        for tid in to_remove:
-            active_tracks.pop(tid, None)
-
-        # --- Global direction flip detection ---
-        if direction_mode == "auto" and active_tracks:
-            radial_signs = []
-            for tid, data in active_tracks.items():
-                hist = data.get("history", [])
-                if len(hist) < 2:
-                    continue
-                p_prev = np.array(hist[-2], dtype=np.float32)
-                p_last = np.array(hist[-1], dtype=np.float32)
-                ru_last, _ = radial_unit_and_radius(center_xy, (float(p_prev[0]), float(p_prev[1])))
-                disp = p_last - p_prev
-                radial_comp = float(np.dot(disp, ru_last))
-                if abs(radial_comp) < min_radial_speed_for_flip:
-                    continue
-                radial_signs.append(np.sign(radial_comp))
-
-            if len(radial_signs) >= min_tracks_for_flip:
-                median_sign = int(np.sign(np.median(radial_signs)))
-                if median_sign == 0:
-                    flip_candidate = None
-                    flip_counter = 0
-                elif expected_sign is None:
-                    expected_sign = median_sign
-                    print(f"[DirectionalLink] auto direction initialized to {expected_sign:+d}")
-                elif median_sign != expected_sign:
-                    if flip_candidate == median_sign:
-                        flip_counter += 1
-                    else:
-                        flip_candidate = median_sign
-                        flip_counter = 1
-                    if flip_counter >= flip_hold_frames:
-                        expected_sign = flip_candidate
-                        print(f"[DirectionalLink] direction flipped to {expected_sign:+d} after {flip_counter} checks")
-                        flip_candidate = None
-                        flip_counter = 0
-                else:
-                    flip_candidate = None
-                    flip_counter = 0
-
-    # Flush remaining active tracks
-    for tid, data in active_tracks.items():
-        if len(data["spots"]) >= min_len:
-            finished.append(build_track(track_id=tid, spots_by_image_id=data["spots"]))
-
-    return finished
+    return tracks
 
 
 def _run_legacy_seeded_tracking(
