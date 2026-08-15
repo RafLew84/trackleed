@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
-from copy import copy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from functools import partial
 from threading import Event
@@ -11,11 +12,11 @@ from typing import Optional
 
 import numpy as np
 
-from trackleed.core.data_models import LeedFile, Track
-from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.legacy_track_geometry import (
     manual_ellipse_from_mapping,
 )
+from trackleed.core.data_models import LeedFile, Track
+from trackleed.io.image_reader import load_tiff
 from trackleed.logic.active_analysis_state import ActiveAnalysisState
 from trackleed.logic.workflows.session_sources import (
     SourceVerificationCancelled,
@@ -43,7 +44,6 @@ from trackleed.logic.workflows.track_geometry import (
     PatternCenter,
     derive_geometry,
 )
-
 
 LegacyFit = dict[str, object] | None
 LegacyFitProjection = dict[int, dict[int, LegacyFit]]
@@ -396,19 +396,59 @@ def publish_analysis(
     target_files: dict[int, LeedFile],
 ) -> None:
     sources = publication.tracks
-    source_files = dict(publication.files)
-    analyzed_frame_ids = {
+    if len(sources) != len(targets):
+        raise ValueError("Analysis publication track count does not match targets")
+    source_track_ids = tuple(track.track_id for track in sources)
+    target_track_ids = tuple(track.track_id for track in targets)
+    if len(set(source_track_ids)) != len(source_track_ids):
+        raise ValueError("Analysis publication source track IDs must be unique")
+    if len(set(target_track_ids)) != len(target_track_ids):
+        raise ValueError("Analysis publication target track IDs must be unique")
+    if set(source_track_ids) != set(target_track_ids):
+        raise ValueError("Analysis publication track ID set does not match targets")
+    sources_by_id = {track.track_id: track for track in sources}
+    observation_frame_ids = {
         frame_id for track in sources for frame_id in track.spots_by_image_id
     }
-    for target, source in zip(targets, sources, strict=True):
-        target.analysis_results = source.analysis_results
-    for frame_id in analyzed_frame_ids:
-        target_file = target_files[frame_id]
-        source_file = source_files[frame_id]
-        target_file.pattern_center = source_file.pattern_center
-        target_file.post_analysis_results = dict(
-            getattr(source_file, "post_analysis_results", {})
+    result_frame_ids = {
+        frame_id
+        for track in sources
+        for frame_id in getattr(track, "analysis_results", {})
+    }
+    analyzed_frame_ids = observation_frame_ids | result_frame_ids
+    source_frame_counts = Counter(frame_id for frame_id, _file in publication.files)
+    invalid_source_frames = {
+        frame_id
+        for frame_id in analyzed_frame_ids
+        if source_frame_counts[frame_id] != 1
+    }
+    source_files = dict(publication.files)
+    missing_target_frames = analyzed_frame_ids - target_files.keys()
+    if invalid_source_frames or missing_target_frames:
+        raise ValueError(
+            "Analysis publication has invalid frame inventory: "
+            f"source={invalid_source_frames}, target={missing_target_frames}"
         )
+    track_replacements = tuple(
+        (
+            target,
+            deepcopy(sources_by_id[target.track_id].analysis_results),
+        )
+        for target in targets
+    )
+    file_replacements = tuple(
+        (
+            target_files[frame_id],
+            deepcopy(source_files[frame_id].pattern_center),
+            deepcopy(getattr(source_files[frame_id], "post_analysis_results", {})),
+        )
+        for frame_id in sorted(analyzed_frame_ids)
+    )
+    for target, analysis_results in track_replacements:
+        target.analysis_results = analysis_results
+    for target_file, pattern_center, post_analysis_results in file_replacements:
+        target_file.pattern_center = pattern_center
+        target_file.post_analysis_results = post_analysis_results
 
 
 def _geometry_request(

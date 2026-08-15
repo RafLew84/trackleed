@@ -171,6 +171,15 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
             rerun.tracks[0].analysis_results[1]["radius"],
             cold.tracks[0].analysis_results[1]["radius"],
         )
+        track_analysis_compatibility.publish_analysis(
+            rerun,
+            [track],
+            {1: leed_file},
+        )
+        self.assertEqual(
+            track.analysis_results[1]["radius"],
+            rerun.tracks[0].analysis_results[1]["radius"],
+        )
 
     def test_geometry_reuse_gate_is_bound_to_the_background_path(self) -> None:
         leed_file = _leed_file(1)
