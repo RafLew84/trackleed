@@ -992,6 +992,15 @@ class MainWindow(QMainWindow):
         bbox_transparency_off_action.triggered.connect(lambda: self.set_bbox_transparency(0.0))
         view_menu.addAction(bbox_transparency_off_action)
 
+        self._add_workflow_menus(menu_bar)
+        analysis_menu = menu_bar.addMenu("&Analysis")
+        analysis_action = QAction("Final Analysis...", self)
+        analysis_action.setShortcut("Ctrl+Shift+A")
+        analysis_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
+        analysis_action.triggered.connect(self.show_analysis_dialog)
+        analysis_menu.addAction(analysis_action)
+
+    def _add_workflow_menus(self, menu_bar) -> None:
         add_spots_menu(menu_bar, self, self._spots_menu_actions())
         add_tracking_menu(
             menu_bar,
@@ -1001,12 +1010,6 @@ class MainWindow(QMainWindow):
                 review=self.show_tracking_visualizer,
             ),
         )
-        analysis_menu = menu_bar.addMenu("&Analysis")
-        analysis_action = QAction("Final Analysis...", self)
-        analysis_action.setShortcut("Ctrl+Shift+A")
-        analysis_action.setShortcutContext(Qt.ShortcutContext.ApplicationShortcut)
-        analysis_action.triggered.connect(self.show_analysis_dialog)
-        analysis_menu.addAction(analysis_action)
 
     def _spots_menu_actions(self) -> SpotsMenuActions:
         return SpotsMenuActions(
