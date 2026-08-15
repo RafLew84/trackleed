@@ -30,7 +30,7 @@ from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingSettingsBinding,
     run_seeded_tracking_job,
 )
-from trackleed.gui.tracking_publisher import publish_tracking_result
+from trackleed.gui.tracking_publisher import project_tracking_result, publish_tracks
 from trackleed.gui.seeded_tracking_dialog import (
     SeededTrackingDialog,
     SeededTrackingDialogDecision,
@@ -261,11 +261,14 @@ class SeededTrackingController:
         if completion.result is None:
             raise RuntimeError("Successful seeded tracking has no result")
         try:
-            tracks = publish_tracking_result(decision.files, completion.result)
+            publish_tracks(
+                self._host,
+                decision.files,
+                project_tracking_result(completion.result),
+            )
         except (TypeError, ValueError) as exc:
             self._notifications.error("Tracking Error", str(exc))
             return
-        self._host.tracking_results = tracks
         self._refresh_host_after_publication(decision)
         self._host.show_tracking_visualizer()
 

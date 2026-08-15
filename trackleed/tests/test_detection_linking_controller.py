@@ -11,6 +11,7 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.detection_linking_adapter import DetectionLinkingDialogSettings
 from trackleed.gui.detection_linking_controller import DetectionLinkingController
 from trackleed.gui.detection_linking_dialog import DetectionLinkingDialogDecision
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 from trackleed.logic.workflows.detection_linking import (
     DirectionalLinkingConfig,
     HungarianLinkingConfig,
@@ -72,6 +73,7 @@ class _Host:
     def __init__(self, files: tuple[LeedFile, ...]) -> None:
         self.data_files = list(files)
         self.tracking_results = [Track(99, {})]
+        self._active_analysis_state = ActiveAnalysisState()
         self.file_list_widget = SimpleNamespace(currentItem=lambda: None)
         self.launch: dict[str, object] = {}
         self.review_calls = 0
@@ -221,11 +223,15 @@ class DetectionLinkingControllerTests(unittest.TestCase):
 
     def test_failure_and_cancellation_keep_previous_complete_tracks(self) -> None:
         self.controller.show_hungarian_dialog()
+        previous_state = self.host._active_analysis_state
+        previous_spots = tuple(file.spots for file in self.files)
 
         self.host.launch["on_error"]("boom")
         self.host.launch["on_finished"](None)
 
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
+        self.assertIs(self.host._active_analysis_state, previous_state)
+        self.assertEqual(tuple(file.spots for file in self.files), previous_spots)
         self.assertEqual(self.host.review_calls, 0)
 
     def test_success_publishes_complete_result_then_opens_review(self) -> None:
@@ -248,7 +254,7 @@ class DetectionLinkingControllerTests(unittest.TestCase):
         self.assertIsNot(self.files[0].spots[0], self.host.tracking_results[0].spots_by_image_id[1])
         self.assertEqual(self.host.review_calls, 1)
 
-    def test_success_preserves_fits_for_unchanged_observation_rois(self) -> None:
+    def test_success_drops_legacy_fits_without_typed_fingerprints(self) -> None:
         previous = Track(
             1,
             {
@@ -273,10 +279,7 @@ class DetectionLinkingControllerTests(unittest.TestCase):
 
         self.host.launch["on_finished"](result)
 
-        self.assertEqual(
-            self.host.tracking_results[0].analysis_results,
-            previous.analysis_results,
-        )
+        self.assertEqual(self.host.tracking_results[0].analysis_results, {})
 
     def test_invalid_result_keeps_previous_tracks_and_frame_detections(self) -> None:
         self.controller.show_hungarian_dialog()

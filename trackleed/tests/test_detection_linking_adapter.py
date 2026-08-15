@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from threading import Event
+from types import SimpleNamespace
 
 from PyQt6.QtCore import QRect
 
@@ -12,9 +13,10 @@ from trackleed.gui.detection_linking_adapter import (
     DetectionLinkingDialogSettings,
     DetectionLinkingSettingsBinding,
     build_detection_linking_request,
-    publish_detection_linking_result,
     run_detection_linking_job,
 )
+from trackleed.gui.tracking_publisher import project_tracking_result, publish_tracks
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 from trackleed.logic.workflows.detection_linking import (
     DirectionalLinkingConfig,
     RunContext,
@@ -54,6 +56,13 @@ def _spot(spot_id: int, x: float, y: float) -> SpotROI:
         y,
         10.0,
         "auto",
+    )
+
+
+def _publication_target() -> SimpleNamespace:
+    return SimpleNamespace(
+        tracking_results=[],
+        _active_analysis_state=ActiveAnalysisState(),
     )
 
 
@@ -142,7 +151,8 @@ class DetectionLinkingAdapterTests(unittest.TestCase):
         request = build_detection_linking_request(files, HungarianLinkingConfig())
         result = run_detection_linking(request, RunContext())
 
-        publish_detection_linking_result(files, result)
+        target = _publication_target()
+        publish_tracks(target, files, project_tracking_result(result))
         relink_request = build_detection_linking_request(
             files,
             HungarianLinkingConfig(),
@@ -177,7 +187,9 @@ class DetectionLinkingAdapterTests(unittest.TestCase):
             )
         )
 
-        tracks = publish_detection_linking_result(files, result)
+        target = _publication_target()
+        publish_tracks(target, files, project_tracking_result(result))
+        tracks = target.tracking_results
 
         self.assertIsNot(tracks[0].spots_by_image_id[1], original_detection)
         self.assertIsNot(tracks[0].spots_by_image_id[1], files[0].spots[0])

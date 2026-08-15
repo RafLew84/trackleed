@@ -32,16 +32,13 @@ from trackleed.gui.spots_menu import SpotsMenuActions, add_spots_menu
 from trackleed.gui.analysis_menu import AnalysisMenuActions, add_analysis_menu
 from trackleed.gui.tracking_publisher import (
     clone_tracks_for_review,
-    publish_edited_tracks,
+    publish_tracks,
 )
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
 from trackleed.gui.session_controller import SessionController
 from trackleed.gui.detection_linking_controller import DetectionLinkingController
 from trackleed.gui.tracking_menu import TrackingMenuActions, add_tracking_menu
 from trackleed.logic.workflows.spot_detection import DetectionRequest
-from trackleed.logic.session_analysis_projection import (
-    retain_compatible_analysis_fits,
-)
 from trackleed.gui.circle_mask_dialog import CircleMaskDialog
 from trackleed.gui.ellipse_mask_dialog import EllipseMaskDialog
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
@@ -1649,12 +1646,11 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Tracking Cancelled", "Tracking run was cancelled.")
             return
         print("Tracking task finished successfully.")
-        self.tracking_results = tracks
-        self._active_analysis_state = retain_compatible_analysis_fits(
-            self._active_analysis_state,
-            tracks,
-        )
-        self._apply_tracks_to_files(tracks)
+        try:
+            publish_tracks(self, self.data_files, tracks)
+        except (TypeError, ValueError) as exc:
+            QMessageBox.critical(self, "Tracking Error", str(exc))
+            return
         current_item = self.file_list_widget.currentItem()
         if current_item:
             lf: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
@@ -1696,18 +1692,14 @@ class MainWindow(QMainWindow):
 
         if result == QDialog.DialogCode.Accepted:
             try:
-                self.tracking_results = publish_edited_tracks(
+                publish_tracks(
+                    self,
                     self.data_files,
                     dialog.get_updated_tracks(),
-                    previous_tracks=self.tracking_results,
                 )
             except (TypeError, ValueError) as exc:
                 QMessageBox.critical(self, "Tracking Error", str(exc))
                 return
-            self._active_analysis_state = retain_compatible_analysis_fits(
-                self._active_analysis_state,
-                self.tracking_results,
-            )
             print(f"Tracking data accepted. Final number of tracks: {len(self.tracking_results)}")
             QMessageBox.information(self, "Tracks Confirmed", "Corrected tracks have been saved.")
             current_item = self.file_list_widget.currentItem()
@@ -1718,10 +1710,6 @@ class MainWindow(QMainWindow):
         else:
             print("Tracking dialog was closed without accepting changes.")
 
-    def _apply_tracks_to_files(self, tracks: List[Track]):
-        """Sync SpotROI instances from tracking results back into LeedFile objects for display."""
-        publish_edited_tracks(self.data_files, tracks)
-    
     def populate_spot_list(self, spots: list[SpotROI]):
         """Populates the spot list widget with analysis results."""
         self.spot_list_widget.clear()

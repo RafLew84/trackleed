@@ -8,6 +8,7 @@ import unittest
 from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -16,10 +17,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import QRect
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QDialog
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.main_window import MainWindow
+from trackleed.gui.tracking_publisher import publish_tracks
 from trackleed.io.session import (
     SessionContents,
     load_session_from_file,
@@ -76,6 +78,104 @@ class SessionLifecycleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
+
+    def test_tracking_publication_retains_identical_fit_fingerprint_and_roi(
+        self,
+    ) -> None:
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        replacement_spot = SpotROI(
+            7,
+            QRect(8, 9, 10, 11),
+            15.0,
+            16.0,
+            3.0,
+            "tracking",
+        )
+        state = _current_analysis_state(frame.filepath)
+        host = SimpleNamespace(
+            tracking_results=[previous_track],
+            _active_analysis_state=state,
+        )
+
+        publish_tracks(host, [frame], [Track(7, {1: replacement_spot})])
+
+        retained = host._active_analysis_state
+        assert retained.fit_set is not None
+        self.assertEqual(
+            retained.fit_set.observations[0].fingerprint,
+            state.fit_set.observations[0].fingerprint,
+        )
+        self.assertIs(retained.geometry_result, state.geometry_result)
+        self.assertIn(1, host.tracking_results[0].analysis_results)
+        self.assertEqual(frame.pattern_center, {"center_x": 20.0, "center_y": 21.0})
+
+    def test_tracking_publication_invalidates_geometry_when_track_is_added(
+        self,
+    ) -> None:
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        state = _current_analysis_state(frame.filepath)
+        host = SimpleNamespace(
+            tracking_results=[previous_track],
+            _active_analysis_state=state,
+        )
+
+        publish_tracks(
+            host,
+            [frame],
+            [previous_track, Track(8, {})],
+        )
+
+        retained = host._active_analysis_state
+        assert retained.fit_set is not None
+        self.assertEqual(len(retained.fit_set.observations), 1)
+        self.assertIsNone(retained.geometry_result)
+        self.assertNotIn("radius", host.tracking_results[0].analysis_results[1])
+        self.assertIsNone(frame.pattern_center)
+        self.assertNotIn("average_radius", frame.post_analysis_results)
+
+    def test_tracking_publication_removes_inactive_fits_with_removed_track(
+        self,
+    ) -> None:
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        state = _current_analysis_state(frame.filepath)
+        host = SimpleNamespace(
+            tracking_results=[previous_track],
+            _active_analysis_state=state,
+        )
+
+        publish_tracks(host, [frame], [])
+
+        retained = host._active_analysis_state
+        assert retained.fit_set is not None
+        self.assertEqual(retained.fit_set.observations, ())
+        self.assertIsNone(retained.geometry_result)
+        self.assertEqual(host.tracking_results, [])
+        self.assertEqual(frame.spots, [])
+
+    def test_invalid_tracking_publication_preserves_complete_previous_state(
+        self,
+    ) -> None:
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        state = _current_analysis_state(frame.filepath)
+        previous_tracks = [previous_track]
+        host = SimpleNamespace(
+            tracking_results=previous_tracks,
+            _active_analysis_state=state,
+        )
+        previous_spots = frame.spots
+        previous_pattern_center = frame.pattern_center
+        invalid = Track(
+            7,
+            {999: SpotROI(7, QRect(8, 9, 10, 11), 13.0, 14.0, 2.0, "tracking")},
+        )
+
+        with self.assertRaisesRegex(ValueError, "unknown frame IDs"):
+            publish_tracks(host, [frame], [invalid])
+
+        self.assertIs(host.tracking_results, previous_tracks)
+        self.assertIs(host._active_analysis_state, state)
+        self.assertIs(frame.spots, previous_spots)
+        self.assertIs(frame.pattern_center, previous_pattern_center)
 
     def test_v1_missing_source_preserves_legacy_analysis_without_rewrite(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -471,19 +571,190 @@ class SessionLifecycleTests(unittest.TestCase):
             self.assertEqual(loaded.tracks[1].analysis_results, {})
 
     def test_raw_tracking_publication_drops_fit_after_roi_change(self) -> None:
-        frame, active_track = _analyzed_models(Path("frame-1.tif"))
-        active_track.spots_by_image_id[1].roi_rect = QRect(9, 9, 10, 11)
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        changed_spot = SpotROI(
+            7,
+            QRect(9, 9, 10, 11),
+            14.0,
+            14.0,
+            2.0,
+            "tracking",
+        )
+        changed_track = Track(7, {1: changed_spot})
         window = MainWindow()
         self.addCleanup(window.deleteLater)
         window.data_files = [frame]
+        window.tracking_results = [previous_track]
         window._active_analysis_state = _current_analysis_state(frame.filepath)
+        review_states: list[ActiveAnalysisState] = []
 
-        with patch.object(window, "show_tracking_visualizer"):
-            window.on_tracking_finished([active_track])
+        with patch.object(
+            window,
+            "show_tracking_visualizer",
+            side_effect=lambda: review_states.append(window._active_analysis_state),
+        ):
+            window.on_tracking_finished([changed_track])
 
         assert window._active_analysis_state.fit_set is not None
         self.assertEqual(window._active_analysis_state.fit_set.observations, ())
         self.assertIsNone(window._active_analysis_state.geometry_result)
+        self.assertIs(review_states[0], window._active_analysis_state)
+        self.assertEqual(window.tracking_results[0].analysis_results, {})
+        self.assertIsNone(frame.pattern_center)
+
+    def test_closing_review_keeps_raw_tracks_and_reconciled_state(self) -> None:
+        class RejectingReview:
+            def __init__(self, tracks: list[Track], *_args: object, **_kwargs: object):
+                self.tracks = tracks
+                self.tracks[0].spots_by_image_id[1].center_x = 99.0
+
+            def exec(self) -> QDialog.DialogCode:
+                return QDialog.DialogCode.Rejected
+
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        window = MainWindow()
+        self.addCleanup(window.deleteLater)
+        window.data_files = [frame]
+        window.tracking_results = [previous_track]
+        window._active_analysis_state = _current_analysis_state(frame.filepath)
+        raw_track = Track(
+            7,
+            {1: SpotROI(7, QRect(8, 9, 10, 11), 15.0, 16.0, 3.0, "tracking")},
+        )
+        publish_tracks(window, [frame], [raw_track])
+        raw_state = window._active_analysis_state
+        raw_spot = window.tracking_results[0].spots_by_image_id[1]
+
+        with patch("trackleed.gui.main_window.TrackingDialog", RejectingReview):
+            window.show_tracking_visualizer()
+
+        self.assertIs(window._active_analysis_state, raw_state)
+        self.assertIs(window.tracking_results[0].spots_by_image_id[1], raw_spot)
+        self.assertEqual(raw_spot.center_x, 15.0)
+        self.assertEqual(frame.spots[0].center_x, 15.0)
+
+    def test_invalid_accept_preserves_raw_tracks_spots_and_analysis(self) -> None:
+        class InvalidAcceptedReview:
+            def __init__(self, tracks: list[Track], *_args: object, **_kwargs: object):
+                self.tracks = tracks
+
+            def exec(self) -> QDialog.DialogCode:
+                return QDialog.DialogCode.Accepted
+
+            def get_updated_tracks(self) -> list[Track]:
+                spot = self.tracks[0].spots_by_image_id[1]
+                return [Track(7, {999: spot})]
+
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        window = MainWindow()
+        self.addCleanup(window.deleteLater)
+        window.data_files = [frame]
+        window.tracking_results = [previous_track]
+        window._active_analysis_state = _current_analysis_state(frame.filepath)
+        previous_tracks = window.tracking_results
+        previous_state = window._active_analysis_state
+        previous_spots = frame.spots
+
+        with (
+            patch("trackleed.gui.main_window.TrackingDialog", InvalidAcceptedReview),
+            patch("trackleed.gui.main_window.QMessageBox.critical"),
+        ):
+            window.show_tracking_visualizer()
+
+        self.assertIs(window.tracking_results, previous_tracks)
+        self.assertIs(window._active_analysis_state, previous_state)
+        self.assertIs(frame.spots, previous_spots)
+
+    def test_accept_reconciles_edited_roi_through_the_same_publication(self) -> None:
+        class EditedAcceptedReview:
+            def __init__(self, tracks: list[Track], *_args: object, **_kwargs: object):
+                self.tracks = tracks
+                self.tracks[0].spots_by_image_id[1].roi_rect.translate(1, 0)
+
+            def exec(self) -> QDialog.DialogCode:
+                return QDialog.DialogCode.Accepted
+
+            def get_updated_tracks(self) -> list[Track]:
+                return self.tracks
+
+        frame, previous_track = _analyzed_models(Path("frame-1.tif"))
+        window = MainWindow()
+        self.addCleanup(window.deleteLater)
+        window.data_files = [frame]
+        window.tracking_results = [previous_track]
+        window._active_analysis_state = _current_analysis_state(frame.filepath)
+
+        with (
+            patch("trackleed.gui.main_window.TrackingDialog", EditedAcceptedReview),
+            patch("trackleed.gui.main_window.QMessageBox.information"),
+        ):
+            window.show_tracking_visualizer()
+
+        state = window._active_analysis_state
+        assert state.fit_set is not None
+        self.assertEqual(state.fit_set.observations, ())
+        self.assertIsNone(state.geometry_result)
+        self.assertEqual(window.tracking_results[0].analysis_results, {})
+        self.assertEqual(frame.spots[0].roi_rect.x(), 9)
+
+    def test_track_analysis_and_session_save_see_raw_reconciled_state(self) -> None:
+        captured: dict[str, object] = {}
+
+        class AnalysisDialog:
+            def __init__(
+                self,
+                tracks: list[Track],
+                _files: dict[int, LeedFile],
+                _background: LeedFile | None,
+                **kwargs: object,
+            ) -> None:
+                captured["tracks"] = tracks
+                captured["state"] = kwargs["analysis_state"]
+                self.tracks = tracks
+                self.analysis_state = kwargs["analysis_state"]
+
+            def exec(self) -> QDialog.DialogCode:
+                return QDialog.DialogCode.Rejected
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            frame, previous_track = _analyzed_models(root / "frame-1.tif")
+            window = MainWindow()
+            self.addCleanup(window.deleteLater)
+            window.data_files = [frame]
+            window.tracking_results = [previous_track]
+            window._active_analysis_state = _current_analysis_state(frame.filepath)
+            changed_track = Track(
+                7,
+                {
+                    1: SpotROI(
+                        7,
+                        QRect(9, 9, 10, 11),
+                        14.0,
+                        14.0,
+                        2.0,
+                        "tracking",
+                    )
+                },
+            )
+            publish_tracks(window, [frame], [changed_track])
+            reconciled = window._active_analysis_state
+
+            with patch(
+                "trackleed.gui.analysis_dialog.AnalysisResultsDialog",
+                AnalysisDialog,
+            ):
+                window.show_analysis_dialog()
+            output_path = root / "raw-publication.lts.json"
+            window.session_controller.save(output_path)
+            loaded = load_session_from_file(output_path)
+
+        self.assertIs(captured["tracks"], window.tracking_results)
+        self.assertIs(captured["state"], reconciled)
+        assert loaded.analysis_state.fit_set is not None
+        self.assertEqual(loaded.analysis_state.fit_set.observations, ())
+        self.assertIsNone(loaded.analysis_state.geometry_result)
+        self.assertEqual(loaded.tracks[0].analysis_results, {})
 
     def test_relocated_source_is_confirmed_from_decoded_pixels(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

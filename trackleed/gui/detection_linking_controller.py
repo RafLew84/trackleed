@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import QDialog, QMessageBox
 
 from trackleed.gui.detection_linking_adapter import (
     DetectionLinkingSettingsBinding,
-    publish_detection_linking_result,
     run_detection_linking_job,
 )
 from trackleed.gui.detection_linking_dialog import (
@@ -21,6 +20,7 @@ from trackleed.gui.detection_linking_dialog import (
     DetectionLinkingDialogDecision,
     DirectionalDetectionLinkingDialog,
 )
+from trackleed.gui.tracking_publisher import project_tracking_result, publish_tracks
 from trackleed.logic.generic_worker import GenericWorker
 from trackleed.logic.workflows.detection_linking import (
     default_detection_linking_catalog,
@@ -177,15 +177,14 @@ class DetectionLinkingController:
         if completion.result is None:
             raise RuntimeError("Successful detection linking has no result")
         try:
-            tracks = publish_detection_linking_result(
+            publish_tracks(
+                self._host,
                 decision.files,
-                completion.result,
-                previous_tracks=self._host.tracking_results,
+                project_tracking_result(completion.result),
             )
         except (TypeError, ValueError) as exc:
             self._notifications.error("Detection Linking Error", str(exc))
             return
-        self._host.tracking_results = tracks
         self._refresh_host(decision)
         self._host.show_tracking_visualizer()
 

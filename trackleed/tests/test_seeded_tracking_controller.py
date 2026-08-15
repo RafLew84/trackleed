@@ -12,6 +12,7 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.seeded_tracking_adapter import SeededTrackingDialogSettings
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialogDecision
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
 from trackleed.logic.workflows.mask_tracking import CutieMaskConfig
@@ -101,6 +102,7 @@ class _Host:
         self.background_file = None
         self.file_list_widget = SimpleNamespace(currentItem=lambda: _Item(files[0]))
         self.tracking_results = [Track(99, {})]
+        self._active_analysis_state = ActiveAnalysisState()
         self.review_calls = 0
         self.launch: dict[str, object] = {}
 
@@ -148,11 +150,15 @@ class SeededTrackingControllerTests(unittest.TestCase):
 
     def test_error_and_cancel_keep_previous_complete_result(self) -> None:
         self.controller.show_dialog()
+        previous_state = self.host._active_analysis_state
+        previous_spots = tuple(file.spots for file in self.files)
         self.host.launch["on_error"]("boom")
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
 
         self.host.launch["on_finished"](None)
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
+        self.assertIs(self.host._active_analysis_state, previous_state)
+        self.assertEqual(tuple(file.spots for file in self.files), previous_spots)
         self.assertEqual(self.host.review_calls, 0)
 
     def test_success_publishes_atomically_then_opens_review(self) -> None:

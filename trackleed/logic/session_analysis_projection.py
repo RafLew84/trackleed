@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import copy, deepcopy
 from dataclasses import dataclass
 
@@ -27,6 +28,8 @@ class AnalysisSessionProjection:
 def retain_compatible_analysis_fits(
     state: ActiveAnalysisState,
     tracks: list[Track],
+    *,
+    previous_tracks: Sequence[Track] | None = None,
 ) -> ActiveAnalysisState:
     """Retain fits whose active observation still has the fitted ROI."""
     if not isinstance(state.fit_set, FitSet):
@@ -48,7 +51,10 @@ def retain_compatible_analysis_fits(
         == item.provenance.original_roi
     }
     retained = state.retain_observations(compatible_keys)
-    if set(active_rois) != compatible_keys:
+    track_set_changed = previous_tracks is not None and {
+        track.track_id for track in previous_tracks
+    } != {track.track_id for track in tracks}
+    if set(active_rois) != compatible_keys or track_set_changed:
         return retained.invalidate_geometry()
     return retained
 

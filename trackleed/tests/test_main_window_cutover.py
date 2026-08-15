@@ -223,10 +223,7 @@ class MainWindowCutoverTests(unittest.TestCase):
         self.window._active_analysis_state = ActiveAnalysisState(
             "compatible-fit", "stale-geometry"
         )
-        with (
-            patch.object(self.window, "_apply_tracks_to_files"),
-            patch.object(self.window, "show_tracking_visualizer"),
-        ):
+        with patch.object(self.window, "show_tracking_visualizer"):
             self.window.on_tracking_finished([])
         self.assertEqual(self.window._active_analysis_state.fit_set, "compatible-fit")
         self.assertIsNone(self.window._active_analysis_state.geometry_result)

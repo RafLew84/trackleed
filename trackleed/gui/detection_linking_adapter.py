@@ -6,8 +6,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from trackleed.core.data_models import LeedFile, SpotROI, Track
-from trackleed.gui.tracking_publisher import publish_tracking_result
+from trackleed.core.data_models import LeedFile, SpotROI
 from trackleed.logic.workflows.detection_linking import (
     DetectionLinkingCancelled,
     DetectionLinkingMethodConfig,
@@ -68,20 +67,6 @@ def build_detection_linking_request(
             for frame_id, file in zip(frame_ids, files, strict=True)
         ),
         config,
-    )
-
-
-def publish_detection_linking_result(
-    files: Sequence[LeedFile],
-    result: TrackingResult,
-    *,
-    previous_tracks: Sequence[Track] | None = None,
-) -> list[Track]:
-    """Publish one complete linking result through the common track publisher."""
-    return publish_tracking_result(
-        files,
-        result,
-        previous_tracks=previous_tracks,
     )
 
 

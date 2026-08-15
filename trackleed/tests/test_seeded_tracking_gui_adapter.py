@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from threading import Event
+from types import SimpleNamespace
 
 import numpy as np
 from PyQt6.QtCore import QRect
@@ -15,9 +16,10 @@ from trackleed.gui.seeded_tracking_adapter import (
 )
 from trackleed.gui.tracking_publisher import (
     clone_tracks_for_review,
-    publish_edited_tracks,
-    publish_tracking_result,
+    project_tracking_result,
+    publish_tracks,
 )
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
 from trackleed.logic.workflows.mask_tracking import CutieMaskConfig
@@ -55,6 +57,13 @@ def _spot(spot_id: int, x: int, y: int) -> SpotROI:
         float(y),
         12.0,
         "manual",
+    )
+
+
+def _publication_target(previous: list[Track] | None = None) -> SimpleNamespace:
+    return SimpleNamespace(
+        tracking_results=list(previous or []),
+        _active_analysis_state=ActiveAnalysisState(),
     )
 
 
@@ -178,7 +187,9 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
             )
         )
 
-        tracks = publish_tracking_result((reference,), result)
+        target = _publication_target()
+        publish_tracks(target, (reference,), project_tracking_result(result))
+        tracks = target.tracking_results
 
         self.assertEqual(diagnostics["cutie_mask_area"], 37.5)
         self.assertEqual(diagnostics["cutie_history"], (1.0, 2.0))
@@ -250,7 +261,9 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
             )
         )
 
-        tracks = publish_tracking_result((first, second), result)
+        target = _publication_target()
+        publish_tracks(target, (first, second), project_tracking_result(result))
+        tracks = target.tracking_results
 
         track_seed = tracks[0].spots_by_image_id[1]
         self.assertIsNot(track_seed, original_detection)
@@ -299,7 +312,9 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         review[0].spots_by_image_id[1].center_x = 88.0
 
         self.assertEqual(raw[0].spots_by_image_id[1].center_x, 20.0)
-        active = publish_edited_tracks((first, second), review)
+        target = _publication_target()
+        publish_tracks(target, (first, second), review)
+        active = target.tracking_results
         review[0].spots_by_image_id[1].center_x = 99.0
         first.spots[0].center_x = 77.0
 
@@ -307,7 +322,7 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         self.assertIsNot(active[0].spots_by_image_id[1], first.spots[0])
         self.assertEqual(second.spots[0].center_x, 22.0)
 
-    def test_accept_preserves_fits_only_for_unchanged_observation_rois(self) -> None:
+    def test_accept_drops_legacy_fits_without_typed_fingerprints(self) -> None:
         first = _leed_file(1, [])
         second = _leed_file(2, [])
         raw = [
@@ -327,13 +342,11 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         review[0].analysis_results[1]["history"].append(2)
         review[0].spots_by_image_id[2].roi_rect.translate(1, 0)
 
-        active = publish_edited_tracks(
-            (first, second),
-            review,
-            previous_tracks=raw,
-        )
+        target = _publication_target(raw)
+        publish_tracks(target, (first, second), review)
+        active = target.tracking_results
 
-        self.assertEqual(active[0].analysis_results, {1: raw[0].analysis_results[1]})
+        self.assertEqual(active[0].analysis_results, {})
         self.assertEqual(raw[0].analysis_results[1]["history"], [1])
 
 
