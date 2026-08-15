@@ -19,12 +19,20 @@ from trackleed.logic.workflows.seeded_tracking import (
     SeededTrackingMethod,
     SeedRepresentation,
     TrackingFamily,
+    TrackingPreflightIssue,
 )
 
 
 class _ReadyRuntime:
-    def preflight(self, _config, _context=None):
+    def __init__(self):
+        self.preflight_calls = 0
+
+    def validate_config(self, _config):
         return ()
+
+    def preflight(self, _config, _context=None):
+        self.preflight_calls += 1
+        return (TrackingPreflightIssue("unexpected_probe", "must run in worker"),)
 
     def run(self, _request, _context):
         raise AssertionError("Dialog must not execute tracking")
@@ -125,6 +133,7 @@ class SeededTrackingDialogTests(unittest.TestCase):
     def test_point_page_builds_typed_request_through_stable_catalog_id(self) -> None:
         reference = _frame(1, with_seed=True)
         second = _frame(2)
+        runtime = _ReadyRuntime()
         method = SeededTrackingMethod(
             "tapir_offline",
             "Offline TAPIR",
@@ -135,7 +144,7 @@ class SeededTrackingDialogTests(unittest.TestCase):
                 preserves_gaps=True,
                 supports_retrack=True,
             ),
-            _ReadyRuntime(),
+            runtime,
         )
         dialog = SeededTrackingDialog(
             reference_file=reference,
@@ -157,6 +166,7 @@ class SeededTrackingDialogTests(unittest.TestCase):
         self.assertEqual(config.checkpoint_path, Path("custom-tapir.pt"))
         self.assertEqual(config.roi_size, 26)
         self.assertEqual(dialog.decision.settings.point_config("tapir_offline"), config)
+        self.assertEqual(runtime.preflight_calls, 0)
 
 
 if __name__ == "__main__":

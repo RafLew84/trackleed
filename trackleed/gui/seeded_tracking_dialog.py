@@ -267,7 +267,7 @@ class SeededTrackingDialog(QDialog):
         except (TypeError, ValueError) as exc:
             self.preflight_label.setText(f"Preflight blocked:\n[invalid_request] {exc}")
             return
-        report = self._catalog.preflight(request)
+        report = self._catalog.validate(request)
         self.preflight_report = report
         if not report.ready:
             self.preflight_label.setText(
@@ -278,7 +278,8 @@ class SeededTrackingDialog(QDialog):
             )
             return
         self.preflight_label.setText(
-            f"Ready - {self._catalog.method(method_id).display_name} can run."
+            f"Ready - {self._catalog.method(method_id).display_name} settings are valid. "
+            "The worker will verify the execution environment."
         )
         self.decision = SeededTrackingDialogDecision(request, self._files, settings)
         self.accept()

@@ -5,7 +5,6 @@ import sys
 import types
 import unittest
 
-
 DEPENDENCY_MODULE_ATTRS: dict[str, tuple[str, ...]] = {
     "trackleed.analysis.cotracker_backend": (
         "format_cotracker_environment_report",
@@ -149,7 +148,8 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
     def test_tracker_specs_are_complete_and_unique(self) -> None:
         specs = self.registry.iter_tracker_specs()
         self.assertEqual(specs, self.registry.TRACKER_SPECS)
-        self.assertGreaterEqual(len(specs), 12)
+        self.assertGreaterEqual(len(specs), 7)
+        self.assertTrue(all(spec.family != "point" for spec in specs))
         self.assertEqual(
             self.registry.TRACKING_SCENARIO_NAMES,
             tuple(spec.scenario_name for spec in specs),

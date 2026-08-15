@@ -14,34 +14,18 @@ class MainWindowTrackingDispatchTests(MainWindowImportMixin, unittest.TestCase):
     def setUp(self) -> None:
         self.registry, self.main_window = self.import_main_window()
 
-    def test_run_tracking_dispatches_registered_tracker_via_registry_worker_builder(
+    def test_run_tracking_routes_legacy_point_choice_to_seeded_controller(
         self,
     ) -> None:
-        recorded: dict[str, object] = {}
-        fake = self._tracking_host("Offline TAPIR")
-
-        def _build_registered_tracking_worker(tracker_spec, cancel_event):
-            recorded["tracker_spec"] = tracker_spec
-            recorded["cancel_event"] = cancel_event
-            return "worker-object"
-
-        def _launch_worker_with_progress(worker, title, cancel_event):
-            recorded["worker"] = worker
-            recorded["title"] = title
-            recorded["launch_cancel_event"] = cancel_event
-
-        fake._build_registered_tracking_worker = _build_registered_tracking_worker
-        fake._launch_worker_with_progress = _launch_worker_with_progress
+        calls: list[str] = []
+        fake = self._tracking_host(
+            "Offline TAPIR",
+            show_legacy=lambda scenario: calls.append(scenario) or True,
+        )
 
         self.main_window.MainWindow.run_tracking(fake)
 
-        self.assertIs(
-            recorded["tracker_spec"],
-            self.registry.require_tracker_spec("tapir_offline"),
-        )
-        self.assertEqual(recorded["worker"], "worker-object")
-        self.assertEqual(recorded["title"], "Running tracking...")
-        self.assertIs(recorded["cancel_event"], recorded["launch_cancel_event"])
+        self.assertEqual(calls, ["Offline TAPIR"])
 
     def test_run_tracking_routes_legacy_optical_choice_to_seeded_controller(
         self,
@@ -60,7 +44,7 @@ class MainWindowTrackingDispatchTests(MainWindowImportMixin, unittest.TestCase):
         self,
     ) -> None:
         recorded: dict[str, object] = {}
-        fake = self._tracking_host("Offline TAPIR")
+        fake = self._tracking_host("Offline ToMP")
         fake._build_registered_tracking_worker = lambda tracker_spec, cancel_event: None
         fake._launch_worker_with_progress = lambda *args, **kwargs: recorded.update(
             {"launched": True}

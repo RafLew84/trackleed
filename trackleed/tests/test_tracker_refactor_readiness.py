@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 import unittest
+from pathlib import Path
 
+from trackleed.analysis.seeded_point_tracking_runtime import (
+    point_tracking_definitions,
+)
 from trackleed.tests.test_tracker_registry import TrackerRegistryImportMixin
-
 
 TRACKLEED_ROOT = Path(__file__).resolve().parents[1]
 MAIN_WINDOW_PATH = TRACKLEED_ROOT / "gui" / "main_window.py"
@@ -125,7 +127,9 @@ class TrackerRefactorReadinessTests(TrackerRegistryImportMixin, unittest.TestCas
             spec.tracker_id for spec in self.registry.iter_tracker_specs() if spec.supports_subprocess
         }
         visualizer_retrack_ids = {
-            spec.tracker_id for spec in self.registry.iter_tracker_specs() if spec.has_visualizer_retrack
+            spec.tracker_id
+            for spec in self.registry.iter_tracker_specs()
+            if spec.has_visualizer_retrack and spec.family != "point"
         }
 
         main_window_titles = _extract_module_level_literal_dict(
@@ -158,6 +162,9 @@ class TrackerRefactorReadinessTests(TrackerRegistryImportMixin, unittest.TestCas
         self.assertTrue(subprocess_tracker_ids.issubset(main_window_env_hints.keys()))
         self.assertTrue(subprocess_tracker_ids.issubset(tracking_dialog_env_hints.keys()))
         self.assertTrue(visualizer_retrack_ids.issubset(visualizer_retrack_map.keys()))
+        self.assertFalse(
+            {item.method_id for item in point_tracking_definitions()} & tracker_ids
+        )
 
         for tracker_id in visualizer_retrack_ids:
             method_name = visualizer_retrack_map[tracker_id]

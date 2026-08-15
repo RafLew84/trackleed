@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import importlib
-from pathlib import Path
 import sys
 import tempfile
 import types
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 
@@ -550,22 +550,6 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         self.assertIs(spec, self.registry.require_tracker_spec("tomp_offline"))
 
-    def test_collect_tracker_params_for_spec_calls_registered_method(self) -> None:
-        spec = self.registry.require_tracker_spec("tapir_offline")
-        fake = SimpleNamespace(
-            _collect_tapir_tracking_params=lambda: {"backend": "tapir", "mode": "offline"}
-        )
-
-        result = self.main_window.MainWindow._collect_tracker_params_for_spec(fake, spec)
-
-        self.assertEqual(result, {"backend": "tapir", "mode": "offline"})
-
-    def test_collect_tracker_params_for_spec_raises_for_missing_method(self) -> None:
-        spec = self.registry.require_tracker_spec("tapir_offline")
-
-        with self.assertRaises(AttributeError):
-            self.main_window.MainWindow._collect_tracker_params_for_spec(SimpleNamespace(), spec)
-
     def test_collect_tracking_dialog_backend_params_deduplicates_argument_names(self) -> None:
         calls: list[str] = []
 
@@ -588,7 +572,7 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         self.assertEqual(set(params), set(expected_argument_names))
         self.assertEqual(len(calls), len(expected_argument_names))
-        self.assertIn("tapir_offline", calls)
+        self.assertNotIn("tapir_offline", calls)
         self.assertNotIn("tapir_online", calls)
 
     def test_clear_active_tracking_worker_only_clears_matching_objects(self) -> None:
@@ -791,21 +775,17 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             conda_root = Path(temp_dir)
-            locotrack_python = conda_root / "envs" / "locotrack-pytorch" / "python.exe"
             sam2_python = conda_root / "envs" / "sam2" / "python.exe"
             dam4sam_python = conda_root / "envs" / "dam4sam" / "python.exe"
             samurai_python = conda_root / "envs" / "samurai" / "python.exe"
-            locotrack_python.parent.mkdir(parents=True)
             sam2_python.parent.mkdir(parents=True)
             dam4sam_python.parent.mkdir(parents=True)
             samurai_python.parent.mkdir(parents=True)
-            locotrack_python.touch()
             sam2_python.touch()
             dam4sam_python.touch()
             samurai_python.touch()
 
             fake = SimpleNamespace(
-                locotrack_settings=self.main_window.LocotrackTrackingSettings(),
                 sam2_settings=self.main_window.Sam2TrackingSettings(
                     python_executable="C:/custom/sam2/python.exe"
                 ),
@@ -824,10 +804,6 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
             self.main_window.MainWindow._apply_default_subprocess_python_executables(fake)
 
-            self.assertEqual(
-                fake.locotrack_settings.python_executable,
-                str(locotrack_python.resolve()),
-            )
             self.assertEqual(
                 fake.sam2_settings.python_executable,
                 "C:/custom/sam2/python.exe",

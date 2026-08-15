@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import fields
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -27,17 +28,6 @@ _PATH_FIELDS = {
 }
 
 _HIDDEN_FIELDS = {"subtract_background"}
-
-_CHOICES = {
-    "backend_mode": ("direct", "subprocess"),
-    "device": ("auto", "cpu", "cuda"),
-    "runtime_mode": ("offline", "online"),
-    "model_size": ("auto", "small", "base"),
-    "center_mode": ("auto", "manual"),
-    "direction_mode": ("none", "auto", "inward", "outward"),
-    "recenter_mode": ("centroid", "none"),
-}
-
 
 class PointTrackerPage(QWidget):
     def __init__(self, config: PointTrackerConfig) -> None:
@@ -67,17 +57,11 @@ class PointTrackerPage(QWidget):
 def _field_widget(name: str, value: Any) -> QWidget:
     if name in _PATH_FIELDS:
         return QLineEdit("" if value is None else str(value))
-    if name in _CHOICES:
+    if isinstance(value, Enum):
         combo = QComboBox()
-        choices = (
-            ("direct", "subprocess")
-            if name == "backend_mode" and value == "subprocess"
-            else _CHOICES[name]
-        )
-        for choice in choices:
-            combo.addItem(choice, choice)
-        index = combo.findData(str(value))
-        combo.setCurrentIndex(max(index, 0))
+        for enum_choice in type(value):
+            combo.addItem(str(enum_choice.value), enum_choice)
+        combo.setCurrentIndex(max(combo.findData(value), 0))
         return combo
     if isinstance(value, bool):
         checkbox = QCheckBox()

@@ -185,7 +185,12 @@ class SeededTrackingControllerTests(unittest.TestCase):
             self.controller.settings.dialog_settings.selected_method_id,
             "optical_flow",
         )
-        self.assertFalse(self.controller.show_legacy_scenario("Offline TAPIR"))
+        self.assertTrue(self.controller.show_legacy_scenario("Offline TAPIR"))
+        self.assertEqual(
+            _Dialog.last_kwargs["settings"].selected_method_id,
+            "tapir_offline",
+        )
+        self.assertFalse(self.controller.show_legacy_scenario("Unknown tracker"))
 
     def test_review_defaults_come_from_last_accepted_method_config(self) -> None:
         self.controller.show_dialog()
@@ -218,6 +223,10 @@ class SeededTrackingControllerTests(unittest.TestCase):
         backend_params = self.controller.review_backend_params
 
         self.assertEqual(defaults.roi_size, 26)
+        self.assertIs(
+            backend_params["seeded_point_configs"]["tapir_offline"],
+            settings.point_config("tapir_offline"),
+        )
         self.assertEqual(backend_params["tapir_params"]["roi_size"], 26)
         self.assertEqual(
             backend_params["tapir_params"]["tapir_models_dir"],

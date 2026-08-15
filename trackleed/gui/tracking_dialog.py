@@ -16,7 +16,10 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
+from trackleed.gui.seeded_point_retrack_controller import launch_seeded_point_retrack
+from trackleed.gui.seeded_point_tracking_compatibility import point_review_spec_for_source, point_tracker_gui_spec
 from trackleed.gui.tracker_registry import get_tracker_spec_for_source, require_tracker_spec
+from trackleed.analysis.seeded_point_tracking_runtime import point_tracking_definitions
 from trackleed.io.image_reader import load_tiff
 from trackleed.analysis.tomp_backend import (
     select_default_tamos_checkpoint_for_variant,
@@ -71,14 +74,6 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
 }
 
 TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
-    "tapir_offline": "initiate_retrack_tapir",
-    "tapir_online": "initiate_retrack_tapir",
-    "locotrack_offline": "initiate_retrack_locotrack",
-    "cotracker3_offline": "initiate_retrack_cotracker3",
-    "tapnext_offline": "initiate_retrack_tapnext",
-    "trackonr_offline": "initiate_retrack_trackonr",
-    "pipspp_offline": "initiate_retrack_pipspp",
-    "mftiq_offline": "initiate_retrack_mftiq",
     "cutie_offline": "initiate_retrack_cutie",
     "xmem2_offline": "initiate_retrack_xmem2",
     "tomp_offline": "initiate_retrack_tomp",
@@ -240,13 +235,13 @@ class TrackingDialog(QDialog):
         dam4sam_params: dict | None = None,
         samurai_params: dict | None = None,
         deva_params: dict | None = None,
+        seeded_point_configs: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
         super().__init__(parent)
         self.setWindowTitle("Review / Edit Tracks")
         self.setMinimumSize(1200, 800)
-
         current_flags=self.windowFlags()
         self.setWindowFlags(current_flags | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
 
@@ -274,9 +269,9 @@ class TrackingDialog(QDialog):
         self.dam4sam_params = dict(dam4sam_params or {})
         self.samurai_params = dict(samurai_params or {})
         self.deva_params = dict(deva_params or {})
+        self.seeded_point_configs = dict(seeded_point_configs or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
-
         self.sorted_frame_ids = sorted(list(self.file_map.keys()))
         
         main_layout = QVBoxLayout(self)
@@ -506,7 +501,7 @@ class TrackingDialog(QDialog):
         normalized_source = self._normalized_source_name(source_name)
         if not normalized_source or normalized_source in MANUAL_TRACK_SOURCES:
             return None
-        return get_tracker_spec_for_source(normalized_source)
+        return point_review_spec_for_source(normalized_source) or get_tracker_spec_for_source(normalized_source)
 
     def _tracker_spec_for_track(self, track: Track | None):
         if track is None:
@@ -828,6 +823,10 @@ class TrackingDialog(QDialog):
 
     def _initiate_retrack_for_tracker_spec(self, tracker_spec, spot_id: int) -> None:
         tracker_id = str(getattr(tracker_spec, "tracker_id", "") or "").strip().lower()
+        point_method_ids = {item.method_id for item in point_tracking_definitions()}
+        if tracker_id in point_method_ids:
+            launch_seeded_point_retrack(self, tracker_id, spot_id)
+            return
         method_name = TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID.get(tracker_id)
         if not method_name:
             raise ValueError(f"Unsupported tracker for visualizer retrack: {tracker_id}")
@@ -1345,7 +1344,7 @@ class TrackingDialog(QDialog):
         spot_source = str(getattr(current_spot, "source", "")).strip().lower() if current_spot else ""
         runtime_mode = str(self.tapir_params.get("runtime_mode", "offline")).strip().lower()
         use_online = spot_source == "tapir_online" or runtime_mode == "online"
-        tracker_spec = require_tracker_spec("tapir_online" if use_online else "tapir_offline")
+        tracker_spec = point_tracker_gui_spec("tapir_online" if use_online else "tapir_offline")
 
         tapir_params = self._tracker_params_for_spec(tracker_spec)
         if not tapir_params:
@@ -1399,7 +1398,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("locotrack_offline")
+        tracker_spec = point_tracker_gui_spec("locotrack_offline")
 
         locotrack_params = self._tracker_params_for_spec(tracker_spec)
         if not locotrack_params:
@@ -1448,7 +1447,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("cotracker3_offline")
+        tracker_spec = point_tracker_gui_spec("cotracker3_offline")
 
         cotracker_params = self._tracker_params_for_spec(tracker_spec)
         if not cotracker_params:
@@ -1492,7 +1491,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("tapnext_offline")
+        tracker_spec = point_tracker_gui_spec("tapnext_offline")
 
         tapnext_params = self._tracker_params_for_spec(tracker_spec)
         if not tapnext_params:
@@ -1534,7 +1533,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("trackonr_offline")
+        tracker_spec = point_tracker_gui_spec("trackonr_offline")
 
         trackonr_params = self._tracker_params_for_spec(tracker_spec)
         if not trackonr_params:
@@ -1587,7 +1586,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("pipspp_offline")
+        tracker_spec = point_tracker_gui_spec("pipspp_offline")
 
         pipspp_params = self._tracker_params_for_spec(tracker_spec)
         if not pipspp_params:
@@ -1637,7 +1636,7 @@ class TrackingDialog(QDialog):
         if target is None:
             return
         track_to_retrack, current_frame_id = target
-        tracker_spec = require_tracker_spec("mftiq_offline")
+        tracker_spec = point_tracker_gui_spec("mftiq_offline")
 
         mftiq_params = self._tracker_params_for_spec(tracker_spec)
         if not mftiq_params:

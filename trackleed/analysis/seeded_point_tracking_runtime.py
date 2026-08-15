@@ -2,24 +2,30 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+import subprocess
+import sys
+from dataclasses import dataclass, replace
 from importlib import import_module
 from math import isfinite
 from pathlib import Path
 from typing import Any
 
 from trackleed.logic.workflows.point_tracking import (
+    BackendMode,
     CotrackerPointConfig,
     LocotrackPointConfig,
     MftiqPointConfig,
     PipsppPointConfig,
     PointTrackerConfig,
     TapirPointConfig,
+    TapirRuntimeMode,
     TapnextPointConfig,
     TrackonrPointConfig,
 )
 from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
+    SeededRetrackRequest,
     SeededTrackingCapabilities,
     SeededTrackingConfig,
     SeededTrackingMethod,
@@ -32,80 +38,89 @@ from trackleed.logic.workflows.seeded_tracking import (
 
 
 @dataclass(frozen=True)
-class _PointMethodDefinition:
+class PointTrackerDefinition:
     method_id: str
     display_name: str
     config_type: type[PointTrackerConfig]
+    default_config: PointTrackerConfig
     backend_module: str
     probe_name: str
     requires_repo: bool = False
     requires_config: bool = False
     supports_subprocess: bool = False
-    runtime_mode: str | None = None
+    runtime_mode: TapirRuntimeMode | None = None
 
 
 _POINT_METHODS = (
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "tapir_offline",
         "Offline TAPIR",
         TapirPointConfig,
+        TapirPointConfig(),
         "trackleed.analysis.tapir_backend",
         "probe_tapir_environment",
-        runtime_mode="offline",
+        runtime_mode=TapirRuntimeMode.OFFLINE,
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "tapir_online",
         "BootsTAPIR Online / Causal",
         TapirPointConfig,
+        TapirPointConfig(runtime_mode=TapirRuntimeMode.ONLINE),
         "trackleed.analysis.tapir_backend",
         "probe_tapir_environment",
-        runtime_mode="online",
+        runtime_mode=TapirRuntimeMode.ONLINE,
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "locotrack_offline",
         "Offline LocoTrack",
         LocotrackPointConfig,
+        LocotrackPointConfig(),
         "trackleed.analysis.locotrack_backend",
         "probe_locotrack_environment",
         requires_repo=True,
         supports_subprocess=True,
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "cotracker3_offline",
         "Offline CoTracker3",
         CotrackerPointConfig,
+        CotrackerPointConfig(),
         "trackleed.analysis.cotracker_backend",
         "probe_cotracker_environment",
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "tapnext_offline",
         "Offline TAPNext",
         TapnextPointConfig,
+        TapnextPointConfig(),
         "trackleed.analysis.tapnext_backend",
         "probe_tapnext_environment",
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "trackonr_offline",
         "Offline Track-On-R",
         TrackonrPointConfig,
+        TrackonrPointConfig(),
         "trackleed.analysis.trackonr_backend",
         "probe_trackonr_environment",
         requires_repo=True,
         supports_subprocess=True,
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "pipspp_offline",
         "Offline PIPs++",
         PipsppPointConfig,
+        PipsppPointConfig(),
         "trackleed.analysis.pipspp_backend",
         "probe_pipspp_environment",
         requires_repo=True,
         supports_subprocess=True,
     ),
-    _PointMethodDefinition(
+    PointTrackerDefinition(
         "mftiq_offline",
         "Offline MFTIQ",
         MftiqPointConfig,
+        MftiqPointConfig(),
         "trackleed.analysis.mftiq_backend",
         "probe_mftiq_environment",
         requires_repo=True,
@@ -116,13 +131,12 @@ _POINT_METHODS = (
 
 
 class PointTrackerRuntime:
-    def __init__(self, definition: _PointMethodDefinition) -> None:
+    def __init__(self, definition: PointTrackerDefinition) -> None:
         self._definition = definition
 
-    def preflight(
+    def validate_config(
         self,
         config: SeededTrackingConfig,
-        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]:
         if not isinstance(config, self._definition.config_type):
             return (
@@ -144,26 +158,88 @@ class PointTrackerRuntime:
         config_issues = _config_issues(config, self._definition)
         if config_issues:
             return config_issues
+        return ()
+
+    def preflight(
+        self,
+        config: SeededTrackingConfig,
+        context: RunContext | None = None,
+    ) -> tuple[TrackingPreflightIssue, ...]:
+        config_issues = self.validate_config(config)
+        if config_issues:
+            return config_issues
+        assert isinstance(config, PointTrackerConfig)
+        issues: list[TrackingPreflightIssue] = []
         if context is not None and context.point_tracker_preflight is not None:
-            return context.point_tracker_preflight(self._definition.method_id, config)
-        return _probe_environment(config, self._definition)
+            issues.extend(
+                context.point_tracker_preflight(self._definition.method_id, config)
+            )
+        else:
+            issues.extend(_probe_environment(config, self._definition))
+        if context is not None:
+            executor = (
+                context.point_tracker_retrack_executor
+                if context.preflight_operation == "retrack"
+                else context.point_tracker_executor
+            )
+            if executor is None:
+                issues.append(
+                    TrackingPreflightIssue(
+                        "executor_unavailable",
+                        f"{self._definition.display_name} execution adapter is unavailable.",
+                    )
+                )
+        return tuple(issues)
 
     def run(
         self,
         request: SeededTrackingRequest,
         context: RunContext,
     ) -> TrackingResult:
-        if context.point_tracker_executor is not None:
-            return context.point_tracker_executor(
-                self._definition.method_id,
-                request,
-                context,
-            )
-        from trackleed.analysis.seeded_point_tracking_compatibility import (
-            run_legacy_point_tracker,
+        if context.point_tracker_executor is None:
+            raise RuntimeError("Point-tracker execution adapter is unavailable")
+        return context.point_tracker_executor(
+            self._definition.method_id,
+            request,
+            context,
         )
 
-        return run_legacy_point_tracker(self._definition.method_id, request, context)
+    def retrack(
+        self,
+        request: SeededRetrackRequest,
+        context: RunContext,
+    ) -> TrackingResult:
+        if context.point_tracker_retrack_executor is None:
+            raise RuntimeError("Point-tracker re-track adapter is unavailable")
+        return context.point_tracker_retrack_executor(
+            self._definition.method_id,
+            request,
+            context,
+        )
+
+
+def point_tracking_definitions() -> tuple[PointTrackerDefinition, ...]:
+    return _POINT_METHODS
+
+
+def point_tracking_definition(method_id: str) -> PointTrackerDefinition:
+    for definition in _POINT_METHODS:
+        if definition.method_id == method_id:
+            return definition
+    raise KeyError(f"Unknown point tracker ID: {method_id}")
+
+
+def default_point_tracker_configs(
+    *,
+    roi_size: int = 32,
+) -> tuple[tuple[str, PointTrackerConfig], ...]:
+    return tuple(
+        (
+            definition.method_id,
+            replace(definition.default_config, roi_size=roi_size),
+        )
+        for definition in _POINT_METHODS
+    )
 
 
 def point_tracking_methods() -> tuple[SeededTrackingMethod, ...]:
@@ -180,6 +256,7 @@ def point_tracking_methods() -> tuple[SeededTrackingMethod, ...]:
             TrackingFamily.POINT,
             capabilities,
             PointTrackerRuntime(definition),
+            PointTrackerRuntime(definition),
         )
         for definition in _POINT_METHODS
     )
@@ -187,15 +264,18 @@ def point_tracking_methods() -> tuple[SeededTrackingMethod, ...]:
 
 def _config_issues(
     config: PointTrackerConfig,
-    definition: _PointMethodDefinition,
+    definition: PointTrackerDefinition,
 ) -> tuple[TrackingPreflightIssue, ...]:
     valid_backend_modes = (
-        {"direct", "subprocess"} if definition.supports_subprocess else {"direct"}
+        {BackendMode.DIRECT, BackendMode.SUBPROCESS}
+        if definition.supports_subprocess
+        else {BackendMode.DIRECT}
     )
     resolution = config.inference_resolution
     resolution_valid = (
         resolution is None
-        or isinstance(resolution, int) and resolution > 0
+        or isinstance(resolution, int)
+        and resolution > 0
         or isinstance(resolution, tuple)
         and len(resolution) == 2
         and all(isinstance(value, int) and value > 0 for value in resolution)
@@ -229,7 +309,7 @@ def _config_issues(
 
 def _probe_environment(
     config: PointTrackerConfig,
-    definition: _PointMethodDefinition,
+    definition: PointTrackerDefinition,
 ) -> tuple[TrackingPreflightIssue, ...]:
     try:
         module = import_module(definition.backend_module)
@@ -243,11 +323,11 @@ def _probe_environment(
             ),
         )
     issues = list(_structural_environment_issues(config, definition, status))
-    if config.backend_mode == "subprocess":
-        issues.extend(_subprocess_environment_issues(config, definition, status))
+    if config.backend_mode is BackendMode.SUBPROCESS:
+        issues.extend(_subprocess_environment_issues(config, definition))
     if issues:
         return tuple(issues)
-    if config.backend_mode == "subprocess":
+    if config.backend_mode is BackendMode.SUBPROCESS:
         return ()
     if not bool(getattr(status, "is_ready", False)):
         return (
@@ -261,7 +341,7 @@ def _probe_environment(
 
 def _probe_kwargs(
     config: PointTrackerConfig,
-    definition: _PointMethodDefinition,
+    definition: PointTrackerDefinition,
 ) -> dict[str, Path | None]:
     kwargs: dict[str, Path | None] = {
         "models_dir": config.models_dir,
@@ -283,8 +363,7 @@ def _specific_config_is_valid(config: PointTrackerConfig) -> bool:
         )
     if isinstance(config, LocotrackPointConfig):
         return (
-            config.model_size in {"auto", "small", "base"}
-            and config.query_chunk_size > 0
+            config.query_chunk_size > 0
             and config.subprocess_timeout_sec > 0
             and 0 <= config.visibility_threshold <= 1
             and config.expected_dist_threshold >= 0
@@ -306,15 +385,14 @@ def _specific_config_is_valid(config: PointTrackerConfig) -> bool:
         return config.iters > 0 and config.subprocess_timeout_sec > 0
     if isinstance(config, MftiqPointConfig):
         return (
-            0 <= config.occlusion_threshold <= 1
-            and config.subprocess_timeout_sec > 0
+            0 <= config.occlusion_threshold <= 1 and config.subprocess_timeout_sec > 0
         )
     return False
 
 
 def _structural_environment_issues(
     config: PointTrackerConfig,
-    definition: _PointMethodDefinition,
+    definition: PointTrackerDefinition,
     status: Any,
 ) -> tuple[TrackingPreflightIssue, ...]:
     issues: list[TrackingPreflightIssue] = []
@@ -339,9 +417,8 @@ def _structural_environment_issues(
                 f"{definition.display_name} runtime configuration is unavailable.",
             )
         )
-    if (
-        definition.runtime_mode == "online"
-        and not bool(getattr(status, "selected_checkpoint_is_online", False))
+    if definition.runtime_mode is TapirRuntimeMode.ONLINE and not bool(
+        getattr(status, "selected_checkpoint_is_online", False)
     ):
         issues.append(
             TrackingPreflightIssue(
@@ -354,23 +431,59 @@ def _structural_environment_issues(
 
 def _subprocess_environment_issues(
     config: PointTrackerConfig,
-    definition: _PointMethodDefinition,
-    status: Any,
+    definition: PointTrackerDefinition,
 ) -> tuple[TrackingPreflightIssue, ...]:
-    executable = config.python_executable
-    if executable is not None and Path(executable).expanduser().is_file():
+    executable = Path(config.python_executable or sys.executable).expanduser()
+    if not executable.is_file():
+        return (_interpreter_issue(definition),)
+    script_path = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / ("probe_seeded_point_subprocess.py")
+    )
+    kwargs = {
+        name: None if value is None else str(value)
+        for name, value in _probe_kwargs(config, definition).items()
+    }
+    try:
+        completed = subprocess.run(
+            (
+                str(executable),
+                str(script_path),
+                definition.backend_module,
+                definition.probe_name,
+                json.dumps(kwargs),
+            ),
+            cwd=script_path.parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60.0,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return (_interpreter_issue(definition),)
+    if completed.returncode == 0:
         return ()
-    if executable is None and bool(getattr(status, "is_ready", False)):
-        return ()
+    details = completed.stdout.strip() or completed.stderr.strip()
     return (
         TrackingPreflightIssue(
-            "interpreter_unavailable",
-            f"{definition.display_name} subprocess interpreter is unavailable.",
+            "dependency_unavailable",
+            f"{definition.display_name} subprocess dependencies are unavailable"
+            f"{': ' + details if details else '.'}",
         ),
     )
 
 
-def _environment_message(definition: _PointMethodDefinition, status: Any) -> str:
+def _interpreter_issue(
+    definition: PointTrackerDefinition,
+) -> TrackingPreflightIssue:
+    return TrackingPreflightIssue(
+        "interpreter_unavailable",
+        f"{definition.display_name} subprocess interpreter is unavailable.",
+    )
+
+
+def _environment_message(definition: PointTrackerDefinition, status: Any) -> str:
     details = tuple(getattr(status, "errors", ())) + tuple(
         getattr(status, "warnings", ())
     )

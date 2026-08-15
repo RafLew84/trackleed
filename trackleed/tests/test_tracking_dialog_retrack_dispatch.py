@@ -390,14 +390,10 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
 
     def test_initiate_retrack_for_tracker_spec_dispatches_to_backend_specific_method(self) -> None:
         calls: list[tuple[str, int]] = []
+        self.module.launch_seeded_point_retrack = (
+            lambda _dialog, method_id, spot_id: calls.append((method_id, spot_id))
+        )
         dialog = SimpleNamespace(
-            initiate_retrack_tapir=lambda spot_id: calls.append(("tapir", spot_id)),
-            initiate_retrack_locotrack=lambda spot_id: calls.append(("locotrack", spot_id)),
-            initiate_retrack_cotracker3=lambda spot_id: calls.append(("cotracker3", spot_id)),
-            initiate_retrack_tapnext=lambda spot_id: calls.append(("tapnext", spot_id)),
-            initiate_retrack_trackonr=lambda spot_id: calls.append(("trackonr", spot_id)),
-            initiate_retrack_pipspp=lambda spot_id: calls.append(("pipspp", spot_id)),
-            initiate_retrack_mftiq=lambda spot_id: calls.append(("mftiq", spot_id)),
             initiate_retrack_cutie=lambda spot_id: calls.append(("cutie", spot_id)),
             initiate_retrack_xmem2=lambda spot_id: calls.append(("xmem2", spot_id)),
             initiate_retrack_tomp=lambda spot_id: calls.append(("tomp", spot_id)),
@@ -447,7 +443,7 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
         self.assertEqual(
             calls,
             [
-                ("tapir", 11),
+                ("tapir_online", 11),
                 ("tomp", 22),
                 ("sam2", 33),
                 ("deva", 44),

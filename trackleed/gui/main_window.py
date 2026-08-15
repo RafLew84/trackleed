@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import sys
 from dataclasses import dataclass
-
 from typing import Any, List
 from threading import Event
 import numpy as np
@@ -41,6 +40,7 @@ from trackleed.gui.seeded_tracking_adapter import (
     publish_edited_tracks,
 )
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
+from trackleed.gui.seeded_point_tracking_compatibility import point_tracker_gui_spec
 from trackleed.gui.tracking_menu import TrackingMenuActions, add_tracking_menu
 from trackleed.logic.workflows.spot_detection import DetectionRequest
 from trackleed.analysis.dam4sam_backend import (
@@ -6013,7 +6013,7 @@ class MainWindow(QMainWindow):
         self.polygon_seed_group.setVisible(self._polygon_seed_scenario_active())
 
     def _refresh_tapir_checkpoints(self):
-        tracker_spec = require_tracker_spec(
+        tracker_spec = point_tracker_gui_spec(
             "tapir_online" if self._tapir_runtime_mode() == "online" else "tapir_offline"
         )
         runtime_mode = self._tapir_runtime_mode()
@@ -6113,7 +6113,7 @@ class MainWindow(QMainWindow):
         self._refresh_tapir_checkpoints()
 
     def _refresh_locotrack_checkpoints(self):
-        tracker_spec = require_tracker_spec("locotrack_offline")
+        tracker_spec = point_tracker_gui_spec("locotrack_offline")
         repo_path = self.locotrack_repo_path_edit.text().strip() or self.locotrack_settings.repo_path
         if repo_path:
             self.locotrack_settings.repo_path = repo_path
@@ -6227,7 +6227,7 @@ class MainWindow(QMainWindow):
         self._refresh_locotrack_checkpoints()
 
     def _refresh_cotracker_checkpoints(self):
-        tracker_spec = require_tracker_spec("cotracker3_offline")
+        tracker_spec = point_tracker_gui_spec("cotracker3_offline")
         repo_path = self.cotracker_repo_path_edit.text().strip() or self.cotracker_settings.repo_path
         if repo_path:
             self.cotracker_settings.repo_path = repo_path
@@ -6330,7 +6330,7 @@ class MainWindow(QMainWindow):
         self._refresh_cotracker_checkpoints()
 
     def _refresh_tapnext_checkpoints(self):
-        tracker_spec = require_tracker_spec("tapnext_offline")
+        tracker_spec = point_tracker_gui_spec("tapnext_offline")
         repo_path = self.tapnext_repo_path_edit.text().strip() or self.tapnext_settings.repo_path
         if repo_path:
             self.tapnext_settings.repo_path = repo_path
@@ -6404,7 +6404,7 @@ class MainWindow(QMainWindow):
         self._refresh_tapnext_checkpoints()
 
     def _refresh_trackonr_checkpoints(self):
-        tracker_spec = require_tracker_spec("trackonr_offline")
+        tracker_spec = point_tracker_gui_spec("trackonr_offline")
         repo_path = self.trackonr_repo_path_edit.text().strip() or self.trackonr_settings.repo_path
         if repo_path:
             self.trackonr_settings.repo_path = repo_path
@@ -6518,7 +6518,7 @@ class MainWindow(QMainWindow):
         self._refresh_trackonr_checkpoints()
 
     def _refresh_pipspp_checkpoints(self):
-        tracker_spec = require_tracker_spec("pipspp_offline")
+        tracker_spec = point_tracker_gui_spec("pipspp_offline")
         repo_path = self.pipspp_repo_path_edit.text().strip() or self.pipspp_settings.repo_path
         if repo_path:
             self.pipspp_settings.repo_path = repo_path
@@ -6630,7 +6630,7 @@ class MainWindow(QMainWindow):
         self._refresh_pipspp_checkpoints()
 
     def _refresh_mftiq_checkpoints(self):
-        tracker_spec = require_tracker_spec("mftiq_offline")
+        tracker_spec = point_tracker_gui_spec("mftiq_offline")
         repo_path = self.mftiq_repo_path_edit.text().strip() or self.mftiq_settings.repo_path
         if repo_path:
             self.mftiq_settings.repo_path = repo_path

@@ -13,8 +13,12 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
-from trackleed.analysis.seeded_point_tracking_compatibility import (
+from trackleed.analysis.seeded_point_tracking_runtime import (
+    point_tracking_definitions,
+)
+from trackleed.gui.seeded_point_tracking_compatibility import (
     legacy_point_tracker_params,
+    point_tracker_legacy_binding,
 )
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
@@ -125,27 +129,19 @@ class SeededTrackingController:
         )
 
     @property
-    def review_backend_params(self) -> dict[str, dict[str, object]]:
+    def review_backend_params(self) -> dict[str, object]:
         settings = self.settings.dialog_settings
         point_configs = dict(settings.point_configs)
         config = point_configs.get(settings.selected_method_id)
         if config is None:
-            return {}
-        argument_name = {
-            "tapir_offline": "tapir_params",
-            "tapir_online": "tapir_params",
-            "locotrack_offline": "locotrack_params",
-            "cotracker3_offline": "cotracker_params",
-            "tapnext_offline": "tapnext_params",
-            "trackonr_offline": "trackonr_params",
-            "pipspp_offline": "pipspp_params",
-            "mftiq_offline": "mftiq_params",
-        }[settings.selected_method_id]
+            return {"seeded_point_configs": point_configs}
+        binding = point_tracker_legacy_binding(settings.selected_method_id)
         return {
-            argument_name: legacy_point_tracker_params(
+            "seeded_point_configs": point_configs,
+            binding.review_argument_name: legacy_point_tracker_params(
                 settings.selected_method_id,
                 config,
-            )
+            ),
         }
 
     def show_dialog(self) -> None:
@@ -157,6 +153,15 @@ class SeededTrackingController:
             "Optical Flow Tracking": "optical_flow",
             "Optical Flow (skip, anchor)": "optical_flow_skip_anchor",
         }.get(scenario)
+        if method_id is None:
+            method_id = next(
+                (
+                    item.method_id
+                    for item in point_tracking_definitions()
+                    if item.display_name == scenario
+                ),
+                None,
+            )
         if method_id is None:
             return False
         self._show_dialog(

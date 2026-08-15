@@ -3,25 +3,26 @@ from pathlib import Path
 from threading import Event
 
 import numpy as np
-
 from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
     SeededTrackingSettingsBinding,
+    build_seeded_retrack_request,
     build_seeded_tracking_request,
     clone_tracks_for_review,
     publish_edited_tracks,
     publish_tracking_result,
     run_seeded_tracking_job,
 )
+from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     SeedRect,
-    TrackObservation,
     TrackedSpotIdentity,
     TrackingResult,
+    TrackObservation,
 )
 
 
@@ -53,6 +54,29 @@ def _spot(spot_id: int, x: int, y: int) -> SpotROI:
 
 
 class SeededTrackingGuiAdapterTests(unittest.TestCase):
+    def test_retrack_request_snapshots_the_selected_legacy_track(self) -> None:
+        files = (_leed_file(1, []), _leed_file(2, []))
+        track = Track(
+            7,
+            {
+                1: _spot(7, 20, 21),
+                2: _spot(7, 22, 23),
+            },
+        )
+
+        request = build_seeded_retrack_request(
+            files=files,
+            track=track,
+            start_frame_id=1,
+            method_id="tapir_offline",
+            config=TapirPointConfig(),
+        )
+        track.spots_by_image_id[1].center_x = 999.0
+
+        self.assertEqual(request.track.track_id, 7)
+        self.assertEqual(request.track.observations[0].center_x, 20.0)
+        self.assertEqual(request.start_frame_id, 1)
+
     def test_settings_binding_changes_only_after_accept(self) -> None:
         binding = SeededTrackingSettingsBinding(roi_size=18)
         candidate = SeededTrackingDialogSettings.defaults(roi_size=40)

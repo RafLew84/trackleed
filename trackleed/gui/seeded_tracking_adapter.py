@@ -10,24 +10,31 @@ from typing import Protocol
 import numpy as np
 from PyQt6.QtCore import QRect
 
-from trackleed.core.data_models import LeedFile, SpotROI, Track
-from trackleed.logic.workflows.point_tracking import (
-    PointTrackerConfig,
+from trackleed.analysis.seeded_point_tracking_runtime import (
     default_point_tracker_configs,
 )
+from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.gui.seeded_point_tracking_compatibility import (
+    run_legacy_point_retracker,
+    run_legacy_point_tracker,
+)
+from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     RunContext,
+    SeededRetrackRequest,
     SeededTrackingCancelled,
     SeededTrackingConfig,
     SeededTrackingFrame,
     SeededTrackingRequest,
     SeedRect,
     SkipAnchorOpticalFlowConfig,
+    TrackedSpotIdentity,
     TrackingProgress,
     TrackingResult,
     TrackingSeed,
     TrackObservation,
+    run_seeded_retrack,
     run_seeded_tracking,
 )
 
@@ -128,24 +135,44 @@ def build_seeded_tracking_request(
     )
 
 
+def build_seeded_retrack_request(
+    *,
+    files: Sequence[LeedFile],
+    track: Track,
+    start_frame_id: int,
+    method_id: str,
+    config: PointTrackerConfig,
+) -> SeededRetrackRequest:
+    """Snapshot one mutable review track into a neutral re-track request."""
+    frame_ids = _stable_frame_ids(files)
+    files_by_id = dict(zip(frame_ids, files, strict=True))
+    if start_frame_id not in files_by_id:
+        raise ValueError("Re-track start frame must belong to the frame series")
+    return SeededRetrackRequest(
+        method_id=method_id,
+        frames=tuple(
+            SeededTrackingFrame(frame_id, files_by_id[frame_id].filepath)
+            for frame_id in frame_ids
+        ),
+        track=TrackedSpotIdentity(
+            track.track_id,
+            tuple(
+                _observation_from_spot(frame_id, track.spots_by_image_id[frame_id])
+                for frame_id in frame_ids
+                if frame_id in track.spots_by_image_id
+            ),
+        ),
+        start_frame_id=start_frame_id,
+        config=config,
+    )
+
+
 def publish_tracking_result(
     files: Sequence[LeedFile],
     result: TrackingResult,
 ) -> list[Track]:
     """Project a complete neutral result without aliasing tracks and frame spots."""
-    tracks = [
-        Track(
-            track_id=identity.track_id,
-            spots_by_image_id={
-                observation.frame_id: _spot_from_observation(
-                    identity.track_id,
-                    observation,
-                )
-                for observation in identity.observations
-            },
-        )
-        for identity in result.tracks
-    ]
+    tracks = [_track_from_identity(identity) for identity in result.tracks]
     return publish_edited_tracks(files, tracks)
 
 
@@ -191,11 +218,62 @@ def run_seeded_tracking_job(
             _progress_percentage(progress)
         ),
         is_cancelled=cancel_signal.is_set,
+        point_tracker_executor=run_legacy_point_tracker,
     )
     try:
         return run_seeded_tracking(request, context)
     except SeededTrackingCancelled:
         return None
+
+
+def run_seeded_retrack_job(
+    request: SeededRetrackRequest,
+    image_reader: Callable[[Path], np.ndarray],
+    cancel_signal: CancellationSignal,
+    *,
+    progress_callback: Callable[[int], None],
+) -> Track | None:
+    """Run public re-tracking and convert its single neutral identity for review."""
+    context = RunContext(
+        image_reader=image_reader,
+        report_progress=lambda progress: progress_callback(
+            _progress_percentage(progress)
+        ),
+        is_cancelled=cancel_signal.is_set,
+        point_tracker_retrack_executor=run_legacy_point_retracker,
+    )
+    try:
+        result = run_seeded_retrack(request, context)
+    except SeededTrackingCancelled:
+        return None
+    if len(result.tracks) != 1:
+        raise ValueError("Point re-tracking must return exactly one tracked identity")
+    return _track_from_identity(result.tracks[0])
+
+
+def _track_from_identity(identity: TrackedSpotIdentity) -> Track:
+    return Track(
+        track_id=identity.track_id,
+        spots_by_image_id={
+            observation.frame_id: _spot_from_observation(
+                identity.track_id,
+                observation,
+            )
+            for observation in identity.observations
+        },
+    )
+
+
+def _observation_from_spot(frame_id: int, spot: SpotROI) -> TrackObservation:
+    rect = spot.roi_rect
+    return TrackObservation(
+        frame_id,
+        SeedRect(rect.x(), rect.y(), rect.width(), rect.height()),
+        float(spot.center_x),
+        float(spot.center_y),
+        float(spot.intensity),
+        str(spot.source),
+    )
 
 
 def _spot_from_observation(

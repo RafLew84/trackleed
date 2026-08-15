@@ -46,10 +46,9 @@ class _SkipAnchorState:
 
 
 class OpticalFlowRuntime:
-    def preflight(
+    def validate_config(
         self,
         config: SeededTrackingConfig,
-        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]:
         if type(config) is not OpticalFlowConfig:
             return (
@@ -66,6 +65,13 @@ class OpticalFlowRuntime:
                 ),
             )
         return ()
+
+    def preflight(
+        self,
+        config: SeededTrackingConfig,
+        context: RunContext | None = None,
+    ) -> tuple[TrackingPreflightIssue, ...]:
+        return self.validate_config(config)
 
     def run(
         self,
@@ -116,10 +122,9 @@ class OpticalFlowRuntime:
 
 
 class SkipAnchorOpticalFlowRuntime:
-    def preflight(
+    def validate_config(
         self,
         config: SeededTrackingConfig,
-        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]:
         if not isinstance(config, SkipAnchorOpticalFlowConfig):
             return (
@@ -143,6 +148,13 @@ class SkipAnchorOpticalFlowRuntime:
                 ),
             )
         return ()
+
+    def preflight(
+        self,
+        config: SeededTrackingConfig,
+        context: RunContext | None = None,
+    ) -> tuple[TrackingPreflightIssue, ...]:
+        return self.validate_config(config)
 
     def run(
         self,
@@ -247,8 +259,8 @@ def prepare_optical_flow_image(
     if image.ndim == 3:
         gray = rgb2gray(image)
     else:
-        image_float = image.astype(np.float32)
-        minimum, maximum = np.min(image_float), np.max(image_float)
+        image_float: np.ndarray = image.astype(np.float32)
+        minimum, maximum = float(np.min(image_float)), float(np.max(image_float))
         gray = (
             (image_float - minimum) / (maximum - minimum)
             if maximum > minimum
@@ -365,7 +377,7 @@ def _match_skip_anchor(
     anchor_position: np.ndarray,
     config: SkipAnchorOpticalFlowConfig,
 ) -> tuple[bool, np.ndarray, bool]:
-    point0 = anchor_position.reshape(1, 1, 2).astype(np.float32)
+    point0: np.ndarray = anchor_position.reshape(1, 1, 2).astype(np.float32)
     point1, status, error = cv2.calcOpticalFlowPyrLK(
         anchor,
         current,
@@ -447,11 +459,11 @@ def ncc_around(
         return -1.0
     if not _patch_fits(second, second_x, second_y, radius):
         return -1.0
-    first_patch = first[
+    first_patch: np.ndarray = first[
         first_y - radius : first_y + radius + 1,
         first_x - radius : first_x + radius + 1,
     ].astype(np.float32)
-    second_patch = second[
+    second_patch: np.ndarray = second[
         second_y - radius : second_y + radius + 1,
         second_x - radius : second_x + radius + 1,
     ].astype(np.float32)
@@ -520,8 +532,8 @@ def _tracked_rect(
 def normalized_grayscale(image: np.ndarray) -> np.ndarray:
     if image.ndim == 3:
         return rgb2gray(image)
-    image_float = image.astype(np.float32)
-    minimum, maximum = np.min(image_float), np.max(image_float)
+    image_float: np.ndarray = image.astype(np.float32)
+    minimum, maximum = float(np.min(image_float)), float(np.max(image_float))
     if maximum > minimum:
         return (image_float - minimum) / (maximum - minimum)
     return np.zeros_like(image_float)
@@ -540,7 +552,7 @@ def refine_center_by_centroid(
     for _attempt in range(max_expand + 1):
         x0, x1 = max(0, center_x - radius), min(width, center_x + radius + 1)
         y0, y1 = max(0, center_y - radius), min(height, center_y + radius + 1)
-        patch = image[y0:y1, x0:x1].astype(np.float32)
+        patch: np.ndarray = image[y0:y1, x0:x1].astype(np.float32)
         if patch.size == 0:
             return approximate_xy
         threshold = max(1.0, relative_threshold * patch.max())
