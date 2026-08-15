@@ -60,13 +60,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("LEEDTrack - Spot Tracking")
         self.setGeometry(100, 100, 1200, 800)
 
-        # --- Store data ---
         self.data_files: list[LeedFile] = []
         self.background_file: LeedFile | None = None
         self.metadata_mask_list: list[QRect] = []
         self.analysis_circle: tuple[int, int, int] | None = None  # (cx, cy, r)
         self.analysis_ellipse: tuple[int, int, int, int, float] | None = None  # (cx, cy, rx, ry, angle_deg)
         self.tracking_results: List[Track] = []
+        self._active_fit_set = None
         self.thread: QThread | None = None
         self.worker: GenericWorker | None = None
         self._tracking_progress_dialog: QProgressDialog | None = None
@@ -1478,7 +1478,6 @@ class MainWindow(QMainWindow):
                 "Install requirements: pip install pyqtgraph PyOpenGL",
             )
             return
-
         file_map = {f.id: f for f in self.data_files if f.id is not None}
         normalized_ellipse = self._normalize_analysis_ellipse(self.analysis_ellipse)
         self.analysis_ellipse = normalized_ellipse
@@ -1487,10 +1486,11 @@ class MainWindow(QMainWindow):
             file_map,
             self.background_file,
             analysis_ellipse=normalized_ellipse,
-            parent=self,
+            active_fit_set=self._active_fit_set, parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
         result = dialog.exec()
+        self._active_fit_set = dialog.active_fit_set
         if result == QDialog.DialogCode.Accepted:
             self.tracking_results = dialog.tracks
 

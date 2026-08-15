@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import os
+import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -97,6 +99,36 @@ class MainWindowCutoverTests(unittest.TestCase):
         self.assertNotIn("run_tracking", method_names)
         self.assertNotIn("_build_registered_tracking_worker", method_names)
         self.assertNotIn("trackleed.gui.tracker_registry", imported_modules)
+
+    def test_track_analysis_fit_cache_survives_dialog_reopen_and_rejection(self) -> None:
+        seen = {}
+
+        class FakeAnalysisDialog:
+            def __init__(self, tracks, _files, _background, **kwargs):
+                seen["active_fit_set"] = kwargs["active_fit_set"]
+                self.active_fit_set = "next-fit-set"
+                self.tracks = tracks
+
+            def exec(self):
+                return 0
+
+        module_name = "trackleed.gui.analysis_dialog"
+        original_module = sys.modules.get(module_name)
+        fake_module = types.ModuleType(module_name)
+        fake_module.AnalysisResultsDialog = FakeAnalysisDialog
+        sys.modules[module_name] = fake_module
+        self.window.tracking_results = [object()]
+        self.window._active_fit_set = "previous-fit-set"
+        try:
+            self.window.show_analysis_dialog()
+        finally:
+            if original_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = original_module
+
+        self.assertEqual(seen["active_fit_set"], "previous-fit-set")
+        self.assertEqual(self.window._active_fit_set, "next-fit-set")
 
 
 if __name__ == "__main__":

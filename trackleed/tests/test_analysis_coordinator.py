@@ -4,6 +4,7 @@ import csv
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from threading import Event
 import types
 import unittest
 
@@ -43,6 +44,8 @@ except ModuleNotFoundError:
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io import results_exporter
 from trackleed.logic import analysis_coordinator
+from trackleed.logic import track_analysis_compatibility
+from trackleed.logic.workflows.track_analysis import FitExecutionError
 
 
 def _leed_file(frame_id: int) -> LeedFile:
@@ -61,7 +64,102 @@ def _leed_file(frame_id: int) -> LeedFile:
 
 
 class AnalysisCoordinatorStateTests(unittest.TestCase):
-    def test_run_full_analysis_clears_stale_frame_level_results_for_processed_frames(self) -> None:
+    def test_worker_result_is_not_published_until_gui_adapter_applies_it(self) -> None:
+        leed_file = _leed_file(1)
+        track = Track(
+            track_id=1,
+            spots_by_image_id={
+                1: SpotROI(
+                    id=1,
+                    roi_rect=QRect(4, 4, 23, 23),
+                    center_x=15.0,
+                    center_y=15.0,
+                    intensity=1.0,
+                    source="test",
+                )
+            },
+        )
+        track.analysis_results = {99: {"volume": 123.0}}
+        yy, xx = np.indices((31, 31), dtype=np.float64)
+        pixels = 0.05 + np.exp(-((xx - 15.0) ** 2 + (yy - 15.0) ** 2) / 18.0)
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: pixels
+        try:
+            publication = track_analysis_compatibility.run_full_analysis_publication(
+                [track], {}, {1: leed_file}, None, lambda _progress: None
+            )
+        finally:
+            track_analysis_compatibility.load_tiff = original_load_tiff
+
+        self.assertIsNotNone(publication)
+        self.assertEqual(track.analysis_results, {99: {"volume": 123.0}})
+        track_analysis_compatibility.publish_analysis(
+            publication,
+            [track],
+            {1: leed_file},
+        )
+        self.assertEqual(set(track.analysis_results), {1})
+
+    def test_cancelled_cold_run_preserves_previous_complete_publication(self) -> None:
+        all_files_map = {1: _leed_file(1), 2: _leed_file(2)}
+        for frame_id, leed_file in all_files_map.items():
+            leed_file.pattern_center = {
+                "center_x": 100.0 + frame_id,
+                "center_y": 200.0 + frame_id,
+            }
+            leed_file.post_analysis_results = {"avg_radius": 50.0 + frame_id}
+        track = Track(
+            track_id=1,
+            spots_by_image_id={
+                frame_id: SpotROI(
+                    id=frame_id,
+                    roi_rect=QRect(4, 4, 23, 23),
+                    center_x=15.0,
+                    center_y=15.0,
+                    intensity=1.0,
+                    source="test",
+                )
+                for frame_id in all_files_map
+            },
+        )
+        track.analysis_results = {99: {"volume": 123.0}}
+        expected_analysis = {99: {"volume": 123.0}}
+        expected_frames = {
+            frame_id: (
+                dict(leed_file.pattern_center),
+                dict(leed_file.post_analysis_results),
+            )
+            for frame_id, leed_file in all_files_map.items()
+        }
+        cancel_event = Event()
+
+        def cancel_after_first_frame(_progress: int) -> None:
+            cancel_event.set()
+
+        yy, xx = np.indices((31, 31), dtype=np.float64)
+        pixels = 0.05 + np.exp(-((xx - 15.0) ** 2 + (yy - 15.0) ** 2) / 18.0)
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: pixels
+        try:
+            result = analysis_coordinator.run_full_analysis(
+                tracks_to_analyze=[track],
+                analysis_config={},
+                all_files_map=all_files_map,
+                background_file=None,
+                progress_callback=cancel_after_first_frame,
+                cancel_event=cancel_event,
+            )
+        finally:
+            track_analysis_compatibility.load_tiff = original_load_tiff
+
+        self.assertIsNone(result)
+        self.assertEqual(track.analysis_results, expected_analysis)
+        for frame_id, leed_file in all_files_map.items():
+            expected_center, expected_post = expected_frames[frame_id]
+            self.assertEqual(leed_file.pattern_center, expected_center)
+            self.assertEqual(leed_file.post_analysis_results, expected_post)
+
+    def test_source_error_preserves_previous_complete_publication(self) -> None:
         processed_file = _leed_file(1)
         processed_file.pattern_center = {"center_x": 10.0, "center_y": 20.0}
         processed_file.post_analysis_results = {
@@ -89,23 +187,31 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
                 )
             },
         )
+        track.analysis_results = {1: {"volume": 42.0}}
 
-        original_load_tiff = analysis_coordinator.load_tiff
-        analysis_coordinator.load_tiff = lambda _filepath: None
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: None
         try:
-            result = analysis_coordinator.run_full_analysis(
-                tracks_to_analyze=[track],
-                analysis_config={},
-                all_files_map={1: processed_file, 2: untouched_file},
-                background_file=None,
-                progress_callback=lambda _progress: None,
-            )
+            with self.assertRaisesRegex(FitExecutionError, "Could not decode"):
+                analysis_coordinator.run_full_analysis(
+                    tracks_to_analyze=[track],
+                    analysis_config={},
+                    all_files_map={1: processed_file, 2: untouched_file},
+                    background_file=None,
+                    progress_callback=lambda _progress: None,
+                )
         finally:
-            analysis_coordinator.load_tiff = original_load_tiff
+            track_analysis_compatibility.load_tiff = original_load_tiff
 
-        self.assertEqual(result, [track])
-        self.assertIsNone(processed_file.pattern_center)
-        self.assertEqual(processed_file.post_analysis_results, {})
+        self.assertEqual(track.analysis_results, {1: {"volume": 42.0}})
+        self.assertEqual(
+            processed_file.pattern_center,
+            {"center_x": 10.0, "center_y": 20.0},
+        )
+        self.assertEqual(
+            processed_file.post_analysis_results,
+            {"avg_radius": 278.0, "avg_radius_error": 0.2},
+        )
         self.assertEqual(untouched_file.pattern_center, {"center_x": 30.0, "center_y": 40.0})
         self.assertEqual(
             untouched_file.post_analysis_results,
@@ -226,10 +332,8 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
             ),
         ]
 
-        original_load_tiff = analysis_coordinator.load_tiff
-        original_fit_spot_to_gaussian = analysis_coordinator.fit_spot_to_gaussian
-        analysis_coordinator.load_tiff = lambda _filepath: np.ones((100, 100), dtype=np.float32)
-        analysis_coordinator.fit_spot_to_gaussian = lambda _roi: None
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: np.ones((100, 100), dtype=np.float32)
         try:
             result = analysis_coordinator.run_full_analysis(
                 tracks_to_analyze=tracks,
@@ -240,8 +344,7 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
                 center_mode="circle_fit_bbox_fallback",
             )
         finally:
-            analysis_coordinator.load_tiff = original_load_tiff
-            analysis_coordinator.fit_spot_to_gaussian = original_fit_spot_to_gaussian
+            track_analysis_compatibility.load_tiff = original_load_tiff
 
         self.assertEqual(result, tracks)
         self.assertIsNotNone(leed_file.pattern_center)

@@ -22,7 +22,8 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSplitt
 from trackleed.core.data_models import Track
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.logic.generic_worker import GenericWorker
-from trackleed.logic.analysis_coordinator import run_full_analysis
+from trackleed.logic.track_analysis_compatibility import AnalysisPublication, publish_analysis, run_full_analysis_publication
+from trackleed.logic.workflows.track_analysis import FitSet
 from trackleed.core.data_models import LeedFile
 from trackleed.analysis.peak_analyzer import gaussian_2d
 from trackleed.analysis.result_parameters import ANALYSIS_RESULT_PARAMETERS
@@ -86,6 +87,7 @@ class AnalysisResultsDialog(QDialog):
         all_files_map: Dict[int, LeedFile],
         background_file: Optional[LeedFile],
         analysis_ellipse: Optional[tuple[int, int, int, int, float]] = None,
+        active_fit_set: Optional[FitSet] = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -109,16 +111,15 @@ class AnalysisResultsDialog(QDialog):
         current_flags = self.windowFlags()
         self.setWindowFlags(current_flags | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
 
-        # --- Store Core Data ---
         self.tracks = tracks
         self.all_files_map = all_files_map # Keep a local copy of the file map
         self.background_file = background_file
         self.analysis_ellipse = self._normalize_analysis_ellipse(analysis_ellipse)
         self.save_session_callback = save_session_callback
-        # Placeholders for the background worker and thread.
         self.worker_thread = None
         self.worker = None
         self.analysis_cancel_event: Optional[Event] = None
+        self.active_fit_set = active_fit_set
         self.param_checkboxes = {} 
 
         # --- Pre-load and Process Background Image ---
@@ -1711,7 +1712,7 @@ class AnalysisResultsDialog(QDialog):
 
         This slot is connected to the "Perform Analysis" button. It reads the
         current state of the configuration table, prepares the necessary data,
-        and dispatches the main analysis function (`run_full_analysis`) to a
+        and dispatches the atomic analysis publication function to a
         GenericWorker to be executed without freezing the user interface.
         """
         # --- 1. Gather Configuration from the Table ---
@@ -1737,8 +1738,7 @@ class AnalysisResultsDialog(QDialog):
         self.perform_analysis_button.setEnabled(False)
         total_frames = len({fid for t in tracks_to_analyze for fid in t.spots_by_image_id})
 
-        # Create a GenericWorker instance, passing the target function (`run_full_analysis`)
-        # and all the necessary data as arguments.
+        # Create a GenericWorker instance around the typed cold-analysis seam.
         center_mode = self.center_mode_combo.currentData() if hasattr(self, "center_mode_combo") else "per_frame"
         manual_ellipse_payload = None
         if center_mode == "manual_ellipse":
@@ -1771,7 +1771,7 @@ class AnalysisResultsDialog(QDialog):
         )
         self.analysis_cancel_event = Event()
         worker = GenericWorker(
-            run_full_analysis,
+            run_full_analysis_publication,
             tracks_to_analyze,
             analysis_config,
             self.all_files_map,
@@ -1779,6 +1779,7 @@ class AnalysisResultsDialog(QDialog):
             center_mode=center_mode,
             manual_ellipse=manual_ellipse_payload,
             cancel_event=self.analysis_cancel_event,
+            previous_fit_set=self.active_fit_set,
         )
         # The launch_analysis_worker method will handle thread management and the progress dialog.
         self.launch_analysis_worker(worker)
@@ -1852,7 +1853,7 @@ class AnalysisResultsDialog(QDialog):
                 # Thread already deleted, nothing to cancel.
                 pass
 
-    def on_analysis_finished(self, updated_tracks: Optional[List[Track]]):
+    def on_analysis_finished(self, publication: Optional[AnalysisPublication]):
         """
         Handles the successful completion of the background analysis task.
 
@@ -1861,13 +1862,10 @@ class AnalysisResultsDialog(QDialog):
         state, re-enables UI controls, and triggers a full refresh of all
         visualizations to display the new results.
 
-        Args:
-            updated_tracks: A list of Track objects, now populated with the
-                            'analysis_results' dictionaries from the worker.
         """
         self.analysis_cancel_event = None
 
-        if updated_tracks is None:
+        if publication is None:
             print("Analysis cancelled by user.")
             self.perform_analysis_button.setEnabled(True)
             for row in range(self.config_table.rowCount()):
@@ -1879,8 +1877,8 @@ class AnalysisResultsDialog(QDialog):
 
         print("Analysis finished successfully.")
 
-        # 1. Update the dialog's internal data with the new results.
-        self.tracks = updated_tracks
+        publish_analysis(publication, self.tracks, self.all_files_map)
+        self.active_fit_set = publication.fit_set
 
         # 2. Re-enable the UI buttons.
         self.perform_analysis_button.setEnabled(True)
