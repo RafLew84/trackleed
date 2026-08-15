@@ -12,6 +12,22 @@ from PyQt6.QtWidgets import QApplication
 from trackleed.core.data_models import LeedFile, SpotROI
 from trackleed.gui.seeded_tracking_adapter import SeededTrackingDialogSettings
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialog
+from trackleed.logic.workflows.point_tracking import TapirPointConfig
+from trackleed.logic.workflows.seeded_tracking import (
+    SeededTrackingCapabilities,
+    SeededTrackingCatalog,
+    SeededTrackingMethod,
+    SeedRepresentation,
+    TrackingFamily,
+)
+
+
+class _ReadyRuntime:
+    def preflight(self, _config, _context=None):
+        return ()
+
+    def run(self, _request, _context):
+        raise AssertionError("Dialog must not execute tracking")
 
 
 def _frame(frame_id: int, *, with_seed: bool = False) -> LeedFile:
@@ -54,8 +70,22 @@ class SeededTrackingDialogTests(unittest.TestCase):
         self.addCleanup(dialog.deleteLater)
 
         self.assertEqual(
-            [dialog.method_tabs.tabText(index) for index in range(2)],
-            ["Optical Flow Tracking", "Optical Flow (skip, anchor)"],
+            [
+                dialog.method_tabs.tabText(index)
+                for index in range(dialog.method_tabs.count())
+            ],
+            [
+                "Optical Flow Tracking",
+                "Optical Flow (skip, anchor)",
+                "Offline TAPIR",
+                "BootsTAPIR Online / Causal",
+                "Offline LocoTrack",
+                "Offline CoTracker3",
+                "Offline TAPNext",
+                "Offline Track-On-R",
+                "Offline PIPs++",
+                "Offline MFTIQ",
+            ],
         )
         self.assertEqual(dialog.run_button.text(), "Run Seeded Tracking")
         self.assertEqual(dialog.cancel_button.text(), "Cancel")
@@ -91,6 +121,42 @@ class SeededTrackingDialogTests(unittest.TestCase):
         self.assertIsNone(dialog.decision)
         self.assertIn("[invalid_request]", dialog.preflight_label.text())
         self.assertIn("Reference frame", dialog.preflight_label.text())
+
+    def test_point_page_builds_typed_request_through_stable_catalog_id(self) -> None:
+        reference = _frame(1, with_seed=True)
+        second = _frame(2)
+        method = SeededTrackingMethod(
+            "tapir_offline",
+            "Offline TAPIR",
+            TrackingFamily.POINT,
+            SeededTrackingCapabilities(
+                SeedRepresentation.POINT,
+                supports_background=False,
+                preserves_gaps=True,
+                supports_retrack=True,
+            ),
+            _ReadyRuntime(),
+        )
+        dialog = SeededTrackingDialog(
+            reference_file=reference,
+            series_files=(reference, second),
+            background_file=None,
+            settings=SeededTrackingDialogSettings.defaults(roi_size=18),
+            catalog=SeededTrackingCatalog((method,)),
+        )
+        self.addCleanup(dialog.deleteLater)
+
+        page = dialog.point_pages["tapir_offline"]
+        page.field_widgets["checkpoint_path"].setText("custom-tapir.pt")
+        page.field_widgets["roi_size"].setValue(26)
+        dialog.run_button.click()
+
+        self.assertIsNotNone(dialog.decision)
+        config = dialog.decision.request.config
+        self.assertIsInstance(config, TapirPointConfig)
+        self.assertEqual(config.checkpoint_path, Path("custom-tapir.pt"))
+        self.assertEqual(config.roi_size, 26)
+        self.assertEqual(dialog.decision.settings.point_config("tapir_offline"), config)
 
 
 if __name__ == "__main__":

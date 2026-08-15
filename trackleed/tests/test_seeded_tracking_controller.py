@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,15 +12,16 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui.seeded_tracking_adapter import SeededTrackingDialogSettings
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialogDecision
+from trackleed.logic.workflows.point_tracking import TapirPointConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
-    SeedRect,
     SeededTrackingFrame,
     SeededTrackingRequest,
-    TrackObservation,
+    SeedRect,
     TrackedSpotIdentity,
     TrackingResult,
     TrackingSeed,
+    TrackObservation,
 )
 
 
@@ -201,6 +203,26 @@ class SeededTrackingControllerTests(unittest.TestCase):
 
         shown_files = _Dialog.last_kwargs["series_files"]
         self.assertEqual([file.id for file in shown_files], [1, 2])
+
+    def test_point_review_uses_the_last_accepted_point_configuration(self) -> None:
+        settings = SeededTrackingDialogSettings.defaults(roi_size=18)
+        settings = settings.with_point_config(
+            "tapir_offline",
+            TapirPointConfig(models_dir=Path("custom-models"), roi_size=26),
+        )
+        self.controller.settings.accept(
+            replace(settings, selected_method_id="tapir_offline")
+        )
+
+        defaults = self.controller.review_defaults
+        backend_params = self.controller.review_backend_params
+
+        self.assertEqual(defaults.roi_size, 26)
+        self.assertEqual(backend_params["tapir_params"]["roi_size"], 26)
+        self.assertEqual(
+            backend_params["tapir_params"]["tapir_models_dir"],
+            "custom-models",
+        )
 
 
 if __name__ == "__main__":

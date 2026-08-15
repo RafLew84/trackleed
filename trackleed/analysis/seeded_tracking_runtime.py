@@ -15,16 +15,16 @@ from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     OutOfBoundsPolicy,
     RunContext,
-    SeedRect,
-    SeededTrackingConfig,
     SeededTrackingCancelled,
+    SeededTrackingConfig,
     SeededTrackingRequest,
+    SeedRect,
     SkipAnchorOpticalFlowConfig,
-    TrackObservation,
     TrackedSpotIdentity,
     TrackingPreflightIssue,
     TrackingProgress,
     TrackingResult,
+    TrackObservation,
 )
 
 
@@ -49,6 +49,7 @@ class OpticalFlowRuntime:
     def preflight(
         self,
         config: SeededTrackingConfig,
+        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]:
         if type(config) is not OpticalFlowConfig:
             return (
@@ -118,6 +119,7 @@ class SkipAnchorOpticalFlowRuntime:
     def preflight(
         self,
         config: SeededTrackingConfig,
+        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]:
         if not isinstance(config, SkipAnchorOpticalFlowConfig):
             return (

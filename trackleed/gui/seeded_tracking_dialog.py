@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTabWidget,
     QVBoxLayout,
@@ -21,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from trackleed.core.data_models import LeedFile
+from trackleed.gui.seeded_point_tracking_page import PointTrackerPage
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
     build_seeded_tracking_request,
@@ -29,6 +31,7 @@ from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     OutOfBoundsPolicy,
     SeededTrackingCatalog,
+    SeededTrackingConfig,
     SeededTrackingRequest,
     SkipAnchorOpticalFlowConfig,
     TrackingPreflightReport,
@@ -185,6 +188,7 @@ class SeededTrackingDialog(QDialog):
         self._settings = settings
         self._catalog = catalog or default_seeded_tracking_catalog()
         self._method_ids: list[str] = []
+        self.point_pages: dict[str, PointTrackerPage] = {}
         self.decision: SeededTrackingDialogDecision | None = None
         self.preflight_report: TrackingPreflightReport | None = None
         layout = QVBoxLayout(self)
@@ -197,10 +201,20 @@ class SeededTrackingDialog(QDialog):
         }
         for method in self._catalog.methods:
             page = pages.get(method.method_id)
+            tab_page: QWidget | None = page
             if page is None:
-                continue
+                try:
+                    point_config = settings.point_config(method.method_id)
+                except KeyError:
+                    continue
+                point_page = PointTrackerPage(point_config)
+                self.point_pages[method.method_id] = point_page
+                scroll_area = QScrollArea()
+                scroll_area.setWidgetResizable(True)
+                scroll_area.setWidget(point_page)
+                tab_page = scroll_area
             self._method_ids.append(method.method_id)
-            self.method_tabs.addTab(page, method.display_name)
+            self.method_tabs.addTab(tab_page, method.display_name)
         selected_index = (
             self._method_ids.index(settings.selected_method_id)
             if settings.selected_method_id in self._method_ids
@@ -234,12 +248,15 @@ class SeededTrackingDialog(QDialog):
                 self.skip_anchor_page.config_snapshot(),
             ),
         )
-        config = (
-            settings.optical_flow
-            if method_id == "optical_flow"
-            else settings.skip_anchor
-        )
         try:
+            config: SeededTrackingConfig
+            if method_id == "optical_flow":
+                config = settings.optical_flow
+            elif method_id == "optical_flow_skip_anchor":
+                config = settings.skip_anchor
+            else:
+                config = self.point_pages[method_id].config_snapshot()
+                settings = settings.with_point_config(method_id, config)
             request = build_seeded_tracking_request(
                 files=self._files,
                 reference_file=self._reference_file,

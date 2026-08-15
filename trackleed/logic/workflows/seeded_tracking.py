@@ -11,6 +11,8 @@ from typing import Protocol, TypeAlias
 
 import numpy as np
 
+from trackleed.logic.workflows.point_tracking import PointTrackerConfig
+
 
 @dataclass(frozen=True)
 class SeedRect:
@@ -68,7 +70,9 @@ class SkipAnchorOpticalFlowConfig(OpticalFlowConfig):
     ncc_patch_radius: int = 4
 
 
-SeededTrackingConfig: TypeAlias = OpticalFlowConfig | SkipAnchorOpticalFlowConfig
+SeededTrackingConfig: TypeAlias = (
+    OpticalFlowConfig | SkipAnchorOpticalFlowConfig | PointTrackerConfig
+)
 
 
 class SeedRepresentation(Enum):
@@ -142,6 +146,7 @@ class SeededTrackingRuntime(Protocol):
     def preflight(
         self,
         config: SeededTrackingConfig,
+        context: RunContext | None = None,
     ) -> tuple[TrackingPreflightIssue, ...]: ...
 
     def run(
@@ -156,6 +161,7 @@ class SeededTrackingCapabilities:
     seed_representation: SeedRepresentation
     supports_background: bool
     preserves_gaps: bool
+    supports_retrack: bool = False
 
 
 @dataclass(frozen=True)
@@ -184,13 +190,17 @@ class SeededTrackingCatalog:
                 return method
         raise KeyError(method_id)
 
-    def preflight(self, request: SeededTrackingRequest) -> TrackingPreflightReport:
+    def preflight(
+        self,
+        request: SeededTrackingRequest,
+        context: RunContext | None = None,
+    ) -> TrackingPreflightReport:
         issues = list(_structural_preflight(request, self))
         try:
             runtime = self.method(request.method_id).runtime
         except KeyError:
             return TrackingPreflightReport(tuple(issues))
-        issues.extend(runtime.preflight(request.config))
+        issues.extend(runtime.preflight(request.config, context))
         return TrackingPreflightReport(tuple(issues))
 
 
@@ -200,6 +210,12 @@ class RunContext:
     report_progress: Callable[[TrackingProgress], None] = lambda _progress: None
     is_cancelled: Callable[[], bool] = lambda: False
     tracking_catalog: SeededTrackingCatalog | None = None
+    point_tracker_preflight: Callable[
+        [str, PointTrackerConfig], tuple[TrackingPreflightIssue, ...]
+    ] | None = None
+    point_tracker_executor: Callable[
+        [str, SeededTrackingRequest, RunContext], TrackingResult
+    ] | None = None
 
 
 class SeededTrackingCancelled(RuntimeError):
@@ -217,6 +233,9 @@ class SeededTrackingExecutionError(RuntimeError):
 
 
 def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
+    from trackleed.analysis.seeded_point_tracking_runtime import (
+        point_tracking_methods,
+    )
     from trackleed.analysis.seeded_tracking_runtime import (
         OpticalFlowRuntime,
         SkipAnchorOpticalFlowRuntime,
@@ -247,6 +266,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
                 SkipAnchorOpticalFlowRuntime(),
             ),
         )
+        + point_tracking_methods()
     )
 
 
@@ -256,7 +276,7 @@ def run_seeded_tracking(
 ) -> TrackingResult:
     """Validate and run one seeded-tracking request without publishing it."""
     catalog = context.tracking_catalog or default_seeded_tracking_catalog()
-    report = catalog.preflight(request)
+    report = catalog.preflight(request, context)
     if not report.ready:
         raise SeededTrackingPreflightError(report)
     if context.is_cancelled():
@@ -357,7 +377,10 @@ def _background_preflight_issues(
     method: SeededTrackingMethod | None,
 ) -> tuple[TrackingPreflightIssue, ...]:
     issues: list[TrackingPreflightIssue] = []
-    if request.config.subtract_background and request.background_path is None:
+    subtract_background = bool(
+        getattr(request.config, "subtract_background", False)
+    )
+    if subtract_background and request.background_path is None:
         issues.append(
             TrackingPreflightIssue(
                 "background_required",
@@ -365,7 +388,7 @@ def _background_preflight_issues(
             )
         )
     elif (
-        request.config.subtract_background
+        subtract_background
         and method is not None
         and not method.capabilities.supports_background
     ):

@@ -10844,7 +10844,7 @@ class MainWindow(QMainWindow):
         
         review_defaults = self.seeded_tracking_controller.review_defaults
         tracking_dialog_params = self._collect_tracking_dialog_backend_params()
-
+        tracking_dialog_params.update(getattr(self.seeded_tracking_controller, "review_backend_params", {}))
         dialog = TrackingDialog(
             clone_tracks_for_review(self.tracking_results),
             self.data_files, 

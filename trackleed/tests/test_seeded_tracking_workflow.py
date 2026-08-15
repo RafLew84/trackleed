@@ -6,12 +6,12 @@ import numpy as np
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     RunContext,
-    SeedRepresentation,
-    SeedRect,
-    SeededTrackingFrame,
     SeededTrackingCancelled,
     SeededTrackingExecutionError,
+    SeededTrackingFrame,
     SeededTrackingRequest,
+    SeedRect,
+    SeedRepresentation,
     SkipAnchorOpticalFlowConfig,
     TrackingFamily,
     TrackingSeed,
@@ -46,7 +46,11 @@ class SeededTrackingWorkflowTests(unittest.TestCase):
         catalog = default_seeded_tracking_catalog()
 
         self.assertEqual(
-            tuple(method.method_id for method in catalog.methods),
+            tuple(
+                method.method_id
+                for method in catalog.methods
+                if method.family is TrackingFamily.CLASSICAL
+            ),
             ("optical_flow", "optical_flow_skip_anchor"),
         )
         self.assertIs(

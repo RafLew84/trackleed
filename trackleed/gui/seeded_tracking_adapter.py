@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -11,19 +11,23 @@ import numpy as np
 from PyQt6.QtCore import QRect
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.logic.workflows.point_tracking import (
+    PointTrackerConfig,
+    default_point_tracker_configs,
+)
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     RunContext,
-    SeedRect,
-    SeededTrackingConfig,
     SeededTrackingCancelled,
+    SeededTrackingConfig,
     SeededTrackingFrame,
     SeededTrackingRequest,
+    SeedRect,
     SkipAnchorOpticalFlowConfig,
-    TrackObservation,
     TrackingProgress,
     TrackingResult,
     TrackingSeed,
+    TrackObservation,
     run_seeded_tracking,
 )
 
@@ -37,6 +41,7 @@ class SeededTrackingDialogSettings:
     selected_method_id: str
     optical_flow: OpticalFlowConfig
     skip_anchor: SkipAnchorOpticalFlowConfig
+    point_configs: tuple[tuple[str, PointTrackerConfig], ...]
 
     @classmethod
     def defaults(cls, *, roi_size: int = 32) -> SeededTrackingDialogSettings:
@@ -44,7 +49,25 @@ class SeededTrackingDialogSettings:
             selected_method_id="optical_flow",
             optical_flow=OpticalFlowConfig(roi_size=roi_size),
             skip_anchor=SkipAnchorOpticalFlowConfig(roi_size=roi_size),
+            point_configs=default_point_tracker_configs(roi_size=roi_size),
         )
+
+    def point_config(self, method_id: str) -> PointTrackerConfig:
+        for configured_method_id, config in self.point_configs:
+            if configured_method_id == method_id:
+                return config
+        raise KeyError(method_id)
+
+    def with_point_config(
+        self,
+        method_id: str,
+        config: PointTrackerConfig,
+    ) -> SeededTrackingDialogSettings:
+        configs = dict(self.point_configs)
+        if method_id not in configs:
+            raise KeyError(method_id)
+        configs[method_id] = config
+        return replace(self, point_configs=tuple(configs.items()))
 
 
 class SeededTrackingSettingsBinding:

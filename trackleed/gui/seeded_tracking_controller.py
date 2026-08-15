@@ -13,6 +13,9 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
+from trackleed.analysis.seeded_point_tracking_compatibility import (
+    legacy_point_tracker_params,
+)
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
     SeededTrackingSettingsBinding,
@@ -104,16 +107,46 @@ class SeededTrackingController:
     @property
     def review_defaults(self) -> SeededTrackingReviewDefaults:
         settings = self.settings.dialog_settings
-        config = (
-            settings.skip_anchor
-            if settings.selected_method_id == "optical_flow_skip_anchor"
-            else settings.optical_flow
-        )
+        point_configs = dict(settings.point_configs)
+        if settings.selected_method_id in point_configs:
+            roi_size = point_configs[settings.selected_method_id].roi_size
+            config = settings.optical_flow
+        else:
+            config = (
+                settings.skip_anchor
+                if settings.selected_method_id == "optical_flow_skip_anchor"
+                else settings.optical_flow
+            )
+            roi_size = config.roi_size
         return SeededTrackingReviewDefaults(
-            roi_size=config.roi_size,
+            roi_size=roi_size,
             lk_win_size=config.win_size,
             lk_max_level=config.max_level,
         )
+
+    @property
+    def review_backend_params(self) -> dict[str, dict[str, object]]:
+        settings = self.settings.dialog_settings
+        point_configs = dict(settings.point_configs)
+        config = point_configs.get(settings.selected_method_id)
+        if config is None:
+            return {}
+        argument_name = {
+            "tapir_offline": "tapir_params",
+            "tapir_online": "tapir_params",
+            "locotrack_offline": "locotrack_params",
+            "cotracker3_offline": "cotracker_params",
+            "tapnext_offline": "tapnext_params",
+            "trackonr_offline": "trackonr_params",
+            "pipspp_offline": "pipspp_params",
+            "mftiq_offline": "mftiq_params",
+        }[settings.selected_method_id]
+        return {
+            argument_name: legacy_point_tracker_params(
+                settings.selected_method_id,
+                config,
+            )
+        }
 
     def show_dialog(self) -> None:
         self._show_dialog(self.settings.dialog_settings)

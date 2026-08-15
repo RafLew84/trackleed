@@ -665,7 +665,7 @@ def _load_frames_for_tapir(
         leed_file = all_files_map.get(frame_id)
         if not leed_file:
             raise ValueError(f"Missing LeedFile for frame {frame_id}.")
-        image = load_tiff(leed_file.filepath)
+        image = getattr(leed_file, "_seeded_image_reader", load_tiff)(leed_file.filepath)
         if image is None or image.size == 0:
             raise ValueError(f"Could not load image for frame {frame_id}: {leed_file.filepath}")
         frames.append(np.asarray(image))
