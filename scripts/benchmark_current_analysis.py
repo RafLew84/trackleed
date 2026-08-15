@@ -10,7 +10,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from trackleed.analysis.current_analysis_benchmark import (
+from trackleed.analysis.current_analysis_benchmark import (  # noqa: E402
     SUPPORTED_COLD_CENTER_MODES,
     BenchmarkCase,
     BenchmarkConfig,
@@ -30,7 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--four-track-session",
         type=Path,
-        default=DEFAULT_SESSION_DIRECTORY / "26b32_ThExt_600CUD_122eV_Au04_4spots.lts.json",
+        default=DEFAULT_SESSION_DIRECTORY
+        / "26b32_ThExt_600CUD_122eV_Au04_4spots.lts.json",
     )
     parser.add_argument(
         "--twenty-track-session",
@@ -64,6 +65,11 @@ def parse_args() -> argparse.Namespace:
         help="Mode used by the current full rerun and geometry-only replay.",
     )
     parser.add_argument("--random-seed", type=int, default=20260811)
+    parser.add_argument(
+        "--diagnostic",
+        action="store_true",
+        help="Allow non-canonical parameters and report without passing the acceptance gate.",
+    )
     return parser.parse_args()
 
 
@@ -73,7 +79,9 @@ def main() -> int:
     config = BenchmarkConfig(
         cases=(
             BenchmarkCase("4-track", args.four_track_session, expected_track_count=4),
-            BenchmarkCase("20-track", args.twenty_track_session, expected_track_count=20),
+            BenchmarkCase(
+                "20-track", args.twenty_track_session, expected_track_count=20
+            ),
         ),
         output_path=args.output,
         repeats=args.repeats,
@@ -81,6 +89,7 @@ def main() -> int:
         cold_center_mode=args.cold_center_mode,
         switched_center_mode=args.switched_center_mode,
         random_seed=args.random_seed,
+        acceptance=not args.diagnostic,
     )
     report = run_benchmark(config)
     print("\nMedian timings")

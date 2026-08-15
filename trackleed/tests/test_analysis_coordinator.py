@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
@@ -45,7 +46,7 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.io import results_exporter
 from trackleed.logic import analysis_coordinator
 from trackleed.logic import track_analysis_compatibility
-from trackleed.logic.workflows.track_analysis import FitExecutionError
+from trackleed.logic.workflows.track_analysis import FitExecutionError, FitSet
 
 
 def _leed_file(frame_id: int) -> LeedFile:
@@ -99,6 +100,173 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
             {1: leed_file},
         )
         self.assertEqual(set(track.analysis_results), {1})
+
+    def test_geometry_only_rerun_reuses_exact_fits_without_image_or_fit_work(
+        self,
+    ) -> None:
+        leed_file = _leed_file(1)
+        track = Track(
+            track_id=1,
+            spots_by_image_id={
+                1: SpotROI(
+                    id=1,
+                    roi_rect=QRect(4, 4, 23, 23),
+                    center_x=15.0,
+                    center_y=15.0,
+                    intensity=1.0,
+                    source="test",
+                )
+            },
+        )
+        yy, xx = np.indices((31, 31), dtype=np.float64)
+        pixels = 0.05 + np.exp(-((xx - 15.0) ** 2 + (yy - 15.0) ** 2) / 18.0)
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: pixels
+        try:
+            cold = track_analysis_compatibility.run_full_analysis_publication(
+                [track],
+                {},
+                {1: leed_file},
+                None,
+                lambda _progress: None,
+                center_mode="manual_ellipse",
+                manual_ellipse={"cx": 15.0, "cy": 15.0, "rx": 10.0, "ry": 5.0},
+            )
+        finally:
+            track_analysis_compatibility.load_tiff = original_load_tiff
+
+        assert cold is not None
+        self.assertEqual(cold.geometry_result.center_reference_track_ids, (1,))
+        original_fit = track_analysis_compatibility.fit
+
+        def forbidden_fit(*_args, **_kwargs):
+            raise AssertionError("geometry-only rerun called Gaussian fitting")
+
+        def forbidden_read(_filepath):
+            raise AssertionError("geometry-only rerun read image pixels")
+
+        track_analysis_compatibility.fit = forbidden_fit
+        track_analysis_compatibility.load_tiff = forbidden_read
+        try:
+            rerun = track_analysis_compatibility.run_geometry_analysis_publication(
+                [track],
+                {1: leed_file},
+                cold.fit_set,
+                lambda _progress: None,
+                center_mode="manual_ellipse",
+                manual_ellipse={"cx": 10.0, "cy": 10.0, "rx": 10.0, "ry": 5.0},
+                previous_geometry_result=cold.geometry_result,
+            )
+        finally:
+            track_analysis_compatibility.fit = original_fit
+            track_analysis_compatibility.load_tiff = original_load_tiff
+
+        assert rerun is not None
+        self.assertIs(rerun.fit_set, cold.fit_set)
+        self.assertNotEqual(
+            rerun.geometry_result.fingerprint,
+            cold.geometry_result.fingerprint,
+        )
+        self.assertNotEqual(
+            rerun.tracks[0].analysis_results[1]["radius"],
+            cold.tracks[0].analysis_results[1]["radius"],
+        )
+
+    def test_geometry_reuse_gate_is_bound_to_the_background_path(self) -> None:
+        leed_file = _leed_file(1)
+        track = Track(
+            track_id=1,
+            spots_by_image_id={
+                1: SpotROI(
+                    id=1,
+                    roi_rect=QRect(4, 4, 23, 23),
+                    center_x=15.0,
+                    center_y=15.0,
+                    intensity=1.0,
+                    source="test",
+                )
+            },
+        )
+        yy, xx = np.indices((31, 31), dtype=np.float64)
+        pixels = 0.05 + np.exp(-((xx - 15.0) ** 2 + (yy - 14.0) ** 2) / 18.0)
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: pixels
+        try:
+            cold = track_analysis_compatibility.run_full_analysis_publication(
+                [track], {}, {1: leed_file}, None, lambda _progress: None
+            )
+        finally:
+            track_analysis_compatibility.load_tiff = original_load_tiff
+        assert cold is not None
+        fitted = cold.fit_set.observations[0]
+        background_bound_fit = FitSet(
+            (
+                replace(
+                    fitted,
+                    provenance=replace(
+                        fitted.provenance,
+                        background_used=True,
+                        background_path=Path("first-background.tif"),
+                    ),
+                ),
+            )
+        )
+        changed_background = _leed_file(99)
+        changed_background.filepath = Path("changed-background.tif")
+
+        self.assertFalse(
+            track_analysis_compatibility.can_reuse_fit_set_for_geometry(
+                background_bound_fit,
+                [track],
+                {1: {"subtract_bg": True}},
+                changed_background,
+            )
+        )
+
+    def test_full_run_rechecks_same_path_pixels_before_reusing_a_fit(self) -> None:
+        leed_file = _leed_file(1)
+        track = Track(
+            track_id=1,
+            spots_by_image_id={
+                1: SpotROI(
+                    id=1,
+                    roi_rect=QRect(4, 4, 23, 23),
+                    center_x=15.0,
+                    center_y=15.0,
+                    intensity=1.0,
+                    source="test",
+                )
+            },
+        )
+        yy, xx = np.indices((31, 31), dtype=np.float64)
+        first_pixels = 0.05 + np.exp(-((xx - 15.0) ** 2 + (yy - 14.0) ** 2) / 18.0)
+        second_pixels = 0.05 + np.exp(-((xx - 12.0) ** 2 + (yy - 14.0) ** 2) / 18.0)
+        current_pixels = first_pixels
+        original_load_tiff = track_analysis_compatibility.load_tiff
+        track_analysis_compatibility.load_tiff = lambda _filepath: current_pixels
+        try:
+            cold = track_analysis_compatibility.run_full_analysis_publication(
+                [track], {}, {1: leed_file}, None, lambda _progress: None
+            )
+            assert cold is not None
+            current_pixels = second_pixels
+            changed = track_analysis_compatibility.run_full_analysis_publication(
+                [track],
+                {},
+                {1: leed_file},
+                None,
+                lambda _progress: None,
+                previous_fit_set=cold.fit_set,
+            )
+        finally:
+            track_analysis_compatibility.load_tiff = original_load_tiff
+
+        assert changed is not None
+        self.assertIsNot(changed.fit_set, cold.fit_set)
+        self.assertNotEqual(
+            changed.fit_set.observations[0].fingerprint,
+            cold.fit_set.observations[0].fingerprint,
+        )
 
     def test_cancelled_cold_run_preserves_previous_complete_publication(self) -> None:
         all_files_map = {1: _leed_file(1), 2: _leed_file(2)}
@@ -212,13 +380,17 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
             processed_file.post_analysis_results,
             {"avg_radius": 278.0, "avg_radius_error": 0.2},
         )
-        self.assertEqual(untouched_file.pattern_center, {"center_x": 30.0, "center_y": 40.0})
+        self.assertEqual(
+            untouched_file.pattern_center, {"center_x": 30.0, "center_y": 40.0}
+        )
         self.assertEqual(
             untouched_file.post_analysis_results,
             {"avg_radius": 199.0, "avg_radius_error": 0.1},
         )
 
-    def test_update_average_radius_clears_stale_average_when_too_few_valid_radii(self) -> None:
+    def test_update_average_radius_clears_stale_average_when_too_few_valid_radii(
+        self,
+    ) -> None:
         leed_file = _leed_file(1)
         leed_file.post_analysis_results = {
             "avg_radius": 278.0,
@@ -242,7 +414,9 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
         self.assertNotIn("avg_radius_error", leed_file.post_analysis_results)
         self.assertEqual(leed_file.post_analysis_results, {"other_metric": 7.0})
 
-    def test_update_average_radius_replaces_stale_average_with_current_values(self) -> None:
+    def test_update_average_radius_replaces_stale_average_with_current_values(
+        self,
+    ) -> None:
         leed_file = _leed_file(1)
         leed_file.post_analysis_results = {
             "avg_radius": 278.0,
@@ -260,7 +434,9 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
         )
 
         self.assertAlmostEqual(leed_file.post_analysis_results["avg_radius"], 201.0)
-        self.assertAlmostEqual(leed_file.post_analysis_results["avg_radius_error"], 1.41421356237)
+        self.assertAlmostEqual(
+            leed_file.post_analysis_results["avg_radius_error"], 1.41421356237
+        )
 
     def test_circle_fit_bbox_fallback_requires_at_least_three_points(self) -> None:
         center = analysis_coordinator._estimate_center_for_frame(
@@ -288,7 +464,9 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
         self.assertAlmostEqual(center["center_y"], 50.0, places=6)
         self.assertAlmostEqual(center["circle_radius"], 25.0, places=6)
 
-    def test_run_full_analysis_uses_bbox_centers_when_gaussian_fails_for_circle_fit_fallback(self) -> None:
+    def test_run_full_analysis_uses_bbox_centers_when_gaussian_fails_for_circle_fit_fallback(
+        self,
+    ) -> None:
         leed_file = _leed_file(1)
         tracks = [
             Track(
@@ -333,7 +511,9 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
         ]
 
         original_load_tiff = track_analysis_compatibility.load_tiff
-        track_analysis_compatibility.load_tiff = lambda _filepath: np.ones((100, 100), dtype=np.float32)
+        track_analysis_compatibility.load_tiff = lambda _filepath: np.ones(
+            (100, 100), dtype=np.float32
+        )
         try:
             result = analysis_coordinator.run_full_analysis(
                 tracks_to_analyze=tracks,
@@ -350,9 +530,13 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
         self.assertIsNotNone(leed_file.pattern_center)
         self.assertAlmostEqual(leed_file.pattern_center["center_x"], 50.0, places=6)
         self.assertAlmostEqual(leed_file.pattern_center["center_y"], 50.0, places=6)
-        self.assertAlmostEqual(leed_file.pattern_center["circle_radius"], 25.0, places=6)
+        self.assertAlmostEqual(
+            leed_file.pattern_center["circle_radius"], 25.0, places=6
+        )
 
-    def test_set_switch_average_radius_export_does_not_include_inherited_values(self) -> None:
+    def test_set_switch_average_radius_export_does_not_include_inherited_values(
+        self,
+    ) -> None:
         all_files_map = {1: _leed_file(1), 2: _leed_file(2)}
 
         set1_track_a = Track(track_id=1, spots_by_image_id={})
@@ -372,8 +556,12 @@ class AnalysisCoordinatorStateTests(unittest.TestCase):
                 frame_id=frame_id,
             )
 
-        self.assertAlmostEqual(all_files_map[1].post_analysis_results["avg_radius"], 278.0)
-        self.assertAlmostEqual(all_files_map[2].post_analysis_results["avg_radius"], 280.0)
+        self.assertAlmostEqual(
+            all_files_map[1].post_analysis_results["avg_radius"], 278.0
+        )
+        self.assertAlmostEqual(
+            all_files_map[2].post_analysis_results["avg_radius"], 280.0
+        )
 
         analysis_coordinator._reset_per_frame_analysis_state(all_files_map, [1, 2])
 

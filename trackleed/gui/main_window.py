@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# stal/gui/main_window.py
-
 from pathlib import Path
 from typing import Any, List
 from threading import Event
@@ -48,6 +46,7 @@ from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
 from trackleed.logic.generic_worker import GenericWorker
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 
 
 class MainWindow(QMainWindow):
@@ -59,14 +58,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("LEEDTrack - Spot Tracking")
         self.setGeometry(100, 100, 1200, 800)
-
         self.data_files: list[LeedFile] = []
         self.background_file: LeedFile | None = None
         self.metadata_mask_list: list[QRect] = []
         self.analysis_circle: tuple[int, int, int] | None = None  # (cx, cy, r)
         self.analysis_ellipse: tuple[int, int, int, int, float] | None = None  # (cx, cy, rx, ry, angle_deg)
         self.tracking_results: List[Track] = []
-        self._active_fit_set = None
+        self._active_analysis_state = ActiveAnalysisState()
         self.thread: QThread | None = None
         self.worker: GenericWorker | None = None
         self._tracking_progress_dialog: QProgressDialog | None = None
@@ -80,8 +78,6 @@ class MainWindow(QMainWindow):
         self._bbox_transparency_pct = 0.0
         self.quick_save_dir = Path("save")
         self.quick_save_path = self.quick_save_dir / "quick_save.lts.json"
-
-        # --- Initialize UI ---
         self._init_ui()
         self._create_toolbar()
         print("MainWindow has been created and initialized.")
@@ -527,7 +523,7 @@ class MainWindow(QMainWindow):
         directory = Path(dir_path)
         try:
             self.data_files = parse_directory(directory)
-            # Reset background metadata whenever a new directory is loaded
+            self._active_analysis_state = self._active_analysis_state.invalidate_source()
             self.background_file = None
             self._clear_bg_preview()
         except Exception as e:
@@ -593,17 +589,14 @@ class MainWindow(QMainWindow):
             return
 
         path_obj = Path(filepath)
-        
-        # Create a lightweight LeedFile object for the background frame
         self.background_file = LeedFile(
             filepath=path_obj,
             filename=path_obj.name,
             is_background=True,
-            # Other metadata can stay at defaults because the background is not analyzed
             element='', surface=0, mode='', temperature=0, energy=0, id=None, coverage=None
         )
         
-        # Update the status bar label
+        self._active_analysis_state = self._active_analysis_state.invalidate_source()
         self._update_bg_preview()
         QMessageBox.information(self, "Success", "Background file loaded successfully.")
 
@@ -778,6 +771,7 @@ class MainWindow(QMainWindow):
             else:
                 self.analysis_ellipse = None
                 print("Analysis ellipse cleared (empty selection).")
+            self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
             self.refresh_current_view()
 
     def clear_analysis_ellipse(self):
@@ -785,6 +779,7 @@ class MainWindow(QMainWindow):
         if self.analysis_ellipse is None:
             return
         self.analysis_ellipse = None
+        self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
         print("Analysis ellipse has been cleared.")
         current_item = self.file_list_widget.currentItem()
         if current_item:
@@ -896,6 +891,7 @@ class MainWindow(QMainWindow):
         """Clear the file list and associated state."""
         self.data_files = []
         self.tracking_results = []
+        self._active_analysis_state = self._active_analysis_state.clear()
         self.file_list_widget.clear()
         self.refresh_current_view()
 
@@ -911,6 +907,7 @@ class MainWindow(QMainWindow):
         lf = item.data(Qt.ItemDataRole.UserRole)
         if lf in self.data_files:
             self.data_files.remove(lf)
+        self._active_analysis_state = self._active_analysis_state.invalidate_source()
         if lf and lf.id is not None and self.tracking_results:
             for track in self.tracking_results:
                 track.spots_by_image_id.pop(lf.id, None)
@@ -1486,11 +1483,11 @@ class MainWindow(QMainWindow):
             file_map,
             self.background_file,
             analysis_ellipse=normalized_ellipse,
-            active_fit_set=self._active_fit_set, parent=self,
+            analysis_state=self._active_analysis_state, parent=self,
             save_session_callback=lambda tracks: self.save_session_dialog(tracks),
         )
         result = dialog.exec()
-        self._active_fit_set = dialog.active_fit_set
+        self._active_analysis_state = dialog.analysis_state
         if result == QDialog.DialogCode.Accepted:
             self.tracking_results = dialog.tracks
 
@@ -1645,13 +1642,13 @@ class MainWindow(QMainWindow):
             return
         print("Tracking task finished successfully.")
         self.tracking_results = tracks
+        self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
         self._apply_tracks_to_files(tracks)
         current_item = self.file_list_widget.currentItem()
         if current_item:
             lf: LeedFile = current_item.data(Qt.ItemDataRole.UserRole)
             self.populate_spot_list(lf.spots)
             self.refresh_current_view()
-        # Reset progress bar state in case it was cancelled
         QApplication.processEvents() # Process any pending events
         self.show_tracking_visualizer()
 
@@ -1696,8 +1693,8 @@ class MainWindow(QMainWindow):
             except (TypeError, ValueError) as exc:
                 QMessageBox.critical(self, "Tracking Error", str(exc))
                 return
+            self._active_analysis_state = self._active_analysis_state.invalidate_geometry()
             print(f"Tracking data accepted. Final number of tracks: {len(self.tracking_results)}")
-
             QMessageBox.information(self, "Tracks Confirmed", "Corrected tracks have been saved.")
             current_item = self.file_list_widget.currentItem()
             if current_item:
@@ -1805,7 +1802,7 @@ class MainWindow(QMainWindow):
 
     def _load_session(self, path: Path):
         files, background, masks, tracks, spot_settings, analysis_circle, analysis_ellipse = load_session_from_file(path)
-
+        self._active_analysis_state = self._active_analysis_state.invalidate_source()
         missing_files = [str(f.filepath) for f in files if not f.filepath.exists()]
         if missing_files:
             QMessageBox.warning(

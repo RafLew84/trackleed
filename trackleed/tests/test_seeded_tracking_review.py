@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QDialogButtonBox
 
 from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui import main_window
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
 
 
 def _spot(x: float) -> SpotROI:
@@ -65,6 +66,7 @@ def _host(frame: LeedFile) -> SimpleNamespace:
         _collect_tracking_dialog_backend_params=lambda: {},
         file_list_widget=SimpleNamespace(currentItem=lambda: None),
         save_session_dialog=lambda _tracks: None,
+        _active_analysis_state=ActiveAnalysisState(),
     )
 
 
@@ -109,6 +111,7 @@ class SeededTrackingReviewTests(unittest.TestCase):
         self.assertEqual(active_spot.center_x, 44.0)
         self.assertEqual(frame.spots[0].center_x, 44.0)
         self.assertIsNot(active_spot, frame.spots[0])
+        self.assertEqual(host._active_analysis_state, ActiveAnalysisState())
 
     def test_review_dialog_uses_approved_title_and_accept_label(self) -> None:
         dialog = self.original_dialog([], [], [], 18, 41, 4)

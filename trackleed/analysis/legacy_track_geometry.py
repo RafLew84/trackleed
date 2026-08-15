@@ -13,6 +13,13 @@ from trackleed.analysis.peak_analyzer import (
     fit_circle_center,
     fit_ellipse_center,
 )
+from trackleed.analysis.pattern_geometry import (
+    ManualEllipse,
+    ellipse_corrected_radius,
+    euclidean_radius,
+    smooth_center_series,
+    summarize_radii,
+)
 from trackleed.logic.workflows.track_analysis import FitSet, GaussianFitResult, Rect
 
 
@@ -31,15 +38,6 @@ class GeometryObservationRoi:
     track_id: int
     frame_id: int
     roi: Rect
-
-
-@dataclass(frozen=True)
-class ManualEllipse:
-    center_x: float
-    center_y: float
-    radius_x: float
-    radius_y: float
-    angle_degrees: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -138,9 +136,14 @@ def derive_legacy_geometry(
 ) -> LegacyGeometryResult:
     """Derive current center/radius semantics without mutating ``FitSet``."""
     context = context or GeometryRunContext()
-    rois = {(item.track_id, item.frame_id): item.roi for item in request.observation_rois}
+    rois = {
+        (item.track_id, item.frame_id): item.roi for item in request.observation_rois
+    }
     frame_ids = sorted({item.frame_id for item in request.observation_rois})
-    if request.center_mode is LegacyCenterMode.MANUAL_ELLIPSE and request.manual_ellipse is None:
+    if (
+        request.center_mode is LegacyCenterMode.MANUAL_ELLIPSE
+        and request.manual_ellipse is None
+    ):
         raise ValueError("manual_ellipse mode requires a valid ellipse")
     centers, observations = _first_pass(fit_set, request, rois, frame_ids, context)
     if request.center_mode is LegacyCenterMode.GLOBAL_MEDIAN:
@@ -178,9 +181,7 @@ def _first_pass(
         center = _estimate_center(positions, request)
         if center is not None:
             centers[frame_id] = center
-        context.report_progress(
-            GeometryProgress(index + 1, progress_total, frame_id)
-        )
+        context.report_progress(GeometryProgress(index + 1, progress_total, frame_id))
     observations = _radii_for_centers(fit_set, centers, request) if per_frame else []
     return centers, observations
 
@@ -196,17 +197,21 @@ def _positions_for_frame(
         if item.frame_id != frame_id:
             continue
         if item.result is not None:
-            positions.append({
-                "center_x": item.result.global_center_x,
-                "center_y": item.result.global_center_y,
-            })
+            positions.append(
+                {
+                    "center_x": item.result.global_center_x,
+                    "center_y": item.result.global_center_y,
+                }
+            )
         elif mode is LegacyCenterMode.CIRCLE_FIT_BBOX_FALLBACK:
             roi = rois.get((item.track_id, item.frame_id))
             if roi is not None:
-                positions.append({
-                    "center_x": roi.x + roi.width / 2.0,
-                    "center_y": roi.y + roi.height / 2.0,
-                })
+                positions.append(
+                    {
+                        "center_x": roi.x + roi.width / 2.0,
+                        "center_y": roi.y + roi.height / 2.0,
+                    }
+                )
     return positions
 
 
@@ -261,12 +266,14 @@ def _radii_for_centers(
         elif request.center_mode is LegacyCenterMode.ELLIPSE_FIT:
             ellipse = _ellipse_from_center(center)
         radius, radius_error = _radius(item.result, center, ellipse)
-        observations.append(ObservationGeometry(
-            item.track_id,
-            item.frame_id,
-            radius,
-            radius_error,
-        ))
+        observations.append(
+            ObservationGeometry(
+                item.track_id,
+                item.frame_id,
+                radius,
+                radius_error,
+            )
+        )
     return observations
 
 
@@ -306,60 +313,6 @@ def _radius(
     )
 
 
-def euclidean_radius(
-    global_center_x: float,
-    global_center_y: float,
-    spot_error_x: float,
-    spot_error_y: float,
-    center: Mapping[str, float],
-) -> tuple[float, float | None]:
-    """Return ordinary spot radius and its propagated uncertainty."""
-    dx = global_center_x - center["center_x"]
-    dy = global_center_y - center["center_y"]
-    radius = float(np.sqrt(dx**2 + dy**2))
-    if radius <= 1e-6:
-        return radius, None
-    var_x = spot_error_x**2 + center.get("error_x", 0.0) ** 2
-    var_y = spot_error_y**2 + center.get("error_y", 0.0) ** 2
-    error = float(np.sqrt(dx**2 * var_x + dy**2 * var_y) / radius)
-    return radius, error
-
-
-def ellipse_corrected_radius(
-    global_center_x: float,
-    global_center_y: float,
-    spot_error_x: float,
-    spot_error_y: float,
-    center: Mapping[str, float],
-    ellipse: ManualEllipse,
-    radius_scale: float | None = None,
-) -> tuple[float, float]:
-    """Return the current affine ellipse-corrected radius and uncertainty."""
-    dx = global_center_x - center["center_x"]
-    dy = global_center_y - center["center_y"]
-    angle = np.deg2rad(ellipse.angle_degrees)
-    cos_angle, sin_angle = float(np.cos(angle)), float(np.sin(angle))
-    xr = cos_angle * dx + sin_angle * dy
-    yr = -sin_angle * dx + cos_angle * dy
-    inv_x, inv_y = 1.0 / ellipse.radius_x, 1.0 / ellipse.radius_y
-    u, v = xr * inv_x, yr * inv_y
-    normalized = float(np.sqrt(u**2 + v**2))
-    scale = (
-        float(np.sqrt(ellipse.radius_x * ellipse.radius_y))
-        if radius_scale is None
-        else float(radius_scale)
-    )
-    radius = scale * normalized
-    if normalized <= 1e-9:
-        return radius, 0.0
-    dqx = (u * cos_angle * inv_x - v * sin_angle * inv_y) / normalized
-    dqy = (u * sin_angle * inv_x + v * cos_angle * inv_y) / normalized
-    var_x = spot_error_x**2 + center.get("error_x", 0.0) ** 2
-    var_y = spot_error_y**2 + center.get("error_y", 0.0) ** 2
-    error = scale * np.sqrt(dqx**2 * var_x + dqy**2 * var_y)
-    return float(radius), float(error)
-
-
 def _frame_results(
     frame_ids: list[int],
     centers: dict[int, dict[str, float]],
@@ -373,18 +326,6 @@ def _frame_results(
         frozen_center = None if center is None else tuple(center.items())
         frames.append(FrameGeometry(frame_id, frozen_center, average, error))
     return tuple(frames)
-
-
-def summarize_radii(
-    radii: list[float],
-) -> tuple[float | None, float | None]:
-    """Return the legacy per-frame mean and standard error."""
-    if len(radii) <= 1:
-        return None, None
-    return (
-        float(np.mean(radii)),
-        float(np.std(radii) / np.sqrt(len(radii))),
-    )
 
 
 def _median_center(
@@ -418,146 +359,9 @@ def smooth_legacy_centers(
     raw_centers: dict[int, dict[str, float]],
 ) -> dict[int, dict[str, float]]:
     """Stabilize the current circle-fit center sequence over time."""
-    if not frame_ids or not raw_centers:
-        return {}
-    values = _center_series(frame_ids, raw_centers)
-    if not np.any(np.isfinite(values["center_x"]) & np.isfinite(values["center_y"])):
-        return {}
-    raw_x = _interpolate_nans(values["center_x"])
-    raw_y = _interpolate_nans(values["center_y"])
-    center_x = _ema(_rolling_median(raw_x, 5), 0.25)
-    center_y = _ema(_rolling_median(raw_y, 5), 0.25)
-    _clamp_center_steps(center_x, center_y, raw_x, raw_y)
-    radius = _ema(
-        _rolling_median(_interpolate_nans(values["circle_radius"]), 5),
-        0.25,
-    )
-    return _smoothed_center_records(
+    return smooth_center_series(
         frame_ids,
-        center_x,
-        center_y,
-        values["center_x"],
-        values["center_y"],
-        values["error_x"],
-        values["error_y"],
-        radius,
+        raw_centers,
+        window=5,
+        alpha=0.25,
     )
-
-
-def _center_series(
-    frame_ids: list[int],
-    raw_centers: dict[int, dict[str, float]],
-) -> dict[str, np.ndarray]:
-    names = ("center_x", "center_y", "error_x", "error_y", "circle_radius")
-    return {
-        name: np.array(
-            [raw_centers.get(frame_id, {}).get(name, np.nan) for frame_id in frame_ids],
-            dtype=float,
-        )
-        for name in names
-    }
-
-
-def _clamp_center_steps(
-    center_x: np.ndarray,
-    center_y: np.ndarray,
-    raw_x: np.ndarray,
-    raw_y: np.ndarray,
-) -> None:
-    steps = np.hypot(np.diff(raw_x), np.diff(raw_y))
-    median = _nan_median_or_default(steps, 2.0)
-    deviation = _nan_median_or_default(np.abs(steps - median), 0.5)
-    max_step = float(min(25.0, max(1.5, median + 4.0 * deviation + 2.0)))
-    for index in range(1, center_x.size):
-        dx = center_x[index] - center_x[index - 1]
-        dy = center_y[index] - center_y[index - 1]
-        distance = float(np.hypot(dx, dy))
-        if distance > max_step and distance > 1e-9:
-            scale = max_step / distance
-            center_x[index] = center_x[index - 1] + dx * scale
-            center_y[index] = center_y[index - 1] + dy * scale
-
-
-def _nan_median_or_default(values: np.ndarray, default: float) -> float:
-    finite = values[np.isfinite(values)]
-    return float(np.median(finite)) if finite.size else float(default)
-
-
-def _smoothed_center_records(
-    frame_ids: list[int],
-    center_x: np.ndarray,
-    center_y: np.ndarray,
-    raw_x: np.ndarray,
-    raw_y: np.ndarray,
-    error_x: np.ndarray,
-    error_y: np.ndarray,
-    radius: np.ndarray,
-) -> dict[int, dict[str, float]]:
-    records = {}
-    default_error_x = _nan_median_or_default(error_x, 1.0)
-    default_error_y = _nan_median_or_default(error_y, 1.0)
-    for index, frame_id in enumerate(frame_ids):
-        resolved_error_x = (
-            float(error_x[index])
-            if np.isfinite(error_x[index])
-            else default_error_x
-        )
-        resolved_error_y = (
-            float(error_y[index])
-            if np.isfinite(error_y[index])
-            else default_error_y
-        )
-        if np.isfinite(raw_x[index]) and np.isfinite(raw_y[index]):
-            resolved_error_x = max(
-                resolved_error_x,
-                abs(float(raw_x[index] - center_x[index])),
-            )
-            resolved_error_y = max(
-                resolved_error_y,
-                abs(float(raw_y[index] - center_y[index])),
-            )
-        source = {
-            "center_x": float(center_x[index]),
-            "center_y": float(center_y[index]),
-            "error_x": resolved_error_x,
-            "error_y": resolved_error_y,
-        }
-        if np.isfinite(radius[index]) and radius[index] > 0:
-            source["circle_radius"] = float(radius[index])
-        records[frame_id] = source
-    return records
-
-
-def _interpolate_nans(values: np.ndarray) -> np.ndarray:
-    if values.size == 0:
-        return values.copy()
-    mask = np.isfinite(values)
-    if not np.any(mask):
-        return values.copy()
-    if np.sum(mask) == 1:
-        return np.full_like(values, values[mask][0], dtype=float)
-    indices: np.ndarray = np.arange(values.size, dtype=float)
-    result: np.ndarray = values.astype(float, copy=True)
-    result[~mask] = np.interp(indices[~mask], indices[mask], result[mask])
-    return result
-
-
-def _rolling_median(values: np.ndarray, window: int) -> np.ndarray:
-    width = max(1, window | 1)
-    half = width // 2
-    result = np.empty_like(values, dtype=float)
-    for index in range(values.size):
-        result[index] = np.median(
-            values[max(0, index - half) : min(values.size, index + half + 1)]
-        )
-    return result
-
-
-def _ema(values: np.ndarray, alpha: float) -> np.ndarray:
-    if values.size == 0:
-        return values.copy()
-    result = np.empty_like(values, dtype=float)
-    result[0] = values[0]
-    for index in range(1, values.size):
-        result[index] = alpha * values[index] + (1.0 - alpha) * result[index - 1]
-    return result

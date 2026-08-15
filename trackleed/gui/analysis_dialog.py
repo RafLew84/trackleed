@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# stal/gui/analysis_dialog.py
-
 from pathlib import Path
 
 from typing import Any, List, Dict, Optional
@@ -18,12 +16,11 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSplitt
                              QTableWidgetItem, QPushButton, QDialogButtonBox, QTabWidget, QGroupBox,
                              QSlider, QComboBox, QMessageBox, QProgressDialog, QListWidget)
 
-# Import data models and the image viewer
 from trackleed.core.data_models import Track
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.logic.generic_worker import GenericWorker
-from trackleed.logic.track_analysis_compatibility import AnalysisPublication, publish_analysis, run_full_analysis_publication
-from trackleed.logic.workflows.track_analysis import FitSet
+from trackleed.logic.active_analysis_state import ActiveAnalysisState
+from trackleed.logic.track_analysis_compatibility import AnalysisPublication, can_reuse_fit_set_for_geometry, publish_analysis, run_full_analysis_publication, run_geometry_analysis_publication
 from trackleed.core.data_models import LeedFile
 from trackleed.analysis.peak_analyzer import gaussian_2d
 from trackleed.analysis.result_parameters import ANALYSIS_RESULT_PARAMETERS
@@ -87,7 +84,7 @@ class AnalysisResultsDialog(QDialog):
         all_files_map: Dict[int, LeedFile],
         background_file: Optional[LeedFile],
         analysis_ellipse: Optional[tuple[int, int, int, int, float]] = None,
-        active_fit_set: Optional[FitSet] = None,
+        analysis_state: Optional[ActiveAnalysisState] = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -103,11 +100,9 @@ class AnalysisResultsDialog(QDialog):
         """
         super().__init__(parent)
 
-        # --- Basic Window Setup ---
         self.setWindowTitle("Final Analysis & Results")
         self.setMinimumSize(1600, 900) # Use a larger default dialog size
 
-        # Add minimize and maximize buttons to the window's title bar.
         current_flags = self.windowFlags()
         self.setWindowFlags(current_flags | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
 
@@ -119,12 +114,9 @@ class AnalysisResultsDialog(QDialog):
         self.worker_thread = None
         self.worker = None
         self.analysis_cancel_event: Optional[Event] = None
-        self.active_fit_set = active_fit_set
+        self.analysis_state = analysis_state or ActiveAnalysisState()
         self.param_checkboxes = {} 
 
-        # --- Pre-load and Process Background Image ---
-        # For efficiency, the background image is loaded and converted to grayscale
-        # only once during initialization, preventing repeated disk access.
         self.bg_image_data_gray = None
         if self.background_file:
             temp_bg_data = load_tiff(self.background_file.filepath)
@@ -334,6 +326,12 @@ class AnalysisResultsDialog(QDialog):
         self.center_mode_combo.addItem("Per-frame (circle fit + temporal smoothing)", "circle_fit_temporal")
         self.center_mode_combo.addItem("Global median (all frames)", "global_median")
         self.center_mode_combo.addItem("Manual ellipse (global center, corrected radius)", "manual_ellipse")
+        self.center_mode_combo.setCurrentIndex(1)
+        self.center_mode_combo.currentIndexChanged.connect(
+            lambda _index: self.analysis_state.fit_set is not None
+            and self.perform_analysis_button.isEnabled()
+            and self.start_analysis_task()
+        )
         center_layout.addWidget(self.center_mode_combo)
         layout.addWidget(center_group)
 
@@ -400,6 +398,7 @@ class AnalysisResultsDialog(QDialog):
             element='N/A', surface=0, mode='N/A', temperature=0,
             energy=0, id=None, coverage=None
         )
+        self.analysis_state = self.analysis_state.invalidate_source()
         self._update_dialog_bg_preview()
         QMessageBox.information(self, "Success", "Background file for this analysis session has been changed.")
 
@@ -1707,19 +1706,9 @@ class AnalysisResultsDialog(QDialog):
                 QMessageBox.critical(self, "Export Error", f"An error occurred while exporting data:\n{e}")
     
     def start_analysis_task(self):
-        """
-        Gathers configuration from the UI and starts the analysis in a background thread.
-
-        This slot is connected to the "Perform Analysis" button. It reads the
-        current state of the configuration table, prepares the necessary data,
-        and dispatches the atomic analysis publication function to a
-        GenericWorker to be executed without freezing the user interface.
-        """
-        # --- 1. Gather Configuration from the Table ---
+        """Launch a fit-aware atomic analysis job from the current controls."""
         tracks_to_analyze = self.tracks
         analysis_config = {}
-
-        # Iterate through all rows of the configuration table.
         for row in range(self.config_table.rowCount()):
             track_id = int(self.config_table.item(row, 0).text())
             sub_bg_checkbox = self.config_table.cellWidget(row, 1)
@@ -1728,17 +1717,13 @@ class AnalysisResultsDialog(QDialog):
             }
             self.config_table.item(row, 2).setText("Processing...")
 
-        #  Guard clause: If no tracks are selected, show a warning and do nothing.
         if not tracks_to_analyze:
             QMessageBox.warning(self, "No Tracks Selected", "Please select at least one track to analyze.")
             return
 
-        # --- 2. Launch the Background Worker ---
-        # Disable the button to prevent the user from starting multiple analyses at once.
         self.perform_analysis_button.setEnabled(False)
         total_frames = len({fid for t in tracks_to_analyze for fid in t.spots_by_image_id})
 
-        # Create a GenericWorker instance around the typed cold-analysis seam.
         center_mode = self.center_mode_combo.currentData() if hasattr(self, "center_mode_combo") else "per_frame"
         manual_ellipse_payload = None
         if center_mode == "manual_ellipse":
@@ -1770,18 +1755,26 @@ class AnalysisResultsDialog(QDialog):
             f"frames={total_frames} | center_mode={center_mode}"
         )
         self.analysis_cancel_event = Event()
+        geometry_only = not self.analysis_state.requires_fit_validation and self.analysis_state.fit_set is not None and can_reuse_fit_set_for_geometry(
+            self.analysis_state.fit_set, tracks_to_analyze, analysis_config, self.background_file
+        )
+        analysis_runner = run_geometry_analysis_publication if geometry_only else run_full_analysis_publication
+        analysis_args = (
+            (tracks_to_analyze, self.all_files_map, self.analysis_state.fit_set)
+            if geometry_only
+            else (tracks_to_analyze, analysis_config, self.all_files_map, self.background_file)
+        )
+        cache_arguments = {"previous_geometry_result": self.analysis_state.geometry_result}
+        if not geometry_only:
+            cache_arguments["previous_fit_set"] = self.analysis_state.fit_set
         worker = GenericWorker(
-            run_full_analysis_publication,
-            tracks_to_analyze,
-            analysis_config,
-            self.all_files_map,
-            self.background_file,
+            analysis_runner,
+            *analysis_args,
             center_mode=center_mode,
             manual_ellipse=manual_ellipse_payload,
             cancel_event=self.analysis_cancel_event,
-            previous_fit_set=self.active_fit_set,
+            **cache_arguments,
         )
-        # The launch_analysis_worker method will handle thread management and the progress dialog.
         self.launch_analysis_worker(worker)
 
     def launch_analysis_worker(self, worker: GenericWorker):
@@ -1878,9 +1871,10 @@ class AnalysisResultsDialog(QDialog):
         print("Analysis finished successfully.")
 
         publish_analysis(publication, self.tracks, self.all_files_map)
-        self.active_fit_set = publication.fit_set
+        self.analysis_state = self.analysis_state.publish(
+            publication.fit_set, publication.geometry_result
+        )
 
-        # 2. Re-enable the UI buttons.
         self.perform_analysis_button.setEnabled(True)
         self.export_button.setEnabled(True)
 
