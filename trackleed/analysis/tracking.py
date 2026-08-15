@@ -5,6 +5,7 @@ from __future__ import annotations
 # public Trackleed tracking entrypoints are resolved lazily from family modules,
 # while the legacy runtime remains below during the staged refactor.
 
+from dataclasses import asdict
 from importlib import import_module
 from pathlib import Path
 from typing import Any, List, Dict, Callable, Tuple, Optional
@@ -4015,18 +4016,41 @@ def _track_models_from_tracking_result(result: TrackingResult) -> List[Track]:
     ]
 
 
-def _legacy_optical_flow_config(params: dict) -> OpticalFlowConfig:
+def _legacy_optical_flow_config(
+    params: dict,
+    *,
+    defaults: OpticalFlowConfig | None = None,
+) -> OpticalFlowConfig:
+    fallback = defaults or OpticalFlowConfig(
+        win_size=31,
+        max_level=3,
+        max_iterations=10,
+        epsilon=0.03,
+        use_centroid_refinement=False,
+    )
     return OpticalFlowConfig(
-        roi_size=int(params.get("roi_size", 32)),
-        win_size=int(params.get("lk_win_size", 31)),
-        max_level=int(params.get("lk_max_level", 3)),
-        max_iterations=int(params.get("lk_max_iterations", 10)),
-        epsilon=float(params.get("lk_epsilon", 0.03)),
-        min_eigen_threshold=float(params.get("lk_min_eigen_threshold", 1e-5)),
-        use_centroid_refinement=bool(params.get("use_centroid_refinement", False)),
-        centroid_patch_multiplier=float(params.get("centroid_patch_multiplier", 1.5)),
-        centroid_rel_threshold=float(params.get("centroid_rel_threshold", 0.4)),
-        centroid_max_expand=int(params.get("centroid_max_expand", 1)),
+        roi_size=int(params.get("roi_size", fallback.roi_size)),
+        win_size=int(params.get("lk_win_size", fallback.win_size)),
+        max_level=int(params.get("lk_max_level", fallback.max_level)),
+        max_iterations=int(
+            params.get("lk_max_iterations", fallback.max_iterations)
+        ),
+        epsilon=float(params.get("lk_epsilon", fallback.epsilon)),
+        min_eigen_threshold=float(
+            params.get("lk_min_eigen_threshold", fallback.min_eigen_threshold)
+        ),
+        use_centroid_refinement=bool(
+            params.get("use_centroid_refinement", fallback.use_centroid_refinement)
+        ),
+        centroid_patch_multiplier=float(
+            params.get("centroid_patch_multiplier", fallback.centroid_patch_multiplier)
+        ),
+        centroid_rel_threshold=float(
+            params.get("centroid_rel_threshold", fallback.centroid_rel_threshold)
+        ),
+        centroid_max_expand=int(
+            params.get("centroid_max_expand", fallback.centroid_max_expand)
+        ),
         subtract_background=bool(
             params.get("subtract_background") and params.get("background_filepath")
         ),
@@ -4041,18 +4065,11 @@ def _legacy_skip_anchor_config(params: dict) -> SkipAnchorOpticalFlowConfig:
         else OutOfBoundsPolicy.SKIP
     )
     return SkipAnchorOpticalFlowConfig(
-        roi_size=int(params.get("roi_size", 32)),
-        win_size=int(params.get("lk_win_size", 41)),
-        max_level=int(params.get("lk_max_level", 4)),
-        max_iterations=int(params.get("lk_max_iterations", 50)),
-        epsilon=float(params.get("lk_epsilon", 0.01)),
-        min_eigen_threshold=float(params.get("lk_min_eigen_threshold", 1e-5)),
-        use_centroid_refinement=bool(params.get("use_centroid_refinement", False)),
-        centroid_patch_multiplier=float(params.get("centroid_patch_multiplier", 1.5)),
-        centroid_rel_threshold=float(params.get("centroid_rel_threshold", 0.4)),
-        centroid_max_expand=int(params.get("centroid_max_expand", 1)),
-        subtract_background=bool(
-            params.get("subtract_background") and params.get("background_filepath")
+        **asdict(
+            _legacy_optical_flow_config(
+                params,
+                defaults=OpticalFlowConfig(use_centroid_refinement=False),
+            )
         ),
         error_threshold=float(params.get("lk_err_threshold", 30.0)),
         forward_backward_threshold=float(params.get("lk_fb_threshold", 8.2)),

@@ -95,6 +95,20 @@ class SeededTrackingLegacyAdapterTests(unittest.TestCase):
 
         self.assertIsNone(tracks)
 
+    def test_legacy_entrypoints_keep_their_distinct_lk_defaults(self) -> None:
+        classic = tracking._legacy_optical_flow_config({})
+        skip_anchor = tracking._legacy_skip_anchor_config({})
+
+        self.assertEqual(
+            (classic.win_size, classic.max_level, classic.max_iterations),
+            (31, 3, 10),
+        )
+        self.assertEqual(
+            (skip_anchor.win_size, skip_anchor.max_level, skip_anchor.max_iterations),
+            (41, 4, 50),
+        )
+        self.assertEqual(skip_anchor.forward_backward_threshold, 8.2)
+
 
 if __name__ == "__main__":
     unittest.main()
