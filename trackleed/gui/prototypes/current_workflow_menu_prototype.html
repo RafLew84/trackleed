@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TrackLEED workflow menu prototype</title>
+  <style>
+    /*
+      THROWAWAY PROTOTYPE - not production UI.
+      Three variants of the TrackLEED main-window workflow hierarchy, switchable
+      via ?variant=A|B|C on this single page.
+      Decision captured 2026-08-11: variant A approved; Review / Edit Tracks is
+      only in Tracking; the proposed English action names are accepted.
+    */
+    :root {
+      color-scheme: dark;
+      --page: #071018;
+      --window: #111b25;
+      --panel: #16232f;
+      --panel-2: #1b2b38;
+      --line: #304353;
+      --line-soft: #253747;
+      --text: #e7eef4;
+      --muted: #9fb0bd;
+      --accent: #50d1be;
+      --accent-strong: #1eab98;
+      --blue: #5a9de5;
+      --warning: #f2b96b;
+      --danger: #e97c85;
+      --shadow: 0 22px 70px rgba(0, 0, 0, .42);
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 860px;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 0%, rgba(57, 111, 132, .22), transparent 34rem),
+        radial-gradient(circle at 90% 10%, rgba(36, 125, 113, .15), transparent 36rem),
+        var(--page);
+    }
+
+    button, select, input { font: inherit; }
+    button { color: inherit; }
+
+    .prototype-head {
+      width: min(1460px, calc(100% - 48px));
+      margin: 24px auto 14px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .prototype-kicker {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 7px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .prototype-kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 18px var(--accent);
+    }
+
+    h1 { margin: 0; font-size: 25px; letter-spacing: -.02em; }
+    .prototype-head p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+
+    .question-badge {
+      max-width: 410px;
+      padding: 10px 13px;
+      border: 1px solid rgba(80, 209, 190, .3);
+      border-radius: 9px;
+      color: #c9e8e3;
+      background: rgba(25, 89, 82, .22);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .app-window {
+      position: relative;
+      width: min(1460px, calc(100% - 48px));
+      min-height: 700px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid #3a4b59;
+      border-radius: 11px;
+      background: var(--window);
+      box-shadow: var(--shadow);
+    }
+
+    .titlebar {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid #17232d;
+      background: #1b2833;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .window-controls { display: flex; gap: 7px; }
+    .window-controls i { width: 10px; height: 10px; border-radius: 50%; background: #52626e; }
+    .window-controls i:nth-child(2) { background: #6c7b86; }
+    .window-controls i:nth-child(3) { background: #d27176; }
+
+    .menubar {
+      position: relative;
+      z-index: 20;
+      height: 36px;
+      display: flex;
+      align-items: stretch;
+      gap: 1px;
+      padding: 0 8px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #121d26;
+    }
+
+    .menu-button {
+      min-width: 65px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .menu-button:hover, .menu-button.active { background: #2b3b47; }
+    .menu-button.workflow { color: #dcfffa; font-weight: 720; }
+
+    .menu-popover {
+      position: absolute;
+      z-index: 50;
+      top: 34px;
+      left: 8px;
+      width: 300px;
+      padding: 6px;
+      border: 1px solid #49606f;
+      border-radius: 7px;
+      background: #1c2a35;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .48);
+    }
+
+    .menu-popover[hidden] { display: none; }
+    .menu-section-label {
+      padding: 8px 10px 4px;
+      color: #7f9aab;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .menu-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      text-align: left;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .menu-item:hover { background: #314552; }
+    .menu-item .hint { color: #8da0ad; font-size: 10px; }
+    .menu-item .kind { color: var(--accent); }
+    .menu-separator { height: 1px; margin: 5px 7px; background: #344653; }
+
+    .workflow-strip {
+      min-height: 0;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line-soft);
+      background: #101a22;
+      transition: min-height .2s ease;
+    }
+
+    .workflow-strip.visible { min-height: 58px; }
+    .workflow-strip-inner {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 8px 24px;
+    }
+
+    .step-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 13px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: #c6d1da;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .step-button:hover { border-color: #39515f; background: #192833; }
+    .step-button strong {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #476170;
+      border-radius: 50%;
+      color: var(--accent);
+      font-size: 10px;
+    }
+
+    .step-connector { width: 42px; height: 1px; background: #39505e; }
+
+    .toolbar {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 9px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #17242e;
+    }
+
+    .tool-button {
+      padding: 7px 10px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: #b8c6d0;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .tool-button:hover { border-color: #405663; }
+    .tool-button.active { border-color: #3d706c; background: #1d403e; color: #eafffc; }
+    .toolbar-separator { width: 1px; height: 24px; margin: 0 4px; background: var(--line); }
+    .toolbar-note { margin-left: auto; color: #8da2b0; font-size: 10px; }
+
+    .workspace {
+      height: 530px;
+      display: grid;
+      grid-template-columns: 245px minmax(480px, 1fr);
+      background: #0c141b;
+    }
+
+    .file-panel {
+      padding: 12px;
+      border-right: 1px solid var(--line);
+      background: #17242e;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .count-badge { padding: 2px 7px; border-radius: 9px; color: #b9d8d4; background: #27413f; font-size: 9px; }
+
+    .file-list {
+      height: 228px;
+      overflow: hidden;
+      border: 1px solid #344856;
+      border-radius: 5px;
+      background: #111b23;
+    }
+
+    .file-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 9px 8px;
+      border-bottom: 1px solid #243540;
+      color: #b9c6cf;
+      font-size: 10px;
+    }
+
+    .file-row.active { color: #f0fffd; background: #25413f; }
+    .file-row span:last-child { color: #79909e; }
+
+    .secondary-button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 7px 9px;
+      border: 1px solid #405461;
+      border-radius: 5px;
+      background: #1d2d38;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .background-preview { margin-top: 16px; }
+    .preview-box {
+      height: 132px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed #3c505d;
+      border-radius: 5px;
+      color: #6e8492;
+      background: #101920;
+      font-size: 10px;
+    }
+
+    .image-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(255, 255, 255, .018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .018) 1px, transparent 1px),
+        #090e13;
+      background-size: 24px 24px;
+    }
+
+    .leed-frame {
+      width: min(66vh, 470px);
+      height: min(66vh, 470px);
+      max-height: 455px;
+      border: 1px solid #31444f;
+      background: #020405;
+      box-shadow: 0 0 0 1px #060b0f, 0 16px 48px rgba(0, 0, 0, .55);
+    }
+
+    .frame-overlay {
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      padding: 7px 9px;
+      border: 1px solid rgba(76, 104, 119, .65);
+      border-radius: 5px;
+      color: #b5c7d2;
+      background: rgba(9, 17, 23, .8);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    .statusbar {
+      height: 27px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      border-top: 1px solid var(--line-soft);
+      color: #8fa1ae;
+      background: #121d25;
+      font-size: 9px;
+    }
+
+    .modal-layer {
+      position: absolute;
+      z-index: 90;
+      inset: 72px 0 27px;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background: rgba(3, 8, 12, .66);
+      backdrop-filter: blur(2px);
+    }
+
+    .modal-layer[hidden] { display: none; }
+    .dialog {
+      width: min(720px, calc(100% - 80px));
+      max-height: 590px;
+      overflow: auto;
+      border: 1px solid #536a78;
+      border-radius: 9px;
+      background: #182630;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, .65);
+    }
+
+    .dialog.wide { width: min(920px, calc(100% - 60px)); }
+    .dialog-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #334754;
+      background: #1b2a35;
+    }
+
+    .dialog-head h2 { margin: 0; font-size: 16px; }
+    .dialog-head p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .close-button { border: 0; background: transparent; color: #9fb1bc; font-size: 18px; cursor: pointer; }
+
+    .dialog-body { padding: 17px 18px; }
+    .dialog-grid { display: grid; grid-template-columns: 190px 1fr; gap: 18px; }
+
+    .dialog-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-right: 14px;
+      border-right: 1px solid #304451;
+    }
+
+    .dialog-nav button {
+      padding: 9px 10px;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      background: transparent;
+      color: #aab9c3;
+      text-align: left;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .dialog-nav button.active { border-color: #3a625e; color: #e4fffb; background: #203c3a; }
+    .dialog-nav .nav-heading { padding: 8px 10px 2px; color: #6f8694; font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+
+    .method-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .method-tab {
+      padding: 8px 16px;
+      border: 1px solid #3c505d;
+      border-radius: 5px;
+      background: #13212a;
+      color: #aabac4;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .method-tab.active { border-color: #439388; color: #eafffc; background: #21433f; }
+    .form-grid { display: grid; grid-template-columns: 170px 1fr; gap: 10px 14px; align-items: center; }
+    .form-grid label { color: #aebdc6; font-size: 10px; }
+    .field {
+      min-height: 32px;
+      padding: 7px 9px;
+      border: 1px solid #3d5361;
+      border-radius: 5px;
+      color: #dde7ed;
+      background: #101b23;
+      font-size: 10px;
+    }
+
+    select.field { width: 100%; }
+    .info-box {
+      margin: 15px 0;
+      padding: 10px 12px;
+      border-left: 3px solid var(--blue);
+      color: #bbcad4;
+      background: rgba(52, 101, 144, .14);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    .dialog-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 18px;
+      border-top: 1px solid #334754;
+      background: #15212b;
+    }
+
+    .action-button {
+      padding: 8px 14px;
+      border: 1px solid #425a68;
+      border-radius: 5px;
+      background: #223440;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .action-button.primary { border-color: #329d8e; color: #effffc; background: #197d70; }
+    .action-button:hover { filter: brightness(1.12); }
+
+    .tracker-family-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 16px; }
+    .family-card { padding: 9px; border: 1px solid #344b58; border-radius: 5px; background: #14212a; }
+    .family-card strong { display: block; margin-bottom: 3px; color: #d9e6ec; font-size: 10px; }
+    .family-card span { color: #8298a6; font-size: 9px; }
+
+    .review-layout { display: grid; grid-template-columns: 150px 1fr 165px; min-height: 320px; }
+    .review-side { padding: 12px; border-right: 1px solid #304451; background: #14212a; }
+    .review-side.right { border-right: 0; border-left: 1px solid #304451; }
+    .review-side h3 { margin: 0 0 10px; font-size: 10px; }
+    .track-chip { margin: 5px 0; padding: 7px; border: 1px solid #3a4e5a; border-radius: 4px; color: #b8c6cf; font-size: 9px; }
+    .track-chip.active { border-color: #398d82; color: #e8fffc; background: #1e3d3a; }
+    .review-canvas { position: relative; display: grid; place-items: center; background: #070c10; }
+    .track-line { position: absolute; width: 170px; height: 100px; border: 2px solid var(--accent); border-color: var(--accent) transparent transparent; border-radius: 50%; transform: rotate(-12deg); opacity: .75; }
+    .review-help { color: #7f919c; font-size: 9px; line-height: 1.55; }
+
+    .progress-card { width: 430px; padding: 20px; border: 1px solid #4c6371; border-radius: 8px; background: #1a2934; box-shadow: var(--shadow); }
+    .progress-card strong { display: block; margin-bottom: 6px; font-size: 13px; }
+    .progress-card span { color: #9fb0bc; font-size: 10px; }
+    .progress-track { height: 7px; margin-top: 17px; overflow: hidden; border-radius: 5px; background: #0f1920; }
+    .progress-fill { width: 68%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent-strong), var(--accent)); animation: progress 1.1s ease-in-out infinite alternate; }
+    @keyframes progress { from { width: 36%; } to { width: 88%; } }
+
+    .state-panel {
+      width: min(1460px, calc(100% - 48px));
+      margin: 12px auto 100px;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      border: 1px solid #263b47;
+      border-radius: 7px;
+      overflow: hidden;
+      background: rgba(13, 24, 32, .82);
+    }
+
+    .state-title { padding: 12px; border-right: 1px solid #263b47; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    #stateOutput { margin: 0; padding: 10px 13px; color: #a9bbc6; font: 10px/1.55 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
+
+    .variant-switcher {
+      position: fixed;
+      z-index: 200;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px;
+      border: 1px solid #6c8796;
+      border-radius: 999px;
+      background: #e8f0f4;
+      color: #10202a;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, .55);
+    }
+
+    .variant-switcher button {
+      width: 34px;
+      height: 30px;
+      border: 0;
+      border-radius: 50%;
+      background: #cbd8df;
+      color: #11232d;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .variant-label { min-width: 245px; padding: 0 12px; text-align: center; font-size: 11px; font-weight: 800; }
+
+    @media (max-height: 860px) {
+      .prototype-head { margin-top: 12px; }
+      .workspace { height: 470px; }
+      .app-window { min-height: 640px; }
+      .leed-frame { width: 390px; height: 390px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="prototype-head">
+    <div>
+      <div class="prototype-kicker">Throwaway UI prototype</div>
+      <h1 id="variantTitle">TrackLEED workflow hierarchy</h1>
+      <p id="variantSummary"></p>
+    </div>
+    <div class="question-badge">
+      Design question: which hierarchy most clearly separates spot detection, seeded spot tracking,
+      detection linking, track review, track analysis and position analysis without the right dock?
+    </div>
+  </header>
+
+  <main class="app-window" aria-label="TrackLEED prototype application">
+    <div class="titlebar">
+      <span>TrackLEED - Spot Tracking</span>
+      <span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+
+    <nav class="menubar" id="menubar" aria-label="Application menu"></nav>
+    <section class="workflow-strip" id="workflowStrip" aria-label="Workflow steps"></section>
+
+    <div class="toolbar" aria-label="Manual ROI and seed tools">
+      <button class="tool-button active" data-tool="Pan / Select">Pan / Select</button>
+      <button class="tool-button" data-tool="Move ROI">Move ROI</button>
+      <button class="tool-button" data-tool="Add ROI">Add ROI</button>
+      <button class="tool-button" data-tool="Add Point seed">Add Point</button>
+      <button class="tool-button" data-tool="Delete ROI">Delete ROI</button>
+      <span class="toolbar-separator"></span>
+      <span class="toolbar-note">Manual ROI and seed tools remain in the main window</span>
+    </div>
+
+    <section class="workspace">
+      <aside class="file-panel">
+        <div class="panel-title"><span>LEED Files</span><span class="count-badge">20 frames</span></div>
+        <div class="file-list">
+          <div class="file-row active"><span>Cu111_E0770_001.tif</span><span>4 spots</span></div>
+          <div class="file-row"><span>Cu111_E0780_002.tif</span><span>4 spots</span></div>
+          <div class="file-row"><span>Cu111_E0790_003.tif</span><span>3 spots</span></div>
+          <div class="file-row"><span>Cu111_E0800_004.tif</span><span>4 spots</span></div>
+          <div class="file-row"><span>Cu111_E0810_005.tif</span><span>4 spots</span></div>
+          <div class="file-row"><span>Cu111_E0820_006.tif</span><span>4 spots</span></div>
+        </div>
+        <button class="secondary-button" data-action="remove-file">Remove Selected File</button>
+        <div class="background-preview">
+          <div class="panel-title"><span>Background Preview</span></div>
+          <div class="preview-box">No background loaded</div>
+        </div>
+      </aside>
+
+      <div class="image-stage">
+        <svg class="leed-frame" viewBox="0 0 500 500" role="img" aria-label="Synthetic LEED image preview">
+          <defs>
+            <radialGradient id="screen" cx="50%" cy="48%" r="58%">
+              <stop offset="0" stop-color="#1d2527"/>
+              <stop offset=".7" stop-color="#090d0e"/>
+              <stop offset="1" stop-color="#010203"/>
+            </radialGradient>
+            <radialGradient id="spot">
+              <stop offset="0" stop-color="#fffbd5"/>
+              <stop offset=".18" stop-color="#dfffd8" stop-opacity=".95"/>
+              <stop offset=".55" stop-color="#93d397" stop-opacity=".38"/>
+              <stop offset="1" stop-color="#93d397" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <rect width="500" height="500" fill="url(#screen)"/>
+          <circle cx="250" cy="250" r="226" fill="none" stroke="#354044" stroke-width="2"/>
+          <circle cx="250" cy="250" r="6" fill="url(#spot)"/>
+          <g fill="url(#spot)">
+            <circle cx="250" cy="110" r="22"/><circle cx="371" cy="180" r="21"/>
+            <circle cx="371" cy="320" r="23"/><circle cx="250" cy="390" r="22"/>
+            <circle cx="129" cy="320" r="21"/><circle cx="129" cy="180" r="22"/>
+            <circle cx="250" cy="54" r="14"/><circle cx="420" cy="151" r="15"/>
+            <circle cx="420" cy="349" r="14"/><circle cx="250" cy="446" r="16"/>
+            <circle cx="80" cy="349" r="14"/><circle cx="80" cy="151" r="15"/>
+          </g>
+          <g fill="none" stroke="#50d1be" stroke-width="2">
+            <rect x="230" y="90" width="40" height="40"/><rect x="351" y="160" width="40" height="40"/>
+            <rect x="351" y="300" width="40" height="40"/><rect x="230" y="370" width="40" height="40"/>
+          </g>
+          <g fill="#50d1be" font-family="Segoe UI" font-size="12">
+            <text x="230" y="84">seed 1</text><text x="351" y="154">seed 2</text>
+            <text x="351" y="294">seed 3</text><text x="230" y="364">seed 4</text>
+          </g>
+        </svg>
+        <div class="frame-overlay">Frame 1 / 20<br>Energy 77.0 eV<br>4 detected spots</div>
+      </div>
+    </section>
+
+    <footer class="statusbar">
+      <span>Ready - session loaded</span>
+      <span>No algorithm configuration dock</span>
+    </footer>
+
+    <div class="modal-layer" id="modalLayer" hidden></div>
+  </main>
+
+  <section class="state-panel" aria-label="Prototype state inspector">
+    <div class="state-title">Prototype state</div>
+    <pre id="stateOutput"></pre>
+  </section>
+
+  <div class="variant-switcher" aria-label="Prototype variant switcher">
+    <button id="previousVariant" aria-label="Previous variant">&#8592;</button>
+    <div class="variant-label" id="variantLabel"></div>
+    <button id="nextVariant" aria-label="Next variant">&#8594;</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: {
+        name: "One workflow, one dialog",
+        summary: "Small menus; each workflow owns one configuration dialog and hides method complexity inside it.",
+        menus: {
+          File: ["Open Directory...", "Load Session...", "Save Session..."],
+          Mask: ["Set Metadata Mask...", "Set Analysis Ellipse..."],
+          View: ["BBox Transparency..."],
+          Spots: [
+            { label: "Detect Spots...", action: "spots", kind: "workflow" },
+            "separator",
+            { label: "Copy Spots to All Frames", action: "copy-spots" },
+            { label: "Normalize ROIs (All Frames)", action: "normalize-rois" }
+          ],
+          Tracking: [
+            { label: "Seeded Spot Tracking...", action: "seeded", kind: "workflow" },
+            { label: "Detection Linking (Hungarian)...", action: "hungarian", kind: "workflow" },
+            { label: "Detection Linking (Directional)...", action: "directional", kind: "workflow" },
+            "separator",
+            { label: "Review / Edit Tracks", action: "review", hint: "Ctrl+R" }
+          ],
+          Analysis: [
+            { label: "Track Analysis...", action: "track-analysis" },
+            { label: "Position Analysis...", action: "position-analysis" }
+          ]
+        }
+      },
+      B: {
+        name: "Methods exposed in menus",
+        summary: "Fastest repeat access; nested menu sections expose detector and tracker choices before a dialog opens.",
+        menus: {
+          File: ["Open Directory...", "Load Session...", "Save Session..."],
+          Mask: ["Set Metadata Mask...", "Set Analysis Ellipse..."],
+          View: ["BBox Transparency..."],
+          Spots: [
+            { section: "Classic detector" },
+            { label: "Configure & Detect Current...", action: "spots-classic", hint: "Classic" },
+            { label: "Configure & Detect All...", action: "spots-classic", hint: "Classic" },
+            { section: "YOLO detector" },
+            { label: "Configure & Detect Current...", action: "spots-yolo", hint: "YOLO" },
+            { label: "Configure & Detect All...", action: "spots-yolo", hint: "YOLO" },
+            "separator",
+            { label: "Copy Spots to All Frames", action: "copy-spots" }
+          ],
+          Tracking: [
+            { section: "Seeded spot tracking" },
+            { label: "Optical Flow...", action: "seeded-optical", hint: "Classical" },
+            { label: "Offline TAPIR...", action: "seeded-tapir", hint: "Point" },
+            { label: "Choose another tracker...", action: "seeded", hint: "Point / box / mask" },
+            { section: "Detection linking" },
+            { label: "Hungarian...", action: "hungarian" },
+            { label: "Directional...", action: "directional" },
+            "separator",
+            { label: "Review / Edit Tracks", action: "review" }
+          ],
+          Analysis: [
+            { label: "Track Analysis...", action: "track-analysis" },
+            { label: "Position Analysis...", action: "position-analysis" }
+          ]
+        }
+      },
+      C: {
+        name: "Guided workflow launcher",
+        summary: "A visible four-step strip and one launcher orient occasional users while menus remain stable shortcuts.",
+        workflowStrip: true,
+        menus: {
+          File: ["Open Directory...", "Load Session...", "Save Session..."],
+          Mask: ["Set Metadata Mask...", "Set Analysis Ellipse..."],
+          View: ["BBox Transparency..."],
+          Spots: [
+            { label: "Open Spots Workspace...", action: "launcher-spots", kind: "workflow" },
+            "separator",
+            { label: "Copy Spots to All Frames", action: "copy-spots" }
+          ],
+          Tracking: [
+            { label: "Open Track Construction Workspace...", action: "launcher-tracking", kind: "workflow" },
+            { label: "Review / Edit Tracks", action: "review" }
+          ],
+          Analysis: [
+            { label: "Open Analysis Workspace...", action: "launcher-analysis", kind: "workflow" },
+            "separator",
+            { label: "Track Analysis...", action: "track-analysis" },
+            { label: "Position Analysis...", action: "position-analysis" }
+          ]
+        }
+      }
+    };
+
+    const variantKeys = Object.keys(variants);
+    const params = new URLSearchParams(window.location.search);
+    let currentVariant = variants[params.get("variant")] ? params.get("variant") : "A";
+    const state = {
+      variant: currentVariant,
+      activeMenu: null,
+      openDialog: null,
+      spotDetectionMethod: "Classic",
+      trackConstruction: null,
+      lastAction: "Prototype loaded",
+      reviewAutoOpened: false
+    };
+
+    const menubar = document.getElementById("menubar");
+    const workflowStrip = document.getElementById("workflowStrip");
+    const modalLayer = document.getElementById("modalLayer");
+
+    function itemObject(item) {
+      return typeof item === "string" ? { label: item, action: "noop" } : item;
+    }
+
+    function renderVariant() {
+      const variant = variants[currentVariant];
+      state.variant = currentVariant;
+      state.activeMenu = null;
+      state.openDialog = null;
+      state.lastAction = `Switched to variant ${currentVariant}`;
+      state.reviewAutoOpened = false;
+      modalLayer.hidden = true;
+      document.getElementById("variantTitle").textContent = `${currentVariant} - ${variant.name}`;
+      document.getElementById("variantSummary").textContent = variant.summary;
+      document.getElementById("variantLabel").textContent = `${currentVariant} - ${variant.name}`;
+      renderMenus();
+      renderWorkflowStrip();
+      renderState();
+    }
+
+    function renderMenus() {
+      menubar.innerHTML = "";
+      const entries = Object.entries(variants[currentVariant].menus);
+      entries.forEach(([menuName, items]) => {
+        const button = document.createElement("button");
+        button.className = `menu-button ${["Spots", "Tracking", "Analysis"].includes(menuName) ? "workflow" : ""}`;
+        button.textContent = menuName;
+        button.dataset.menu = menuName;
+        const popover = document.createElement("div");
+        popover.className = "menu-popover";
+        popover.dataset.popover = menuName;
+        popover.hidden = true;
+        items.forEach(rawItem => {
+          if (rawItem === "separator") {
+            const separator = document.createElement("div");
+            separator.className = "menu-separator";
+            popover.appendChild(separator);
+            return;
+          }
+          const item = itemObject(rawItem);
+          if (item.section) {
+            const section = document.createElement("div");
+            section.className = "menu-section-label";
+            section.textContent = item.section;
+            popover.appendChild(section);
+            return;
+          }
+          const menuItem = document.createElement("button");
+          menuItem.className = "menu-item";
+          menuItem.dataset.action = item.action;
+          menuItem.innerHTML = `<span class="${item.kind === "workflow" ? "kind" : ""}">${item.label}</span>${item.hint ? `<span class="hint">${item.hint}</span>` : ""}`;
+          popover.appendChild(menuItem);
+        });
+        menubar.appendChild(button);
+        menubar.appendChild(popover);
+      });
+      positionPopovers();
+    }
+
+    function positionPopovers() {
+      requestAnimationFrame(() => {
+        document.querySelectorAll(".menu-button").forEach(button => {
+          const popover = document.querySelector(`[data-popover="${button.dataset.menu}"]`);
+          popover.style.left = `${button.offsetLeft}px`;
+        });
+      });
+    }
+
+    function renderWorkflowStrip() {
+      if (!variants[currentVariant].workflowStrip) {
+        workflowStrip.className = "workflow-strip";
+        workflowStrip.innerHTML = "";
+        return;
+      }
+      workflowStrip.className = "workflow-strip visible";
+      workflowStrip.innerHTML = `
+        <div class="workflow-strip-inner">
+          <button class="step-button" data-action="launcher-spots"><strong>1</strong>Detect spots</button>
+          <span class="step-connector"></span>
+          <button class="step-button" data-action="launcher-tracking"><strong>2</strong>Build tracks</button>
+          <span class="step-connector"></span>
+          <button class="step-button" data-action="review"><strong>3</strong>Review / edit</button>
+          <span class="step-connector"></span>
+          <button class="step-button" data-action="launcher-analysis"><strong>4</strong>Analyze</button>
+        </div>`;
+    }
+
+    function toggleMenu(menuName) {
+      const wasOpen = state.activeMenu === menuName;
+      closeMenus();
+      if (wasOpen) return;
+      state.activeMenu = menuName;
+      document.querySelector(`[data-menu="${menuName}"]`).classList.add("active");
+      document.querySelector(`[data-popover="${menuName}"]`).hidden = false;
+      state.lastAction = `Opened ${menuName} menu`;
+      renderState();
+    }
+
+    function closeMenus() {
+      document.querySelectorAll(".menu-popover").forEach(popover => popover.hidden = true);
+      document.querySelectorAll(".menu-button").forEach(button => button.classList.remove("active"));
+      state.activeMenu = null;
+    }
+
+    function baseDialog(title, subtitle, body, actions, wide = false) {
+      return `<section class="dialog ${wide ? "wide" : ""}" role="dialog" aria-modal="true">
+        <header class="dialog-head"><div><h2>${title}</h2><p>${subtitle}</p></div><button class="close-button" data-action="close" aria-label="Close">&#215;</button></header>
+        <div class="dialog-body">${body}</div>
+        <footer class="dialog-actions"><button class="action-button" data-action="close">Cancel</button>${actions}</footer>
+      </section>`;
+    }
+
+    function field(label, value) {
+      return `<label>${label}</label><div class="field">${value}</div>`;
+    }
+
+    function openSpotsDialog(method = state.spotDetectionMethod) {
+      state.spotDetectionMethod = method;
+      const isClassic = method === "Classic";
+      const body = `
+        <div class="method-tabs">
+          <button class="method-tab ${isClassic ? "active" : ""}" data-action="spots-classic">Classic</button>
+          <button class="method-tab ${!isClassic ? "active" : ""}" data-action="spots-yolo">YOLO</button>
+        </div>
+        <div class="form-grid">
+          ${isClassic
+            ? field("White top-hat size", "17 px") + field("Peak threshold", "0.14") + field("Minimum distance", "12 px") + field("ROI size", "41 px")
+            : field("Model", "leed_spots_best.pt") + field("Confidence", "0.35") + field("NMS IoU", "0.45") + field("Device", "Auto")}
+        </div>
+        <div class="info-box">Spot detection localizes spots independently. It does not construct LEED spot identity across frames.</div>`;
+      const actions = `<button class="action-button" data-action="detect-current">Detect Current Frame</button><button class="action-button primary" data-action="detect-all">Detect All Frames</button>`;
+      showDialog("Spot Detection", baseDialog("Spot Detection", `${method} configuration`, body, actions));
+    }
+
+    function openSeededDialog(preselected = "Offline TAPIR") {
+      const body = `
+        <div class="form-grid">
+          <label for="tracker-select">Tracking method</label>
+          <select id="tracker-select" class="field">
+            <option ${preselected === "Optical Flow Tracking" ? "selected" : ""}>Optical Flow Tracking</option>
+            <option>Optical Flow (skip, anchor)</option>
+            <option ${preselected === "Offline TAPIR" ? "selected" : ""}>Offline TAPIR</option>
+            <option>BootsTAPIR Online / Causal</option>
+            <option>Offline LocoTrack</option>
+            <option>Offline CoTracker3</option>
+            <option>Offline TAPNext</option>
+            <option>Offline Track-On-R</option>
+            <option>Offline PIPs++</option>
+            <option>Offline MFTIQ</option>
+            <option>Offline ToMP / TaMOs</option>
+            <option>Offline OSTrack</option>
+            <option>Offline Cutie</option>
+            <option>Offline XMem2</option>
+            <option>Offline SAM2</option>
+            <option>Offline DAM4SAM</option>
+            <option>Offline SAMURAI</option>
+            <option>Offline DEVA</option>
+          </select>
+          ${field("Prompt source", "4 selected seed spots on frame 1")}
+          ${field("Backend", "Direct if available; otherwise configured subprocess")}
+          ${field("Checkpoint", "Tracker-specific saved setting")}
+        </div>
+        <div class="tracker-family-grid">
+          <div class="family-card"><strong>Point</strong><span>TAPIR, LocoTrack, CoTracker3, TAPNext...</span></div>
+          <div class="family-card"><strong>Bounding box</strong><span>ToMP / TaMOs, OSTrack</span></div>
+          <div class="family-card"><strong>Mask</strong><span>SAM2, DAM4SAM, SAMURAI, Cutie...</span></div>
+        </div>
+        <div class="info-box">Seeded spot tracking propagates the selected seed spots. On success, TrackLEED opens Review / Edit Tracks automatically.</div>`;
+      showDialog("Seeded Spot Tracking", baseDialog("Seeded Spot Tracking", "Construct spot identity from selected seeds", body, `<button class="action-button primary" data-action="run-seeded">Run Seeded Tracking</button>`));
+    }
+
+    function openLinkingDialog(kind) {
+      const directional = kind === "Directional";
+      const body = `
+        <div class="form-grid">
+          ${field("Linker", directional ? "Directional (radial-aware Hungarian)" : "Hungarian (legacy baseline)")}
+          ${field("Maximum distance", directional ? "Base 18 px / dynamic 28 px" : "24 px")}
+          ${field("Maximum gap", "2 frames")}
+          ${field("Minimum track length", "4 observations")}
+          ${directional ? field("Pattern center", "Auto (RANSAC)") + field("Direction", "Auto") + field("Lateral tolerance", "8 px") : ""}
+        </div>
+        <div class="info-box">Detection linking associates independently detected spots between frames. It does not consume manual seed identity. On success, TrackLEED opens Review / Edit Tracks automatically.</div>`;
+      showDialog(`Detection Linking (${kind})`, baseDialog(`Detection Linking (${kind})`, directional ? "Radial-aware association" : "Legacy association baseline", body, `<button class="action-button primary" data-action="run-${directional ? "directional" : "hungarian"}">Run Detection Linking</button>`));
+    }
+
+    function openLauncher(section = "spots") {
+      const sectionNames = { spots: "Spot detection", tracking: "Build tracks", review: "Review / edit tracks", analysis: "Analysis" };
+      let content = "";
+      if (section === "spots") {
+        content = `<h3>Spot detection</h3><p class="review-help">Choose a detector, configure it, then run it on one frame or the full series.</p>
+          <div class="method-tabs"><button class="method-tab active" data-action="spots">Configure Classic / YOLO...</button></div>`;
+      } else if (section === "tracking") {
+        content = `<h3>Build tracks</h3><p class="review-help">Choose the identity-construction path first; method details come second.</p>
+          <div class="tracker-family-grid"><button class="method-tab" data-action="seeded">Seeded spot tracking...</button><button class="method-tab" data-action="hungarian">Hungarian linking...</button><button class="method-tab" data-action="directional">Directional linking...</button></div>`;
+      } else if (section === "review") {
+        content = `<h3>Review / edit tracks</h3><p class="review-help">Inspect, correct, merge and accept constructed tracks.</p><button class="action-button primary" data-action="review">Open Track Review</button>`;
+      } else {
+        content = `<h3>Analysis</h3><p class="review-help">Existing analysis dialogs remain unchanged.</p><div class="method-tabs"><button class="method-tab" data-action="track-analysis">Track Analysis...</button><button class="method-tab" data-action="position-analysis">Position Analysis...</button></div>`;
+      }
+      const body = `<div class="dialog-grid"><nav class="dialog-nav">
+        <div class="nav-heading">Workflow</div>
+        ${Object.entries(sectionNames).map(([key, label]) => `<button class="${key === section ? "active" : ""}" data-action="launcher-${key}">${label}</button>`).join("")}
+      </nav><section>${content}</section></div>`;
+      showDialog("Workflow Launcher", baseDialog("TrackLEED Workflow", `${sectionNames[section]} - explicit workflow first`, body, "", true));
+    }
+
+    function openReview(autoOpened = false) {
+      const body = `<div class="review-layout">
+        <aside class="review-side"><h3>Tracks</h3><div class="track-chip active">Track 1 - 20/20</div><div class="track-chip">Track 2 - 20/20</div><div class="track-chip">Track 3 - 18/20</div><div class="track-chip">Track 4 - 20/20</div></aside>
+        <div class="review-canvas"><svg width="250" height="250" viewBox="0 0 250 250"><circle cx="125" cy="125" r="108" fill="#11191d" stroke="#33444c"/><circle cx="125" cy="52" r="12" fill="#caffbe"/><rect x="110" y="37" width="30" height="30" fill="none" stroke="#50d1be" stroke-width="2"/></svg><span class="track-line"></span></div>
+        <aside class="review-side right"><h3>Edit selected track</h3><p class="review-help">Add / correct point<br>Delete observation<br>Add track<br>Delete track<br>Merge timelines</p></aside>
+      </div>${autoOpened ? `<div class="info-box">Opened automatically after successful track construction.</div>` : ""}`;
+      showDialog("Review / Edit Tracks", baseDialog("Review / Edit Tracks", "Human inspection and correction of constructed tracks", body, `<button class="action-button primary" data-action="accept-review">Accept Tracks</button>`, true));
+      if (autoOpened) {
+        state.lastAction = `${state.trackConstruction} completed; track review opened automatically`;
+        renderState();
+      }
+    }
+
+    function openAnalysis(kind) {
+      const body = `<div class="info-box">This first increment keeps the existing ${kind} dialog unchanged. The prototype only relocates its entry point into the Analysis menu.</div>
+        <div class="form-grid">${field("Input", "Accepted tracking results")}${field("Window", kind)}${field("Status", "Enabled when tracking results exist")}</div>`;
+      showDialog(kind, baseDialog(kind, "Existing dialog - content intentionally not redesigned", body, `<button class="action-button primary" data-action="close">Open Existing Dialog</button>`));
+    }
+
+    function showDialog(name, html) {
+      closeMenus();
+      state.openDialog = name;
+      state.lastAction = `Opened ${name}`;
+      modalLayer.innerHTML = html;
+      modalLayer.hidden = false;
+      renderState();
+    }
+
+    function closeDialog() {
+      modalLayer.hidden = true;
+      modalLayer.innerHTML = "";
+      state.openDialog = null;
+      state.lastAction = "Closed dialog";
+      renderState();
+    }
+
+    function runTrackConstruction(kind) {
+      state.trackConstruction = kind;
+      state.openDialog = "Tracking in progress";
+      state.lastAction = `Started ${kind}`;
+      state.reviewAutoOpened = false;
+      modalLayer.innerHTML = `<div class="progress-card"><strong>${kind}</strong><span>Constructing tracks in a worker...</span><div class="progress-track"><div class="progress-fill"></div></div></div>`;
+      renderState();
+      window.setTimeout(() => {
+        state.reviewAutoOpened = true;
+        state.lastAction = `${kind} completed; track review opened automatically`;
+        openReview(true);
+      }, 850);
+    }
+
+    function handleAction(action) {
+      if (!action) return;
+      if (action === "spots") openSpotsDialog();
+      else if (action === "spots-classic") openSpotsDialog("Classic");
+      else if (action === "spots-yolo") openSpotsDialog("YOLO");
+      else if (action === "seeded") openSeededDialog();
+      else if (action === "seeded-optical") openSeededDialog("Optical Flow Tracking");
+      else if (action === "seeded-tapir") openSeededDialog("Offline TAPIR");
+      else if (action === "hungarian") openLinkingDialog("Hungarian");
+      else if (action === "directional") openLinkingDialog("Directional");
+      else if (action === "review") openReview(false);
+      else if (action === "track-analysis") openAnalysis("Track Analysis");
+      else if (action === "position-analysis") openAnalysis("Position Analysis");
+      else if (action === "launcher-spots") openLauncher("spots");
+      else if (action === "launcher-tracking") openLauncher("tracking");
+      else if (action === "launcher-review") openLauncher("review");
+      else if (action === "launcher-analysis") openLauncher("analysis");
+      else if (action === "close") closeDialog();
+      else if (action === "run-seeded") runTrackConstruction("Seeded spot tracking");
+      else if (action === "run-hungarian") runTrackConstruction("Detection linking (Hungarian)");
+      else if (action === "run-directional") runTrackConstruction("Detection linking (Directional)");
+      else if (action === "detect-current" || action === "detect-all") {
+        closeDialog();
+        state.lastAction = `${state.spotDetectionMethod}: ${action === "detect-all" ? "detected all frames" : "detected current frame"}`;
+        renderState();
+      } else if (action === "accept-review") {
+        closeDialog();
+        state.lastAction = "Accepted edits from track review";
+        renderState();
+      } else if (action !== "noop") {
+        closeMenus();
+        state.lastAction = action.replaceAll("-", " ");
+        renderState();
+      }
+    }
+
+    function renderState() {
+      document.getElementById("stateOutput").textContent = JSON.stringify(state, null, 2);
+    }
+
+    function switchVariant(direction) {
+      const currentIndex = variantKeys.indexOf(currentVariant);
+      currentVariant = variantKeys[(currentIndex + direction + variantKeys.length) % variantKeys.length];
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("variant", currentVariant);
+      window.history.replaceState({}, "", nextUrl);
+      renderVariant();
+    }
+
+    menubar.addEventListener("click", event => {
+      const menuButton = event.target.closest("[data-menu]");
+      if (menuButton) {
+        event.stopPropagation();
+        toggleMenu(menuButton.dataset.menu);
+        return;
+      }
+      const actionButton = event.target.closest("[data-action]");
+      if (actionButton) handleAction(actionButton.dataset.action);
+    });
+
+    document.addEventListener("click", event => {
+      const actionButton = event.target.closest("[data-action]");
+      if (actionButton && !menubar.contains(actionButton)) handleAction(actionButton.dataset.action);
+      if (!event.target.closest(".menubar")) {
+        closeMenus();
+        renderState();
+      }
+    });
+
+    document.querySelectorAll("[data-tool]").forEach(button => button.addEventListener("click", () => {
+      document.querySelectorAll("[data-tool]").forEach(candidate => candidate.classList.remove("active"));
+      button.classList.add("active");
+      state.lastAction = `Selected manual tool: ${button.dataset.tool}`;
+      renderState();
+    }));
+
+    document.getElementById("previousVariant").addEventListener("click", () => switchVariant(-1));
+    document.getElementById("nextVariant").addEventListener("click", () => switchVariant(1));
+    document.addEventListener("keydown", event => {
+      const editing = event.target.matches("input, textarea, select, [contenteditable]");
+      if (editing) return;
+      if (event.key === "ArrowLeft") switchVariant(-1);
+      if (event.key === "ArrowRight") switchVariant(1);
+      if (event.key === "Escape") {
+        if (!modalLayer.hidden) closeDialog();
+        else { closeMenus(); renderState(); }
+      }
+    });
+
+    window.addEventListener("resize", positionPopovers);
+    renderVariant();
+  </script>
+</body>
+</html>
