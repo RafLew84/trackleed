@@ -10,14 +10,22 @@ from typing import Protocol
 import numpy as np
 from PyQt6.QtCore import QRect
 
+from trackleed.analysis.seeded_bbox_tracking_runtime import (
+    default_bbox_tracker_configs,
+)
 from trackleed.analysis.seeded_point_tracking_runtime import (
     default_point_tracker_configs,
 )
 from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.gui.seeded_bbox_tracking_compatibility import (
+    run_legacy_bbox_retracker,
+    run_legacy_bbox_tracker,
+)
 from trackleed.gui.seeded_point_tracking_compatibility import (
     run_legacy_point_retracker,
     run_legacy_point_tracker,
 )
+from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
@@ -28,6 +36,7 @@ from trackleed.logic.workflows.seeded_tracking import (
     SeededTrackingFrame,
     SeededTrackingRequest,
     SeedRect,
+    SeedRepresentation,
     SkipAnchorOpticalFlowConfig,
     TrackedSpotIdentity,
     TrackingProgress,
@@ -49,6 +58,7 @@ class SeededTrackingDialogSettings:
     optical_flow: OpticalFlowConfig
     skip_anchor: SkipAnchorOpticalFlowConfig
     point_configs: tuple[tuple[str, PointTrackerConfig], ...]
+    bbox_configs: tuple[tuple[str, BoundingBoxTrackerConfig], ...]
 
     @classmethod
     def defaults(cls, *, roi_size: int = 32) -> SeededTrackingDialogSettings:
@@ -57,6 +67,7 @@ class SeededTrackingDialogSettings:
             optical_flow=OpticalFlowConfig(roi_size=roi_size),
             skip_anchor=SkipAnchorOpticalFlowConfig(roi_size=roi_size),
             point_configs=default_point_tracker_configs(roi_size=roi_size),
+            bbox_configs=default_bbox_tracker_configs(roi_size=roi_size),
         )
 
     def point_config(self, method_id: str) -> PointTrackerConfig:
@@ -75,6 +86,23 @@ class SeededTrackingDialogSettings:
             raise KeyError(method_id)
         configs[method_id] = config
         return replace(self, point_configs=tuple(configs.items()))
+
+    def bbox_config(self, method_id: str) -> BoundingBoxTrackerConfig:
+        for configured_method_id, config in self.bbox_configs:
+            if configured_method_id == method_id:
+                return config
+        raise KeyError(method_id)
+
+    def with_bbox_config(
+        self,
+        method_id: str,
+        config: BoundingBoxTrackerConfig,
+    ) -> SeededTrackingDialogSettings:
+        configs = dict(self.bbox_configs)
+        if method_id not in configs:
+            raise KeyError(method_id)
+        configs[method_id] = config
+        return replace(self, bbox_configs=tuple(configs.items()))
 
 
 class SeededTrackingSettingsBinding:
@@ -132,6 +160,11 @@ def build_seeded_tracking_request(
         background_path=(
             background_file.filepath if background_file is not None else None
         ),
+        seed_representation=(
+            SeedRepresentation.BOUNDING_BOX
+            if isinstance(config, BoundingBoxTrackerConfig)
+            else SeedRepresentation.POINT
+        ),
     )
 
 
@@ -141,7 +174,7 @@ def build_seeded_retrack_request(
     track: Track,
     start_frame_id: int,
     method_id: str,
-    config: PointTrackerConfig,
+    config: PointTrackerConfig | BoundingBoxTrackerConfig,
 ) -> SeededRetrackRequest:
     """Snapshot one mutable review track into a neutral re-track request."""
     frame_ids = _stable_frame_ids(files)
@@ -164,6 +197,11 @@ def build_seeded_retrack_request(
         ),
         start_frame_id=start_frame_id,
         config=config,
+        seed_representation=(
+            SeedRepresentation.BOUNDING_BOX
+            if isinstance(config, BoundingBoxTrackerConfig)
+            else SeedRepresentation.POINT
+        ),
     )
 
 
@@ -219,6 +257,7 @@ def run_seeded_tracking_job(
         ),
         is_cancelled=cancel_signal.is_set,
         point_tracker_executor=run_legacy_point_tracker,
+        bbox_tracker_executor=run_legacy_bbox_tracker,
     )
     try:
         return run_seeded_tracking(request, context)
@@ -241,13 +280,14 @@ def run_seeded_retrack_job(
         ),
         is_cancelled=cancel_signal.is_set,
         point_tracker_retrack_executor=run_legacy_point_retracker,
+        bbox_tracker_retrack_executor=run_legacy_bbox_retracker,
     )
     try:
         result = run_seeded_retrack(request, context)
     except SeededTrackingCancelled:
         return None
     if len(result.tracks) != 1:
-        raise ValueError("Point re-tracking must return exactly one tracked identity")
+        raise ValueError("Re-tracking must return exactly one tracked identity")
     return _track_from_identity(result.tracks[0])
 
 

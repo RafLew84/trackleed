@@ -1,7 +1,4 @@
 from __future__ import annotations
-
-# stal/gui/tracking_dialog.py
-
 from pathlib import Path
 from typing import List
 from threading import Event
@@ -16,20 +13,16 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
-from trackleed.gui.seeded_point_retrack_controller import launch_seeded_point_retrack
+from trackleed.gui.seeded_retrack_controller import launch_seeded_retrack
 from trackleed.gui.seeded_point_tracking_compatibility import point_review_spec_for_source, point_tracker_gui_spec
+from trackleed.gui.seeded_bbox_tracking_compatibility import bbox_review_spec_for_source
 from trackleed.gui.tracker_registry import get_tracker_spec_for_source, require_tracker_spec
-from trackleed.analysis.seeded_point_tracking_runtime import point_tracking_definitions
 from trackleed.io.image_reader import load_tiff
-from trackleed.analysis.tomp_backend import (
-    select_default_tamos_checkpoint_for_variant,
-    select_default_tomp_checkpoint_for_variant,
-)
+from trackleed.analysis.tomp_backend import select_default_tamos_checkpoint_for_variant, select_default_tomp_checkpoint_for_variant
 from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_optical_flow,
 )
 from trackleed.logic.generic_worker import GenericWorker
-
 
 MANUAL_TRACK_SOURCES = {"manual", "manual_new", "manual_corr", "manual_point"}
 
@@ -76,8 +69,6 @@ MANUAL_AUGMENTED_METHOD_LABEL_BY_SOURCE = {
 TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID = {
     "cutie_offline": "initiate_retrack_cutie",
     "xmem2_offline": "initiate_retrack_xmem2",
-    "tomp_offline": "initiate_retrack_tomp",
-    "ostrack_offline": "initiate_retrack_ostrack",
     "sam2_offline": "initiate_retrack_sam2",
     "dam4sam_offline": "initiate_retrack_dam4sam",
     "samurai_offline": "initiate_retrack_samurai",
@@ -110,8 +101,6 @@ TRACKER_ENV_HINT_BY_ID = {
     "mftiq_offline": "mftiq",
     "cutie_offline": "cutie",
     "xmem2_offline": "xmem2",
-    "tomp_offline": "tomp",
-    "ostrack_offline": "ostrack",
     "sam2_offline": "sam2",
     "dam4sam_offline": "dam4sam",
     "samurai_offline": "samurai",
@@ -235,7 +224,7 @@ class TrackingDialog(QDialog):
         dam4sam_params: dict | None = None,
         samurai_params: dict | None = None,
         deva_params: dict | None = None,
-        seeded_point_configs: dict | None = None,
+        seeded_tracking_configs: dict | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -244,10 +233,8 @@ class TrackingDialog(QDialog):
         self.setMinimumSize(1200, 800)
         current_flags=self.windowFlags()
         self.setWindowFlags(current_flags | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
-
         self.worker_thread = None 
         self.worker = None 
-
         self.tracks = tracking_data
         self.file_map = {f.id: f for f in all_files if f.id is not None}
         self.masks = masks
@@ -269,7 +256,7 @@ class TrackingDialog(QDialog):
         self.dam4sam_params = dict(dam4sam_params or {})
         self.samurai_params = dict(samurai_params or {})
         self.deva_params = dict(deva_params or {})
-        self.seeded_point_configs = dict(seeded_point_configs or {})
+        self.seeded_tracking_configs = dict(seeded_tracking_configs or {})
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
         self.sorted_frame_ids = sorted(list(self.file_map.keys()))
@@ -501,7 +488,11 @@ class TrackingDialog(QDialog):
         normalized_source = self._normalized_source_name(source_name)
         if not normalized_source or normalized_source in MANUAL_TRACK_SOURCES:
             return None
-        return point_review_spec_for_source(normalized_source) or get_tracker_spec_for_source(normalized_source)
+        return (
+            point_review_spec_for_source(normalized_source)
+            or bbox_review_spec_for_source(normalized_source)
+            or get_tracker_spec_for_source(normalized_source)
+        )
 
     def _tracker_spec_for_track(self, track: Track | None):
         if track is None:
@@ -823,9 +814,8 @@ class TrackingDialog(QDialog):
 
     def _initiate_retrack_for_tracker_spec(self, tracker_spec, spot_id: int) -> None:
         tracker_id = str(getattr(tracker_spec, "tracker_id", "") or "").strip().lower()
-        point_method_ids = {item.method_id for item in point_tracking_definitions()}
-        if tracker_id in point_method_ids:
-            launch_seeded_point_retrack(self, tracker_id, spot_id)
+        if tracker_id in self.seeded_tracking_configs:
+            launch_seeded_retrack(self, tracker_id, spot_id)
             return
         method_name = TRACKER_VISUALIZER_RETRACK_METHOD_NAME_BY_ID.get(tracker_id)
         if not method_name:

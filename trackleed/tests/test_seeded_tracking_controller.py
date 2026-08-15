@@ -13,6 +13,7 @@ from trackleed.gui.seeded_tracking_adapter import SeededTrackingDialogSettings
 from trackleed.gui.seeded_tracking_controller import SeededTrackingController
 from trackleed.gui.seeded_tracking_dialog import SeededTrackingDialogDecision
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
+from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
     SeededTrackingFrame,
@@ -190,6 +191,11 @@ class SeededTrackingControllerTests(unittest.TestCase):
             _Dialog.last_kwargs["settings"].selected_method_id,
             "tapir_offline",
         )
+        self.assertTrue(self.controller.show_legacy_scenario("Offline OSTrack"))
+        self.assertEqual(
+            _Dialog.last_kwargs["settings"].selected_method_id,
+            "ostrack_offline",
+        )
         self.assertFalse(self.controller.show_legacy_scenario("Unknown tracker"))
 
     def test_review_defaults_come_from_last_accepted_method_config(self) -> None:
@@ -224,13 +230,37 @@ class SeededTrackingControllerTests(unittest.TestCase):
 
         self.assertEqual(defaults.roi_size, 26)
         self.assertIs(
-            backend_params["seeded_point_configs"]["tapir_offline"],
+            backend_params["seeded_tracking_configs"]["tapir_offline"],
             settings.point_config("tapir_offline"),
         )
         self.assertEqual(backend_params["tapir_params"]["roi_size"], 26)
         self.assertEqual(
             backend_params["tapir_params"]["tapir_models_dir"],
             "custom-models",
+        )
+
+    def test_bbox_review_uses_the_last_accepted_bbox_configuration(self) -> None:
+        settings = SeededTrackingDialogSettings.defaults(roi_size=18)
+        settings = settings.with_bbox_config(
+            "ostrack_offline",
+            OstrackBoundingBoxConfig(models_dir=Path("bbox-models"), roi_size=28),
+        )
+        self.controller.settings.accept(
+            replace(settings, selected_method_id="ostrack_offline")
+        )
+
+        defaults = self.controller.review_defaults
+        backend_params = self.controller.review_backend_params
+
+        self.assertEqual(defaults.roi_size, 28)
+        self.assertIs(
+            backend_params["seeded_tracking_configs"]["ostrack_offline"],
+            settings.bbox_config("ostrack_offline"),
+        )
+        self.assertEqual(backend_params["ostrack_params"]["roi_size"], 28)
+        self.assertEqual(
+            backend_params["ostrack_params"]["ostrack_models_dir"],
+            "bbox-models",
         )
 
 

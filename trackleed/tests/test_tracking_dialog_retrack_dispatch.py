@@ -273,15 +273,16 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             self.module.TrackingDialog._tracker_spec_for_track,
             dialog,
         )
-
         self.assertIsNone(dialog._tracker_spec_for_source_name("manual_corr"))
-        self.assertIs(
-            dialog._tracker_spec_for_source_name("  tamos_offline  "),
-            self.tracker_specs["tomp_offline"],
+        self.assertEqual(
+            dialog._tracker_spec_for_source_name("  tamos_offline  ").tracker_id,
+            "tomp_offline",
         )
-        self.assertIs(
-            dialog._tracker_spec_for_track(self._track("tomp_offline", "manual_corr")),
-            self.tracker_specs["tomp_offline"],
+        self.assertEqual(
+            dialog._tracker_spec_for_track(
+                self._track("tomp_offline", "manual_corr")
+            ).tracker_id,
+            "tomp_offline",
         )
         self.assertIsNone(
             dialog._tracker_spec_for_track(self._track("tomp_offline", "sam2_offline"))
@@ -390,14 +391,17 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
 
     def test_initiate_retrack_for_tracker_spec_dispatches_to_backend_specific_method(self) -> None:
         calls: list[tuple[str, int]] = []
-        self.module.launch_seeded_point_retrack = (
+        self.module.launch_seeded_retrack = (
             lambda _dialog, method_id, spot_id: calls.append((method_id, spot_id))
         )
         dialog = SimpleNamespace(
+            seeded_tracking_configs={
+                "tapir_online": object(),
+                "tomp_offline": object(),
+                "ostrack_offline": object(),
+            },
             initiate_retrack_cutie=lambda spot_id: calls.append(("cutie", spot_id)),
             initiate_retrack_xmem2=lambda spot_id: calls.append(("xmem2", spot_id)),
-            initiate_retrack_tomp=lambda spot_id: calls.append(("tomp", spot_id)),
-            initiate_retrack_ostrack=lambda spot_id: calls.append(("ostrack", spot_id)),
             initiate_retrack_sam2=lambda spot_id: calls.append(("sam2", spot_id)),
             initiate_retrack_dam4sam=lambda spot_id: calls.append(("dam4sam", spot_id)),
             initiate_retrack_samurai=lambda spot_id: calls.append(("samurai", spot_id)),
@@ -444,17 +448,17 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
             calls,
             [
                 ("tapir_online", 11),
-                ("tomp", 22),
+                ("tomp_offline", 22),
                 ("sam2", 33),
                 ("deva", 44),
-                ("ostrack", 55),
+                ("ostrack_offline", 55),
                 ("dam4sam", 66),
                 ("samurai", 77),
             ],
         )
 
     def test_initiate_retrack_for_tracker_spec_rejects_unknown_tracker(self) -> None:
-        dialog = SimpleNamespace()
+        dialog = SimpleNamespace(seeded_tracking_configs={})
 
         with self.assertRaises(ValueError):
             self.module.TrackingDialog._initiate_retrack_for_tracker_spec(

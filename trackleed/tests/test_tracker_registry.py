@@ -148,8 +148,9 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
     def test_tracker_specs_are_complete_and_unique(self) -> None:
         specs = self.registry.iter_tracker_specs()
         self.assertEqual(specs, self.registry.TRACKER_SPECS)
-        self.assertGreaterEqual(len(specs), 7)
+        self.assertGreaterEqual(len(specs), 6)
         self.assertTrue(all(spec.family != "point" for spec in specs))
+        self.assertTrue(all(spec.family != "bbox" for spec in specs))
         self.assertEqual(
             self.registry.TRACKING_SCENARIO_NAMES,
             tuple(spec.scenario_name for spec in specs),
@@ -222,11 +223,8 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
                     spec,
                 )
 
-        tomp_spec = self.registry.require_tracker_spec("tomp_offline")
-        self.assertIs(
-            self.registry.get_tracker_spec_for_source("tamos_offline"),
-            tomp_spec,
-        )
+        self.assertIsNone(self.registry.get_tracker_spec("tomp_offline"))
+        self.assertIsNone(self.registry.get_tracker_spec_for_source("tamos_offline"))
 
     def test_deva_is_registered_as_subprocess_mask_tracker_with_visualizer_retrack(self) -> None:
         spec = self.registry.require_tracker_spec("deva_offline")
@@ -262,17 +260,9 @@ class TrackerRegistryContractTests(TrackerRegistryImportMixin, unittest.TestCase
         self.assertEqual(spec.default_conda_env_name, "samurai")
         self.assertEqual(spec.variant_selector_attr, "samurai_model_variant_combo")
 
-    def test_ostrack_is_registered_as_subprocess_bbox_tracker_with_retrack_ui(self) -> None:
-        spec = self.registry.require_tracker_spec("ostrack_offline")
-
-        self.assertEqual(spec.scenario_name, "Offline OSTrack")
-        self.assertEqual(spec.family, "bbox")
-        self.assertEqual(spec.source_names, ("ostrack_offline",))
-        self.assertTrue(spec.supports_subprocess)
-        self.assertTrue(spec.supports_direct)
-        self.assertTrue(spec.has_visualizer_retrack)
-        self.assertEqual(spec.default_conda_env_name, "ostrack")
-        self.assertEqual(spec.variant_selector_attr, "ostrack_model_variant_combo")
+    def test_bbox_trackers_are_owned_by_the_seeded_catalog(self) -> None:
+        self.assertIsNone(self.registry.get_tracker_spec("ostrack_offline"))
+        self.assertIsNone(self.registry.get_tracker_spec("tomp_offline"))
 
     def test_require_helpers_raise_for_unknown_values(self) -> None:
         self.assertIsNone(self.registry.get_tracker_spec("missing_tracker"))

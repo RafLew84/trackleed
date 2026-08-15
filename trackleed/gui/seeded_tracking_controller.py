@@ -13,8 +13,15 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
+from trackleed.analysis.seeded_bbox_tracking_runtime import (
+    bbox_tracking_definitions,
+)
 from trackleed.analysis.seeded_point_tracking_runtime import (
     point_tracking_definitions,
+)
+from trackleed.gui.seeded_bbox_tracking_compatibility import (
+    bbox_tracker_legacy_binding,
+    legacy_bbox_tracker_params,
 )
 from trackleed.gui.seeded_point_tracking_compatibility import (
     legacy_point_tracker_params,
@@ -112,8 +119,9 @@ class SeededTrackingController:
     def review_defaults(self) -> SeededTrackingReviewDefaults:
         settings = self.settings.dialog_settings
         point_configs = dict(settings.point_configs)
-        if settings.selected_method_id in point_configs:
-            roi_size = point_configs[settings.selected_method_id].roi_size
+        tracker_configs = point_configs | dict(settings.bbox_configs)
+        if settings.selected_method_id in tracker_configs:
+            roi_size = tracker_configs[settings.selected_method_id].roi_size
             config = settings.optical_flow
         else:
             config = (
@@ -132,23 +140,32 @@ class SeededTrackingController:
     def review_backend_params(self) -> dict[str, object]:
         settings = self.settings.dialog_settings
         point_configs = dict(settings.point_configs)
-        config = point_configs.get(settings.selected_method_id)
-        if config is None:
-            return {"seeded_point_configs": point_configs}
-        binding = point_tracker_legacy_binding(settings.selected_method_id)
-        return {
-            "seeded_point_configs": point_configs,
-            binding.review_argument_name: legacy_point_tracker_params(
-                settings.selected_method_id,
-                config,
-            ),
+        bbox_configs = dict(settings.bbox_configs)
+        params: dict[str, object] = {
+            "seeded_tracking_configs": point_configs | bbox_configs,
         }
+        point_config = point_configs.get(settings.selected_method_id)
+        if point_config is not None:
+            binding = point_tracker_legacy_binding(settings.selected_method_id)
+            params[binding.review_argument_name] = legacy_point_tracker_params(
+                settings.selected_method_id,
+                point_config,
+            )
+            return params
+        bbox_config = bbox_configs.get(settings.selected_method_id)
+        if bbox_config is not None:
+            bbox_binding = bbox_tracker_legacy_binding(settings.selected_method_id)
+            params[bbox_binding.review_argument_name] = legacy_bbox_tracker_params(
+                settings.selected_method_id,
+                bbox_config,
+            )
+        return params
 
     def show_dialog(self) -> None:
         self._show_dialog(self.settings.dialog_settings)
 
     def show_legacy_scenario(self, scenario: str) -> bool:
-        """Route legacy optical-flow selectors through the canonical dialog."""
+        """Route legacy seeded selectors through the canonical dialog."""
         method_id = {
             "Optical Flow Tracking": "optical_flow",
             "Optical Flow (skip, anchor)": "optical_flow_skip_anchor",
@@ -158,6 +175,15 @@ class SeededTrackingController:
                 (
                     item.method_id
                     for item in point_tracking_definitions()
+                    if item.display_name == scenario
+                ),
+                None,
+            )
+        if method_id is None:
+            method_id = next(
+                (
+                    item.method_id
+                    for item in bbox_tracking_definitions()
                     if item.display_name == scenario
                 ),
                 None,

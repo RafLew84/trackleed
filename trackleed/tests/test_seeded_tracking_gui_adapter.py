@@ -17,8 +17,10 @@ from trackleed.gui.seeded_tracking_adapter import (
     run_seeded_tracking_job,
 )
 from trackleed.logic.workflows.point_tracking import TapirPointConfig
+from trackleed.logic.workflows.bbox_tracking import OstrackBoundingBoxConfig
 from trackleed.logic.workflows.seeded_tracking import (
     OpticalFlowConfig,
+    SeedRepresentation,
     SeedRect,
     TrackedSpotIdentity,
     TrackingResult,
@@ -76,6 +78,35 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
         self.assertEqual(request.track.track_id, 7)
         self.assertEqual(request.track.observations[0].center_x, 20.0)
         self.assertEqual(request.start_frame_id, 1)
+
+    def test_bbox_requests_capture_bounding_box_seed_representation(self) -> None:
+        reference = _leed_file(1, [_spot(7, 20, 21)])
+        second = _leed_file(2, [])
+        config = OstrackBoundingBoxConfig(roi_size=24)
+
+        tracking_request = build_seeded_tracking_request(
+            files=(reference, second),
+            reference_file=reference,
+            method_id="ostrack_offline",
+            config=config,
+            background_file=None,
+        )
+        retrack_request = build_seeded_retrack_request(
+            files=(reference, second),
+            track=Track(7, {1: _spot(7, 20, 21)}),
+            start_frame_id=1,
+            method_id="ostrack_offline",
+            config=config,
+        )
+
+        self.assertIs(
+            tracking_request.seed_representation,
+            SeedRepresentation.BOUNDING_BOX,
+        )
+        self.assertIs(
+            retrack_request.seed_representation,
+            SeedRepresentation.BOUNDING_BOX,
+        )
 
     def test_settings_binding_changes_only_after_accept(self) -> None:
         binding = SeededTrackingSettingsBinding(roi_size=18)

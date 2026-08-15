@@ -548,7 +548,7 @@ class MainWindowRegistryDispatchTests(MainWindowImportMixin, unittest.TestCase):
 
         spec = fake._current_tracker_spec()
 
-        self.assertIs(spec, self.registry.require_tracker_spec("tomp_offline"))
+        self.assertIsNone(spec)
 
     def test_collect_tracking_dialog_backend_params_deduplicates_argument_names(self) -> None:
         calls: list[str] = []

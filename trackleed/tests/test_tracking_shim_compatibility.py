@@ -556,14 +556,8 @@ class TrackingShimCompatibilityTests(ShimImportMixin, unittest.TestCase):
             self.assertIn(spec.run_retrack.__name__, retrack_exports)
             self.assertIs(spec.run_retrack, retrack_exports[spec.run_retrack.__name__])
 
-        self.assertIs(
-            self.tracker_registry.require_tracker_spec("tomp_offline").run_tracking,
-            self.bbox_backends.track_spots_tomp_offline,
-        )
-        self.assertIs(
-            self.tracker_registry.require_tracker_spec("ostrack_offline").run_tracking,
-            self.bbox_backends.track_spots_ostrack_offline,
-        )
+        self.assertIsNone(self.tracker_registry.get_tracker_spec("tomp_offline"))
+        self.assertIsNone(self.tracker_registry.get_tracker_spec("ostrack_offline"))
         self.assertIs(
             self.tracker_registry.require_tracker_spec("sam2_offline").run_retrack,
             self.tracking_retrack.retrack_single_spot_sam2_offline,

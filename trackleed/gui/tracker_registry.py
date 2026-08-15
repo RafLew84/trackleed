@@ -16,10 +16,6 @@ from trackleed.analysis.deva_backend import (
     format_deva_environment_report,
     probe_deva_environment,
 )
-from trackleed.analysis.ostrack_backend import (
-    format_ostrack_environment_report,
-    probe_ostrack_environment,
-)
 from trackleed.analysis.sam2_backend import (
     format_sam2_environment_report,
     probe_sam2_environment,
@@ -27,14 +23,6 @@ from trackleed.analysis.sam2_backend import (
 from trackleed.analysis.samurai_backend import (
     format_samurai_environment_report,
     probe_samurai_environment,
-)
-from trackleed.analysis.tomp_backend import (
-    format_tomp_environment_report,
-    probe_tomp_environment,
-)
-from trackleed.analysis.tracking_bbox_backends import (
-    track_spots_ostrack_offline,
-    track_spots_tomp_offline,
 )
 from trackleed.analysis.tracking_mask_backends import (
     track_spots_cutie_offline,
@@ -48,10 +36,8 @@ from trackleed.analysis.tracking_retrack import (
     retrack_single_spot_cutie_offline,
     retrack_single_spot_dam4sam_offline,
     retrack_single_spot_deva_offline,
-    retrack_single_spot_ostrack_offline,
     retrack_single_spot_sam2_offline,
     retrack_single_spot_samurai_offline,
-    retrack_single_spot_tomp_offline,
     retrack_single_spot_xmem2_offline,
 )
 from trackleed.analysis.xmem2_backend import (
@@ -93,58 +79,6 @@ class TrackerSpec:
 
 
 TRACKER_SPECS: tuple[TrackerSpec, ...] = (
-    TrackerSpec(
-        tracker_id="tomp_offline",
-        display_name="Offline ToMP / TaMOs",
-        scenario_name="Offline ToMP",
-        family="bbox",
-        source_names=("tomp_offline", "tamos_offline"),
-        settings_type_name="TompTrackingSettings",
-        runtime_settings_type_name="TompRuntimeSettings",
-        probe_environment=probe_tomp_environment,
-        format_environment_report=format_tomp_environment_report,
-        collect_params_method_name="_collect_tomp_tracking_params",
-        run_tracking=track_spots_tomp_offline,
-        run_retrack=retrack_single_spot_tomp_offline,
-        supports_direct=True,
-        supports_subprocess=True,
-        settings_attr_name="tomp_settings",
-        params_argument_name="tomp_params",
-        panel_group_attr="tomp_group",
-        warning_label_attr="tomp_warning_label",
-        backend_mode_widget_attr="tomp_backend_mode_combo",
-        repo_path_attr="tomp_repo_path_edit",
-        python_executable_attr="tomp_python_executable_edit",
-        default_conda_env_name="tomp",
-        checkpoint_selector_attr="tomp_checkpoint_combo",
-        variant_selector_attr="tomp_model_variant_combo",
-    ),
-    TrackerSpec(
-        tracker_id="ostrack_offline",
-        display_name="Offline OSTrack",
-        scenario_name="Offline OSTrack",
-        family="bbox",
-        source_names=("ostrack_offline",),
-        settings_type_name="OstrackTrackingSettings",
-        runtime_settings_type_name="OstrackRuntimeSettings",
-        probe_environment=probe_ostrack_environment,
-        format_environment_report=format_ostrack_environment_report,
-        collect_params_method_name="_collect_ostrack_tracking_params",
-        run_tracking=track_spots_ostrack_offline,
-        run_retrack=retrack_single_spot_ostrack_offline,
-        supports_direct=True,
-        supports_subprocess=True,
-        settings_attr_name="ostrack_settings",
-        params_argument_name="ostrack_params",
-        panel_group_attr="ostrack_group",
-        warning_label_attr="ostrack_warning_label",
-        backend_mode_widget_attr="ostrack_backend_mode_combo",
-        repo_path_attr="ostrack_repo_path_edit",
-        python_executable_attr="ostrack_python_executable_edit",
-        default_conda_env_name="ostrack",
-        checkpoint_selector_attr="ostrack_checkpoint_combo",
-        variant_selector_attr="ostrack_model_variant_combo",
-    ),
     TrackerSpec(
         tracker_id="cutie_offline",
         display_name="Offline Cutie",

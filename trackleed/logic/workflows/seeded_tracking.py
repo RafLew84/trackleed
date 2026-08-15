@@ -11,6 +11,7 @@ from typing import Literal, Protocol, TypeAlias
 
 import numpy as np
 
+from trackleed.logic.workflows.bbox_tracking import BoundingBoxTrackerConfig
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 
 
@@ -71,7 +72,10 @@ class SkipAnchorOpticalFlowConfig(OpticalFlowConfig):
 
 
 SeededTrackingConfig: TypeAlias = (
-    OpticalFlowConfig | SkipAnchorOpticalFlowConfig | PointTrackerConfig
+    OpticalFlowConfig
+    | SkipAnchorOpticalFlowConfig
+    | PointTrackerConfig
+    | BoundingBoxTrackerConfig
 )
 
 
@@ -271,6 +275,19 @@ class RunContext:
     point_tracker_retrack_executor: (
         Callable[[str, SeededRetrackRequest, RunContext], TrackingResult] | None
     ) = None
+    bbox_tracker_preflight: (
+        Callable[
+            [str, BoundingBoxTrackerConfig],
+            tuple[TrackingPreflightIssue, ...],
+        ]
+        | None
+    ) = None
+    bbox_tracker_executor: (
+        Callable[[str, SeededTrackingRequest, RunContext], TrackingResult] | None
+    ) = None
+    bbox_tracker_retrack_executor: (
+        Callable[[str, SeededRetrackRequest, RunContext], TrackingResult] | None
+    ) = None
     preflight_operation: Literal["tracking", "retrack"] = "tracking"
 
 
@@ -289,6 +306,7 @@ class SeededTrackingExecutionError(RuntimeError):
 
 
 def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
+    from trackleed.analysis.seeded_bbox_tracking_runtime import bbox_tracking_methods
     from trackleed.analysis.seeded_point_tracking_runtime import (
         point_tracking_methods,
     )
@@ -323,6 +341,7 @@ def default_seeded_tracking_catalog() -> SeededTrackingCatalog:
             ),
         )
         + point_tracking_methods()
+        + bbox_tracking_methods()
     )
 
 
@@ -383,6 +402,13 @@ def _retrack_preflight_issues(
             TrackingPreflightIssue(
                 "retrack_unsupported",
                 "Selected method does not support re-tracking.",
+            )
+        )
+    if request.seed_representation is not method.capabilities.seed_representation:
+        issues.append(
+            TrackingPreflightIssue(
+                "unsupported_seed_representation",
+                "Requested seed representation is not supported by this method.",
             )
         )
     frame_ids = tuple(frame.frame_id for frame in request.frames)

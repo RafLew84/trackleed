@@ -1,4 +1,4 @@
-"""Generic Qt configuration page for typed point-tracker snapshots."""
+"""Generic Qt configuration page for typed seeded-tracker snapshots."""
 
 from __future__ import annotations
 
@@ -17,20 +17,20 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from trackleed.logic.workflows.point_tracking import PointTrackerConfig
-
 _PATH_FIELDS = {
     "models_dir",
     "repo_path",
     "checkpoint_path",
     "python_executable",
     "config_path",
+    "tomp_models_dir",
+    "tamos_models_dir",
 }
 
 _HIDDEN_FIELDS = {"subtract_background"}
 
-class PointTrackerPage(QWidget):
-    def __init__(self, config: PointTrackerConfig) -> None:
+class TrackerConfigPage(QWidget):
+    def __init__(self, config: Any) -> None:
         super().__init__()
         self._config_type = type(config)
         self._original_values = {
@@ -46,7 +46,7 @@ class PointTrackerPage(QWidget):
             self.field_widgets[field.name] = widget
             layout.addRow(_field_label(field.name), widget)
 
-    def config_snapshot(self) -> PointTrackerConfig:
+    def config_snapshot(self) -> Any:
         values = {
             name: _widget_value(name, widget, self._original_values[name])
             for name, widget in self.field_widgets.items()
@@ -95,10 +95,10 @@ def _widget_value(name: str, widget: QWidget, original: Any) -> Any:
     if isinstance(widget, QComboBox):
         return widget.currentData()
     if not isinstance(widget, QLineEdit):
-        raise TypeError(f"Unsupported point-config widget for {name}")
+        raise TypeError(f"Unsupported tracker-config widget for {name}")
     text = widget.text().strip()
     if name in _PATH_FIELDS:
-        if name == "models_dir" and not text:
+        if name in {"models_dir", "tomp_models_dir", "tamos_models_dir"} and not text:
             raise ValueError("Models directory is required")
         return Path(text) if text else None
     if isinstance(original, tuple):
@@ -129,3 +129,7 @@ def _optional_resolution(text: str) -> int | tuple[int, int] | None:
 
 def _field_label(name: str) -> str:
     return name.replace("_", " ").capitalize() + ":"
+
+
+# Compatibility import for existing point-family tests and callers.
+PointTrackerPage = TrackerConfigPage

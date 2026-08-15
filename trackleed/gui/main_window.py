@@ -73,6 +73,7 @@ from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
 from trackleed.io.gif_loader import extract_gif_frames
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.tracking_dialog import TrackingDialog
+from trackleed.gui.seeded_bbox_tracking_compatibility import bbox_tracker_gui_spec
 from trackleed.gui.tracker_registry import (
     TRACKING_SCENARIO_NAMES,
     get_tracker_spec_for_scenario,
@@ -84,7 +85,6 @@ from trackleed.analysis.tracking import (
     track_spots_hungarian,
     track_spots_hungarian_directional,
 )
-
 OPTICAL_FLOW_SCENARIO = "Optical Flow Tracking"
 OPTICAL_FLOW_SKIP_SCENARIO = "Optical Flow (skip, anchor)"
 HUNGARIAN_SCENARIO = "Detection Linking (Hungarian)"
@@ -8096,7 +8096,7 @@ class MainWindow(QMainWindow):
         self._update_tomp_preset_hint(variant_key)
 
     def _refresh_tomp_checkpoints(self):
-        tracker_spec = require_tracker_spec("tomp_offline")
+        tracker_spec = bbox_tracker_gui_spec("tomp_offline")
         repo_path = self.tomp_repo_path_edit.text().strip() or self.tomp_settings.repo_path
         if repo_path:
             self.tomp_settings.repo_path = repo_path
@@ -8415,7 +8415,7 @@ class MainWindow(QMainWindow):
         self._apply_ostrack_preset_fields(preset, variant_key, preset_label)
 
     def _refresh_ostrack_checkpoints(self):
-        tracker_spec = require_tracker_spec("ostrack_offline")
+        tracker_spec = bbox_tracker_gui_spec("ostrack_offline")
         repo_path = self.ostrack_repo_path_edit.text().strip() or self.ostrack_settings.repo_path
         if repo_path:
             self.ostrack_settings.repo_path = repo_path

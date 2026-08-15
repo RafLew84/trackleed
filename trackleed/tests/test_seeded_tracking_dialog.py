@@ -93,6 +93,8 @@ class SeededTrackingDialogTests(unittest.TestCase):
                 "Offline Track-On-R",
                 "Offline PIPs++",
                 "Offline MFTIQ",
+                "Offline ToMP / TaMOs",
+                "Offline OSTrack",
             ],
         )
         self.assertEqual(dialog.run_button.text(), "Run Seeded Tracking")

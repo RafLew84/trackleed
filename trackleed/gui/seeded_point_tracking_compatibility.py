@@ -4,26 +4,28 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from enum import Enum
 from importlib import import_module
-from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, Never
+from typing import Any
 
-from PyQt6.QtCore import QRect
-
-from trackleed.core.data_models import LeedFile, SpotROI, Track
+from trackleed.core.data_models import Track
+from trackleed.gui.seeded_tracking_legacy_models import (
+    ContextCancellationSignal,
+    legacy_files,
+    legacy_spot,
+    legacy_track,
+    legacy_tracker_gui_spec,
+    neutral_result,
+    plain_legacy_value,
+    progress_callback,
+    raise_if_cancelled,
+    raise_none_result,
+)
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
     SeededRetrackRequest,
-    SeededTrackingCancelled,
     SeededTrackingRequest,
-    SeedRect,
-    TrackedSpotIdentity,
-    TrackingProgress,
     TrackingResult,
-    TrackObservation,
 )
 
 
@@ -221,43 +223,12 @@ def point_tracker_gui_spec(method_id: str) -> Any:
 
     definition = point_tracking_definition(method_id)
     binding = point_tracker_legacy_binding(method_id)
-    backend = import_module(definition.backend_module)
-    formatter_name = definition.probe_name.replace(
-        "probe_",
-        "format_",
-    ).replace("_environment", "_environment_report")
-    tracking_module = import_module("trackleed.analysis.tracking_point_backends")
-    retrack_module = import_module("trackleed.analysis.tracking_retrack")
-    return SimpleNamespace(
-        tracker_id=definition.method_id,
-        display_name=definition.display_name,
-        scenario_name=definition.display_name,
+    return legacy_tracker_gui_spec(
+        definition,
+        binding,
         family="point",
         source_names=(definition.method_id,),
-        has_visualizer_retrack=True,
-        params_argument_name=binding.review_argument_name,
-        supports_direct=True,
-        supports_subprocess=definition.supports_subprocess,
-        probe_environment=getattr(backend, definition.probe_name),
-        format_environment_report=getattr(backend, formatter_name),
-        run_tracking=getattr(tracking_module, binding.tracking_runner_name),
-        run_retrack=getattr(retrack_module, binding.retrack_runner_name),
-        **{
-            field: getattr(binding, field)
-            for field in (
-                "settings_type_name",
-                "runtime_settings_type_name",
-                "collect_params_method_name",
-                "settings_attr_name",
-                "panel_group_attr",
-                "warning_label_attr",
-                "backend_mode_widget_attr",
-                "repo_path_attr",
-                "python_executable_attr",
-                "default_conda_env_name",
-                "checkpoint_selector_attr",
-            )
-        },
+        tracking_module_name="trackleed.analysis.tracking_point_backends",
     )
 
 
@@ -266,31 +237,15 @@ def legacy_point_tracker_params(
     config: PointTrackerConfig,
 ) -> dict[str, Any]:
     binding = point_tracker_legacy_binding(method_id)
-    params = {key: _plain_value(value) for key, value in asdict(config).items()}
+    params = {
+        key: plain_legacy_value(value) for key, value in asdict(config).items()
+    }
     models_dir = params.pop("models_dir")
     repo_path = params.get("repo_path")
     params[binding.models_param_name] = models_dir
     for name in binding.repo_param_names:
         params[name] = repo_path
     return params
-
-
-def _plain_value(value: Any) -> Any:
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, tuple):
-        return tuple(_plain_value(item) for item in value)
-    return value
-
-
-class _ContextCancellationSignal:
-    def __init__(self, context: RunContext) -> None:
-        self._context = context
-
-    def is_set(self) -> bool:
-        return self._context.is_cancelled()
 
 
 def run_legacy_point_tracker(
@@ -301,12 +256,12 @@ def run_legacy_point_tracker(
     runner: Callable[..., list[Track] | None] | None = None,
 ) -> TrackingResult:
     """Run one existing backend behind the GUI/model conversion boundary."""
-    _raise_if_cancelled(context)
+    raise_if_cancelled(context)
     if not isinstance(request.config, PointTrackerConfig):
         raise TypeError("Point tracking requires PointTrackerConfig")
-    files_by_id = _legacy_files(request.frames, context)
+    files_by_id = legacy_files(request.frames, context)
     files_by_id[request.reference_frame_id].spots = [
-        _legacy_spot(
+        legacy_spot(
             seed.seed_id,
             seed.roi,
             seed.center_x,
@@ -323,12 +278,12 @@ def run_legacy_point_tracker(
         frame_ids,
         request.reference_frame_id,
         legacy_point_tracker_params(method_id, request.config),
-        progress_callback=_progress_callback(context, frame_ids[-1]),
-        cancel_event=_ContextCancellationSignal(context),
+        progress_callback=progress_callback(context, frame_ids[-1]),
+        cancel_event=ContextCancellationSignal(context),
     )
     if tracks is None:
-        _raise_none_result(method_id, context)
-    return _neutral_result(tracks, frame_ids)
+        raise_none_result(method_id, context)
+    return neutral_result(tracks, frame_ids, family_label="Point")
 
 
 def run_legacy_point_retracker(
@@ -339,24 +294,24 @@ def run_legacy_point_retracker(
     runner: Callable[..., Track | None] | None = None,
 ) -> TrackingResult:
     """Run one existing re-tracker behind the GUI/model conversion boundary."""
-    _raise_if_cancelled(context)
+    raise_if_cancelled(context)
     if not isinstance(request.config, PointTrackerConfig):
         raise TypeError("Point re-tracking requires PointTrackerConfig")
-    files_by_id = _legacy_files(request.frames, context)
+    files_by_id = legacy_files(request.frames, context)
     frame_ids = [frame.frame_id for frame in request.frames]
     selected_runner = runner or _legacy_runner(method_id, retrack=True)
     track = selected_runner(
-        _legacy_track(request.track),
+        legacy_track(request.track),
         request.start_frame_id,
         files_by_id,
         frame_ids,
         legacy_point_tracker_params(method_id, request.config),
-        progress_callback=_progress_callback(context, frame_ids[-1]),
-        cancel_event=_ContextCancellationSignal(context),
+        progress_callback=progress_callback(context, frame_ids[-1]),
+        cancel_event=ContextCancellationSignal(context),
     )
     if track is None:
-        _raise_none_result(method_id, context)
-    return _neutral_result([track], frame_ids)
+        raise_none_result(method_id, context)
+    return neutral_result([track], frame_ids, family_label="Point")
 
 
 def _legacy_runner(method_id: str, *, retrack: bool) -> Callable[..., Any]:
@@ -370,103 +325,3 @@ def _legacy_runner(method_id: str, *, retrack: bool) -> Callable[..., Any]:
         binding.retrack_runner_name if retrack else binding.tracking_runner_name
     )
     return getattr(import_module(module_name), function_name)
-
-
-def _legacy_files(frames, context: RunContext) -> dict[int, LeedFile]:
-    files = {
-        frame.frame_id: LeedFile(
-            filepath=frame.source_path,
-            filename=frame.source_path.name,
-            is_background=False,
-            element="",
-            surface=0,
-            mode="",
-            temperature=0.0,
-            energy=0.0,
-            id=frame.frame_id,
-            coverage=None,
-        )
-        for frame in frames
-    }
-    for file in files.values():
-        file._seeded_image_reader = context.image_reader
-    return files
-
-
-def _legacy_track(identity: TrackedSpotIdentity) -> Track:
-    return Track(
-        identity.track_id,
-        {
-            item.frame_id: _legacy_spot(
-                identity.track_id,
-                item.roi,
-                item.center_x,
-                item.center_y,
-                item.intensity,
-                item.source,
-            )
-            for item in identity.observations
-        },
-    )
-
-
-def _legacy_spot(
-    spot_id: int,
-    roi: SeedRect,
-    center_x: float,
-    center_y: float,
-    intensity: float,
-    source: str,
-) -> SpotROI:
-    return SpotROI(
-        spot_id,
-        QRect(roi.x, roi.y, roi.width, roi.height),
-        center_x,
-        center_y,
-        intensity,
-        source,
-    )
-
-
-def _neutral_result(tracks: list[Track], frame_ids: list[int]) -> TrackingResult:
-    known_frame_ids = set(frame_ids)
-    identities = []
-    for track in tracks:
-        unknown = set(track.spots_by_image_id) - known_frame_ids
-        if unknown:
-            raise ValueError(f"Point tracker returned unknown frame IDs: {unknown}")
-        observations = tuple(
-            _neutral_observation(frame_id, track.spots_by_image_id[frame_id])
-            for frame_id in frame_ids
-            if frame_id in track.spots_by_image_id
-        )
-        identities.append(TrackedSpotIdentity(track.track_id, observations))
-    return TrackingResult(tuple(identities))
-
-
-def _neutral_observation(frame_id: int, spot: SpotROI) -> TrackObservation:
-    rect = spot.roi_rect
-    return TrackObservation(
-        frame_id,
-        SeedRect(rect.x(), rect.y(), rect.width(), rect.height()),
-        float(spot.center_x),
-        float(spot.center_y),
-        float(spot.intensity),
-        str(spot.source),
-    )
-
-
-def _progress_callback(context: RunContext, frame_id: int) -> Callable[[int], None]:
-    return lambda value: context.report_progress(
-        TrackingProgress(int(value), 100, frame_id)
-    )
-
-
-def _raise_if_cancelled(context: RunContext) -> None:
-    if context.is_cancelled():
-        raise SeededTrackingCancelled("Seeded tracking cancelled")
-
-
-def _raise_none_result(method_id: str, context: RunContext) -> Never:
-    _raise_if_cancelled(context)
-    raise RuntimeError(f"{method_id} returned no tracking result")
