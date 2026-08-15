@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
-from typing import Any, Never
+from typing import Any, Never, Protocol, cast
 
 import numpy as np
 from PyQt6.QtCore import QRect
@@ -16,14 +16,136 @@ from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
     DiagnosticValue,
     SeededTrackingCancelled,
+    SeededRetrackRequest,
+    SeededTrackingRequest,
     SeedRect,
     TrackedSpotIdentity,
     TrackingProgress,
     TrackingResult,
+    TrackingSeed,
     TrackObservation,
 )
 
 _SPOT_MODEL_FIELDS = frozenset(field.name for field in fields(SpotROI))
+
+
+class LegacyRunnerResolver(Protocol):
+    def __call__(
+        self,
+        method_id: str,
+        *,
+        retrack: bool,
+    ) -> Callable[..., object]: ...
+
+
+@dataclass(frozen=True)
+class LegacySeededFamily:
+    label: str
+    parameters: Callable[[str, Any], dict[str, Any]]
+    seed: Callable[[TrackingSeed], SpotROI]
+    resolve_runner: LegacyRunnerResolver
+
+
+def run_legacy_seeded(
+    method_id: str,
+    request: SeededTrackingRequest | SeededRetrackRequest,
+    context: RunContext,
+    family: LegacySeededFamily,
+    *,
+    runner: Callable[..., object] | None = None,
+) -> TrackingResult:
+    """Execute one legacy full run or re-track behind a neutral boundary."""
+    raise_if_cancelled(context)
+    params = family.parameters(method_id, request.config)
+    files_by_id = legacy_files(request.frames, context)
+    frame_ids = [frame.frame_id for frame in request.frames]
+    is_retrack = isinstance(request, SeededRetrackRequest)
+    selected_runner = runner or family.resolve_runner(
+        method_id,
+        retrack=is_retrack,
+    )
+    raw_result = _invoke_legacy_runner(
+        request,
+        files_by_id,
+        frame_ids,
+        params,
+        context,
+        family,
+        selected_runner,
+    )
+    if raw_result is None:
+        raise_none_result(method_id, context)
+    tracks = (
+        [cast(Track, raw_result)]
+        if is_retrack
+        else cast(list[Track], raw_result)
+    )
+    return neutral_result(tracks, frame_ids, family_label=family.label)
+
+
+def _invoke_legacy_runner(
+    request: SeededTrackingRequest | SeededRetrackRequest,
+    files_by_id: dict[int, LeedFile],
+    frame_ids: list[int],
+    params: dict[str, Any],
+    context: RunContext,
+    family: LegacySeededFamily,
+    runner: Callable[..., object],
+) -> object:
+    if isinstance(request, SeededRetrackRequest):
+        return _run_legacy_retrack(
+            request, files_by_id, frame_ids, params, context, runner
+        )
+    return _run_legacy_full(
+        request,
+        files_by_id,
+        frame_ids,
+        params,
+        context,
+        family,
+        runner,
+    )
+
+
+def _run_legacy_full(
+    request: SeededTrackingRequest,
+    files_by_id: dict[int, LeedFile],
+    frame_ids: list[int],
+    params: dict[str, Any],
+    context: RunContext,
+    family: LegacySeededFamily,
+    runner: Callable[..., object],
+) -> object:
+    files_by_id[request.reference_frame_id].spots = [
+        family.seed(seed) for seed in request.seeds
+    ]
+    return runner(
+        files_by_id,
+        frame_ids,
+        request.reference_frame_id,
+        params,
+        progress_callback=progress_callback(context, frame_ids[-1]),
+        cancel_event=ContextCancellationSignal(context),
+    )
+
+
+def _run_legacy_retrack(
+    request: SeededRetrackRequest,
+    files_by_id: dict[int, LeedFile],
+    frame_ids: list[int],
+    params: dict[str, Any],
+    context: RunContext,
+    runner: Callable[..., object],
+) -> object:
+    return runner(
+        legacy_track(request.track),
+        request.start_frame_id,
+        files_by_id,
+        frame_ids,
+        params,
+        progress_callback=progress_callback(context, frame_ids[-1]),
+        cancel_event=ContextCancellationSignal(context),
+    )
 
 
 def plain_legacy_value(value: Any) -> Any:

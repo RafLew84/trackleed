@@ -7,17 +7,12 @@ from dataclasses import asdict, dataclass
 from importlib import import_module
 from typing import Any
 
-from trackleed.core.data_models import Track
+from trackleed.core.data_models import SpotROI, Track
 from trackleed.gui.seeded_tracking_legacy_models import (
-    ContextCancellationSignal,
-    legacy_files,
+    LegacySeededFamily,
     legacy_spot,
-    legacy_track,
-    neutral_result,
     plain_legacy_value,
-    progress_callback,
-    raise_if_cancelled,
-    raise_none_result,
+    run_legacy_seeded,
 )
 from trackleed.logic.workflows.point_tracking import PointTrackerConfig
 from trackleed.logic.workflows.seeded_tracking import (
@@ -25,6 +20,7 @@ from trackleed.logic.workflows.seeded_tracking import (
     SeededRetrackRequest,
     SeededTrackingRequest,
     TrackingResult,
+    TrackingSeed,
 )
 
 
@@ -131,34 +127,9 @@ def run_legacy_point_tracker(
     runner: Callable[..., list[Track] | None] | None = None,
 ) -> TrackingResult:
     """Run one existing backend behind the GUI/model conversion boundary."""
-    raise_if_cancelled(context)
-    if not isinstance(request.config, PointTrackerConfig):
-        raise TypeError("Point tracking requires PointTrackerConfig")
-    files_by_id = legacy_files(request.frames, context)
-    files_by_id[request.reference_frame_id].spots = [
-        legacy_spot(
-            seed.seed_id,
-            seed.roi,
-            seed.center_x,
-            seed.center_y,
-            seed.intensity,
-            seed.source,
-        )
-        for seed in request.seeds
-    ]
-    frame_ids = [frame.frame_id for frame in request.frames]
-    selected_runner = runner or _legacy_runner(method_id, retrack=False)
-    tracks = selected_runner(
-        files_by_id,
-        frame_ids,
-        request.reference_frame_id,
-        legacy_point_tracker_params(method_id, request.config),
-        progress_callback=progress_callback(context, frame_ids[-1]),
-        cancel_event=ContextCancellationSignal(context),
+    return run_legacy_seeded(
+        method_id, request, context, _POINT_FAMILY, runner=runner
     )
-    if tracks is None:
-        raise_none_result(method_id, context)
-    return neutral_result(tracks, frame_ids, family_label="Point")
 
 
 def run_legacy_point_retracker(
@@ -169,24 +140,9 @@ def run_legacy_point_retracker(
     runner: Callable[..., Track | None] | None = None,
 ) -> TrackingResult:
     """Run one existing re-tracker behind the GUI/model conversion boundary."""
-    raise_if_cancelled(context)
-    if not isinstance(request.config, PointTrackerConfig):
-        raise TypeError("Point re-tracking requires PointTrackerConfig")
-    files_by_id = legacy_files(request.frames, context)
-    frame_ids = [frame.frame_id for frame in request.frames]
-    selected_runner = runner or _legacy_runner(method_id, retrack=True)
-    track = selected_runner(
-        legacy_track(request.track),
-        request.start_frame_id,
-        files_by_id,
-        frame_ids,
-        legacy_point_tracker_params(method_id, request.config),
-        progress_callback=progress_callback(context, frame_ids[-1]),
-        cancel_event=ContextCancellationSignal(context),
+    return run_legacy_seeded(
+        method_id, request, context, _POINT_FAMILY, runner=runner
     )
-    if track is None:
-        raise_none_result(method_id, context)
-    return neutral_result([track], frame_ids, family_label="Point")
 
 
 def _legacy_runner(method_id: str, *, retrack: bool) -> Callable[..., Any]:
@@ -200,3 +156,28 @@ def _legacy_runner(method_id: str, *, retrack: bool) -> Callable[..., Any]:
         binding.retrack_runner_name if retrack else binding.tracking_runner_name
     )
     return getattr(import_module(module_name), function_name)
+
+
+def _point_parameters(method_id: str, config: object) -> dict[str, Any]:
+    if not isinstance(config, PointTrackerConfig):
+        raise TypeError("Point tracking requires PointTrackerConfig")
+    return legacy_point_tracker_params(method_id, config)
+
+
+def _point_seed(seed: TrackingSeed) -> SpotROI:
+    return legacy_spot(
+        seed.seed_id,
+        seed.roi,
+        seed.center_x,
+        seed.center_y,
+        seed.intensity,
+        seed.source,
+    )
+
+
+_POINT_FAMILY = LegacySeededFamily(
+    "Point",
+    _point_parameters,
+    _point_seed,
+    _legacy_runner,
+)
