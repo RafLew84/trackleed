@@ -478,42 +478,7 @@ class MainWindowImportMixin:
             ),
         )
 
-        skimage_module = types.ModuleType("skimage")
-        skimage_module.__path__ = []
-        skimage_util = types.ModuleType("skimage.util")
-        skimage_util.img_as_float = _stub_callable("skimage.util.img_as_float")
-        skimage_color = types.ModuleType("skimage.color")
-        skimage_color.rgb2gray = _stub_callable("skimage.color.rgb2gray")
-        skimage_feature = types.ModuleType("skimage.feature")
-        skimage_feature.peak_local_max = _stub_callable("skimage.feature.peak_local_max")
-        skimage_measure = types.ModuleType("skimage.measure")
-        skimage_measure.EllipseModel = _Dummy
-        skimage_morph = types.ModuleType("skimage.morphology")
-        skimage_morph.white_tophat = _stub_callable("skimage.morphology.white_tophat")
-        skimage_morph.disk = _stub_callable("skimage.morphology.disk")
-        skimage_module.util = skimage_util
-        skimage_module.color = skimage_color
-        skimage_module.feature = skimage_feature
-        skimage_module.measure = skimage_measure
-        skimage_module.morphology = skimage_morph
-        scipy_module = types.ModuleType("scipy")
-        scipy_module.__path__ = []
-        scipy_ndimage = types.ModuleType("scipy.ndimage")
-        scipy_ndimage.center_of_mass = _stub_callable("scipy.ndimage.center_of_mass")
-        scipy_ndimage.gaussian_filter = _stub_callable("scipy.ndimage.gaussian_filter")
-        scipy_optimize = types.ModuleType("scipy.optimize")
-        scipy_optimize.curve_fit = _stub_callable("scipy.optimize.curve_fit")
-        scipy_module.ndimage = scipy_ndimage
-        scipy_module.optimize = scipy_optimize
-        sys.modules["skimage"] = skimage_module
-        sys.modules["skimage.util"] = skimage_util
-        sys.modules["skimage.color"] = skimage_color
-        sys.modules["skimage.feature"] = skimage_feature
-        sys.modules["skimage.measure"] = skimage_measure
-        sys.modules["skimage.morphology"] = skimage_morph
-        sys.modules["scipy"] = scipy_module
-        sys.modules["scipy.ndimage"] = scipy_ndimage
-        sys.modules["scipy.optimize"] = scipy_optimize
+        self._install_image_analysis_stubs()
 
         self.addCleanup(self._restore_modules, originals)
 
@@ -527,6 +492,42 @@ class MainWindowImportMixin:
         for attr_name, value in attrs.items():
             setattr(stub_module, attr_name, value)
         sys.modules[module_name] = stub_module
+
+    def _install_image_analysis_stubs(self) -> None:
+        skimage_module = types.ModuleType("skimage")
+        skimage_module.__path__ = []
+        skimage_modules = {
+            "skimage.util": {"img_as_float": _stub_callable("skimage.util.img_as_float")},
+            "skimage.color": {"rgb2gray": _stub_callable("skimage.color.rgb2gray")},
+            "skimage.feature": {
+                "peak_local_max": _stub_callable("skimage.feature.peak_local_max")
+            },
+            "skimage.measure": {"EllipseModel": _Dummy},
+            "skimage.morphology": {
+                "white_tophat": _stub_callable("skimage.morphology.white_tophat"),
+                "disk": _stub_callable("skimage.morphology.disk"),
+            },
+        }
+        for module_name, attrs in skimage_modules.items():
+            module = types.ModuleType(module_name)
+            for attr_name, value in attrs.items():
+                setattr(module, attr_name, value)
+            setattr(skimage_module, module_name.rsplit(".", 1)[-1], module)
+            sys.modules[module_name] = module
+        sys.modules["skimage"] = skimage_module
+
+        scipy_module = types.ModuleType("scipy")
+        scipy_module.__path__ = []
+        scipy_ndimage = types.ModuleType("scipy.ndimage")
+        scipy_ndimage.center_of_mass = _stub_callable("scipy.ndimage.center_of_mass")
+        scipy_ndimage.gaussian_filter = _stub_callable("scipy.ndimage.gaussian_filter")
+        scipy_optimize = types.ModuleType("scipy.optimize")
+        scipy_optimize.curve_fit = _stub_callable("scipy.optimize.curve_fit")
+        scipy_module.ndimage = scipy_ndimage
+        scipy_module.optimize = scipy_optimize
+        sys.modules["scipy"] = scipy_module
+        sys.modules["scipy.ndimage"] = scipy_ndimage
+        sys.modules["scipy.optimize"] = scipy_optimize
 
     def _restore_modules(self, originals: dict[str, types.ModuleType | None]) -> None:
         for module_name, original_module in originals.items():
