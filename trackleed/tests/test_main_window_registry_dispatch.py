@@ -54,6 +54,7 @@ class MainWindowImportMixin:
     main_window_module_name = "trackleed.gui.main_window"
 
     def import_main_window(self):
+        trackleed_package_children = self._snapshot_package_children("trackleed")
         trackleed_modules = {
             name: module
             for name, module in sys.modules.items()
@@ -500,6 +501,7 @@ class MainWindowImportMixin:
             self._restore_module_namespace,
             "trackleed.",
             trackleed_modules,
+            trackleed_package_children,
         )
         self.addCleanup(self._restore_modules, originals)
 
@@ -573,11 +575,46 @@ class MainWindowImportMixin:
         self,
         prefix: str,
         originals: dict[str, types.ModuleType],
+        package_children: dict[str, dict[str, types.ModuleType]],
     ) -> None:
         for module_name in tuple(sys.modules):
             if module_name.startswith(prefix) and module_name not in originals:
                 sys.modules.pop(module_name, None)
         sys.modules.update(originals)
+        for package_name, original_children in package_children.items():
+            package = sys.modules.get(package_name)
+            if package is None:
+                continue
+            child_prefix = f"{package_name}."
+            current_children = {
+                name
+                for name, value in vars(package).items()
+                if isinstance(value, types.ModuleType)
+                and value.__name__.startswith(child_prefix)
+            }
+            for child_name in current_children - original_children.keys():
+                delattr(package, child_name)
+            for child_name, module in original_children.items():
+                setattr(package, child_name, module)
+
+    def _snapshot_package_children(
+        self,
+        root_name: str,
+    ) -> dict[str, dict[str, types.ModuleType]]:
+        snapshots: dict[str, dict[str, types.ModuleType]] = {}
+        for module_name, module in sys.modules.items():
+            if module_name != root_name and not module_name.startswith(f"{root_name}."):
+                continue
+            if not hasattr(module, "__path__"):
+                continue
+            child_prefix = f"{module_name}."
+            snapshots[module_name] = {
+                name: value
+                for name, value in vars(module).items()
+                if isinstance(value, types.ModuleType)
+                and value.__name__.startswith(child_prefix)
+            }
+        return snapshots
 
 
 class MainWindowImportIsolationTests(MainWindowImportMixin, unittest.TestCase):
@@ -589,14 +626,28 @@ class MainWindowImportIsolationTests(MainWindowImportMixin, unittest.TestCase):
 
         for prior_state in ("absent", "present"):
             with self.subTest(prior_state=prior_state):
+                outer_trackleed_modules = {
+                    name: module
+                    for name, module in sys.modules.items()
+                    if name.startswith("trackleed.")
+                }
+                outer_package_children = self._snapshot_package_children("trackleed")
                 outer_state = {name: sys.modules.get(name) for name in module_names}
                 sentinels = {name: types.ModuleType(name) for name in module_names}
                 harness = MainWindowImportIsolationTests()
                 try:
+                    analysis_package = importlib.import_module("trackleed.analysis")
                     for module_name in module_names:
                         sys.modules.pop(module_name, None)
+                    if hasattr(analysis_package, "peak_analyzer"):
+                        delattr(analysis_package, "peak_analyzer")
                     if prior_state == "present":
                         sys.modules.update(sentinels)
+                        setattr(
+                            analysis_package,
+                            "peak_analyzer",
+                            sentinels["trackleed.analysis.peak_analyzer"],
+                        )
 
                     harness.import_main_window()
                     peak_analyzer = sys.modules["trackleed.analysis.peak_analyzer"]
@@ -611,9 +662,26 @@ class MainWindowImportIsolationTests(MainWindowImportMixin, unittest.TestCase):
                             self.assertIs(sys.modules.get(module_name), sentinels[module_name])
                         else:
                             self.assertNotIn(module_name, sys.modules)
+                    if prior_state == "present":
+                        analysis_import = __import__(
+                            "trackleed.analysis",
+                            fromlist=("peak_analyzer",),
+                        )
+                        restored_peak = getattr(analysis_import, "peak_analyzer")
+                        self.assertIs(
+                            restored_peak,
+                            sentinels["trackleed.analysis.peak_analyzer"],
+                        )
+                    else:
+                        self.assertFalse(hasattr(analysis_package, "peak_analyzer"))
                 finally:
                     harness.doCleanups()
                     self._restore_modules(outer_state)
+                    self._restore_module_namespace(
+                        "trackleed.",
+                        outer_trackleed_modules,
+                        outer_package_children,
+                    )
 
 
 class MainWindowWorkerHostTests(MainWindowImportMixin, unittest.TestCase):
