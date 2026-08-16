@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from threading import Event
-from typing import Protocol, cast
+from typing import Protocol
 
 from PyQt6.QtWidgets import QMessageBox, QWidget
 
@@ -34,6 +34,8 @@ from trackleed.logic.workflows.seeded_tracking import (
 
 
 class SeededRetrackWorkerHost(Protocol):
+    def window(self) -> QWidget: ...
+
     def launch_retrack_worker(
         self,
         worker: GenericWorker,
@@ -72,7 +74,7 @@ def launch_seeded_retrack(
     method = default_seeded_tracking_catalog().method(launch_request.method_id)
     if launch_request.config is None:
         QMessageBox.warning(
-            cast(QWidget, host),
+            host.window(),
             "Re-tracking unavailable",
             f"No {method.display_name} configuration is available for review.",
         )

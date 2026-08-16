@@ -48,6 +48,7 @@ class SeededMaskRetrackControllerTests(unittest.TestCase):
         track = Track(7, {1: seed})
         launched: dict[str, object] = {}
         host = SimpleNamespace(
+            window=lambda: None,
             launch_retrack_worker=lambda worker, **kwargs: launched.update(
                 worker=worker,
                 **kwargs,

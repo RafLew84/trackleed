@@ -43,6 +43,7 @@ class SeededBboxRetrackControllerTests(unittest.TestCase):
         )
         launched: dict[str, object] = {}
         host = SimpleNamespace(
+            window=lambda: None,
             launch_retrack_worker=lambda worker, **kwargs: launched.update(
                 worker=worker,
                 **kwargs,
@@ -76,6 +77,7 @@ class SeededBboxRetrackControllerTests(unittest.TestCase):
         )
         launched: list[object] = []
         host = SimpleNamespace(
+            window=lambda: None,
             launch_retrack_worker=lambda worker, **_kwargs: launched.append(worker)
         )
         launch_request = SeededRetrackLaunchRequest(
