@@ -55,8 +55,10 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
     def test_import_uses_its_own_peak_analyzer_scipy_contract(self) -> None:
         scipy_module = sys.modules["scipy"]
         optimize_module = sys.modules["scipy.optimize"]
+        peak_analyzer = sys.modules["trackleed.analysis.peak_analyzer"]
 
         self.assertIs(scipy_module.optimize, optimize_module)
+        self.assertIs(peak_analyzer.curve_fit, optimize_module.curve_fit)
         self.assertEqual(
             optimize_module.curve_fit()["name"],
             "scipy.optimize.curve_fit",

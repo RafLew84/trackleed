@@ -7,6 +7,16 @@ import unittest
 from types import SimpleNamespace
 
 
+_SCIPY_STUB_MODULE_NAMES = ("scipy", "scipy.ndimage", "scipy.optimize")
+_COLD_TRACK_ANALYSIS_MODULE_NAMES = (
+    "trackleed.analysis.peak_analyzer",
+    "trackleed.logic.workflows.gaussian_fit_recovery",
+    "trackleed.logic.workflows.track_analysis",
+    "trackleed.logic.active_analysis_state",
+    "trackleed.gui.tracking_publisher",
+)
+
+
 def _stub_callable(name: str):
     def _fn(*args, **kwargs):
         return {"name": name, "args": args, "kwargs": kwargs}
@@ -44,6 +54,11 @@ class MainWindowImportMixin:
     main_window_module_name = "trackleed.gui.main_window"
 
     def import_main_window(self):
+        trackleed_modules = {
+            name: module
+            for name, module in sys.modules.items()
+            if name.startswith("trackleed.")
+        }
         originals: dict[str, types.ModuleType | None] = {}
         for module_name in (
             "PyQt6",
@@ -92,6 +107,7 @@ class MainWindowImportMixin:
             "scipy",
             "scipy.ndimage",
             "scipy.optimize",
+            *_COLD_TRACK_ANALYSIS_MODULE_NAMES,
             self.main_window_module_name,
         ):
             originals[module_name] = sys.modules.get(module_name)
@@ -480,6 +496,11 @@ class MainWindowImportMixin:
 
         self._install_image_analysis_stubs()
 
+        self.addCleanup(
+            self._restore_module_namespace,
+            "trackleed.",
+            trackleed_modules,
+        )
         self.addCleanup(self._restore_modules, originals)
 
         main_window = importlib.import_module(self.main_window_module_name)
@@ -536,10 +557,23 @@ class MainWindowImportMixin:
             else:
                 sys.modules[module_name] = original_module
 
+    def _restore_module_namespace(
+        self,
+        prefix: str,
+        originals: dict[str, types.ModuleType],
+    ) -> None:
+        for module_name in tuple(sys.modules):
+            if module_name.startswith(prefix) and module_name not in originals:
+                sys.modules.pop(module_name, None)
+        sys.modules.update(originals)
+
 
 class MainWindowImportIsolationTests(MainWindowImportMixin, unittest.TestCase):
-    def test_cleanup_restores_exact_prior_scipy_module_state(self) -> None:
-        module_names = ("scipy", "scipy.ndimage", "scipy.optimize")
+    def test_cleanup_restores_exact_prior_import_state(self) -> None:
+        module_names = (
+            *_SCIPY_STUB_MODULE_NAMES,
+            *_COLD_TRACK_ANALYSIS_MODULE_NAMES,
+        )
 
         for prior_state in ("absent", "present"):
             with self.subTest(prior_state=prior_state):
@@ -553,6 +587,11 @@ class MainWindowImportIsolationTests(MainWindowImportMixin, unittest.TestCase):
                         sys.modules.update(sentinels)
 
                     harness.import_main_window()
+                    peak_analyzer = sys.modules["trackleed.analysis.peak_analyzer"]
+                    self.assertIs(
+                        peak_analyzer.curve_fit,
+                        sys.modules["scipy.optimize"].curve_fit,
+                    )
                     harness.doCleanups()
 
                     for module_name in module_names:
