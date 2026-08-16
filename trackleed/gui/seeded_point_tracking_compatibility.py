@@ -30,7 +30,6 @@ class PointTrackerLegacyBinding:
     tracking_runner_name: str
     retrack_runner_name: str
     models_param_name: str
-    review_argument_name: str
     repo_param_names: tuple[str, ...] = ()
 
 
@@ -43,41 +42,41 @@ class PointReviewSpec:
 _POINT_BINDINGS = (
     PointTrackerLegacyBinding(
         "tapir_offline", "track_spots_tapir_offline",
-        "retrack_single_spot_tapir_offline", "tapir_models_dir", "tapir_params",
+        "retrack_single_spot_tapir_offline", "tapir_models_dir",
     ),
     PointTrackerLegacyBinding(
         "tapir_online", "track_spots_tapir_online",
-        "retrack_single_spot_tapir_online", "tapir_models_dir", "tapir_params",
+        "retrack_single_spot_tapir_online", "tapir_models_dir",
     ),
     PointTrackerLegacyBinding(
         "locotrack_offline", "track_spots_locotrack_offline",
         "retrack_single_spot_locotrack_offline", "locotrack_models_dir",
-        "locotrack_params", ("locotrack_repo_path",),
+        ("locotrack_repo_path",),
     ),
     PointTrackerLegacyBinding(
         "cotracker3_offline", "track_spots_cotracker3_offline",
         "retrack_single_spot_cotracker3_offline", "cotracker3_models_dir",
-        "cotracker_params", ("cotracker3_repo_path", "cotracker_repo_path"),
+        ("cotracker3_repo_path", "cotracker_repo_path"),
     ),
     PointTrackerLegacyBinding(
         "tapnext_offline", "track_spots_tapnext_offline",
         "retrack_single_spot_tapnext_offline", "tapnext_models_dir",
-        "tapnext_params", ("tapnext_repo_path",),
+        ("tapnext_repo_path",),
     ),
     PointTrackerLegacyBinding(
         "trackonr_offline", "track_spots_trackonr_offline",
         "retrack_single_spot_trackonr_offline", "trackonr_models_dir",
-        "trackonr_params", ("trackonr_repo_path", "track_on_repo_path"),
+        ("trackonr_repo_path", "track_on_repo_path"),
     ),
     PointTrackerLegacyBinding(
         "pipspp_offline", "track_spots_pipspp_offline",
         "retrack_single_spot_pipspp_offline", "pipspp_models_dir",
-        "pipspp_params", ("pipspp_repo_path",),
+        ("pipspp_repo_path",),
     ),
     PointTrackerLegacyBinding(
         "mftiq_offline", "track_spots_mftiq_offline",
         "retrack_single_spot_mftiq_offline", "mftiq_models_dir",
-        "mftiq_params", ("mftiq_repo_path",),
+        ("mftiq_repo_path",),
     ),
 )
 

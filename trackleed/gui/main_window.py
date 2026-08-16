@@ -1673,9 +1673,6 @@ class MainWindow(QMainWindow):
             return
         
         review_defaults = self.seeded_tracking_controller.review_defaults
-        tracking_dialog_params = dict(
-            getattr(self.seeded_tracking_controller, "review_backend_params", {})
-        )
         dialog = TrackingDialog(
             clone_tracks_for_review(self.tracking_results),
             self.data_files, 
@@ -1683,7 +1680,9 @@ class MainWindow(QMainWindow):
             roi_size=review_defaults.roi_size,
             lk_win_size=review_defaults.lk_win_size,
             lk_max_level=review_defaults.lk_max_level,
-            **tracking_dialog_params,
+            seeded_tracking_configs=(
+                self.seeded_tracking_controller.review_tracking_configs
+            ),
             parent=self,
             save_session_callback=self.session_controller.save_dialog,
         )

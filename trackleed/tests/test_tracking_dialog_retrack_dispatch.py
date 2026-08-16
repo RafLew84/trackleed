@@ -5,6 +5,15 @@ import sys
 import types
 import unittest
 from types import SimpleNamespace
+from typing import Protocol, cast
+
+
+class _CapturedLaunchRequest(Protocol):
+    method_id: str
+    files: tuple[object, ...]
+    track: object
+    start_frame_id: int
+    config: object
 
 
 class _Dummy:
@@ -258,17 +267,37 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
         self.assertIsNone(dialog._backend_retrack_action_text(self._track("manual_corr")))
 
     def test_optical_flow_retrack_uses_public_seeded_workflow(self) -> None:
-        calls: list[tuple[str, int]] = []
-        self.module.launch_seeded_retrack = (
-            lambda _dialog, method_id, spot_id: calls.append((method_id, spot_id))
+        track = self._track("optical_flow")
+        config = object()
+        files = {1: object(), 2: object()}
+        calls: list[tuple[object, object]] = []
+        self.module.launch_seeded_retrack = lambda host, request: calls.append(
+            (host, request)
+        )
+        dialog = SimpleNamespace(
+            _get_retrack_target=lambda: (track, 1),
+            seeded_tracking_configs={"optical_flow": config},
+            file_map=files,
+            sorted_frame_ids=[1, 2],
+        )
+        dialog._initiate_seeded_retrack = types.MethodType(
+            self.module.TrackingDialog._initiate_seeded_retrack,
+            dialog,
         )
 
         self.module.TrackingDialog.initiate_retrack_optical_flow(
-            SimpleNamespace(),
+            dialog,
             17,
         )
 
-        self.assertEqual(calls, [("optical_flow", 17)])
+        host, captured_request = calls[0]
+        request = cast(_CapturedLaunchRequest, captured_request)
+        self.assertIs(host, dialog)
+        self.assertEqual(request.method_id, "optical_flow")
+        self.assertEqual(request.files, (files[1], files[2]))
+        self.assertIs(request.track, track)
+        self.assertEqual(request.start_frame_id, 1)
+        self.assertIs(request.config, config)
 
     def test_cancelled_retrack_keeps_the_existing_review_copy(self) -> None:
         track = self._track("tapir_offline")
@@ -286,6 +315,35 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
         self.module.TrackingDialog.on_retrack_finished(dialog, None)
 
         self.assertEqual(dialog.tracks, [track])
+
+    def test_failed_retrack_keeps_the_existing_review_copy(self) -> None:
+        track = self._track("tapir_offline")
+        dialog = SimpleNamespace(
+            _active_retrack_label="Offline TAPIR",
+            tracks=[track],
+        )
+
+        self.module.TrackingDialog.on_retrack_error(dialog, "boom")
+
+        self.assertEqual(dialog.tracks, [track])
+
+    def test_successful_retrack_updates_the_review_copy(self) -> None:
+        original = self._track("tapir_offline")
+        updated = self._track("tapir_offline", "tapir_offline")
+        calls: list[object] = []
+        dialog = SimpleNamespace(
+            _active_retrack_label="Offline TAPIR",
+            tracks=[original],
+            sorted_frame_ids=[1, 2],
+            frame_slider=SimpleNamespace(value=lambda: 0),
+            populate_tracks_table=lambda: calls.append("table"),
+            show_frame=lambda frame_id: calls.append(("frame", frame_id)),
+        )
+
+        self.module.TrackingDialog.on_retrack_finished(dialog, updated)
+
+        self.assertIs(dialog.tracks[0], updated)
+        self.assertEqual(calls, ["table", ("frame", 1)])
 
 class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
     def setUp(self) -> None:

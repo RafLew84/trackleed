@@ -4,6 +4,7 @@ import os
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -14,6 +15,7 @@ from trackleed.core.data_models import LeedFile, SpotROI, Track
 from trackleed.gui import main_window
 from trackleed.gui import session_controller
 from trackleed.logic.active_analysis_state import ActiveAnalysisState
+from trackleed.logic.workflows.seeded_tracking import OpticalFlowConfig
 
 
 def _spot(x: float) -> SpotROI:
@@ -38,10 +40,12 @@ def _frame() -> LeedFile:
 
 class _ReviewDialog:
     result = QDialog.DialogCode.Rejected
+    last_kwargs: dict[str, object]
 
     def __init__(
-        self, tracking_data: list[Track], *_args: object, **_kwargs: object
+        self, tracking_data: list[Track], *_args: object, **kwargs: object
     ) -> None:
+        type(self).last_kwargs = kwargs
         self.tracks = tracking_data
         self.tracks[0].spots_by_image_id[1].center_x = 44.0
 
@@ -53,6 +57,7 @@ class _ReviewDialog:
 
 
 def _host(frame: LeedFile) -> SimpleNamespace:
+    optical_flow_config = OpticalFlowConfig(roi_size=18)
     return SimpleNamespace(
         tracking_results=[Track(7, {1: _spot(16.0)})],
         data_files=[frame],
@@ -62,9 +67,9 @@ def _host(frame: LeedFile) -> SimpleNamespace:
                 roi_size=18,
                 lk_win_size=41,
                 lk_max_level=4,
-            )
+            ),
+            review_tracking_configs={"optical_flow": optical_flow_config},
         ),
-        _collect_tracking_dialog_backend_params=lambda: {},
         file_list_widget=SimpleNamespace(currentItem=lambda: None),
         session_controller=SimpleNamespace(save_dialog=lambda _tracks: None),
         _active_analysis_state=ActiveAnalysisState(),
@@ -121,6 +126,23 @@ class SeededTrackingReviewTests(unittest.TestCase):
         self.assertEqual(dialog.windowTitle(), "Review / Edit Tracks")
         accept_button = dialog.button_box.button(QDialogButtonBox.StandardButton.Ok)
         self.assertEqual(accept_button.text(), "Accept Tracks")
+
+    def test_review_dialog_receives_only_typed_seeded_tracking_configs(self) -> None:
+        frame = _frame()
+        host = _host(frame)
+
+        main_window.MainWindow.show_tracking_visualizer(host)
+
+        kwargs = _ReviewDialog.last_kwargs
+        review_configs = cast(
+            dict[str, OpticalFlowConfig],
+            kwargs["seeded_tracking_configs"],
+        )
+        self.assertIs(
+            review_configs["optical_flow"],
+            host.seeded_tracking_controller.review_tracking_configs["optical_flow"],
+        )
+        self.assertFalse(any(name.endswith("_params") for name in kwargs))
 
     def test_save_session_from_review_does_not_publish_working_copy(self) -> None:
         frame = _frame()

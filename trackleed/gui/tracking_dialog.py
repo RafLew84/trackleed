@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Mapping
 from typing import List
 from threading import Event
 import numpy as np
@@ -12,8 +13,13 @@ from PyQt6.QtWidgets import (QDialog, QWidget, QHBoxLayout, QVBoxLayout, QSlider
 from trackleed.core.data_models import LeedFile, Track, SpotROI
 from trackleed.gui.leed_image_viewer import LeedImageViewer
 from trackleed.gui.polygon_mask_dialog import PolygonMaskDialog
-from trackleed.gui.seeded_retrack_controller import launch_seeded_retrack, review_spec_for_source
+from trackleed.gui.seeded_retrack_controller import (
+    SeededRetrackLaunchRequest,
+    launch_seeded_retrack,
+    review_spec_for_source,
+)
 from trackleed.io.image_reader import load_tiff
+from trackleed.logic.workflows.seeded_tracking import SeededTrackingConfig
 
 MANUAL_TRACK_SOURCES = {"manual", "manual_new", "manual_corr", "manual_point"}
 
@@ -159,22 +165,7 @@ class TrackingDialog(QDialog):
         roi_size: int,
         lk_win_size: int,
         lk_max_level: int,
-        tapir_params: dict | None = None,
-        locotrack_params: dict | None = None,
-        cotracker_params: dict | None = None,
-        tapnext_params: dict | None = None,
-        trackonr_params: dict | None = None,
-        pipspp_params: dict | None = None,
-        mftiq_params: dict | None = None,
-        cutie_params: dict | None = None,
-        xmem2_params: dict | None = None,
-        tomp_params: dict | None = None,
-        ostrack_params: dict | None = None,
-        sam2_params: dict | None = None,
-        dam4sam_params: dict | None = None,
-        samurai_params: dict | None = None,
-        deva_params: dict | None = None,
-        seeded_tracking_configs: dict | None = None,
+        seeded_tracking_configs: Mapping[str, SeededTrackingConfig] | None = None,
         parent=None,
         save_session_callback=None,
     ):
@@ -191,22 +182,9 @@ class TrackingDialog(QDialog):
         self.roi_size = roi_size
         self.lk_win_size = lk_win_size  
         self.lk_max_level = lk_max_level
-        self.tapir_params = dict(tapir_params or {})
-        self.locotrack_params = dict(locotrack_params or {})
-        self.cotracker_params = dict(cotracker_params or {})
-        self.tapnext_params = dict(tapnext_params or {})
-        self.trackonr_params = dict(trackonr_params or {})
-        self.pipspp_params = dict(pipspp_params or {})
-        self.mftiq_params = dict(mftiq_params or {})
-        self.cutie_params = dict(cutie_params or {})
-        self.xmem2_params = dict(xmem2_params or {})
-        self.tomp_params = dict(tomp_params or {})
-        self.ostrack_params = dict(ostrack_params or {})
-        self.sam2_params = dict(sam2_params or {})
-        self.dam4sam_params = dict(dam4sam_params or {})
-        self.samurai_params = dict(samurai_params or {})
-        self.deva_params = dict(deva_params or {})
-        self.seeded_tracking_configs = dict(seeded_tracking_configs or {})
+        self.seeded_tracking_configs: dict[str, SeededTrackingConfig] = dict(
+            seeded_tracking_configs or {}
+        )
         self.save_session_callback = save_session_callback
         self._active_retrack_label = "Re-tracking"
         self.sorted_frame_ids = sorted(list(self.file_map.keys()))
@@ -758,9 +736,22 @@ class TrackingDialog(QDialog):
             return None
         return f"Re-track from this point ({method_label})"
 
-    def _initiate_retrack_for_tracker_spec(self, tracker_spec, spot_id: int) -> None:
-        tracker_id = str(getattr(tracker_spec, "tracker_id", "") or "").strip().lower()
-        launch_seeded_retrack(self, tracker_id, spot_id)
+    def _initiate_seeded_retrack(self, method_id: str) -> None:
+        target = self._get_retrack_target()
+        if target is None:
+            return
+        track, start_frame_id = target
+        files = tuple(self.file_map[frame_id] for frame_id in self.sorted_frame_ids)
+        launch_seeded_retrack(
+            self,
+            SeededRetrackLaunchRequest(
+                method_id=method_id,
+                files=files,
+                track=track,
+                start_frame_id=start_frame_id,
+                config=self.seeded_tracking_configs.get(method_id),
+            ),
+        )
 
     def _track_supports_polygon_seed(self, track: Track | None) -> bool:
         """Polygon seed workflow is currently available only for Cutie and XMem2."""
@@ -1078,7 +1069,7 @@ class TrackingDialog(QDialog):
         elif action == retrack_action:
             self.initiate_retrack_optical_flow(spot_id)
         elif action == backend_retrack_action and current_tracker_spec is not None:
-            self._initiate_retrack_for_tracker_spec(current_tracker_spec, spot_id)
+            self._initiate_seeded_retrack(current_tracker_spec.tracker_id)
 
     def _get_retrack_target(self) -> tuple[Track, int] | None:
         """Return the currently selected track and frame for a local retrack."""
@@ -1113,9 +1104,9 @@ class TrackingDialog(QDialog):
         self._update_track_details()
         self.show_frame(current_frame_id)
 
-    def initiate_retrack_optical_flow(self, spot_id: int):
+    def initiate_retrack_optical_flow(self, _spot_id: int):
         """Launch optical-flow review through the public seeded workflow."""
-        launch_seeded_retrack(self, "optical_flow", spot_id)
+        self._initiate_seeded_retrack("optical_flow")
 
     def launch_retrack_worker(
         self,

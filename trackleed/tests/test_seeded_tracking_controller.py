@@ -153,6 +153,23 @@ class SeededTrackingControllerTests(unittest.TestCase):
         self.assertEqual(worker.function.__name__, "run_seeded_tracking_job")
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
 
+    def test_cancel_keeps_the_last_accepted_review_configuration(self) -> None:
+        accepted = self.controller.settings.dialog_settings
+        candidate = accepted.with_point_config(
+            "tapir_offline",
+            TapirPointConfig(models_dir=Path("cancelled-models"), roi_size=26),
+        )
+        _Dialog.decision = replace(_Dialog.decision, settings=candidate)
+        _Dialog.result = QDialog.DialogCode.Rejected
+
+        self.controller.show_dialog()
+
+        self.assertIs(self.controller.settings.dialog_settings, accepted)
+        self.assertIs(
+            self.controller.review_tracking_configs["tapir_offline"],
+            accepted.point_config("tapir_offline"),
+        )
+
     def test_error_and_cancel_keep_previous_complete_result(self) -> None:
         self.controller.show_dialog()
         previous_state = self.host._active_analysis_state
@@ -244,21 +261,16 @@ class SeededTrackingControllerTests(unittest.TestCase):
         )
 
         defaults = self.controller.review_defaults
-        backend_params = self.controller.review_backend_params
+        review_configs = self.controller.review_tracking_configs
 
         self.assertEqual(defaults.roi_size, 26)
         self.assertIs(
-            backend_params["seeded_tracking_configs"]["optical_flow"],
+            review_configs["optical_flow"],
             settings.optical_flow,
         )
         self.assertIs(
-            backend_params["seeded_tracking_configs"]["tapir_offline"],
+            review_configs["tapir_offline"],
             settings.point_config("tapir_offline"),
-        )
-        self.assertEqual(backend_params["tapir_params"]["roi_size"], 26)
-        self.assertEqual(
-            backend_params["tapir_params"]["tapir_models_dir"],
-            "custom-models",
         )
 
     def test_bbox_review_uses_the_last_accepted_bbox_configuration(self) -> None:
@@ -272,17 +284,12 @@ class SeededTrackingControllerTests(unittest.TestCase):
         )
 
         defaults = self.controller.review_defaults
-        backend_params = self.controller.review_backend_params
+        review_configs = self.controller.review_tracking_configs
 
         self.assertEqual(defaults.roi_size, 28)
         self.assertIs(
-            backend_params["seeded_tracking_configs"]["ostrack_offline"],
+            review_configs["ostrack_offline"],
             settings.bbox_config("ostrack_offline"),
-        )
-        self.assertEqual(backend_params["ostrack_params"]["roi_size"], 28)
-        self.assertEqual(
-            backend_params["ostrack_params"]["ostrack_models_dir"],
-            "bbox-models",
         )
 
     def test_mask_review_uses_the_last_accepted_mask_configuration(self) -> None:
@@ -296,17 +303,12 @@ class SeededTrackingControllerTests(unittest.TestCase):
         )
 
         defaults = self.controller.review_defaults
-        backend_params = self.controller.review_backend_params
+        review_configs = self.controller.review_tracking_configs
 
         self.assertEqual(defaults.roi_size, 30)
         self.assertIs(
-            backend_params["seeded_tracking_configs"]["cutie_offline"],
+            review_configs["cutie_offline"],
             settings.mask_config("cutie_offline"),
-        )
-        self.assertEqual(backend_params["cutie_params"]["roi_size"], 30)
-        self.assertEqual(
-            backend_params["cutie_params"]["cutie_models_dir"],
-            "mask-models",
         )
 
 

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Protocol
 
 import numpy as np
-from PyQt6.QtCore import QRect
 
 from trackleed.analysis.seeded_bbox_tracking_runtime import (
     default_bbox_tracker_configs,
@@ -202,7 +201,7 @@ def build_seeded_retrack_request(
     track: Track,
     start_frame_id: int,
     method_id: str,
-    config: PointTrackerConfig | BoundingBoxTrackerConfig | MaskTrackerConfig,
+    config: SeededTrackingConfig,
 ) -> SeededRetrackRequest:
     """Snapshot one mutable review track into a neutral re-track request."""
     frame_ids = _stable_frame_ids(files)

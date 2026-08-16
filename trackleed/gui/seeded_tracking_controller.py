@@ -13,18 +13,6 @@ import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDialog, QMessageBox
 
-from trackleed.gui.seeded_bbox_tracking_compatibility import (
-    bbox_tracker_legacy_binding,
-    legacy_bbox_tracker_params,
-)
-from trackleed.gui.seeded_point_tracking_compatibility import (
-    legacy_point_tracker_params,
-    point_tracker_legacy_binding,
-)
-from trackleed.gui.seeded_mask_tracking_compatibility import (
-    legacy_mask_tracker_params,
-    mask_tracker_legacy_binding,
-)
 from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingDialogSettings,
     SeededTrackingSettingsBinding,
@@ -37,7 +25,10 @@ from trackleed.gui.seeded_tracking_dialog import (
 )
 from trackleed.io.image_reader import load_tiff
 from trackleed.logic.generic_worker import GenericWorker
-from trackleed.logic.workflows.seeded_tracking import TrackingResult
+from trackleed.logic.workflows.seeded_tracking import (
+    SeededTrackingConfig,
+    TrackingResult,
+)
 
 
 class TrackingNotificationSink(Protocol):
@@ -137,44 +128,15 @@ class SeededTrackingController:
         )
 
     @property
-    def review_backend_params(self) -> dict[str, object]:
+    def review_tracking_configs(self) -> dict[str, SeededTrackingConfig]:
         settings = self.settings.dialog_settings
-        point_configs = dict(settings.point_configs)
-        bbox_configs = dict(settings.bbox_configs)
-        mask_configs = dict(settings.mask_configs)
-        params: dict[str, object] = {
-            "seeded_tracking_configs": {
-                "optical_flow": settings.optical_flow,
-                "optical_flow_skip_anchor": settings.skip_anchor,
-            }
-            | point_configs
-            | bbox_configs
-            | mask_configs,
+        return {
+            "optical_flow": settings.optical_flow,
+            "optical_flow_skip_anchor": settings.skip_anchor,
+            **dict(settings.point_configs),
+            **dict(settings.bbox_configs),
+            **dict(settings.mask_configs),
         }
-        point_config = point_configs.get(settings.selected_method_id)
-        if point_config is not None:
-            binding = point_tracker_legacy_binding(settings.selected_method_id)
-            params[binding.review_argument_name] = legacy_point_tracker_params(
-                settings.selected_method_id,
-                point_config,
-            )
-            return params
-        bbox_config = bbox_configs.get(settings.selected_method_id)
-        if bbox_config is not None:
-            bbox_binding = bbox_tracker_legacy_binding(settings.selected_method_id)
-            params[bbox_binding.review_argument_name] = legacy_bbox_tracker_params(
-                settings.selected_method_id,
-                bbox_config,
-            )
-            return params
-        mask_config = mask_configs.get(settings.selected_method_id)
-        if mask_config is not None:
-            mask_binding = mask_tracker_legacy_binding(settings.selected_method_id)
-            params[mask_binding.review_argument_name] = legacy_mask_tracker_params(
-                settings.selected_method_id,
-                mask_config,
-            )
-        return params
 
     def show_dialog(self) -> None:
         self._show_dialog(self.settings.dialog_settings)

@@ -33,7 +33,6 @@ class MaskTrackerLegacyBinding:
     method_id: str
     tracking_runner_name: str
     retrack_runner_name: str
-    review_argument_name: str
     source_names: tuple[str, ...]
 
 
@@ -46,29 +45,27 @@ class MaskReviewSpec:
 _MASK_BINDINGS = (
     MaskTrackerLegacyBinding(
         "cutie_offline", "track_spots_cutie_offline",
-        "retrack_single_spot_cutie_offline", "cutie_params", ("cutie_offline",),
+        "retrack_single_spot_cutie_offline", ("cutie_offline",),
     ),
     MaskTrackerLegacyBinding(
         "xmem2_offline", "track_spots_xmem2_offline",
-        "retrack_single_spot_xmem2_offline", "xmem2_params", ("xmem2_offline",),
+        "retrack_single_spot_xmem2_offline", ("xmem2_offline",),
     ),
     MaskTrackerLegacyBinding(
         "sam2_offline", "track_spots_sam2_offline",
-        "retrack_single_spot_sam2_offline", "sam2_params", ("sam2_offline",),
+        "retrack_single_spot_sam2_offline", ("sam2_offline",),
     ),
     MaskTrackerLegacyBinding(
         "dam4sam_offline", "track_spots_dam4sam_offline",
-        "retrack_single_spot_dam4sam_offline", "dam4sam_params",
-        ("dam4sam_offline",),
+        "retrack_single_spot_dam4sam_offline", ("dam4sam_offline",),
     ),
     MaskTrackerLegacyBinding(
         "samurai_offline", "track_spots_samurai_offline",
-        "retrack_single_spot_samurai_offline", "samurai_params",
-        ("samurai_offline",),
+        "retrack_single_spot_samurai_offline", ("samurai_offline",),
     ),
     MaskTrackerLegacyBinding(
         "deva_offline", "track_spots_deva_offline",
-        "retrack_single_spot_deva_offline", "deva_params", ("deva_offline",),
+        "retrack_single_spot_deva_offline", ("deva_offline",),
     ),
 )
 

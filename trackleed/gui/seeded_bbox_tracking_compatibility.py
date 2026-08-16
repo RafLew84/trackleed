@@ -29,7 +29,6 @@ class BboxTrackerLegacyBinding:
     method_id: str
     tracking_runner_name: str
     retrack_runner_name: str
-    review_argument_name: str
     source_names: tuple[str, ...]
 
 
@@ -42,12 +41,12 @@ class BboxReviewSpec:
 _BBOX_BINDINGS = (
     BboxTrackerLegacyBinding(
         "tomp_offline", "track_spots_tomp_offline",
-        "retrack_single_spot_tomp_offline", "tomp_params",
+        "retrack_single_spot_tomp_offline",
         ("tomp_offline", "tamos_offline"),
     ),
     BboxTrackerLegacyBinding(
         "ostrack_offline", "track_spots_ostrack_offline",
-        "retrack_single_spot_ostrack_offline", "ostrack_params",
+        "retrack_single_spot_ostrack_offline",
         ("ostrack_offline",),
     ),
 )
