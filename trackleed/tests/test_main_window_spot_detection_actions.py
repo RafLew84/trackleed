@@ -1,3 +1,4 @@
+import sys
 import types
 import unittest
 from pathlib import Path
@@ -50,6 +51,16 @@ class MainWindowSpotDetectionActionTests(MainWindowImportMixin, unittest.TestCas
                 recorded["worker"] = self
 
         self.main_window.GenericWorker = Worker
+
+    def test_import_uses_its_own_peak_analyzer_scipy_contract(self) -> None:
+        scipy_module = sys.modules["scipy"]
+        optimize_module = sys.modules["scipy.optimize"]
+
+        self.assertIs(scipy_module.optimize, optimize_module)
+        self.assertEqual(
+            optimize_module.curve_fit()["name"],
+            "scipy.optimize.curve_fit",
+        )
 
     def _bind_detection_handlers(self, fake: SimpleNamespace) -> None:
         fake._start_spot_detection = types.MethodType(
