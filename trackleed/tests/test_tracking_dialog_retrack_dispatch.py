@@ -270,6 +270,23 @@ class TrackingDialogRetrackDispatchTests(TrackingDialogImportMixin, unittest.Tes
 
         self.assertEqual(calls, [("optical_flow", 17)])
 
+    def test_cancelled_retrack_keeps_the_existing_review_copy(self) -> None:
+        track = self._track("tapir_offline")
+        dialog = SimpleNamespace(
+            _active_retrack_label="Offline TAPIR",
+            tracks=[track],
+            populate_tracks_table=lambda: self.fail(
+                "Cancelled re-track must not refresh changed tracks"
+            ),
+            show_frame=lambda _frame_id: self.fail(
+                "Cancelled re-track must not redraw changed tracks"
+            ),
+        )
+
+        self.module.TrackingDialog.on_retrack_finished(dialog, None)
+
+        self.assertEqual(dialog.tracks, [track])
+
 class TrackingDialogDevaVisualizerTests(TrackingDialogImportMixin, unittest.TestCase):
     def setUp(self) -> None:
         self.module, self.tracker_specs = self.import_tracking_dialog()

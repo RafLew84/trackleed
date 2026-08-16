@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 from PyQt6.QtCore import QRect
@@ -12,6 +13,7 @@ from trackleed.gui.seeded_tracking_adapter import (
     SeededTrackingSettingsBinding,
     build_seeded_retrack_request,
     build_seeded_tracking_request,
+    run_seeded_retrack_job,
     run_seeded_tracking_job,
 )
 from trackleed.gui.tracking_publisher import (
@@ -292,6 +294,50 @@ class SeededTrackingGuiAdapterTests(unittest.TestCase):
             cancelled,
             progress_callback=lambda _value: None,
         )
+
+        self.assertIsNone(result)
+
+    def test_retrack_job_rejects_valid_result_after_legacy_cancellation(self) -> None:
+        files = (_leed_file(1, []), _leed_file(2, []))
+        track = Track(7, {1: _spot(7, 20, 21)})
+        request = build_seeded_retrack_request(
+            files=files,
+            track=track,
+            start_frame_id=1,
+            method_id="tapir_offline",
+            config=TapirPointConfig(),
+        )
+        cancelled = Event()
+
+        def _retrack_runner(legacy_track, *_args, **_kwargs):
+            cancelled.set()
+            return legacy_track
+
+        probe_module = SimpleNamespace(
+            probe_tapir_environment=lambda **_kwargs: SimpleNamespace(
+                checkpoint_exists=True,
+                is_ready=True,
+            )
+        )
+        runner_module = SimpleNamespace(
+            retrack_single_spot_tapir_offline=_retrack_runner
+        )
+        with (
+            patch(
+                "trackleed.analysis.seeded_point_tracking_runtime.import_module",
+                return_value=probe_module,
+            ),
+            patch(
+                "trackleed.gui.seeded_point_tracking_compatibility.import_module",
+                return_value=runner_module,
+            ),
+        ):
+            result = run_seeded_retrack_job(
+                request,
+                lambda _path: np.zeros((32, 32), dtype=np.uint8),
+                cancelled,
+                progress_callback=lambda _value: None,
+            )
 
         self.assertIsNone(result)
 
