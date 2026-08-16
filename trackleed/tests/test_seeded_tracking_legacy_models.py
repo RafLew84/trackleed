@@ -237,6 +237,68 @@ class SeededTrackingLegacyExecutionTests(unittest.TestCase):
                 runner=lambda *_args, **_kwargs: None,
             )
 
+    def test_shared_execution_rejects_valid_result_after_cancellation(self) -> None:
+        full_request = _request()
+        retrack_request = SeededRetrackRequest(
+            full_request.method_id,
+            full_request.frames,
+            TrackedSpotIdentity(
+                7,
+                (TrackObservation(1, SeedRect(16, 17, 8, 8), 20.0, 21.0),),
+            ),
+            1,
+            full_request.config,
+        )
+        raw_track = Track(
+            7,
+            {
+                1: legacy_spot(
+                    7,
+                    SeedRect(16, 17, 8, 8),
+                    20.0,
+                    21.0,
+                    0.0,
+                    "seed",
+                )
+            },
+        )
+        family = LegacySeededFamily(
+            "Legacy",
+            lambda _method_id, _config: {},
+            lambda seed: legacy_spot(
+                seed.seed_id,
+                seed.roi,
+                seed.center_x,
+                seed.center_y,
+                seed.intensity,
+                seed.source,
+            ),
+            lambda _method_id, *, retrack: self.fail("Explicit runner expected"),
+        )
+        for request, raw_result in (
+            (full_request, [raw_track]),
+            (retrack_request, raw_track),
+        ):
+            with self.subTest(operation=type(request).__name__):
+                cancelled = False
+
+                def runner(*_args, **_kwargs):
+                    nonlocal cancelled
+                    cancelled = True
+                    return raw_result
+
+                with self.assertRaises(SeededTrackingCancelled):
+                    run_legacy_seeded(
+                        "tapir_offline",
+                        request,
+                        RunContext(
+                            image_reader=lambda _path: np.zeros((2, 2)),
+                            is_cancelled=lambda: cancelled,
+                        ),
+                        family,
+                        runner=runner,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

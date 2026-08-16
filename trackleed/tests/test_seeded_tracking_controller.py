@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
+from typing import cast
 
+import numpy as np
 from PyQt6.QtCore import QRect
 from PyQt6.QtWidgets import QDialog
 
@@ -72,7 +76,7 @@ class _Dialog:
 
 
 class _Worker:
-    def __init__(self, function: object, *args: object) -> None:
+    def __init__(self, function: Callable[..., object], *args: object) -> None:
         self.function = function
         self.args = args
 
@@ -134,6 +138,7 @@ class SeededTrackingControllerTests(unittest.TestCase):
             roi_size=32,
             dialog_factory=_Dialog,
             worker_factory=_Worker,
+            image_reader=lambda _path: np.zeros((32, 32), dtype=np.uint8),
             notifications=_Notifications(),
         )
 
@@ -157,6 +162,33 @@ class SeededTrackingControllerTests(unittest.TestCase):
 
         self.host.launch["on_finished"](None)
         self.assertEqual(self.host.tracking_results[0].track_id, 99)
+        self.assertIs(self.host._active_analysis_state, previous_state)
+        self.assertEqual(tuple(file.spots for file in self.files), previous_spots)
+        self.assertEqual(self.host.review_calls, 0)
+
+    def test_final_progress_cancellation_never_publishes_worker_result(self) -> None:
+        self.controller.show_dialog()
+        previous_tracks = self.host.tracking_results
+        previous_state = self.host._active_analysis_state
+        previous_spots = tuple(file.spots for file in self.files)
+        worker = cast(_Worker, self.host.launch["worker"])
+        cancel_event = cast(Event, self.host.launch["cancel"])
+
+        result = cast(
+            TrackingResult | None,
+            worker.function(
+                *worker.args,
+                progress_callback=lambda _value: cancel_event.set(),
+            ),
+        )
+        on_finished = cast(
+            Callable[[TrackingResult | None], None],
+            self.host.launch["on_finished"],
+        )
+        on_finished(result)
+
+        self.assertIsNone(result)
+        self.assertIs(self.host.tracking_results, previous_tracks)
         self.assertIs(self.host._active_analysis_state, previous_state)
         self.assertEqual(tuple(file.spots for file in self.files), previous_spots)
         self.assertEqual(self.host.review_calls, 0)

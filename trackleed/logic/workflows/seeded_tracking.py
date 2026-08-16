@@ -377,7 +377,10 @@ def run_seeded_tracking(
     if context.is_cancelled():
         raise SeededTrackingCancelled("Seeded tracking cancelled")
     try:
-        return catalog.method(request.method_id).runtime.run(request, context)
+        result = catalog.method(request.method_id).runtime.run(request, context)
+        if context.is_cancelled():
+            raise SeededTrackingCancelled("Seeded tracking cancelled")
+        return result
     except SeededTrackingCancelled:
         raise
     except Exception as exc:
@@ -401,7 +404,10 @@ def run_seeded_retrack(
             "Selected method does not support re-tracking"
         )
     try:
-        return runtime.retrack(request, context)
+        result = runtime.retrack(request, context)
+        if context.is_cancelled():
+            raise SeededTrackingCancelled("Seeded re-tracking cancelled")
+        return result
     except SeededTrackingCancelled:
         raise
     except Exception as exc:

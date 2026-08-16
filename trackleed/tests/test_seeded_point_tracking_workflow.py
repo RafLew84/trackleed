@@ -5,6 +5,8 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
+import numpy as np
+
 from trackleed.analysis.seeded_point_tracking_runtime import (
     default_point_tracker_configs,
     point_tracking_definitions,
@@ -16,6 +18,7 @@ from trackleed.logic.workflows.point_tracking import (
 )
 from trackleed.logic.workflows.seeded_tracking import (
     RunContext,
+    SeededTrackingCancelled,
     SeededRetrackRequest,
     SeededTrackingFrame,
     SeededTrackingPreflightError,
@@ -205,6 +208,37 @@ class SeededPointTrackingWorkflowTests(unittest.TestCase):
 
         self.assertEqual(calls, ["preflight:tapir_offline:24", "run:tapir_offline:1"])
         self.assertEqual(result.tracks[0].observations[0].source, "tapir_offline")
+
+    def test_retrack_rejects_result_when_executor_finishes_cancelled(self) -> None:
+        full_request = _tapir_request()
+        track = TrackedSpotIdentity(
+            7,
+            (TrackObservation(1, SeedRect(16, 17, 8, 8), 20.0, 21.0),),
+        )
+        request = SeededRetrackRequest(
+            method_id=full_request.method_id,
+            frames=full_request.frames,
+            track=track,
+            start_frame_id=1,
+            config=full_request.config,
+        )
+        cancelled = False
+
+        def _retrack(_method_id, _request, _context):
+            nonlocal cancelled
+            cancelled = True
+            return TrackingResult((track,))
+
+        with self.assertRaises(SeededTrackingCancelled):
+            run_seeded_retrack(
+                request,
+                RunContext(
+                    image_reader=lambda _path: np.zeros((2, 2)),
+                    is_cancelled=lambda: cancelled,
+                    point_tracker_preflight=lambda _method_id, _config: (),
+                    point_tracker_retrack_executor=_retrack,
+                ),
+            )
 
     def test_structured_unavailability_prevents_point_execution(self) -> None:
         executed = False

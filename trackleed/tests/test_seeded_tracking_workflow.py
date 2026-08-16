@@ -232,6 +232,49 @@ class SeededTrackingWorkflowTests(unittest.TestCase):
                 ),
             )
 
+    def test_cancellation_on_final_progress_rejects_optical_flow_result(self) -> None:
+        images = _translated_frames()
+        cases = (
+            ("optical_flow", OpticalFlowConfig(use_centroid_refinement=False)),
+            (
+                "optical_flow_skip_anchor",
+                SkipAnchorOpticalFlowConfig(
+                    use_centroid_refinement=False,
+                    use_ncc_check=False,
+                ),
+            ),
+        )
+
+        for method_id, config in cases:
+            with self.subTest(method_id=method_id):
+                cancelled = False
+                request = SeededTrackingRequest(
+                    method_id=method_id,
+                    frames=(
+                        SeededTrackingFrame(1, Path("one.tif")),
+                        SeededTrackingFrame(2, Path("two.tif")),
+                    ),
+                    reference_frame_id=1,
+                    seeds=(
+                        TrackingSeed(7, 29.0, 29.0, SeedRect(21, 21, 16, 16)),
+                    ),
+                    config=config,
+                )
+
+                def _cancel_on_progress(_progress: object) -> None:
+                    nonlocal cancelled
+                    cancelled = True
+
+                with self.assertRaises(SeededTrackingCancelled):
+                    run_seeded_tracking(
+                        request,
+                        RunContext(
+                            image_reader=images.__getitem__,
+                            report_progress=_cancel_on_progress,
+                            is_cancelled=lambda: cancelled,
+                        ),
+                    )
+
     def test_reader_failure_is_wrapped_as_execution_error(self) -> None:
         request = SeededTrackingRequest(
             method_id="optical_flow",

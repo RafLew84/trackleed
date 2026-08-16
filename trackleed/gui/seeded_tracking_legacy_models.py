@@ -75,6 +75,7 @@ def run_legacy_seeded(
     )
     if raw_result is None:
         raise_none_result(method_id, context)
+    raise_if_cancelled(context)
     tracks = (
         [cast(Track, raw_result)]
         if is_retrack
