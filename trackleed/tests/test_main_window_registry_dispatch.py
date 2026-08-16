@@ -540,12 +540,24 @@ class MainWindowImportMixin:
         scipy_module = types.ModuleType("scipy")
         scipy_module.__path__ = []
         scipy_ndimage = types.ModuleType("scipy.ndimage")
-        scipy_ndimage.center_of_mass = _stub_callable("scipy.ndimage.center_of_mass")
-        scipy_ndimage.gaussian_filter = _stub_callable("scipy.ndimage.gaussian_filter")
+        setattr(
+            scipy_ndimage,
+            "center_of_mass",
+            _stub_callable("scipy.ndimage.center_of_mass"),
+        )
+        setattr(
+            scipy_ndimage,
+            "gaussian_filter",
+            _stub_callable("scipy.ndimage.gaussian_filter"),
+        )
         scipy_optimize = types.ModuleType("scipy.optimize")
-        scipy_optimize.curve_fit = _stub_callable("scipy.optimize.curve_fit")
-        scipy_module.ndimage = scipy_ndimage
-        scipy_module.optimize = scipy_optimize
+        setattr(
+            scipy_optimize,
+            "curve_fit",
+            _stub_callable("scipy.optimize.curve_fit"),
+        )
+        setattr(scipy_module, "ndimage", scipy_ndimage)
+        setattr(scipy_module, "optimize", scipy_optimize)
         sys.modules["scipy"] = scipy_module
         sys.modules["scipy.ndimage"] = scipy_ndimage
         sys.modules["scipy.optimize"] = scipy_optimize
