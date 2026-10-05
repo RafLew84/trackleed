@@ -207,3 +207,10 @@ otherwise it fails instead of overwriting files.
 ## Developer Notes
 
 - Tracker integration guide: [docs/tracker_integration.md](docs/tracker_integration.md)
+
+## Synthetic tracking benchmark
+
+For complete stationary H6 sequences with known positions and persistent IDs,
+see [the benchmark guide](docs/synthetic-benchmark.md). The separate generator
+writes float32 TIFF, fixed-scale PNG8, versioned reference tables and a verified
+manifest. It preserves the existing segmentation-training workflow.

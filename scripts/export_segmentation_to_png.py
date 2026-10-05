@@ -8,12 +8,19 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 import tifffile
 from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from trackleed.synthetic.storage import refuse_benchmark_source
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,8 +78,8 @@ def convert_mask(array: np.ndarray) -> Image.Image:
     arr = np.asarray(array, dtype=np.float32)
     if arr.ndim == 3 and arr.shape[0] == 1:
         arr = arr[0]
-    arr = (arr > 0).astype(np.uint8) * 255
-    return Image.fromarray(arr, mode="L")
+    mask = (arr > 0).astype(np.uint8) * 255
+    return Image.fromarray(mask, mode="L")
 
 
 def ensure_subdirs(dest: Path, split: str) -> dict[str, Path]:
@@ -96,6 +103,7 @@ def copy_metadata(source_meta: Path, dest_meta: Path) -> None:
 
 
 def convert_split(source_root: Path, dest_root: Path, split: str) -> None:
+    refuse_benchmark_source(source_root)
     src_images = source_root / split / "images"
     src_masks = source_root / split / "masks"
     src_meta = source_root / split / "metadata"
@@ -129,6 +137,10 @@ def convert_split(source_root: Path, dest_root: Path, split: str) -> None:
 
 def main() -> None:
     args = parse_args()
+    try:
+        refuse_benchmark_source(args.source)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     ensure_destination(args.dest, resume=args.resume)
     for split in args.splits:
         convert_split(args.source, args.dest, split)
