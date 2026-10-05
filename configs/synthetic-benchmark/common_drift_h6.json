@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "scene": {
+    "id": "common-drift-h6",
+    "pattern": "H6",
+    "image_size": [
+      1000,
+      1000
+    ],
+    "center_px": [
+      499.5,
+      499.5
+    ],
+    "lattice_scale_px": 180,
+    "sigma_px": 4,
+    "amplitude": 0.5,
+    "energy_ev": 100,
+    "drift_px_per_s": [
+      6,
+      0
+    ]
+  },
+  "condition": {
+    "id": "constant",
+    "background": 0.1,
+    "png_lower": 0,
+    "png_upper": 1
+  },
+  "realization_id": "deterministic",
+  "schedules": [
+    {
+      "id": "control",
+      "sampling": {
+        "start_ns": 0,
+        "end_ns": 2000000000,
+        "interval_ns": 1000000000,
+        "phase_ns": 0
+      }
+    }
+  ]
+}

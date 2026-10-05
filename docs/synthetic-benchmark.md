@@ -1,8 +1,8 @@
-# Static H6 synthetic benchmark (stage 1)
+# H6 synthetic benchmark (stage 2)
 
 This entry point creates a self-contained tracking benchmark alongside the existing
-segmentation-training generator. It currently supports one stationary H6 scene,
-one constant background, one deterministic realization and one observation schedule.
+segmentation-training generator. It supports stationary and energy-scanned H6 scenes, optional common drift,
+one constant background, one deterministic realization and multiple observation schedules.
 It requires NumPy, tifffile and Pillow; generation and verification import no GUI,
 torch, trackers or model weights.
 
@@ -65,15 +65,138 @@ are not numbers. Energy may be null for an unlabelled stationary scene.
 PNG bounds must have a positive finite difference.
 
 Unknown fields, duplicate JSON keys and unsupported versions/options are errors.
-This stage rejects H18/H54, motion, noise, imported backgrounds, apparatus masks
+Version 1 rejects motion; version 2 adds the energy and sampling features below.
+Both versions currently reject H18/H54, noise, imported backgrounds, apparatus masks
 and optional instance-mask export. The entire 4-sigma support must fit inside
 the frame's pixel-center rectangle; clipping is introduced in stage 5.
 A profile with no sampled support (W0 = 0) is an error, not a disappearance.
 Rendering also rejects values which cannot be represented as finite float32.
 
+## Energy scans and sampling (configuration version 2)
+
+Version 2 adds one fixed H6 scene with multiple schedules. Version 1 inputs and
+published packages remain readable with their original schema, IDs and flat image
+paths. Schema versions describe data; the generator version is recorded separately.
+The version 2 root uses `schedules` (a nonempty array) instead of `schedule`.
+The scene and condition defaults above still apply. No random motion is introduced.
+
+Ready 1000 × 1000 configurations:
+
+| File in configs/synthetic-benchmark | Expected result |
+| --- | --- |
+| energy_scan_h6.json | 80–200 eV over 2 s; schedules every 20/50/100 ms; 101/41/21 frames and 978 reference records |
+| stationary_control_h6.json | 100 eV; 0, 1, 2 s; exactly identical positions and pixels |
+| common_drift_h6.json | 100 eV; 0, 1, 2 s; common drift (6,0) px/s, ending 12 px right |
+
+With an existing output parent, use a different target name for each run:
+
+```sh
+python scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/energy_scan_h6.json --validate-only
+python scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/energy_scan_h6.json --output runs/h6-energy-example
+python scripts/generate_tracking_benchmark.py --verify runs/h6-energy-example
+python scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/stationary_control_h6.json --output runs/h6-stationary-control
+python scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/common_drift_h6.json --output runs/h6-drift-control
+```
+
+In version 2 the image folders are `sequences/<schedule_id>/images` and
+`sequences/<schedule_id>/rendered`. The root CSV tables contain all schedules;
+the manifest records `schedule_ids`. All sequences are verified and published
+as one package: a failure in a later schedule publishes none of them.
+
+A timed scan declares the following scene field (omit `energy_ev`, or set it to null):
+
+```json
+"energy_scan": {
+  "model": "linear_time",
+  "reference_energy_ev": 100,
+  "energies_ev": [80, 200],
+  "times_ns": [0, 2000000000],
+  "valid_energy_range_ev": [80, 200],
+  "projection_radius_px": 600,
+  "domain_justification": "Ideal normal-incidence projection; included H6 beams propagate."
+}
+```
+
+The two energies correspond to the two times. Ascending, descending and constant
+scans are supported; times must increase strictly. Observations outside this
+declared interval are rejected. The scene can also be evaluated between scheduled
+observations without changing its state or depending on call order.
+
+All centers follow `c0 + d(t) + sqrt(E0/E(t)) * (p0-c0)`. The common drift is
+`scene.drift_px_per_s * (time_ns / 1e9)`, measured from synthetic time zero,
+and defaults to [0,0]. Amplitude and sigma stay constant; the background stays
+fixed in image coordinates. The brightest sampled pixel can vary with subpixel
+position even though the continuous peak amplitude is constant.
+
+Without `energy_scan`, `energy_ev` is a fixed optional label and no reference
+energy is required. With zero drift this gives exact stationary control.
+Drift can be combined with a timed scan or a fixed energy.
+
+The scan requires positive E0, a positive ordered applicability range, positive
+projection scale R0, and a nonempty justification. Both the requested energies
+and E0 must lie within the declared range. For all included H6 beams the validator
+checks `(r0/R0) * sqrt(E0/E_min) <= 1` across that range.
+R0 is an ideal projection parameter, **not** the screen-mask radius or measured
+apparatus calibration. This check enforces the declared model assumption; it does
+not infer real propagation from positive energies or pixel positions.
+A conservative bound using maximum radius and drift extrema must fit the full
+4-sigma support inside the image; clipping remains a later-stage feature.
+
+A schedule uses either an explicit strictly increasing `times_ns` array or:
+
+```json
+{"id": "every-20ms", "sampling": {
+  "start_ns": 0, "end_ns": 2000000000,
+  "interval_ns": 20000000, "phase_ns": 0
+}}
+```
+
+Its first observation is start + phase, then integer interval steps up to and
+including end when aligned. Phase must satisfy 0 <= phase < interval.
+The expanded scene preserves these parameters and the full integer time list.
+Unstructured time lists have `sampling: null`; the list directly specifies every
+observation. Generated regular schedules are limited to 1,000,000 observations
+to reject accidental excessive expansion. IDs are unique ignoring case; version 2
+schedule IDs also reject Windows device names.
+
+Timed observation IDs are `t<nanoseconds>`: at 100 ms the ID is `t100000000`
+in every schedule, despite frame indices 5, 2 and 1. Integer differences are taken
+before converting the scan fraction to float, preserving nanosecond keys even
+above 2^53. PNG and TIFF pixels and reflection states at a shared observation
+are identical. Positional deltas and previous IDs can differ because each schedule
+has a different predecessor. First deltas and the first predecessor are empty.
+
+For an energy list without known times, set `model: "energy_list"`,
+`times_ns: null`, and e.g. `energies_ev: [200, 120, 120, 80]`.
+Keep the same required E0/domain/projection/justification fields.
+A schedule selects `observation_indices: [0, 1, 2, 3]`; indices refer to the
+ordered scene list, must increase strictly, and may select a subset.
+Uneven energy steps, descending order and repeated values are preserved.
+IDs `e0`, `e1`, etc. identify separate occurrences, so the two 120 eV entries
+retain different observation IDs. Equal energy does not mean the same observation.
+Both time and delta time remain empty; delta energy and displacement are real
+differences along the selected sequence. Time-dependent drift is rejected for
+this axis. Explicit time and energy-index schedules cannot be mixed.
+
+### Inspect the moving example
+
+1. Generate and verify the package with the commands above.
+2. Open `sequences/every-20ms/images` in TrackLEED and step through frames:
+   all six reflections contract together about (499.5,499.5).
+3. Open the 50 ms and 100 ms folders separately. Compare 100 ms at indices 5, 2
+   and 1 using `frames.csv` observation ID `t100000000`; their pixels match.
+4. Open the stationary control's `sequences/control/images`: all three frames
+   are identical. The drift control shifts the pattern 0, 6 and 12 px right.
+5. Inspect energy, time and predecessor deltas in `frames.csv`, then positions
+   and displacements in `reference.csv`. The existing GUI does not import these
+   CSV metadata automatically.
+
+These are instantaneous observations. Sampling interval is not exposure duration;
+no motion blur, attenuation, noise, H18/H54, masks, or tracker ranking is introduced.
+
 ## Package and numerical contract
 
-- `manifest.json`: type `trackleed.synthetic-benchmark`, schema version 1,
+- `manifest.json`: type `trackleed.synthetic-benchmark`, schema version 1 or 2,
   complete status, scene/condition/realization/schedule IDs, counts, generator
   provenance and hashes of every other file.
 - `input.json`: the actual input configuration; `scene.json`: its expanded values.
@@ -81,8 +204,8 @@ Rendering also rejects values which cannot be represented as finite float32.
 - `frames.csv`: observation IDs, int64 times, optional energy, predecessor and
   time/energy deltas, image paths, file/pixel hashes and clipping/quantization counts.
 - `reference.csv`: every frame × reflection, including zero-amplitude reflections.
-- `rendered/frame_XXXXXX.tiff`: unnormalized, unclipped float32.
-- `images/frame_XXXXXX.png`: uint8 grayscale with one fixed photometric mapping.
+- `rendered/frame_XXXXXX.tiff`: unnormalized, unclipped float32 (inside each sequence in v2).
+- `images/frame_XXXXXX.png`: uint8 grayscale with one fixed photometric mapping (inside each sequence in v2).
 - `.trackleed-synthetic-benchmark`: permanent type marker, also protecting corrupt
   packages from the legacy exporter.
 
@@ -108,11 +231,12 @@ The reference records amplitude extinction separately from positive pre-quantiza
 signal, float64/float32 signal pixels, changed float32 image pixels and changed PNG
 pixels. Thus weak signal, floating-point loss, saturation and extinction stay distinct.
 W0 is the unit-amplitude sampled support sum. Since clipping and apparatus masks
-are unsupported in stage 1, W1=W2=W3=W0, the retained fraction is 1 and geometric
+are unsupported in stages 1–2, W1=W2=W3=W0, the retained fraction is 1 and geometric
 loss fractions are 0, also for A=0.
 
 Every ID persists in every frame. The first predecessor and all first deltas are
-missing, represented by empty CSV fields; subsequent positional deltas are zero.
+missing, represented by empty CSV fields; subsequent deltas are differences from
+the preceding observation of the same schedule (zero for stationary positions).
 Booleans use true/false, lists use JSON, CSV is UTF-8 with comma separators and
 decimal points. NaN/Infinity are never missing-value encodings.
 
@@ -165,7 +289,7 @@ or intermediate JPEG encoding. This stage does not run or rank tracking models.
 ## Automated checks
 
 ```sh
-python -m unittest trackleed.tests.test_synthetic_config trackleed.tests.test_synthetic_scene trackleed.tests.test_synthetic_package trackleed.tests.test_synthetic_cli -v
+python -m unittest trackleed.tests.test_synthetic_config trackleed.tests.test_synthetic_scene trackleed.tests.test_synthetic_package trackleed.tests.test_synthetic_cli trackleed.tests.test_synthetic_motion trackleed.tests.test_synthetic_sampling -v
 python -m mypy --follow-imports=silent trackleed/synthetic scripts/generate_tracking_benchmark.py scripts/export_segmentation_to_png.py
 python scripts/validate_current_workflow.py
 ```
@@ -175,4 +299,4 @@ tests; acquisition-dependent publication tests remain outside its CI suite.
 Small fixtures check independent analytic positions/pixels, subpixel centers,
 support boundaries, quantization, preserved identities, real file round trips,
 legacy compatibility and publication failures. The supplied 1000 × 1000 example
-is the user demonstration.
+and the new scan/drift/stationary controls are the user demonstrations.

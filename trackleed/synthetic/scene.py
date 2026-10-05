@@ -31,13 +31,22 @@ class RenderedObservation:
     photometry: dict[str, int]
 
 
-def evaluate_scene(config: BenchmarkConfig, time_ns: int) -> tuple[Reflection, ...]:
-    """Return all six latent states at any nonnegative integer time."""
-    if type(time_ns) is not int or not 0 <= time_ns <= 2**63 - 1:
-        raise ValueError("time_ns must be a nonnegative int64")
+def evaluate_scene(
+    config: BenchmarkConfig, time_ns: int | None = None, *, observation_index: int | None = None,
+) -> tuple[Reflection, ...]:
+    """Return all latent states at a time or an ordered energy observation."""
     scene = config.scene
     cx, cy = scene.center_px
-    radius = scene.lattice_scale_px
+    energy = config.energy_at(time_ns, observation_index=observation_index)
+    radius = scene.lattice_radius(energy)
+    if time_ns is not None:
+        cx += scene.drift_px_per_s[0] * (time_ns / 1e9)
+        cy += scene.drift_px_per_s[1] * (time_ns / 1e9)
+    # Arbitrary-time evaluation must not bypass the current no-clipping contract.
+    extents = scene.support_extents(radius)
+    for center, extent, size in zip((cx, cy), extents, scene.image_size):
+        if not math.isfinite(center + extent) or center - extent < 0 or center + extent > size - 1:
+            raise ValueError("scene support must fit inside the frame in this stage")
     indices = ((-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0))
     return tuple(
         Reflection(f"h{h:+d}_k{k:+d}", h, k,
@@ -48,8 +57,10 @@ def evaluate_scene(config: BenchmarkConfig, time_ns: int) -> tuple[Reflection, .
     )
 
 
-def render_observation(config: BenchmarkConfig, time_ns: int) -> RenderedObservation:
-    reflections = evaluate_scene(config, time_ns)
+def render_observation(
+    config: BenchmarkConfig, time_ns: int | None = None, *, observation_index: int | None = None,
+) -> RenderedObservation:
+    reflections = evaluate_scene(config, time_ns, observation_index=observation_index)
     profiles = tuple(_profile(reflection) for reflection in reflections)
     raw = _compose(config, reflections, profiles)
     with np.errstate(over="ignore"):

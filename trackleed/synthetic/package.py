@@ -1,6 +1,7 @@
-"""Generate and read complete, versioned static H6 packages."""
+"""Generate and read complete, versioned H6 packages."""
 from __future__ import annotations
 
+from collections.abc import Iterator
 import csv
 from dataclasses import dataclass
 import json
@@ -14,13 +15,13 @@ import numpy as np
 from PIL import Image
 import tifffile
 
-from trackleed.synthetic.config import BenchmarkConfig, load_config, parse_config, read_json
+from trackleed.synthetic.config import BenchmarkConfig, Schedule, load_config, parse_config, read_json
 from trackleed.synthetic.scene import RenderedObservation, render_observation
 from trackleed.synthetic.storage import (
     MARKER, PACKAGE_TYPE, STAGING_PREFIX, file_sha256, generator_provenance,
     pixel_descriptor, publish_directory, validate_provenance, write_json,
 )
-from trackleed.synthetic.tables import FRAME_FIELDS, REFERENCE_FIELDS, SCHEMA, frame_identity, reference_rows
+from trackleed.synthetic.tables import FRAME_FIELDS, REFERENCE_FIELDS, frame_identity, reference_rows, schema_for
 
 
 @dataclass(frozen=True)
@@ -34,10 +35,9 @@ def generate_benchmark(config_path: Path, output: Path) -> PackageReport:
     config = load_config(config_path)
     output = output.absolute()
     check_output(output)
-    observation = render_observation(config, config.schedule.times_ns[0])
     stage = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=output.parent))
     try:
-        _write_package(stage, config_path, config, observation)
+        _write_package(stage, config_path, config)
         _verify(stage, allow_staging=True)
         publish_directory(stage, output)
     except BaseException as exc:
@@ -62,36 +62,36 @@ def check_output(output: Path) -> None:
 
 
 def _write_package(
-    root: Path, config_path: Path, config: BenchmarkConfig, observation: RenderedObservation,
+    root: Path, config_path: Path, config: BenchmarkConfig,
 ) -> None:
     (root / MARKER).write_text(PACKAGE_TYPE + "\n", encoding="utf-8")
-    (root / "images").mkdir()
-    (root / "rendered").mkdir()
     shutil.copyfile(config_path, root / "input.json")
     write_json(root / "scene.json", config.expanded())
-    write_json(root / "schema.json", SCHEMA)
+    write_json(root / "schema.json", schema_for(config.schema_version))
     files: dict[str, Any] = {}
     frames, references = [], []
-    for index, time_ns in enumerate(config.schedule.times_ns):
-        paths = _write_images(root, observation, index, files)
-        frames.append(_frame_row(config, observation, index, time_ns, paths, files))
-        references.extend(reference_rows(config, observation, index))
+    for schedule, index in _scheduled_frames(config):
+        observation = render_observation(config, **schedule.coordinates(index))
+        paths = _write_images(root, observation, _image_paths(config, schedule, index), files)
+        frames.append(_frame_row(config, observation, schedule, index, paths, files))
+        references.extend(reference_rows(config, observation, index, schedule))
     _write_csv(root / "frames.csv", FRAME_FIELDS, frames)
     _write_csv(root / "reference.csv", REFERENCE_FIELDS, references)
     for name in (MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"):
         files[name] = {"sha256": file_sha256(root / name)}
     write_json(root / "manifest.json", {
-        "package_type": PACKAGE_TYPE, "schema_version": 1, "status": "complete",
-        "scene_id": config.scene.id, "condition_id": config.condition.id,
-        "realization_id": config.realization_id, "schedule_id": config.schedule.id,
+        "package_type": PACKAGE_TYPE, "schema_version": config.schema_version, "status": "complete",
+        **_identity(config),
         "plan": config.plan(), "generator": generator_provenance(), "files": files,
     })
 
 
 def _write_images(
-    root: Path, observation: RenderedObservation, index: int, files: dict[str, Any],
+    root: Path, observation: RenderedObservation, paths: tuple[str, str], files: dict[str, Any],
 ) -> tuple[str, str]:
-    png_path, tiff_path = _image_paths(index)
+    png_path, tiff_path = paths
+    for path in paths:
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(observation.png).save(root / png_path)
     tifffile.imwrite(root / tiff_path, observation.image, metadata=None)
     for name, array in ((png_path, observation.png), (tiff_path, observation.image)):
@@ -100,14 +100,19 @@ def _write_images(
 
 
 def _frame_row(
-    config: BenchmarkConfig, observation: RenderedObservation, index: int, time_ns: int,
+    config: BenchmarkConfig, observation: RenderedObservation, schedule: Schedule, index: int,
     paths: tuple[str, str], files: dict[str, Any],
 ) -> dict[str, Any]:
     png, tiff = paths
+    coordinates = schedule.coordinates(index)
+    time_ns = coordinates["time_ns"]
+    energy = config.energy_at(**coordinates)
+    previous_energy = config.energy_at(**schedule.coordinates(index - 1)) if index else None
     return {
-        **frame_identity(config, index), "time_ns": time_ns, "energy_ev": config.scene.energy_ev,
-        "dt_ns": time_ns - config.schedule.times_ns[index - 1] if index else None,
-        "de_ev": 0.0 if index and config.scene.energy_ev is not None else None,
+        **frame_identity(schedule, index), "time_ns": time_ns, "energy_ev": energy,
+        "dt_ns": time_ns - schedule.times_ns[index - 1] if index and time_ns is not None else None,
+        "de_ev": ((0.0 if config.schema_version == 1 else energy - previous_energy)
+                  if energy is not None and previous_energy is not None else None),
         "png_path": png, "tiff_path": tiff,
         "png_sha256": files[png]["sha256"], "tiff_sha256": files[tiff]["sha256"],
         "png_pixel_sha256": files[png]["pixel_sha256"],
@@ -145,12 +150,13 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     manifest = read_json(root / "manifest.json")
     if not isinstance(manifest, dict) or manifest.get("package_type") != PACKAGE_TYPE:
         raise ValueError("Wrong benchmark package_type")
-    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] != 1:
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2):
         raise ValueError("Unsupported benchmark schema_version")
     if manifest.get("status") != "complete":
         raise ValueError("Benchmark package is incomplete")
     required = {"package_type", "schema_version", "status", "scene_id", "condition_id",
-                "realization_id", "schedule_id", "plan", "generator", "files"}
+                "realization_id", "plan", "generator", "files"}
+    required.add("schedule_id" if manifest["schema_version"] == 1 else "schedule_ids")
     if set(manifest) != required:
         raise ValueError("Invalid manifest fields")
     validate_provenance(manifest["generator"])
@@ -160,19 +166,19 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
         raise ValueError("Invalid benchmark marker")
     if load_config(root / "input.json") != config:
         raise ValueError("Input configuration disagrees with scene")
-    if json.dumps(read_json(root / "schema.json"), sort_keys=True) != json.dumps(SCHEMA, sort_keys=True):
-        raise ValueError("Benchmark schema does not match version 1")
+    if json.dumps(read_json(root / "schema.json"), sort_keys=True) != json.dumps(schema_for(config.schema_version), sort_keys=True):
+        raise ValueError("Benchmark schema does not match its version")
     files = manifest.get("files")
     if not isinstance(files, dict) or set(files) != _expected_files(config):
         raise ValueError("Manifest file inventory disagrees with scene")
     _verify_files(root, files)
-    observation = render_observation(config, config.schedule.times_ns[0])
     expected_frames, expected_references = [], []
-    for index, time_ns in enumerate(config.schedule.times_ns):
-        paths = _image_paths(index)
+    for schedule, index in _scheduled_frames(config):
+        observation = render_observation(config, **schedule.coordinates(index))
+        paths = _image_paths(config, schedule, index)
         _verify_images(root, paths, files, observation)
-        expected_frames.append(_frame_row(config, observation, index, time_ns, paths, files))
-        expected_references.extend(reference_rows(config, observation, index))
+        expected_frames.append(_frame_row(config, observation, schedule, index, paths, files))
+        expected_references.extend(reference_rows(config, observation, index, schedule))
     _verify_csv(root / "frames.csv", FRAME_FIELDS, expected_frames)
     _verify_csv(root / "reference.csv", REFERENCE_FIELDS, expected_references)
     if manifest.get("plan") != config.plan():
@@ -222,20 +228,34 @@ def _verify_csv(path: Path, fields: dict[str, str], expected: list[dict[str, Any
 
 def _expected_files(config: BenchmarkConfig) -> set[str]:
     names = {MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"}
-    for index in range(len(config.schedule.times_ns)):
-        names.update(_image_paths(index))
+    for schedule, index in _scheduled_frames(config):
+        names.update(_image_paths(config, schedule, index))
     return names
 
 
 def _verify_identity(manifest: dict[str, Any], config: BenchmarkConfig) -> None:
-    expected = {"scene_id": config.scene.id, "condition_id": config.condition.id,
-                "realization_id": config.realization_id, "schedule_id": config.schedule.id}
-    for key, value in expected.items():
+    if manifest["schema_version"] != config.schema_version:
+        raise ValueError("Manifest schema_version disagrees with scene")
+    for key, value in _identity(config).items():
         if manifest[key] != value:
             raise ValueError(f"Manifest {key} disagrees with scene")
     if json.dumps(manifest["plan"], sort_keys=True) != json.dumps(config.plan(), sort_keys=True):
         raise ValueError("Manifest plan disagrees with scene")
 
 
-def _image_paths(index: int) -> tuple[str, str]:
-    return f"images/frame_{index:06d}.png", f"rendered/frame_{index:06d}.tiff"
+def _identity(config: BenchmarkConfig) -> dict[str, Any]:
+    schedules = ({"schedule_id": config.schedule.id} if config.schema_version == 1
+                 else {"schedule_ids": [schedule.id for schedule in config.schedules]})
+    return {"scene_id": config.scene.id, "condition_id": config.condition.id,
+            "realization_id": config.realization_id, **schedules}
+
+
+def _scheduled_frames(config: BenchmarkConfig) -> Iterator[tuple[Schedule, int]]:
+    for schedule in config.schedules:
+        for index in range(schedule.count):
+            yield schedule, index
+
+
+def _image_paths(config: BenchmarkConfig, schedule: Schedule, index: int) -> tuple[str, str]:
+    prefix = "" if config.schema_version == 1 else f"sequences/{schedule.id}/"
+    return f"{prefix}images/frame_{index:06d}.png", f"{prefix}rendered/frame_{index:06d}.tiff"

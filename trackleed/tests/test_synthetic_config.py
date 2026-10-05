@@ -35,7 +35,7 @@ class InvalidConfigurationTests(unittest.TestCase):
         from trackleed.synthetic.config import parse_config
         cases = [
             ({"schema_version": True}, "schema_version"),
-            ({"schema_version": 2}, "schema_version"),
+            ({"schema_version": 3}, "schema_version"),
             ({"noise": 0.01}, "noise"),
             ({"scene": {"pattern": "H18"}}, "pattern"),
             ({"scene": {"sigma_px": 0}}, "sigma_px"),

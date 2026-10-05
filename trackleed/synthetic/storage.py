@@ -56,7 +56,7 @@ def generator_provenance() -> dict[str, Any]:
     revision = _git(root, "rev-parse", "HEAD")
     dirty = _working_tree_dirty(root, set(sources))
     return {
-        "name": PACKAGE_TYPE, "version": "1.0-stage1", "git_revision": revision,
+        "name": PACKAGE_TYPE, "version": "1.1-stage2", "git_revision": revision,
         "git_dirty": dirty, "git_dirty_scope": "tracked_files_and_generator_sources",
         "source_sha256": digest, "source_files": sources,
         "python": platform.python_version(), "platform": platform.platform(),
@@ -117,9 +117,12 @@ def refuse_benchmark_source(source: Path) -> None:
                     except (OSError, UnicodeError):
                         pass
         if recognized:
+            candidates = [ancestor / "images", *sorted((ancestor / "sequences").glob("*/images"))]
+            folders = ", ".join(str(path) for path in candidates if path.is_dir())
+            location = folders or f"the images folders of {ancestor} (package is incomplete)"
             raise ValueError(
                 f"Synthetic benchmark cannot use the legacy converter; "
-                f"prepared PNG uint8 images are in {ancestor / 'images'}"
+                f"prepared PNG uint8 images are in {location}"
             )
 
 

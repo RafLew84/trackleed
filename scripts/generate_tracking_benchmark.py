@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate or verify a complete static H6 benchmark without GUI or model imports."""
+"""Generate or verify a complete static or energy-scanned H6 benchmark without GUI or model imports."""
 from __future__ import annotations
 
 import argparse

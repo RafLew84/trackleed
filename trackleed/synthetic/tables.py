@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from trackleed.synthetic.config import BenchmarkConfig
-from trackleed.synthetic.scene import RenderedObservation
+from trackleed.synthetic.config import BenchmarkConfig, Schedule
+from trackleed.synthetic.scene import RenderedObservation, evaluate_scene
 
 FRAME_FIELDS = {
     "schedule_id": "string", "frame_index": "int64", "observation_id": "string",
@@ -50,18 +50,27 @@ SCHEMA = {
 }
 
 
-def frame_identity(config: BenchmarkConfig, index: int) -> dict[str, Any]:
-    times = config.schedule.times_ns
+def schema_for(version: int) -> dict[str, Any]:
+    if version == 1:
+        return SCHEMA
+    return {**SCHEMA, "schema_version": 2,
+            "frames": {**FRAME_FIELDS, "time_ns": "nullable:int64:ns"}}
+
+
+def frame_identity(schedule: Schedule, index: int) -> dict[str, Any]:
     return {
-        "schedule_id": config.schedule.id, "frame_index": index,
-        "observation_id": f"t{times[index]}",
-        "previous_observation_id": f"t{times[index - 1]}" if index else None,
+        "schedule_id": schedule.id, "frame_index": index,
+        "observation_id": schedule.observation_id(index),
+        "previous_observation_id": schedule.observation_id(index - 1) if index else None,
     }
 
 
 def reference_rows(
-    config: BenchmarkConfig, observation: RenderedObservation, index: int,
+    config: BenchmarkConfig, observation: RenderedObservation, index: int, schedule: Schedule,
 ) -> list[dict[str, Any]]:
-    return [{**frame_identity(config, index), "dx_px": 0.0 if index else None,
-             "dy_px": 0.0 if index else None, **state}
-            for state in observation.reference]
+    previous = ({r.reflection_id: r for r in evaluate_scene(config, **schedule.coordinates(index - 1))}
+                if index else {})
+    return [{**frame_identity(schedule, index),
+             "dx_px": state["x_px"] - previous[state["reflection_id"]].x_px if index else None,
+             "dy_px": state["y_px"] - previous[state["reflection_id"]].y_px if index else None,
+             **state} for state in observation.reference]
