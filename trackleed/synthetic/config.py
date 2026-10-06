@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from trackleed.synthetic.attenuation import Attenuation, parse_attenuations, validate_attenuations
 from trackleed.synthetic.geometry import LatticeSite, lattice_sites
 from trackleed.synthetic.profiles import GaussianShape
 
@@ -51,6 +52,7 @@ class Scene:
     satellite_offset_px: float = 18.0
     satellite_amplitude: float = 0.15
     shape: GaussianShape | None = None
+    attenuations: tuple[Attenuation, ...] = ()
 
     def lattice_radius(self, energy_ev: float | None) -> float:
         if self.energy_scan is None:
@@ -152,6 +154,8 @@ class BenchmarkConfig:
 
     def expanded(self) -> dict[str, Any]:
         result = asdict(self)
+        if self.schema_version < 4:
+            result["scene"].pop("attenuations")
         if self.schema_version < 3:
             result.pop("export_masks")
             result["scene"].pop("satellite_offset_px")
@@ -185,18 +189,22 @@ def parse_config(raw: Any) -> BenchmarkConfig:
     root = _object(raw, {"scene", "condition", "schedule", "schedules",
                          "realization_id", "schema_version", "export_masks"}, "config")
     version = root.get("schema_version")
-    if type(version) is not int or version not in (1, 2, 3):
-        raise ValueError("schema_version must be integer 1, 2 or 3")
+    if type(version) is not int or version not in (1, 2, 3, 4):
+        raise ValueError("schema_version must be integer 1, 2, 3 or 4")
     if "export_masks" in root and version < 3:
         raise ValueError("export_masks requires schema_version 3")
     if type(root.get("export_masks", False)) is not bool:
         raise ValueError("export_masks must be boolean")
     scene_fields = {f.name for f in fields(Scene)}
+    if version < 4:
+        scene_fields.remove("attenuations")
     if version < 3:
         scene_fields.difference_update({"satellite_offset_px", "satellite_amplitude", "shape"})
     if version == 1:
         scene_fields.difference_update({"energy_scan", "drift_px_per_s"})
     scene = _object(root.get("scene"), scene_fields, "scene")
+    if "attenuations" in scene:
+        scene["attenuations"] = parse_attenuations(scene["attenuations"])
     if scene.get("shape") is not None:
         if "sigma_px" in scene:
             raise ValueError("scene.shape and scene.sigma_px cannot both be specified")
@@ -224,7 +232,7 @@ def parse_config(raw: Any) -> BenchmarkConfig:
         schedules = (_parse_schedule(root.get("schedule"), version),)
     else:
         if "schedule" in root:
-            raise ValueError("schema_version 2 and 3 use schedules")
+            raise ValueError("schema_version 2 and later use schedules")
         values = _array(root.get("schedules"), "schedules")
         if not values:
             raise ValueError("schedules must not be empty")
@@ -421,6 +429,12 @@ def _validate(config: BenchmarkConfig) -> None:
         if scene.maximum_radius(scan.valid_energy_range_ev[0]) / scan.projection_radius_px > 1:
             raise ValueError("energy_scan declared domain violates beam propagation")
     _validate_support(config)
+    validate_attenuations(config.scene.attenuations,
+                          {site.reflection_id: (config.scene.amplitude if site.parent_id is None
+                                                else config.scene.satellite_amplitude)
+                           for site in config.scene.sites(config.scene.lattice_scale_px)},
+                          has_time=not bool(config.schedules[0].observation_indices),
+                          has_energy=config.scene.energy_scan is not None or config.scene.energy_ev is not None)
 
 
 def _validate_support(config: BenchmarkConfig) -> None:

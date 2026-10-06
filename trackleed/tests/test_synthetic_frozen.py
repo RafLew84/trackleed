@@ -82,3 +82,27 @@ class FrozenSyntheticPackageTests(unittest.TestCase):
                 path.write_bytes(path.read_bytes() + b"corrupted\n")
                 with self.assertRaisesRegex(ValueError, "checksum"):
                     verify_package(root)
+
+    def test_frozen_v3_keeps_h54_ellipses_and_independent_instance_masks(self):
+        archive = FIXTURES / "benchmark-v3.zip"
+        self.assertEqual(sha256(archive.read_bytes()).hexdigest(),
+                         "21ff2bc6daf5c54f0188cfa649d508329fe70307dcf209207ff5fa0b6fc551c5")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with ZipFile(archive) as package:
+                package.extractall(root)
+            report = verify_package(root)
+            self.assertEqual((report.frames, report.reference_records), (2, 108))
+            manifest = json.loads((root / "manifest.json").read_text())
+            self.assertEqual(manifest["schema_version"], 3)
+            references = read_rows(root, "reference.csv")
+            self.assertEqual(len({r["reflection_id"] for r in references}), 54)
+            satellite = [r for r in references if r["reflection_id"] == "h+1_k+0_s0"]
+            self.assertTrue(all(r["parent_id"] == "h+1_k+0" for r in satellite))
+            self.assertAlmostEqual(float(satellite[0]["x_px"]), 22.70820393249937)
+            for state in references:
+                self.assertEqual(float(state["theta_rad"]), .5)
+                with Image.open(root / state["geometry_mask_path"]) as image:
+                    geometry = np.array(image)
+                with Image.open(root / state["signal_mask_path"]) as image:
+                    np.testing.assert_array_equal(np.array(image), geometry)

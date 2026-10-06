@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from trackleed.synthetic.config import BenchmarkConfig
+from trackleed.synthetic.attenuation import amplitude_at
 from trackleed.synthetic.profiles import GaussianShape, sample_profile
 from trackleed.synthetic.instances import InstanceMasks, make_instance_masks
 
@@ -59,7 +60,9 @@ def evaluate_scene(
             raise ValueError("scene support must fit inside the frame in this stage")
     return tuple(
         Reflection(site.reflection_id, site.h, site.k, cx + site.x, cy + site.y,
-                   scene.amplitude if site.parent_id is None else scene.satellite_amplitude,
+                   amplitude_at(scene.attenuations, site.reflection_id,
+                                scene.amplitude if site.parent_id is None else scene.satellite_amplitude,
+                                time_ns, energy),
                    scene.sigma_px, site.parent_id, site.role, scene.shape)
         for site in scene.sites(radius)
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from trackleed.synthetic.coverage import COVERAGE_SCHEMA
 from trackleed.synthetic.config import BenchmarkConfig, Schedule
 from trackleed.synthetic.scene import RenderedObservation, evaluate_scene
 from trackleed.synthetic.instances import InstanceMasks, mask_paths
@@ -64,7 +65,7 @@ def schema_for(version: int) -> dict[str, Any]:
         return SCHEMA
     schema = {**SCHEMA, "schema_version": version,
               "frames": {**FRAME_FIELDS, "time_ns": "nullable:int64:ns"}}
-    if version == 3:
+    if version >= 3:
         schema.update(
             reference=reference_fields(version),
             rendering={**SCHEMA["rendering"], "profile": "shared_elliptical_gaussian",
@@ -74,6 +75,18 @@ def schema_for(version: int) -> dict[str, Any]:
                    "signal": "geometry_if_amplitude_positive_else_empty",
                    "bbox": "[xmin,ymin,xmax_exclusive,ymax_exclusive]", "empty_bbox": None},
         )
+    if version >= 4:
+        schema["coverage"] = COVERAGE_SCHEMA
+        schema["attenuation"] = {
+            "axes": {"time_ns": "nonnegative_int64", "energy_ev": "positive_float64"},
+            "knots": ["fade_start", "minimum_start", "minimum_end", "return_end"],
+            "ordering": "fade_start<=minimum_start<minimum_end<=return_end",
+            "minimum_fraction": "[0,1) of the positive base amplitude",
+            "zero_duration_transition": "step; minimum right endpoint excluded for a step return",
+            "linear_return": "minimum includes first return point; return_end is baseline",
+            "energy_direction": "profile defined on increasing E; observations keep their order",
+            "profiles_per_reflection": 1,
+        }
     return schema
 
 

@@ -20,3 +20,12 @@ Do not overwrite these files or update their pinned test digests when changing
 the generator. Add a separately named fixture for a new format version.
 Tests extract copies to temporary directories and call the current public
 reader. Missing, changed or unreadable historical packages must fail validation.
+
+
+`benchmark-v3.zip` was captured before stage 04 changes on 2026-10-07 from
+generator sources at `b12cc932109d77562fe2eb098e84b3c95e43fb6a`. The checkout
+also contained unrelated user changes, so its recorded Git dirty flag is true.
+It contains two 33 x 33 H54 energy observations, elliptical profiles and 216
+independent masks. SHA-256:
+`21ff2bc6daf5c54f0188cfa649d508329fe70307dcf209207ff5fa0b6fc551c5`.
+This additional archive does not replace or regenerate the v1/v2 fixtures.

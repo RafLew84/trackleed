@@ -18,6 +18,7 @@ import tifffile
 from trackleed.synthetic.config import BenchmarkConfig, Schedule, load_config, parse_config, read_json
 from trackleed.synthetic.scene import RenderedObservation, render_observation
 from trackleed.synthetic.instances import mask_paths
+from trackleed.synthetic.coverage import build_coverage
 from trackleed.synthetic.storage import (
     MARKER, PACKAGE_TYPE, STAGING_PREFIX, file_sha256, generator_provenance,
     pixel_descriptor, publish_directory, validate_provenance, write_json,
@@ -79,6 +80,9 @@ def _write_package(
         references.extend(reference_rows(config, observation, index, schedule))
     _write_csv(root / "frames.csv", FRAME_FIELDS, frames)
     _write_csv(root / "reference.csv", reference_fields(config.schema_version), references)
+    if config.schema_version >= 4:
+        write_json(root / "coverage.json", build_coverage(config, references))
+        files["coverage.json"] = {"sha256": file_sha256(root / "coverage.json")}
     for name in (MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"):
         files[name] = {"sha256": file_sha256(root / name)}
     write_json(root / "manifest.json", {
@@ -152,7 +156,7 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     manifest = read_json(root / "manifest.json")
     if not isinstance(manifest, dict) or manifest.get("package_type") != PACKAGE_TYPE:
         raise ValueError("Wrong benchmark package_type")
-    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3):
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3, 4):
         raise ValueError("Unsupported benchmark schema_version")
     if manifest.get("status") != "complete":
         raise ValueError("Benchmark package is incomplete")
@@ -184,6 +188,10 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
         expected_references.extend(reference_rows(config, observation, index, schedule))
     _verify_csv(root / "frames.csv", FRAME_FIELDS, expected_frames)
     _verify_csv(root / "reference.csv", reference_fields(config.schema_version), expected_references)
+    if config.schema_version >= 4:
+        expected_coverage = build_coverage(config, expected_references)
+        if json.dumps(read_json(root / "coverage.json"), sort_keys=True) != json.dumps(expected_coverage, sort_keys=True):
+            raise ValueError("Event coverage disagrees with scene and observations")
     if manifest.get("plan") != config.plan():
         raise ValueError("Manifest plan does not match scene")
     return PackageReport(root, len(expected_frames), len(expected_references))
@@ -231,6 +239,8 @@ def _verify_csv(path: Path, fields: dict[str, str], expected: list[dict[str, Any
 
 def _expected_files(config: BenchmarkConfig) -> set[str]:
     names = {MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"}
+    if config.schema_version >= 4:
+        names.add("coverage.json")
     for schedule, index in _scheduled_frames(config):
         names.update(_image_paths(config, schedule, index))
         if config.export_masks:

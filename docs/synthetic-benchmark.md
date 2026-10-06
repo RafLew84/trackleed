@@ -1,8 +1,8 @@
-# Synthetic tracking benchmark (stage 3)
+# Synthetic tracking benchmark (stage 4)
 
 This entry point creates a self-contained tracking benchmark alongside the existing
 segmentation-training generator. It supports H6/H18/H54 scenes with circular or
-elliptical profiles and optional instance masks, energy scans, optional common drift,
+elliptical profiles, optional instance masks, per-ID attenuation, event coverage, energy scans, optional common drift,
 one constant background, one deterministic realization and multiple observation schedules.
 It requires NumPy, tifffile and Pillow; generation and verification import no GUI,
 torch, trackers or model weights.
@@ -333,7 +333,7 @@ The reference records amplitude extinction separately from positive pre-quantiza
 signal, float64/float32 signal pixels, changed float32 image pixels and changed PNG
 pixels. Thus weak signal, floating-point loss, saturation and extinction stay distinct.
 W0 is the unit-amplitude sampled support sum. Since clipping and apparatus masks
-are unsupported in stages 1–3, W1=W2=W3=W0, the retained fraction is 1 and geometric
+are unsupported in stages 1–4, W1=W2=W3=W0, the retained fraction is 1 and geometric
 loss fractions are 0, also for A=0.
 
 Every ID persists in every frame. The first predecessor and all first deltas are
@@ -398,9 +398,118 @@ python -X utf8 scripts/validate_current_workflow.py
 
 The [shared local/CI validator](workflow-validation.md) checks changed text,
 generator types, code size, and all configured mandatory tests, including frozen
-historical v1/v2 packages. Acquisition-dependent publication tests remain outside
+historical v1/v2/v3 packages. Acquisition-dependent publication tests remain outside
 its CI suite.
 Small fixtures check independent analytic positions/pixels, subpixel centers,
 support boundaries, quantization, preserved identities, real file round trips,
 legacy compatibility and publication failures. The supplied 1000 × 1000 example
 and the new scan/drift/stationary controls are the user demonstrations.
+
+
+## Attenuation and event coverage (configuration version 4)
+
+Version 4 adds `scene.attenuations` (default `[]`). Versions 1–3 preserve their
+original configuration, schemas, pixels and references and reject this new field.
+An example declaration is:
+
+```json
+{"id":"long-gap","reflection_id":"h+1_k+0","axis":"time_ns",
+ "knots":[700000000,700000000,1100000000,1100000000],"minimum_fraction":0}
+```
+
+Each event requires exactly these five fields. The knots are
+`[fade_start, minimum_start, minimum_end, return_end]`, ordered as
+`a <= b < c <= d`. Transitions are linear; equal transition endpoints make a
+step. A step minimum is half-open `[b,c)`. With a nonzero return duration, the
+first return point `c` still has minimum amplitude; `d` has baseline amplitude.
+For knots `[500,700,1100,1300]` ms and zero minimum, the 1100 ms sample is zero.
+The corresponding step has already returned at 1100 ms. Time knots use exact
+nonnegative int64 nanoseconds, including values above 2^53.
+
+The minimum is a fraction in `[0,1)` of that reflection's own base amplitude:
+0 extinguishes it and 0.05 retains 5% (.025 for a .5 primary, .0075 for a .15
+satellite). The base amplitude must be positive for an attenuation event;
+unchanging zero-amplitude reflections remain supported without an event.
+Positive attenuated amplitudes that underflow to zero are rejected rather than
+silently reclassified as extinction. Values lost later in float32/PNG remain
+separate reference quantities.
+
+Supported axes are `time_ns` and `energy_ev`. Energy knots are positive finite
+values on an increasing energy axis. The profile A(E) is evaluated in the
+declared acquisition order, even when E decreases or repeats. There is no
+invented time or interpolation between entries of an energy list. Time profiles
+require known times; energy profiles require known E. Different reflections may
+use different axes. Event IDs are portable and unique; target IDs must exist.
+This version supports one event per reflection and rejects overlapping or
+multiple definitions for the same ID, including mixtures of axes.
+
+All IDs, positions, parent relations, geometric masks and displacements persist
+through A=0. Only the signal mask becomes empty (with a null signal bbox).
+At positive A it retains the nominal geometry even if PNG contains no detectable
+change. Attenuation does not change the common energy scaling or the profile
+shape. Fixed L/U encoding is applied to all frames.
+
+Every v4 package contains `coverage.json`, also when its event list is empty.
+It belongs to the manifest inventory and hashes; verification reconstructs its
+contents from the scene and actual ordered observations. Changing a count and
+updating its hash is still rejected. A failed report write prevents publication.
+
+Each event × schedule record contains its definition, counts and observation IDs:
+
+| Field | Meaning |
+| --- | --- |
+| `minimum_sample_count` / `minimum_observation_ids` | Samples in the declared minimum, including the first point of a linear return |
+| `attenuated_sample_count` / `attenuation_observed` | Samples in fade, minimum or return phases; baseline endpoints are excluded |
+| `zero_amplitude_sample_count` / `captured_zero_gap` | Samples with A=0; the boolean never represents tracker recovery |
+| `zero_signal_sample_count` | Attenuated samples with zero float64 component; separate from latent A=0 |
+| `positive_signal_lost_in_float32_count` | Positive float64 components causing no changed float32 image pixel |
+| `positive_float32_signal_lost_in_png_count` | Positive changed float32 contributions causing no changed PNG code; may include saturation |
+| `sampling_status` | `captured` when the minimum was sampled, otherwise `missed`; partial ramp observations are counted separately |
+| `before_observation_id` / `after_observation_id` | Nearest baseline samples before/after the entire event, in acquisition order |
+| `context_status` | `bracketed`, `truncated`, `outside_observations`, or `nonmonotonic` |
+| `truncated_before` / `truncated_after` | Missing baseline context; read together with `context_status`, which identifies events outside the observations |
+| `sampled_runs` | Contiguous attenuated observations with local baseline neighbors and truncation flags |
+
+For a nonmonotonic energy sequence, global before/after and truncation values are
+null: use the separately recorded runs in acquisition order. These are observed
+groups, not inferred continuous trajectories. Repeated energies count as distinct
+observations. A sampled 5% minimum is captured attenuation, never a zero gap.
+A ramp-only sequence can have `attenuation_observed=true`, `sampling_status=missed`
+and `captured_zero_gap=false` at once. Saturation is also visible through separate
+frame photometry; the PNG-loss count alone does not identify its cause per ID.
+
+At 20/50/100 ms sampling from zero, `[700,1100)` ms gives 20/8/4 minimum samples;
+`[730,770)` gives 2/1/0; `[790,830)` gives 2/1/1. Linear ramps at 500–700 and
+1100–1300 ms give 21/9/5 zeros, because 1100 ms is included. Counts are obtained
+from actual observations, not by dividing duration by interval.
+
+### Stage 4 demonstrations
+
+All examples are 1000 × 1000, use E(t)=80+60t eV with t in seconds, and keep L/U=0/1.
+The selected preview windows are shorter than the final two-second benchmark.
+
+| Config in `configs/synthetic-benchmark/` | Frames | Expected result |
+| --- | ---: | --- |
+| `attenuation_h18_long.json` | 7 | 600–1200 ms every 100 ms; four zero observations, baseline on both sides |
+| `attenuation_h18_short_missed.json` | 3 | 700/800/900 ms; `[730,770)` is entirely missed |
+| `attenuation_h18_short_captured.json` | 3 | Same observations; `[790,830)` has one zero at 800 ms |
+| `attenuation_h18_ramp_weak.json` | 7 | Two independent IDs: a zero ramp and a 5% ramp; both include minimum at 1100 ms |
+| `attenuation_h54_satellite.json` | 3 | `h+1_k+0_s0` disappears at 800 ms beside its bright parent; all 54 IDs and optional masks persist |
+
+Run the following with a new output name (the `runs` parent must exist), substituting
+any config from the table:
+
+```sh
+python scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/attenuation_h18_long.json --output runs/h18-long-gap
+python scripts/generate_tracking_benchmark.py --verify runs/h18-long-gap
+python -X utf8 -m unittest trackleed.tests.test_synthetic_attenuation trackleed.tests.test_synthetic_attenuation_package trackleed.tests.test_synthetic_frozen -v
+```
+
+1. Generate and verify one example; read `coverage.json` for its counts and context.
+2. In TrackLEED open `sequences/<schedule>/images` with File → Open Directory.
+3. Compare frames around the gap using the times in `frames.csv`.
+4. Compare the two short examples: the missed one contains no zero observation;
+   the captured one contains a single zero at 800 ms.
+5. For H54 inspect the satellite ID and its parent in `reference.csv`; the parent
+   remains bright and the satellite's geometry mask persists while its signal
+   mask is empty. Its position during the gap is a reference, not an image measurement.

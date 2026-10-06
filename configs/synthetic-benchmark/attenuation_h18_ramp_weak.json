@@ -1,0 +1,82 @@
+{
+  "schema_version": 4,
+  "scene": {
+    "id": "h18-ramp-and-weak",
+    "pattern": "H18",
+    "image_size": [
+      1000,
+      1000
+    ],
+    "center_px": [
+      499.5,
+      499.5
+    ],
+    "lattice_scale_px": 180,
+    "sigma_px": 4,
+    "amplitude": 0.5,
+    "energy_scan": {
+      "model": "linear_time",
+      "reference_energy_ev": 100,
+      "energies_ev": [
+        80,
+        200
+      ],
+      "times_ns": [
+        0,
+        2000000000
+      ],
+      "valid_energy_range_ev": [
+        80,
+        200
+      ],
+      "projection_radius_px": 450,
+      "domain_justification": "Declared ideal propagating H18/H54 pattern within this energy range."
+    },
+    "attenuations": [
+      {
+        "id": "ramp-zero",
+        "reflection_id": "h+1_k+0",
+        "axis": "time_ns",
+        "knots": [
+          500000000,
+          700000000,
+          1100000000,
+          1300000000
+        ],
+        "minimum_fraction": 0
+      },
+      {
+        "id": "ramp-weak",
+        "reflection_id": "h+0_k+1",
+        "axis": "time_ns",
+        "knots": [
+          500000000,
+          700000000,
+          1100000000,
+          1300000000
+        ],
+        "minimum_fraction": 0.05
+      }
+    ]
+  },
+  "condition": {
+    "id": "constant",
+    "background": 0.1,
+    "png_lower": 0,
+    "png_upper": 1
+  },
+  "schedules": [
+    {
+      "id": "preview",
+      "times_ns": [
+        400000000,
+        600000000,
+        700000000,
+        1100000000,
+        1200000000,
+        1300000000,
+        1400000000
+      ]
+    }
+  ]
+}
