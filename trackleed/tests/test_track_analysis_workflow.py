@@ -367,9 +367,26 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
             roi=original_roi,
         )
         input_identity = (fit_input.track_id, fit_input.roi)
+        # Require the fitted center inside the attempted ROI so baseline
+        # rejection follows from geometry, not optimizer convergence.
+        validation = FitValidation(center_margin=0.0)
+        baseline = _run(
+            FitRequest(observations=(fit_input,), validation=validation)
+        ).observation(7, 10)
+        self.assertEqual(baseline.status, FitStatus.FAILED)
+        self.assertEqual(baseline.failure.code, "validation_failed")
+        baseline_recovery = baseline.provenance.recovery
+        self.assertEqual(baseline_recovery.status, RecoveryStatus.DISABLED)
+        self.assertEqual(len(baseline_recovery.attempts), 1)
+        self.assertEqual(
+            baseline_recovery.attempts[0].rejection_reasons,
+            ("center_x", "center_y"),
+        )
+
         fit_set = _run(
             FitRequest(
                 observations=(fit_input,),
+                validation=validation,
                 recovery=FitRecoveryConfig(enabled=True),
             )
         )
@@ -377,12 +394,26 @@ class TrackAnalysisWorkflowTests(unittest.TestCase):
         observation = fit_set.observation(7, 10)
         self.assertEqual(observation.status, FitStatus.FITTED)
         self.assertEqual((fit_input.track_id, fit_input.roi), input_identity)
+        self.assertIs(fit_input.roi, original_roi)
         self.assertEqual((observation.track_id, observation.frame_id), (7, 10))
         self.assertEqual(observation.provenance.original_roi, original_roi)
-        self.assertEqual(
-            observation.provenance.recovery.status, RecoveryStatus.RECOVERED
+        recovery = observation.provenance.recovery
+        self.assertEqual(recovery.status, RecoveryStatus.RECOVERED)
+        self.assertEqual(recovery.original_roi, original_roi)
+        self.assertEqual(recovery.attempts[0], baseline_recovery.attempts[0])
+        self.assertGreater(len(recovery.attempts), 1)
+        self.assertLessEqual(len(recovery.attempts), 11)
+        self.assertNotEqual(recovery.effective_roi, original_roi)
+        selected = next(
+            attempt
+            for attempt in recovery.attempts
+            if attempt.effective_roi == recovery.effective_roi
         )
-        self.assertNotEqual(observation.provenance.recovery.effective_roi, original_roi)
+        self.assertEqual(selected.status, RecoveryAttemptStatus.ACCEPTED)
+        self.assertEqual(
+            recovery.selection_reason,
+            RecoverySelectionReason.SMALLEST_TRANSFORM_HIGHEST_QUALITY,
+        )
         self.assertAlmostEqual(observation.result.global_center_x, 8.25, places=3)
         self.assertAlmostEqual(observation.result.global_center_y, 8.25, places=3)
 
