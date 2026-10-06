@@ -5,6 +5,7 @@ from typing import Any
 
 from trackleed.synthetic.config import BenchmarkConfig, Schedule
 from trackleed.synthetic.scene import RenderedObservation, evaluate_scene
+from trackleed.synthetic.instances import InstanceMasks, mask_paths
 
 FRAME_FIELDS = {
     "schedule_id": "string", "frame_index": "int64", "observation_id": "string",
@@ -33,7 +34,7 @@ REFERENCE_FIELDS = {
     "encoded_changed_pixels": "int64", "overlap_contour_ids": "json:string[]",
     "overlap_support_ids": "json:string[]",
 }
-SCHEMA = {
+SCHEMA: dict[str, Any] = {
     "schema_version": 1, "frames": FRAME_FIELDS, "reference": REFERENCE_FIELDS,
     "csv": {"encoding": "UTF-8", "separator": ",", "decimal": ".", "missing": ""},
     "coordinates": {"x": "right", "y": "down", "top_left_pixel_center": [0, 0]},
@@ -50,11 +51,30 @@ SCHEMA = {
 }
 
 
+def reference_fields(version: int) -> dict[str, str]:
+    if version < 3:
+        return REFERENCE_FIELDS
+    return {**REFERENCE_FIELDS, "geometry_mask_path": "nullable:string",
+            "signal_mask_path": "nullable:string", "bbox_geometry": "nullable:json:int64[4]",
+            "bbox_signal": "nullable:json:int64[4]"}
+
+
 def schema_for(version: int) -> dict[str, Any]:
     if version == 1:
         return SCHEMA
-    return {**SCHEMA, "schema_version": 2,
-            "frames": {**FRAME_FIELDS, "time_ns": "nullable:int64:ns"}}
+    schema = {**SCHEMA, "schema_version": version,
+              "frames": {**FRAME_FIELDS, "time_ns": "nullable:int64:ns"}}
+    if version == 3:
+        schema.update(
+            reference=reference_fields(version),
+            rendering={**SCHEMA["rendering"], "profile": "shared_elliptical_gaussian",
+                       "overlap": "analytic_closed_ellipses_with_shared_shape"},
+            stage={**SCHEMA["stage"], "pattern": ["H6", "H18", "H54"], "instance_masks": "optional"},
+            masks={"encoding": "PNG_L_uint8_0_255", "geometry": "q<=3_in_frame",
+                   "signal": "geometry_if_amplitude_positive_else_empty",
+                   "bbox": "[xmin,ymin,xmax_exclusive,ymax_exclusive]", "empty_bbox": None},
+        )
+    return schema
 
 
 def frame_identity(schedule: Schedule, index: int) -> dict[str, Any]:
@@ -70,7 +90,17 @@ def reference_rows(
 ) -> list[dict[str, Any]]:
     previous = ({r.reflection_id: r for r in evaluate_scene(config, **schedule.coordinates(index - 1))}
                 if index else {})
+    masks = {instance.reflection_id: instance for instance in observation.instances}
     return [{**frame_identity(schedule, index),
              "dx_px": state["x_px"] - previous[state["reflection_id"]].x_px if index else None,
              "dy_px": state["y_px"] - previous[state["reflection_id"]].y_px if index else None,
-             **state} for state in observation.reference]
+             **state,
+             **(_mask_reference(masks.get(state["reflection_id"]), schedule, index)
+                if config.schema_version >= 3 else {})} for state in observation.reference]
+
+
+def _mask_reference(instance: InstanceMasks | None, schedule: Schedule, index: int) -> dict[str, Any]:
+    geometry, signal = mask_paths(schedule.id, index, instance.reflection_id) if instance else (None, None)
+    return {"geometry_mask_path": geometry, "signal_mask_path": signal,
+            "bbox_geometry": instance.bbox_geometry if instance else None,
+            "bbox_signal": instance.bbox_signal if instance else None}

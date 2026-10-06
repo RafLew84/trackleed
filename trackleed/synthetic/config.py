@@ -8,6 +8,9 @@ from pathlib import Path
 import re
 from typing import Any
 
+from trackleed.synthetic.geometry import LatticeSite, lattice_sites
+from trackleed.synthetic.profiles import GaussianShape
+
 
 @dataclass(frozen=True)
 class EnergyScan:
@@ -45,6 +48,9 @@ class Scene:
     energy_ev: float | None = 100.0
     energy_scan: EnergyScan | None = None
     drift_px_per_s: tuple[float, float] = (0.0, 0.0)
+    satellite_offset_px: float = 18.0
+    satellite_amplitude: float = 0.15
+    shape: GaussianShape | None = None
 
     def lattice_radius(self, energy_ev: float | None) -> float:
         if self.energy_scan is None:
@@ -54,7 +60,19 @@ class Scene:
         return self.lattice_scale_px * math.sqrt(self.energy_scan.reference_energy_ev / energy_ev)
 
     def support_extents(self, radius: float) -> tuple[float, float]:
-        return radius + 4 * self.sigma_px, math.sqrt(3) * radius / 2 + 4 * self.sigma_px
+        sites = self.sites(radius)
+        ex, ey = self.profile_shape.extents()
+        return max(abs(s.x) for s in sites) + ex, max(abs(s.y) for s in sites) + ey
+
+    @property
+    def profile_shape(self) -> GaussianShape:
+        return self.shape or GaussianShape(self.sigma_px, self.sigma_px)
+
+    def sites(self, radius: float) -> tuple[LatticeSite, ...]:
+        return lattice_sites(self.pattern, radius, self.satellite_offset_px * (radius / self.lattice_scale_px))
+
+    def maximum_radius(self, energy_ev: float | None) -> float:
+        return max(math.hypot(s.x, s.y) for s in self.sites(self.lattice_radius(energy_ev)))
 
 
 @dataclass(frozen=True)
@@ -104,6 +122,7 @@ class BenchmarkConfig:
     schedules: tuple[Schedule, ...]
     realization_id: str = "deterministic"
     schema_version: int = 1
+    export_masks: bool = False
 
     @property
     def schedule(self) -> Schedule:
@@ -127,11 +146,19 @@ class BenchmarkConfig:
 
     def plan(self) -> dict[str, int]:
         frames = sum(schedule.count for schedule in self.schedules)
-        return {"sequences": len(self.schedules), "frames": frames, "reflections": 6,
-                "reference_records": frames * 6}
+        count = {"H6": 6, "H18": 18, "H54": 54}[self.scene.pattern]
+        return {"sequences": len(self.schedules), "frames": frames, "reflections": count,
+                "reference_records": frames * count}
 
     def expanded(self) -> dict[str, Any]:
         result = asdict(self)
+        if self.schema_version < 3:
+            result.pop("export_masks")
+            result["scene"].pop("satellite_offset_px")
+            result["scene"].pop("satellite_amplitude")
+            result["scene"].pop("shape")
+        elif self.scene.shape is not None:
+            result["scene"].pop("sigma_px")
         if self.schema_version == 1:
             result["schedule"] = result.pop("schedules")[0]
             result["scene"].pop("energy_scan")
@@ -156,14 +183,30 @@ def load_config(path: Path) -> BenchmarkConfig:
 
 def parse_config(raw: Any) -> BenchmarkConfig:
     root = _object(raw, {"scene", "condition", "schedule", "schedules",
-                         "realization_id", "schema_version"}, "config")
+                         "realization_id", "schema_version", "export_masks"}, "config")
     version = root.get("schema_version")
-    if type(version) is not int or version not in (1, 2):
-        raise ValueError("schema_version must be integer 1 or 2")
+    if type(version) is not int or version not in (1, 2, 3):
+        raise ValueError("schema_version must be integer 1, 2 or 3")
+    if "export_masks" in root and version < 3:
+        raise ValueError("export_masks requires schema_version 3")
+    if type(root.get("export_masks", False)) is not bool:
+        raise ValueError("export_masks must be boolean")
     scene_fields = {f.name for f in fields(Scene)}
+    if version < 3:
+        scene_fields.difference_update({"satellite_offset_px", "satellite_amplitude", "shape"})
     if version == 1:
         scene_fields.difference_update({"energy_scan", "drift_px_per_s"})
     scene = _object(root.get("scene"), scene_fields, "scene")
+    if scene.get("shape") is not None:
+        if "sigma_px" in scene:
+            raise ValueError("scene.shape and scene.sigma_px cannot both be specified")
+        shape_values = _object(scene["shape"], {f.name for f in fields(GaussianShape)}, "scene.shape")
+        shape = GaussianShape(**shape_values)
+        for name in ("sigma_u_px", "sigma_v_px"):
+            if _number(getattr(shape, name), f"scene.shape.{name}", 0) == 0:
+                raise ValueError(f"scene.shape.{name} must be positive")
+        _number(shape.theta_rad, "scene.shape.theta_rad")
+        scene["shape"] = shape
     condition = _object(root.get("condition"), {f.name for f in fields(Condition)},
                         "condition")
     for name in ("image_size", "center_px", "drift_px_per_s"):
@@ -181,13 +224,14 @@ def parse_config(raw: Any) -> BenchmarkConfig:
         schedules = (_parse_schedule(root.get("schedule"), version),)
     else:
         if "schedule" in root:
-            raise ValueError("schema_version 2 uses schedules")
+            raise ValueError("schema_version 2 and 3 use schedules")
         values = _array(root.get("schedules"), "schedules")
         if not values:
             raise ValueError("schedules must not be empty")
         schedules = tuple(_parse_schedule(value, version) for value in values)
     config = BenchmarkConfig(Scene(**scene), Condition(**condition), schedules,
-                             root.get("realization_id", "deterministic"), version)
+                             root.get("realization_id", "deterministic"), version,
+                             root.get("export_masks", False))
     _validate(config)
     return config
 
@@ -217,7 +261,7 @@ def _parse_schedule(value: Any, version: int) -> Schedule:
         if values.get("observation_indices") or ("times_ns" in values and values["times_ns"] != times):
             raise ValueError("schedule.sampling disagrees with explicit observations")
         values.update(sampling=sampling, times_ns=times)
-    if version == 2 and not any(values.get(key) for key in ("times_ns", "observation_indices")):
+    if version >= 2 and not any(values.get(key) for key in ("times_ns", "observation_indices")):
         raise ValueError("schedule requires explicit times_ns, sampling or observation_indices")
     return Schedule(**values)
 
@@ -324,8 +368,12 @@ def _validate(config: BenchmarkConfig) -> None:
     for label, value in (("scene.id", scene.id), ("condition.id", condition.id),
                          ("realization_id", config.realization_id)):
         _identifier(value, label)
-    if scene.pattern != "H6":
-        raise ValueError("scene.pattern supports only H6 in this stage")
+    allowed_patterns = ("H6", "H18", "H54") if config.schema_version >= 3 else ("H6",)
+    if scene.pattern not in allowed_patterns:
+        raise ValueError(f"scene.pattern supports {allowed_patterns}")
+    if _number(scene.satellite_offset_px, "scene.satellite_offset_px", 0) == 0:
+        raise ValueError("scene.satellite_offset_px must be positive")
+    _number(scene.satellite_amplitude, "scene.satellite_amplitude", 0)
     if any(type(v) is not int or v <= 0 for v in scene.image_size):
         raise ValueError("scene.image_size must contain positive integers [width, height]")
     for coordinate in scene.center_px:
@@ -345,7 +393,7 @@ def _validate(config: BenchmarkConfig) -> None:
     identifiers = set()
     for schedule in config.schedules:
         _identifier(schedule.id, "schedule.id")
-        if config.schema_version == 2 and re.fullmatch(
+        if config.schema_version >= 2 and re.fullmatch(
                 r"CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]", schedule.id, re.IGNORECASE):
             raise ValueError("schedule.id is a reserved Windows device name")
         if schedule.id.casefold() in identifiers:
@@ -370,7 +418,7 @@ def _validate(config: BenchmarkConfig) -> None:
     if scan is not None and scan.model == "energy_list" and any(scene.drift_px_per_s):
         raise ValueError("drift_px_per_s requires known observation times")
     if scan is not None:
-        if scene.lattice_radius(scan.valid_energy_range_ev[0]) / scan.projection_radius_px > 1:
+        if scene.maximum_radius(scan.valid_energy_range_ev[0]) / scan.projection_radius_px > 1:
             raise ValueError("energy_scan declared domain violates beam propagation")
     _validate_support(config)
 

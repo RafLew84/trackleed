@@ -1,7 +1,8 @@
-# H6 synthetic benchmark (stage 2)
+# Synthetic tracking benchmark (stage 3)
 
 This entry point creates a self-contained tracking benchmark alongside the existing
-segmentation-training generator. It supports stationary and energy-scanned H6 scenes, optional common drift,
+segmentation-training generator. It supports H6/H18/H54 scenes with circular or
+elliptical profiles and optional instance masks, energy scans, optional common drift,
 one constant background, one deterministic realization and multiple observation schedules.
 It requires NumPy, tifffile and Pillow; generation and verification import no GUI,
 torch, trackers or model weights.
@@ -66,8 +67,9 @@ PNG bounds must have a positive finite difference.
 
 Unknown fields, duplicate JSON keys and unsupported versions/options are errors.
 Version 1 rejects motion; version 2 adds the energy and sampling features below.
-Both versions currently reject H18/H54, noise, imported backgrounds, apparatus masks
-and optional instance-mask export. The entire 4-sigma support must fit inside
+Versions 1 and 2 reject H18/H54 and instance-mask export; version 3 adds these below.
+All versions still reject noise, imported backgrounds and apparatus masks.
+The entire 4-sigma support must fit inside
 the frame's pixel-center rectangle; clipping is introduced in stage 5.
 A profile with no sampled support (W0 = 0) is an error, not a disappearance.
 Rendering also rejects values which cannot be represented as finite float32.
@@ -192,11 +194,110 @@ this axis. Explicit time and energy-index schedules cannot be mixed.
    CSV metadata automatically.
 
 These are instantaneous observations. Sampling interval is not exposure duration;
-no motion blur, attenuation, noise, H18/H54, masks, or tracker ranking is introduced.
+no motion blur, attenuation, noise or tracker ranking is introduced by this feature.
+
+## Patterns, profiles and instances (configuration version 3)
+
+Version 3 keeps the version 2 `schedules` format and observation rules. It adds
+`scene.pattern: "H18"` or `"H54"`, plus a root `export_masks` boolean (default false).
+H6 is also supported. Versions 1 and 2 retain their existing configurations,
+reference columns and historical package readability.
+
+The lattice basis is b1=(r,0), b2=(r/2,sqrt(3)*r/2), for
+`r = scene.lattice_scale_px`. With n=max(|h|,|k|,|h+k|), H6 uses n=1 and H18
+uses 1<=n<=2. Neither includes (0,0). H54 adds six satellites around each of
+the six n=1 primary reflections: q*(cos(j*pi/3),sin(j*pi/3)), j=0..5.
+`scene.satellite_offset_px` defaults to 18 and must be positive; the close
+example uses 9. These vectors are shared by all parents, with no random offsets.
+Primary IDs stay `h+1_k+0`, etc.; satellite IDs append `_s0` through `_s5`.
+Their `parent_id` names the primary, their role is `satellite`, and h/k record
+the parent's lattice indices. IDs and relationships persist in every observation.
+
+`scene.amplitude` sets primary amplitude; `scene.satellite_amplitude` defaults
+to 0.15. Each must be nonnegative. Both are continuous peak parameters, not
+discrete image maxima. Zero amplitude retains positions and ellipse geometry.
+Time-dependent attenuation is introduced in a later stage.
+
+The circular shorthand `scene.sigma_px` remains available. Alternatively specify
+one shared shape for all reflections:
+
+```json
+"shape": {"sigma_u_px": 6, "sigma_v_px": 3, "theta_rad": 0.5235987755982988}
+```
+
+Both widths must be positive and all parameters finite. The angle rotates u
+from image x towards image y (downwards). Omitted shape fields default to
+4, 4 and 0. An explicit shape and `sigma_px` together are rejected. The expanded
+configuration records the selected representation; reference rows always carry
+both actual widths and the angle. The same shape is used by every primary and
+satellite. Energy changes their positions and satellite offsets, while widths,
+angles and amplitudes stay fixed. Propagation and frame-support checks include
+all primary and satellite positions, including the outer H18 shell.
+
+When `export_masks` is true, each frame and ID gets two independent grayscale
+PNG files with values 0 and 255, under
+`sequences/<schedule>/masks/frame_XXXXXX/`. Masks are never stored in `images`.
+The geometry mask samples the closed 3-sigma ellipse at pixel centers. The
+signal mask is the same for positive amplitude and empty for zero amplitude.
+Weak positive amplitudes retain that mask even when PNG quantization removes
+their image contribution. Geometry and signal masks from different IDs may
+overlap. They are separate layers, not an exclusive-label segmentation map.
+
+Version 3 reference rows add `geometry_mask_path`, `signal_mask_path`,
+`bbox_geometry` and `bbox_signal`. Bounding boxes are tight raster bounds
+`[xmin,ymin,xmax_exclusive,ymax_exclusive]`, encoded as JSON arrays inside CSV.
+An empty mask has an empty CSV box field (null), while its all-zero file still
+exists. With export disabled all four optional fields are empty. No mask export
+changes images or the remaining reference fields. The analytic ellipse remains
+defined by x/y, sigma_u/v and theta even if its nominal raster is empty.
+An empty 3-sigma mask does not imply absence of the rendered 4-sigma tail.
+
+Overlap lists describe analytic closed contours/support, including for zero
+amplitude. They account for the shared ellipse's axes and rotation and do not
+assert detectability. File inventory, mask pixels and bounding boxes are verified
+against the scene after real readback, alongside the existing image/reference checks.
+
+### Stage 3 demonstrations
+
+All examples contain three stationary 1000 x 1000 images at 0, 50 and 100 ms:
+
+| Configuration | IDs / reference rows | Shape and output |
+| --- | --- | --- |
+| static_h18.json | 18 / 54 | Circular sigma=4; no masks |
+| static_h54.json | 54 / 162 | Circular sigma=4, q=18; no masks |
+| static_h54_close_masks.json | 54 / 162 | Elliptical 6/3, theta=pi/6, q=9; 324 mask files |
+
+Use a new output name on each run, with an existing parent directory:
+
+```sh
+python -X utf8 scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/static_h18.json --validate-only
+python -X utf8 scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/static_h18.json --output runs/h18-static-example
+python -X utf8 scripts/generate_tracking_benchmark.py --verify runs/h18-static-example
+python -X utf8 scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/static_h54.json --output runs/h54-static-example
+python -X utf8 scripts/generate_tracking_benchmark.py --verify runs/h54-static-example
+python -X utf8 scripts/generate_tracking_benchmark.py --config configs/synthetic-benchmark/static_h54_close_masks.json --output runs/h54-close-example
+python -X utf8 scripts/generate_tracking_benchmark.py --verify runs/h54-close-example
+```
+
+1. Generate and verify all three packages with the commands above.
+2. In TrackLEED select **File -> Open Directory...**, then a package's
+   `sequences/static/images` folder. Move through the three unchanged images.
+3. Compare H18 with H54: the six inner primaries gain six satellites each;
+   the twelve outer primaries retain their positions. Count IDs in `reference.csv`,
+   since overlapping signals need not show separate image maxima.
+4. Open the close example's images. The profiles are elliptical and neighboring
+   signals overlap. The known pattern center remains (499.5,499.5).
+5. Inspect the separate `h+1_k+0_geometry.png` and `h+1_k+0_s0_geometry.png`
+   masks in `sequences/static/masks/frame_000000/`: they share pixels and retain
+   separate IDs. Their corresponding rows provide the parent relation and boxes.
+
+The existing GUI loads the PNG images; reference CSV and instance masks remain
+separate benchmark artifacts. Technical acceptance uses the real TrackLEED
+parser and image reader without requiring manual widget interaction.
 
 ## Package and numerical contract
 
-- `manifest.json`: type `trackleed.synthetic-benchmark`, schema version 1 or 2,
+- `manifest.json`: type `trackleed.synthetic-benchmark`, schema version 1, 2 or 3,
   complete status, scene/condition/realization/schedule IDs, counts, generator
   provenance and hashes of every other file.
 - `input.json`: the actual input configuration; `scene.json`: its expanded values.
@@ -210,7 +311,7 @@ no motion blur, attenuation, noise, H18/H54, masks, or tracker ranking is introd
   packages from the legacy exporter.
 
 Coordinates are float64 in pixels: x right, y down, top-left pixel center (0,0).
-The six primary reflections are indexed by (h,k) satisfying
+In H6 the six primary reflections are indexed by (h,k) satisfying
 max(|h|,|k|,|h+k|)=1, using b1=(r,0), b2=(r/2,sqrt(3)*r/2).
 The central reflection is excluded. IDs derive from those indices, e.g. h+1_k+0.
 
@@ -218,8 +319,9 @@ At pixel centers, intensity is A exp(-q²/2) for q ≤ 4, exactly zero beyond.
 The omitted continuous Gaussian mass is exp(-8); it is not redistributed.
 A is the continuous peak parameter, not the brightest sampled pixel.
 The nominal contour q ≤ 3 is distinct from rendering support.
-Overlap lists describe intersections of analytic closed disks; they are not masks
-or a detectability result. No instance masks or boxes are exported at this stage.
+Versions 1/2 use circular profiles and analytic closed disks for overlap.
+Version 3 additionally supports the shared ellipse and optional masks/boxes above.
+Overlap is not a detectability result.
 
 The renderer adds components in float64 and then casts the composed image to float32.
 PNG uses the stored TIFF array, converted to float64 for the fixed mapping:
@@ -231,7 +333,7 @@ The reference records amplitude extinction separately from positive pre-quantiza
 signal, float64/float32 signal pixels, changed float32 image pixels and changed PNG
 pixels. Thus weak signal, floating-point loss, saturation and extinction stay distinct.
 W0 is the unit-amplitude sampled support sum. Since clipping and apparatus masks
-are unsupported in stages 1–2, W1=W2=W3=W0, the retained fraction is 1 and geometric
+are unsupported in stages 1–3, W1=W2=W3=W0, the retained fraction is 1 and geometric
 loss fractions are 0, also for A=0.
 
 Every ID persists in every frame. The first predecessor and all first deltas are
@@ -290,6 +392,7 @@ or intermediate JPEG encoding. This stage does not run or rank tracking models.
 
 ```sh
 python -m unittest trackleed.tests.test_synthetic_config trackleed.tests.test_synthetic_scene trackleed.tests.test_synthetic_package trackleed.tests.test_synthetic_cli trackleed.tests.test_synthetic_motion trackleed.tests.test_synthetic_sampling -v
+python -X utf8 -m unittest trackleed.tests.test_synthetic_patterns trackleed.tests.test_synthetic_instances trackleed.tests.test_synthetic_frozen -v
 python -X utf8 scripts/validate_current_workflow.py
 ```
 

@@ -17,11 +17,12 @@ import tifffile
 
 from trackleed.synthetic.config import BenchmarkConfig, Schedule, load_config, parse_config, read_json
 from trackleed.synthetic.scene import RenderedObservation, render_observation
+from trackleed.synthetic.instances import mask_paths
 from trackleed.synthetic.storage import (
     MARKER, PACKAGE_TYPE, STAGING_PREFIX, file_sha256, generator_provenance,
     pixel_descriptor, publish_directory, validate_provenance, write_json,
 )
-from trackleed.synthetic.tables import FRAME_FIELDS, REFERENCE_FIELDS, frame_identity, reference_rows, schema_for
+from trackleed.synthetic.tables import FRAME_FIELDS, frame_identity, reference_fields, reference_rows, schema_for
 
 
 @dataclass(frozen=True)
@@ -73,10 +74,11 @@ def _write_package(
     for schedule, index in _scheduled_frames(config):
         observation = render_observation(config, **schedule.coordinates(index))
         paths = _write_images(root, observation, _image_paths(config, schedule, index), files)
+        _write_masks(root, observation, schedule, index, files)
         frames.append(_frame_row(config, observation, schedule, index, paths, files))
         references.extend(reference_rows(config, observation, index, schedule))
     _write_csv(root / "frames.csv", FRAME_FIELDS, frames)
-    _write_csv(root / "reference.csv", REFERENCE_FIELDS, references)
+    _write_csv(root / "reference.csv", reference_fields(config.schema_version), references)
     for name in (MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"):
         files[name] = {"sha256": file_sha256(root / name)}
     write_json(root / "manifest.json", {
@@ -150,7 +152,7 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     manifest = read_json(root / "manifest.json")
     if not isinstance(manifest, dict) or manifest.get("package_type") != PACKAGE_TYPE:
         raise ValueError("Wrong benchmark package_type")
-    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2):
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3):
         raise ValueError("Unsupported benchmark schema_version")
     if manifest.get("status") != "complete":
         raise ValueError("Benchmark package is incomplete")
@@ -177,10 +179,11 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
         observation = render_observation(config, **schedule.coordinates(index))
         paths = _image_paths(config, schedule, index)
         _verify_images(root, paths, files, observation)
+        _verify_masks(root, observation, schedule, index, files)
         expected_frames.append(_frame_row(config, observation, schedule, index, paths, files))
         expected_references.extend(reference_rows(config, observation, index, schedule))
     _verify_csv(root / "frames.csv", FRAME_FIELDS, expected_frames)
-    _verify_csv(root / "reference.csv", REFERENCE_FIELDS, expected_references)
+    _verify_csv(root / "reference.csv", reference_fields(config.schema_version), expected_references)
     if manifest.get("plan") != config.plan():
         raise ValueError("Manifest plan does not match scene")
     return PackageReport(root, len(expected_frames), len(expected_references))
@@ -230,6 +233,9 @@ def _expected_files(config: BenchmarkConfig) -> set[str]:
     names = {MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"}
     for schedule, index in _scheduled_frames(config):
         names.update(_image_paths(config, schedule, index))
+        if config.export_masks:
+            for site in config.scene.sites(config.scene.lattice_scale_px):
+                names.update(mask_paths(schedule.id, index, site.reflection_id))
     return names
 
 
@@ -259,3 +265,30 @@ def _scheduled_frames(config: BenchmarkConfig) -> Iterator[tuple[Schedule, int]]
 def _image_paths(config: BenchmarkConfig, schedule: Schedule, index: int) -> tuple[str, str]:
     prefix = "" if config.schema_version == 1 else f"sequences/{schedule.id}/"
     return f"{prefix}images/frame_{index:06d}.png", f"{prefix}rendered/frame_{index:06d}.tiff"
+
+
+def _mask_images(observation: RenderedObservation, schedule: Schedule, index: int) -> Iterator[tuple[str, np.ndarray]]:
+    for instance in observation.instances:
+        paths = mask_paths(schedule.id, index, instance.reflection_id)
+        yield from zip(paths, (instance.geometry, instance.signal))
+
+
+def _write_masks(root: Path, observation: RenderedObservation, schedule: Schedule,
+                 index: int, files: dict[str, Any]) -> None:
+    for path, array in _mask_images(observation, schedule, index):
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(array).save(root / path)
+        files[path] = {"sha256": file_sha256(root / path), **pixel_descriptor(array)}
+
+
+def _verify_masks(root: Path, observation: RenderedObservation, schedule: Schedule,
+                  index: int, files: dict[str, Any]) -> None:
+    for path, expected in _mask_images(observation, schedule, index):
+        with Image.open(root / path) as image:
+            if image.mode != "L":
+                raise ValueError(f"Mask must be uint8 grayscale: {path}")
+            actual = np.array(image)
+        if actual.dtype != expected.dtype or not np.array_equal(actual, expected):
+            raise ValueError(f"Mask does not match scene: {path}")
+        if pixel_descriptor(actual) != {k: v for k, v in files[path].items() if k != "sha256"}:
+            raise ValueError(f"Mask pixel checksum mismatch: {path}")

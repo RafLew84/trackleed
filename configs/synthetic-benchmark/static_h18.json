@@ -1,0 +1,11 @@
+{
+  "schema_version": 3,
+  "scene": {
+    "id": "static-h18", "pattern": "H18", "image_size": [1000, 1000],
+    "center_px": [499.5, 499.5], "lattice_scale_px": 180,
+    "sigma_px": 4, "amplitude": 0.5, "energy_ev": 100
+  },
+  "condition": {"id": "constant", "background": 0.1, "png_lower": 0, "png_upper": 1},
+  "schedules": [{"id": "static", "times_ns": [0, 50000000, 100000000]}],
+  "export_masks": false
+}
