@@ -79,3 +79,40 @@ The mandatory suite includes deliberately invalid temporary repositories and
 corrupted copies of both packages. It asserts nonzero CLI exits with actionable
 diagnostics for invalid text and type errors, and rejection of damaged historical
 package data. No broken examples are written into the user's working files.
+
+## Results and full logs
+
+Each run prints a short result and an absolute `Full log:` path, on stdout for
+success or stderr for failure. The error summary keeps the first cause (including
+the first file/type diagnostic); further errors and tracebacks remain in the log.
+Logs use UTF-8 and unique names under `.scratch/validation/`, so another run does
+not overwrite earlier evidence. They contain the verbose test transcript, Python
+stdout/stderr, native diagnostics and output inherited by child processes.
+Failure to create a log stops validation with an explicit error.
+In CI, the printed path refers to the log in the runner's working directory;
+its lifetime follows the runner's workspace retention.
+
+## Implementation acceptance order
+
+Follow this order for each implementation:
+
+1. Small tests for the change and affected regressions; check types regularly.
+2. Read the immutable v1/v2 packages with the current reader:
+   `python -X utf8 -m unittest trackleed.tests.test_synthetic_frozen -v`.
+3. Review Standards and Spec, fix findings, and repeat affected small checks.
+4. Run the complete `python -X utf8 scripts/validate_current_workflow.py` gate
+   after the review fixes. Record its result and full log path.
+5. Generate and verify the stage's large 1000 × 1000 demonstration in a new
+   directory. The final generator stage requires the complete two-second example.
+
+A failed step blocks the large demonstration. If the demonstration exposes a bug,
+return to small tests, review the fix, and repeat full validation before trying
+again. Tools/documentation-only work may record the demonstration as not
+applicable with a reason. Preserve existing work and commit only the task's own
+changes after acceptance.
+
+The local implementation plan under
+`.scratch/trackleed-synthetic-benchmark-implementation/` carries these same
+conditions. Links to resolved specification tickets point directly to their
+`#answer` sections; links to maps and other documents without an Answer section
+continue to point to those documents.

@@ -44,6 +44,7 @@ LOCAL_REFERENCE_TEST_MODULES = frozenset(
 class CurrentWorkflowValidationReport(ValidationReport):
     checked_python_files: int
     tests_run: int
+    test_output: str = ""
 
 
 def validate_current_workflow(
@@ -81,6 +82,7 @@ def validate_current_workflow(
             checked_python_files=code_size_report.checked_files,
             tests_run=0,
             errors=tuple(errors),
+            test_output=stream.getvalue(),
         )
     _purge_test_modules(tests_root)
 
@@ -103,6 +105,7 @@ def validate_current_workflow(
         checked_python_files=code_size_report.checked_files,
         tests_run=result.testsRun,
         errors=tuple(errors),
+        test_output=stream.getvalue(),
     )
 
 
