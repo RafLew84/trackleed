@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -16,12 +17,22 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run the fail-closed current workflow validation."
     )
+    parser.add_argument(
+        "--text-base", default=os.environ.get("TRACKLEED_VALIDATION_BASE"),
+        help="Compare changed text with this commit, or EMPTY for all checked-out files.",
+    )
     parser.add_argument("--reference-manifest", type=Path)
     parser.add_argument("--reference-report", type=Path)
     return parser.parse_args()
 
 
 def main() -> int:
+    if not sys.flags.utf8_mode:
+        print("Start validation with: python -X utf8 scripts/validate_current_workflow.py",
+              file=sys.stderr)
+        return 1
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    os.environ.setdefault("MPLBACKEND", "Agg")
     args = parse_args()
     if args.reference_manifest is not None and args.reference_report is None:
         print(
@@ -44,7 +55,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    report = validate_current_workflow(REPOSITORY_ROOT)
+    report = validate_current_workflow(REPOSITORY_ROOT, text_base=args.text_base)
     if not report.ok:
         print("Current workflow validation failed:", file=sys.stderr)
         print(report.format_errors(), file=sys.stderr)
@@ -77,7 +88,7 @@ def main() -> int:
     print(
         "Current workflow validation passed: "
         f"{report.checked_python_files} Python files, {report.tests_run} tests"
-        f"{reference_summary}."
+        f"{reference_summary}; changed text and generator types passed."
     )
     return 0
 

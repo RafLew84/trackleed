@@ -290,12 +290,13 @@ or intermediate JPEG encoding. This stage does not run or rank tracking models.
 
 ```sh
 python -m unittest trackleed.tests.test_synthetic_config trackleed.tests.test_synthetic_scene trackleed.tests.test_synthetic_package trackleed.tests.test_synthetic_cli trackleed.tests.test_synthetic_motion trackleed.tests.test_synthetic_sampling -v
-python -m mypy --follow-imports=silent trackleed/synthetic scripts/generate_tracking_benchmark.py scripts/export_segmentation_to_png.py
-python scripts/validate_current_workflow.py
+python -X utf8 scripts/validate_current_workflow.py
 ```
 
-The repository validator includes the code-size guardrail and configured mandatory
-tests; acquisition-dependent publication tests remain outside its CI suite.
+The [shared local/CI validator](workflow-validation.md) checks changed text,
+generator types, code size, and all configured mandatory tests, including frozen
+historical v1/v2 packages. Acquisition-dependent publication tests remain outside
+its CI suite.
 Small fixtures check independent analytic positions/pixels, subpixel centers,
 support boundaries, quantization, preserved identities, real file round trips,
 legacy compatibility and publication failures. The supplied 1000 × 1000 example

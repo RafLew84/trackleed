@@ -20,6 +20,8 @@ jobs:
         shell: pwsh
         env:
           CHECKOUT_TOKEN: ${{ github.token }}
+          VALIDATION_PR_BASE: ${{ github.event.pull_request.base.sha }}
+          VALIDATION_PUSH_BEFORE: ${{ github.event.before }}
         run: |
           $ErrorActionPreference = 'Stop'
           $artifactExtensions = @(
@@ -48,6 +50,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Commit fetch failed.' }
           git -c $authConfig checkout --detach $env:GITHUB_SHA
           if ($LASTEXITCODE -ne 0) { throw 'Sparse checkout failed.' }
+
+          # Compare all commits in the event, including clean CI checkouts.
+          $comparisonBase = 'EMPTY'
+          $requestedBase = if ($env:GITHUB_EVENT_NAME -eq 'pull_request') {
+            $env:VALIDATION_PR_BASE
+          } else {
+            $env:VALIDATION_PUSH_BEFORE
+          }
+          if ($requestedBase -and $requestedBase -notmatch '^0+$') {
+            git -c $authConfig fetch --filter=blob:none --no-tags origin $requestedBase
+            if ($LASTEXITCODE -ne 0) { throw 'Validation base fetch failed.' }
+            $comparisonBase = $requestedBase
+            if ($env:GITHUB_EVENT_NAME -eq 'pull_request') {
+              $comparisonBase = git merge-base $requestedBase HEAD
+              if ($LASTEXITCODE -ne 0) { throw 'Validation merge-base failed.' }
+            }
+            git -c $authConfig diff --name-only $comparisonBase HEAD -- | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Validation tree prefetch failed.' }
+          }
+          "TRACKLEED_VALIDATION_BASE=$comparisonBase" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
           $forbidden = @(
             Get-ChildItem data -Recurse -File -ErrorAction SilentlyContinue
@@ -91,4 +114,4 @@ jobs:
         run: python -m pip install --requirement requirements-validation.txt
 
       - name: Run fail-closed validation
-        run: python scripts/validate_current_workflow.py
+        run: python -X utf8 scripts/validate_current_workflow.py

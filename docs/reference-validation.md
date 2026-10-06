@@ -1,16 +1,17 @@
 # Local reference validation
 
-The regular fail-closed CI gate remains:
+The regular fail-closed gate is shared by local runs and CI; see
+[workflow validation](workflow-validation.md) for setup and included checks:
 
 ```powershell
-python scripts/validate_current_workflow.py
+python -X utf8 scripts/validate_current_workflow.py
 ```
 
 Real acquisition data is accepted only through an explicit local manifest and an
 explicit report path under the repository's ignored `.scratch` directory:
 
 ```powershell
-python scripts/validate_current_workflow.py `
+python -X utf8 scripts/validate_current_workflow.py `
   --reference-manifest .scratch/local-reference-manifest.json `
   --reference-report .scratch/local-reference-report.json
 ```

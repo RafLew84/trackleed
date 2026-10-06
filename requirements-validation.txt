@@ -10,3 +10,6 @@ scipy==1.15.2
 tifffile==2025.3.30
 threadpoolctl==3.6.0
 xlsxwriter==3.2.9
+
+# Required generator type gate, shared by local validation and CI.
+mypy==2.3.0

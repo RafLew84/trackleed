@@ -44,3 +44,14 @@ def run_git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
     )
+
+
+def initialize_workflow_repository(root: Path, files: dict[str, str]) -> None:
+    """Create the required generator scope in small public-validator fixtures."""
+    initialize_repository(root, {
+        "mypy-generator.ini": "[mypy]\nfollow_imports = silent\npython_version = 3.12\n",
+        "trackleed/synthetic/__init__.py": "",
+        "scripts/generate_tracking_benchmark.py": "",
+        "scripts/export_segmentation_to_png.py": "",
+        **files,
+    })

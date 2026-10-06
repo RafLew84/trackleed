@@ -1,0 +1,2 @@
+# Frozen archives must retain their original bytes on every platform.
+*.zip binary

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -9,7 +10,7 @@ import tempfile
 import unittest
 
 from trackleed.tests.validation_test_support import (
-    initialize_repository,
+    initialize_workflow_repository as initialize_repository,
     run_git,
     write_manifest,
 )
@@ -20,6 +21,44 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 class CurrentWorkflowValidationTests(unittest.TestCase):
+    def test_generator_type_error_blocks_the_public_validator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initialize_repository(root, {
+                "trackleed/synthetic/scene.py": 'frame_count: int = "broken"\n',
+                "trackleed/tests/test_valid.py": (
+                    "import unittest\n"
+                    "class Valid(unittest.TestCase):\n"
+                    "    def test_valid(self): self.assertTrue(True)\n"
+                ),
+            })
+            write_manifest(root, run_git(root, "rev-parse", "HEAD").stdout.strip(), {})
+            report = validate_current_workflow(root)
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.tests_run, 0)
+        self.assertIn("scene.py", report.format_errors())
+        self.assertIn("Incompatible types", report.format_errors())
+
+    def test_invalid_utf8_in_changed_text_blocks_the_public_validator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initialize_repository(root, {
+                "trackleed/tests/test_valid.py": (
+                    "import unittest\n"
+                    "class Valid(unittest.TestCase):\n"
+                    "    def test_valid(self): self.assertTrue(True)\n"
+                ),
+            })
+            write_manifest(root, run_git(root, "rev-parse", "HEAD").stdout.strip(), {})
+            (root / "broken.md").write_bytes(b"invalid UTF-8: \\xff\n".replace(b"\\xff", bytes([255])))
+            report = validate_current_workflow(root)
+
+        self.assertFalse(report.ok)
+        self.assertEqual(report.tests_run, 0)
+        self.assertIn("broken.md", report.format_errors())
+        self.assertIn("UTF-8", report.format_errors())
+
     def test_public_validator_runs_code_size_and_synthetic_tests(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -149,6 +188,8 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 "trackleed/__init__.py",
                 "trackleed/validation/__init__.py",
                 "trackleed/validation/code_size.py",
+                "trackleed/validation/text_files.py",
+                "trackleed/validation/generator_types.py",
                 "trackleed/validation/current_workflow.py",
             )
             for relative_path in copied_paths:
@@ -170,8 +211,10 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
             write_manifest(root, fixed_point, {})
 
             completed = subprocess.run(
-                [sys.executable, "scripts/validate_current_workflow.py"],
+                [sys.executable, "-X", "utf8", "scripts/validate_current_workflow.py"],
                 cwd=root,
+                env={k: v for k, v in os.environ.items()
+                     if k != "TRACKLEED_VALIDATION_BASE"},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -188,7 +231,7 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
 
             completed = subprocess.run(
                 [
-                    sys.executable,
+                    sys.executable, "-X", "utf8",
                     "scripts/validate_current_workflow.py",
                     "--reference-manifest",
                     str(missing),
@@ -196,6 +239,8 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                     str(root / "report.json"),
                 ],
                 cwd=root,
+                env={k: v for k, v in os.environ.items()
+                     if k != "TRACKLEED_VALIDATION_BASE"},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -213,12 +258,14 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
 
             completed = subprocess.run(
                 [
-                    sys.executable,
+                    sys.executable, "-X", "utf8",
                     "scripts/validate_current_workflow.py",
                     "--reference-manifest",
                     str(manifest),
                 ],
                 cwd=root,
+                env={k: v for k, v in os.environ.items()
+                     if k != "TRACKLEED_VALIDATION_BASE"},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -247,7 +294,7 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
 
             completed = subprocess.run(
                 [
-                    sys.executable,
+                    sys.executable, "-X", "utf8",
                     "scripts/validate_current_workflow.py",
                     "--reference-manifest",
                     str(manifest),
@@ -255,6 +302,8 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                     str(root / ".scratch" / "report.json"),
                 ],
                 cwd=root,
+                env={k: v for k, v in os.environ.items()
+                     if k != "TRACKLEED_VALIDATION_BASE"},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -274,6 +323,8 @@ def _initialize_validator_fixture(
         "trackleed/__init__.py",
         "trackleed/validation/__init__.py",
         "trackleed/validation/code_size.py",
+        "trackleed/validation/text_files.py",
+        "trackleed/validation/generator_types.py",
         "trackleed/validation/current_workflow.py",
     ]
     if include_reference:

@@ -8,6 +8,8 @@ import unittest
 
 from trackleed.validation import ValidationReport
 from trackleed.validation.code_size import validate_code_size
+from trackleed.validation.text_files import validate_changed_text
+from trackleed.validation.generator_types import validate_generator_types
 
 
 LOCAL_REFERENCE_TEST_MODULES = frozenset(
@@ -44,8 +46,20 @@ class CurrentWorkflowValidationReport(ValidationReport):
     tests_run: int
 
 
-def validate_current_workflow(repo_root: Path) -> CurrentWorkflowValidationReport:
+def validate_current_workflow(
+    repo_root: Path, *, text_base: str | None = None,
+) -> CurrentWorkflowValidationReport:
     root = repo_root.resolve()
+    text_report = validate_changed_text(root, base=text_base)
+    if not text_report.ok:
+        return CurrentWorkflowValidationReport(
+            checked_python_files=0, tests_run=0, errors=text_report.errors,
+        )
+    type_report = validate_generator_types(root)
+    if not type_report.ok:
+        return CurrentWorkflowValidationReport(
+            checked_python_files=0, tests_run=0, errors=type_report.errors,
+        )
     code_size_report = validate_code_size(root, root / "code_size_baseline.json")
     errors = list(code_size_report.errors)
     if errors:
