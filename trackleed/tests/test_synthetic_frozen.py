@@ -106,3 +106,28 @@ class FrozenSyntheticPackageTests(unittest.TestCase):
                     geometry = np.array(image)
                 with Image.open(root / state["signal_mask_path"]) as image:
                     np.testing.assert_array_equal(np.array(image), geometry)
+
+    def test_frozen_v4_keeps_attenuation_coverage_and_masks(self):
+        archive = FIXTURES / "benchmark-v4.zip"
+        self.assertEqual(sha256(archive.read_bytes()).hexdigest(),
+                         "b754a30ead38cf98950b75ccfea15a89dea89b41290db2ddb593d3351de008e0")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with ZipFile(archive) as package:
+                package.extractall(root)
+            report = verify_package(root)
+            self.assertEqual((report.frames, report.reference_records), (3, 18))
+            references = read_rows(root, "reference.csv")
+            target = [r for r in references if r["reflection_id"] == "h+1_k+0"]
+            self.assertEqual([r["amplitude"] for r in target], ["0.5", "0.0", "0.5"])
+            self.assertEqual([float(r["x_px"]) for r in target], [22, 22, 22])
+            for row, code in zip(target, (153, 26, 153)):
+                with Image.open(root / row["signal_mask_path"]) as image:
+                    self.assertEqual(bool(np.array(image).any()), code != 26)
+            for frame, code in zip(read_rows(root, "frames.csv"), (153, 26, 153)):
+                with Image.open(root / frame["png_path"]) as image:
+                    self.assertEqual(image.getpixel((22, 16)), code)
+            event = json.loads((root / "coverage.json").read_text())["events"][0]
+            self.assertEqual(event["minimum_sample_count"], 1)
+            self.assertTrue(event["captured_zero_gap"])
+            self.assertEqual(event["context_status"], "bracketed")

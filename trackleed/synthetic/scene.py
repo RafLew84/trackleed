@@ -1,4 +1,4 @@
-"""Ideal H6 positions and point-sampled, finite Gaussian rendering."""
+"""Ideal reflection states and point-sampled, finite Gaussian rendering."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,9 +8,10 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from trackleed.synthetic.apparatus import prepare_apparatus
 from trackleed.synthetic.config import BenchmarkConfig
 from trackleed.synthetic.attenuation import amplitude_at
-from trackleed.synthetic.profiles import GaussianShape, sample_profile
+from trackleed.synthetic.profiles import GaussianShape, ProfileContribution, restrict_profile, sample_profile
 from trackleed.synthetic.instances import InstanceMasks, make_instance_masks
 
 
@@ -53,10 +54,11 @@ def evaluate_scene(
     if time_ns is not None:
         cx += scene.drift_px_per_s[0] * (time_ns / 1e9)
         cy += scene.drift_px_per_s[1] * (time_ns / 1e9)
-    # Arbitrary-time evaluation must not bypass the current no-clipping contract.
+    # Keep historical support limits and require finite v5 coordinates at arbitrary times.
     extents = scene.support_extents(radius)
     for center, extent, size in zip((cx, cy), extents, scene.image_size):
-        if not math.isfinite(center + extent) or center - extent < 0 or center + extent > size - 1:
+        if (not all(math.isfinite(v) for v in (center - extent, center + extent))
+                or (config.schema_version < 5 and (center - extent < 0 or center + extent > size - 1))):
             raise ValueError("scene support must fit inside the frame in this stage")
     return tuple(
         Reflection(site.reflection_id, site.h, site.k, cx + site.x, cy + site.y,
@@ -72,8 +74,10 @@ def render_observation(
     config: BenchmarkConfig, time_ns: int | None = None, *, observation_index: int | None = None,
 ) -> RenderedObservation:
     reflections = evaluate_scene(config, time_ns, observation_index=observation_index)
-    profiles = tuple(sample_profile(r.x_px, r.y_px, r.profile_shape) for r in reflections)
-    raw = _compose(config, reflections, profiles)
+    apparatus = prepare_apparatus(config.condition.apparatus, config.scene.image_size, config.condition.background)
+    profiles = tuple(restrict_profile(sample_profile(r.x_px, r.y_px, r.profile_shape),
+                                      config.scene.image_size, apparatus.screen, apparatus.occluders) for r in reflections)
+    raw = _compose(apparatus.background, reflections, profiles)
     with np.errstate(over="ignore"):
         image = raw.astype(np.float32)
     if not np.isfinite(image).all():
@@ -81,7 +85,7 @@ def render_observation(
     lower, upper = config.condition.png_lower, config.condition.png_upper
     png = encode_png(image, lower, upper)
     reference = tuple(
-        _reference(config, reflections, profiles, image, png, i)
+        _reference(config, reflections, profiles, image, png, i, apparatus.background)
         for i in range(len(reflections))
     )
     photometry = {
@@ -90,37 +94,37 @@ def render_observation(
         "png_zero_pixels": int(np.count_nonzero(png == 0)),
         "png_255_pixels": int(np.count_nonzero(png == 255)),
     }
+    signal_region = apparatus.signal_region if config.export_masks else None
     instances = tuple(
         make_instance_masks(r.reflection_id, r.x_px, r.y_px, r.amplitude,
-                            r.profile_shape, config.scene.image_size)
+                            r.profile_shape, config.scene.image_size, signal_region)
         for r in reflections
     ) if config.export_masks else ()
     return RenderedObservation(image, png, reflections, reference, photometry, instances)
 
 
 def _compose(
-    config: BenchmarkConfig, reflections: tuple[Reflection, ...],
-    profiles: tuple[tuple[NDArray, NDArray, NDArray], ...], omit: int | None = None,
+    background: NDArray[np.float64], reflections: tuple[Reflection, ...],
+    profiles: tuple[ProfileContribution, ...], omit: int | None = None,
 ) -> NDArray[np.float64]:
-    width, height = config.scene.image_size
-    raw = np.full((height, width), config.condition.background, dtype=np.float64)
-    for index, (reflection, (rows, columns, profile)) in enumerate(zip(reflections, profiles)):
+    raw = background.copy()
+    for index, (reflection, contribution) in enumerate(zip(reflections, profiles)):
         if index != omit:
-            raw[np.ix_(rows, columns)] += reflection.amplitude * profile
+            raw[np.ix_(contribution.rows, contribution.columns)] += reflection.amplitude * contribution.profile
     return raw
 
 
 def _reference(
     config: BenchmarkConfig, reflections: tuple[Reflection, ...],
-    profiles: tuple[tuple[NDArray, NDArray, NDArray], ...],
-    image: NDArray, png: NDArray, index: int,
+    profiles: tuple[ProfileContribution, ...],
+    image: NDArray, png: NDArray, index: int, background: NDArray[np.float64],
 ) -> dict[str, Any]:
     reflection = reflections[index]
     shape = reflection.profile_shape
-    profile = profiles[index][2]
-    without = _compose(config, reflections, profiles, omit=index).astype(np.float32)
+    contribution = profiles[index]
+    profile = contribution.profile
+    without = _compose(background, reflections, profiles, omit=index).astype(np.float32)
     without_png = encode_png(without, config.condition.png_lower, config.condition.png_upper)
-    weight = float(profile.sum(dtype=np.float64))
     signal = reflection.amplitude * profile
     return {
         "reflection_id": reflection.reflection_id, "parent_id": reflection.parent_id, "role": reflection.role,
@@ -129,10 +133,10 @@ def _reference(
         "amplitude": reflection.amplitude,
         "sigma_u_px": shape.sigma_u_px, "sigma_v_px": shape.sigma_v_px,
         "theta_rad": shape.theta_rad, "extinguished": reflection.amplitude == 0,
-        "center_in_frame": True, "w0": weight, "w1": weight, "w2": weight, "w3": weight,
-        "frame_loss_fraction": 0.0, "screen_loss_fraction": 0.0,
-        "occluder_loss_fraction": 0.0, "retained_fraction": 1.0,
-        "prequant_signal_present": reflection.amplitude > 0,
+        "center_in_frame": (0 <= reflection.x_px <= config.scene.image_size[0] - 1
+                            and 0 <= reflection.y_px <= config.scene.image_size[1] - 1),
+        **contribution.loss_reference(),
+        "prequant_signal_present": reflection.amplitude > 0 and contribution.weights[3] > 0,
         "float64_signal_pixels": int(np.count_nonzero(signal)),
         "float32_signal_pixels": int(np.count_nonzero(signal.astype(np.float32))),
         "float32_changed_pixels": int(np.count_nonzero(image != without)),

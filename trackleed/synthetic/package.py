@@ -1,4 +1,4 @@
-"""Generate and read complete, versioned H6 packages."""
+"""Generate and read complete, versioned synthetic benchmark packages."""
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 import tifffile
 
+from trackleed.synthetic.apparatus import prepare_apparatus
 from trackleed.synthetic.config import BenchmarkConfig, Schedule, load_config, parse_config, read_json
 from trackleed.synthetic.scene import RenderedObservation, render_observation
 from trackleed.synthetic.instances import mask_paths
@@ -71,6 +72,7 @@ def _write_package(
     write_json(root / "scene.json", config.expanded())
     write_json(root / "schema.json", schema_for(config.schema_version))
     files: dict[str, Any] = {}
+    _write_binary_images(root, _apparatus_images(config), files)
     frames, references = [], []
     for schedule, index in _scheduled_frames(config):
         observation = render_observation(config, **schedule.coordinates(index))
@@ -156,7 +158,7 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     manifest = read_json(root / "manifest.json")
     if not isinstance(manifest, dict) or manifest.get("package_type") != PACKAGE_TYPE:
         raise ValueError("Wrong benchmark package_type")
-    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3, 4):
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3, 4, 5):
         raise ValueError("Unsupported benchmark schema_version")
     if manifest.get("status") != "complete":
         raise ValueError("Benchmark package is incomplete")
@@ -178,6 +180,7 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     if not isinstance(files, dict) or set(files) != _expected_files(config):
         raise ValueError("Manifest file inventory disagrees with scene")
     _verify_files(root, files)
+    _verify_binary_images(root, _apparatus_images(config), files)
     expected_frames, expected_references = [], []
     for schedule, index in _scheduled_frames(config):
         observation = render_observation(config, **schedule.coordinates(index))
@@ -241,6 +244,8 @@ def _expected_files(config: BenchmarkConfig) -> set[str]:
     names = {MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"}
     if config.schema_version >= 4:
         names.add("coverage.json")
+    if config.schema_version >= 5:
+        names.update({"apparatus/screen.png", "apparatus/occluders.png"})
     for schedule, index in _scheduled_frames(config):
         names.update(_image_paths(config, schedule, index))
         if config.export_masks:
@@ -285,7 +290,11 @@ def _mask_images(observation: RenderedObservation, schedule: Schedule, index: in
 
 def _write_masks(root: Path, observation: RenderedObservation, schedule: Schedule,
                  index: int, files: dict[str, Any]) -> None:
-    for path, array in _mask_images(observation, schedule, index):
+    _write_binary_images(root, _mask_images(observation, schedule, index), files)
+
+
+def _write_binary_images(root: Path, images: Iterator[tuple[str, np.ndarray]], files: dict[str, Any]) -> None:
+    for path, array in images:
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(array).save(root / path)
         files[path] = {"sha256": file_sha256(root / path), **pixel_descriptor(array)}
@@ -293,7 +302,11 @@ def _write_masks(root: Path, observation: RenderedObservation, schedule: Schedul
 
 def _verify_masks(root: Path, observation: RenderedObservation, schedule: Schedule,
                   index: int, files: dict[str, Any]) -> None:
-    for path, expected in _mask_images(observation, schedule, index):
+    _verify_binary_images(root, _mask_images(observation, schedule, index), files)
+
+
+def _verify_binary_images(root: Path, images: Iterator[tuple[str, np.ndarray]], files: dict[str, Any]) -> None:
+    for path, expected in images:
         with Image.open(root / path) as image:
             if image.mode != "L":
                 raise ValueError(f"Mask must be uint8 grayscale: {path}")
@@ -302,3 +315,11 @@ def _verify_masks(root: Path, observation: RenderedObservation, schedule: Schedu
             raise ValueError(f"Mask does not match scene: {path}")
         if pixel_descriptor(actual) != {k: v for k, v in files[path].items() if k != "sha256"}:
             raise ValueError(f"Mask pixel checksum mismatch: {path}")
+
+
+def _apparatus_images(config: BenchmarkConfig) -> Iterator[tuple[str, np.ndarray]]:
+    if config.schema_version >= 5:
+        apparatus = prepare_apparatus(config.condition.apparatus, config.scene.image_size,
+                                      config.condition.background)
+        yield "apparatus/screen.png", apparatus.screen.astype(np.uint8) * 255
+        yield "apparatus/occluders.png", apparatus.occluders.astype(np.uint8) * 255

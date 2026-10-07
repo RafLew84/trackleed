@@ -19,7 +19,7 @@ class InstanceMasks:
 
 def make_instance_masks(
     reflection_id: str, x: float, y: float, amplitude: float,
-    shape: GaussianShape, image_size: tuple[int, int],
+    shape: GaussianShape, image_size: tuple[int, int], signal_region: NDArray | None = None,
 ) -> InstanceMasks:
     width, height = image_size
     ex, ey = shape.extents(3)
@@ -29,6 +29,8 @@ def make_instance_masks(
     geometry = np.zeros((height, width), dtype=np.uint8)
     geometry[np.ix_(rows, columns)] = (shape.squared_radius(dx, dy) <= 9).astype(np.uint8) * 255
     signal = geometry.copy() if amplitude > 0 else np.zeros_like(geometry)
+    if signal_region is not None:
+        signal[~signal_region] = 0
     return InstanceMasks(reflection_id, geometry, signal, _bbox(geometry), _bbox(signal))
 
 

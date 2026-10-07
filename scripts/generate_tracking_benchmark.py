@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate or verify H6/H18/H54 benchmarks without GUI or model imports."""
+"""Generate or verify H6/H18/H54 benchmarks with static apparatus limits, without GUI or model imports."""
 from __future__ import annotations
 
 import argparse

@@ -87,6 +87,20 @@ def schema_for(version: int) -> dict[str, Any]:
             "energy_direction": "profile defined on increasing E; observations keep their order",
             "profiles_per_reflection": 1,
         }
+    if version >= 5:
+        schema["stage"] = {**schema["stage"], "screen": "full_frame_or_circle",
+                           "occluders": "static_circles_and_vertical_bands", "frame_clipping": True}
+        schema["masks"] = {**schema["masks"],
+                           "signal": "geometry_and_screen_and_not_occluders_if_amplitude_positive"}
+        schema["apparatus"] = {
+            "screen_path": "apparatus/screen.png", "occluders_path": "apparatus/occluders.png",
+            "encoding": "PNG_L_uint8_0_255", "sampling": "pixel_centers_closed_regions",
+            "occluders": "union; independent of screen", "mask_action": "restrict_reflection_signal",
+            "background": "inside_screen:condition.background; outside_screen:outside_screen_level; screened_occluder:occluder_level",
+            "center_in_frame": "0<=x<=width-1 and 0<=y<=height-1",
+            "weights": ["full_unit_profile", "in_frame", "in_frame_and_screen", "in_frame_and_screen_and_not_occluders"],
+            "loss_fractions": "(W0-W1)/W0,(W1-W2)/W0,(W2-W3)/W0; retained=W3/W0",
+        }
     return schema
 
 

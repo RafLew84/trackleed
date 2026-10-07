@@ -513,3 +513,12 @@ python -X utf8 -m unittest trackleed.tests.test_synthetic_attenuation trackleed.
 5. For H54 inspect the satellite ID and its parent in `reference.csv`; the parent
    remains bright and the satellite's geometry mask persists while its signal
    mask is empty. Its position during the gap is a reference, not an image measurement.
+
+
+## Screen, occlusion and frame limits (version 5)
+
+Stage 05 adds fixed screen/occluder masks, off-frame reference positions,
+separate W0-W3 signal losses and verified apparatus rasters. See the
+[apparatus guide](synthetic-apparatus.md) for configuration, four 1000 x 1000
+demonstrations, commands and expected results. Versions 1-4 preserve their
+existing behavior.

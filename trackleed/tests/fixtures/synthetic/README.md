@@ -29,3 +29,14 @@ It contains two 33 x 33 H54 energy observations, elliptical profiles and 216
 independent masks. SHA-256:
 `21ff2bc6daf5c54f0188cfa649d508329fe70307dcf209207ff5fa0b6fc551c5`.
 This additional archive does not replace or regenerate the v1/v2 fixtures.
+
+
+## Version 4 historical package
+
+| Archive | Historical producer commit | Coverage | SHA-256 |
+| --- | --- | --- | --- |
+| benchmark-v4.zip | d0f39ce64dc8f90dfa8a6c4de3f2a34c506f06fd | Static H6, three frames across an extinction and return, coverage report, 36 instance masks | b754a30ead38cf98950b75ccfea15a89dea89b41290db2ddb593d3351de008e0 |
+
+Captured on 2026-10-07 before the stage 05 source changes. The checkout
+contained unrelated local changes, recorded by the manifest dirty flag.
+This archive extends the catalog; existing v1-v3 bytes and hashes stay fixed.

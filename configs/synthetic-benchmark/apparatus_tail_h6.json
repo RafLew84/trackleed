@@ -1,0 +1,33 @@
+{
+  "schema_version": 5,
+  "scene": {
+    "id": "apparatus-tail-h6",
+    "image_size": [
+      1000,
+      1000
+    ],
+    "center_px": [
+      166,
+      499.5
+    ],
+    "lattice_scale_px": 180,
+    "sigma_px": 4
+  },
+  "condition": {
+    "apparatus": {
+      "screen": {
+        "kind": "full_frame"
+      },
+      "occluders": []
+    }
+  },
+  "schedules": [
+    {
+      "id": "preview",
+      "times_ns": [
+        0
+      ]
+    }
+  ],
+  "export_masks": true
+}

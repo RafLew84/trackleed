@@ -1,4 +1,4 @@
-"""Versioned configuration and exact observation coordinates for H6 benchmarks."""
+"""Versioned benchmark configuration and exact observation coordinates."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, fields
@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from trackleed.synthetic.apparatus import Apparatus, parse_apparatus
 from trackleed.synthetic.attenuation import Attenuation, parse_attenuations, validate_attenuations
 from trackleed.synthetic.geometry import LatticeSite, lattice_sites
 from trackleed.synthetic.profiles import GaussianShape
@@ -83,6 +84,7 @@ class Condition:
     background: float = 0.1
     png_lower: float = 0.0
     png_upper: float = 1.0
+    apparatus: Apparatus | None = None
 
 
 @dataclass(frozen=True)
@@ -154,6 +156,8 @@ class BenchmarkConfig:
 
     def expanded(self) -> dict[str, Any]:
         result = asdict(self)
+        if self.schema_version < 5:
+            result["condition"].pop("apparatus")
         if self.schema_version < 4:
             result["scene"].pop("attenuations")
         if self.schema_version < 3:
@@ -189,8 +193,8 @@ def parse_config(raw: Any) -> BenchmarkConfig:
     root = _object(raw, {"scene", "condition", "schedule", "schedules",
                          "realization_id", "schema_version", "export_masks"}, "config")
     version = root.get("schema_version")
-    if type(version) is not int or version not in (1, 2, 3, 4):
-        raise ValueError("schema_version must be integer 1, 2, 3 or 4")
+    if type(version) is not int or version not in (1, 2, 3, 4, 5):
+        raise ValueError("schema_version must be integer 1, 2, 3, 4 or 5")
     if "export_masks" in root and version < 3:
         raise ValueError("export_masks requires schema_version 3")
     if type(root.get("export_masks", False)) is not bool:
@@ -217,6 +221,11 @@ def parse_config(raw: Any) -> BenchmarkConfig:
         scene["shape"] = shape
     condition = _object(root.get("condition"), {f.name for f in fields(Condition)},
                         "condition")
+    if "apparatus" in condition:
+        if version < 5:
+            raise ValueError("condition.apparatus requires schema_version 5")
+        if condition["apparatus"] is not None:
+            condition["apparatus"] = parse_apparatus(condition["apparatus"])
     for name in ("image_size", "center_px", "drift_px_per_s"):
         if name in scene:
             scene[name] = _array(scene[name], f"scene.{name}", length=2)
@@ -439,7 +448,7 @@ def _validate(config: BenchmarkConfig) -> None:
 
 def _validate_support(config: BenchmarkConfig) -> None:
     scene = config.scene
-    # Clipping remains unsupported until the apparatus stage.
+    # Historical versions require full support; v5 permits finite off-frame positions.
     scan = scene.energy_scan
     energy = min(scan.energies_ev) if scan is not None else scene.energy_ev
     extents = scene.support_extents(scene.lattice_radius(energy))
@@ -449,6 +458,6 @@ def _validate_support(config: BenchmarkConfig) -> None:
     first, last = min(times, default=0) / 1e9, max(times, default=0) / 1e9
     for center, extent, size, speed in zip(scene.center_px, extents, scene.image_size, scene.drift_px_per_s):
         low, high = sorted((center + first * speed, center + last * speed))
-        if (not all(math.isfinite(value) for value in (extent, low, high))
-                or low - extent < 0 or high + extent > size - 1):
+        if (not all(math.isfinite(value) for value in (extent, low - extent, high + extent))
+                or (config.schema_version < 5 and (low - extent < 0 or high + extent > size - 1))):
             raise ValueError("scene support must fit inside the frame in this stage")
