@@ -7,6 +7,7 @@ import sys
 import unittest
 
 from trackleed.validation import ValidationReport
+from trackleed.validation.progress import ValidationProgress, run_test_suite
 from trackleed.validation.code_size import validate_code_size
 from trackleed.validation.text_files import validate_changed_text
 from trackleed.validation.generator_types import validate_generator_types
@@ -49,19 +50,27 @@ class CurrentWorkflowValidationReport(ValidationReport):
 
 def validate_current_workflow(
     repo_root: Path, *, text_base: str | None = None,
+    progress: ValidationProgress | None = None,
 ) -> CurrentWorkflowValidationReport:
     root = repo_root.resolve()
+    progress = progress or ValidationProgress()
+    progress.start_step("changed_text")
     text_report = validate_changed_text(root, base=text_base)
+    progress.complete_step()
     if not text_report.ok:
         return CurrentWorkflowValidationReport(
             checked_python_files=0, tests_run=0, errors=text_report.errors,
         )
+    progress.start_step("generator_types")
     type_report = validate_generator_types(root)
+    progress.complete_step()
     if not type_report.ok:
         return CurrentWorkflowValidationReport(
             checked_python_files=0, tests_run=0, errors=type_report.errors,
         )
+    progress.start_step("code_size")
     code_size_report = validate_code_size(root, root / "code_size_baseline.json")
+    progress.complete_step()
     errors = list(code_size_report.errors)
     if errors:
         return CurrentWorkflowValidationReport(
@@ -73,8 +82,13 @@ def validate_current_workflow(
     stream = io.StringIO()
     tests_root = root / "trackleed" / "tests"
     try:
+        progress.start_step("test_discovery")
         suite = _load_ci_test_suite(tests_root)
-        result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
+        progress.complete_step()
+        progress.start_step("tests")
+        result = run_test_suite(suite, stream, progress)
+        progress.tests_completed(result.testsRun, suite.countTestCases())
+        progress.complete_step()
     except Exception as exc:
         _purge_test_modules(tests_root)
         errors.append(f"Full test suite is unavailable: {exc}")

@@ -11,14 +11,16 @@ import tempfile
 from typing import IO
 import traceback
 
+from trackleed.validation.progress import ValidationProgress, compact_summary
+
 
 def run_logged_validation(
-    repository_root: Path, action: Callable[[], tuple[int, str]],
+    repository_root: Path, action: Callable[[ValidationProgress], tuple[int, str]],
 ) -> int:
     directory = repository_root / ".scratch" / "validation"
     try:
         directory.mkdir(parents=True, exist_ok=True)
-        prefix = datetime.now(timezone.utc).strftime("workflow-%Y%m%dT%H%M%SZ-")
+        prefix = datetime.now(timezone.utc).strftime("workflow-%Y%m%dT%H%M%S%fZ-")
         log = tempfile.NamedTemporaryFile(
             mode="w", encoding="utf-8", newline="\n", prefix=prefix,
             suffix=".log", dir=directory, delete=False,
@@ -28,15 +30,24 @@ def run_logged_validation(
         return 1
     log_path = Path(log.name).resolve()
     with log, _capture_output(log.file):
+        progress: ValidationProgress | None = None
         try:
-            status, summary = action()
+            progress = ValidationProgress(log_path.with_suffix(".status.json"), log_path)
+            status, summary = action(progress)
+        except KeyboardInterrupt:
+            status, summary = 130, "Current workflow validation interrupted."
         except Exception as cause:
             traceback.print_exc()
             status, summary = 1, f"Current workflow validation failed: {cause}"
+        try:
+            if progress is not None:
+                progress.finish(status, summary)
+        except OSError as cause:
+            traceback.print_exc()
+            status, summary = 1, f"Current workflow validation failed: cannot write progress: {cause}"
         print(summary, flush=True)
     console = sys.stdout if status == 0 else sys.stderr
-    compact = " ".join(summary.splitlines()[:2])
-    print(compact if len(compact) <= 600 else compact[:597] + "...", file=console)
+    print(compact_summary(summary), file=console)
     print(f"Full log: {log_path}", file=console)
     return status
 

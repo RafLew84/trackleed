@@ -192,6 +192,7 @@ class CurrentWorkflowValidationTests(unittest.TestCase):
                 "trackleed/validation/generator_types.py",
                 "trackleed/validation/current_workflow.py",
                 "trackleed/validation/command_log.py",
+                "trackleed/validation/progress.py",
             )
             for relative_path in copied_paths:
                 destination = root / relative_path
@@ -328,6 +329,7 @@ def _initialize_validator_fixture(
         "trackleed/validation/generator_types.py",
         "trackleed/validation/current_workflow.py",
         "trackleed/validation/command_log.py",
+        "trackleed/validation/progress.py",
     ]
     if include_reference:
         copied_paths.append("trackleed/validation/reference_workflow.py")
