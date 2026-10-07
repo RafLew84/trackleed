@@ -56,7 +56,7 @@ def generator_provenance() -> dict[str, Any]:
     revision = _git(root, "rev-parse", "HEAD")
     dirty = _working_tree_dirty(root, set(sources))
     return {
-        "name": PACKAGE_TYPE, "version": "1.4-stage5", "git_revision": revision,
+        "name": PACKAGE_TYPE, "version": "1.5-stage6", "git_revision": revision,
         "git_dirty": dirty, "git_dirty_scope": "tracked_files_and_generator_sources",
         "source_sha256": digest, "source_files": sources,
         "python": platform.python_version(), "platform": platform.platform(),

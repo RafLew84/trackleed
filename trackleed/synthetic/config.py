@@ -1,14 +1,15 @@
 """Versioned benchmark configuration and exact observation coordinates."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 import json
 import math
 from pathlib import Path
 import re
 from typing import Any
 
-from trackleed.synthetic.apparatus import Apparatus, parse_apparatus
+from trackleed.synthetic.apparatus import Apparatus, Polygon, parse_apparatus
+from trackleed.synthetic.backgrounds import BackgroundModel, parse_background
 from trackleed.synthetic.attenuation import Attenuation, parse_attenuations, validate_attenuations
 from trackleed.synthetic.geometry import LatticeSite, lattice_sites
 from trackleed.synthetic.profiles import GaussianShape
@@ -85,6 +86,7 @@ class Condition:
     png_lower: float = 0.0
     png_upper: float = 1.0
     apparatus: Apparatus | None = None
+    background_model: BackgroundModel | None = None
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,7 @@ class BenchmarkConfig:
     realization_id: str = "deterministic"
     schema_version: int = 1
     export_masks: bool = False
+    base_dir: Path = field(default_factory=Path.cwd, compare=False, repr=False)
 
     @property
     def schedule(self) -> Schedule:
@@ -156,6 +159,9 @@ class BenchmarkConfig:
 
     def expanded(self) -> dict[str, Any]:
         result = asdict(self)
+        result.pop("base_dir")
+        if self.schema_version < 6:
+            result["condition"].pop("background_model")
         if self.schema_version < 5:
             result["condition"].pop("apparatus")
         if self.schema_version < 4:
@@ -186,15 +192,15 @@ def read_json(path: Path) -> Any:
 
 
 def load_config(path: Path) -> BenchmarkConfig:
-    return parse_config(read_json(path))
+    return parse_config(read_json(path), base_dir=path.absolute().parent)
 
 
-def parse_config(raw: Any) -> BenchmarkConfig:
+def parse_config(raw: Any, *, base_dir: Path | None = None) -> BenchmarkConfig:
     root = _object(raw, {"scene", "condition", "schedule", "schedules",
                          "realization_id", "schema_version", "export_masks"}, "config")
     version = root.get("schema_version")
-    if type(version) is not int or version not in (1, 2, 3, 4, 5):
-        raise ValueError("schema_version must be integer 1, 2, 3, 4 or 5")
+    if type(version) is not int or version not in (1, 2, 3, 4, 5, 6):
+        raise ValueError("schema_version must be integer 1, 2, 3, 4, 5 or 6")
     if "export_masks" in root and version < 3:
         raise ValueError("export_masks requires schema_version 3")
     if type(root.get("export_masks", False)) is not bool:
@@ -221,6 +227,11 @@ def parse_config(raw: Any) -> BenchmarkConfig:
         scene["shape"] = shape
     condition = _object(root.get("condition"), {f.name for f in fields(Condition)},
                         "condition")
+    if "background_model" in condition:
+        if version < 6:
+            raise ValueError("condition.background_model requires schema_version 6")
+        if condition["background_model"] is not None:
+            condition["background_model"] = parse_background(condition["background_model"])
     if "apparatus" in condition:
         if version < 5:
             raise ValueError("condition.apparatus requires schema_version 5")
@@ -248,7 +259,10 @@ def parse_config(raw: Any) -> BenchmarkConfig:
         schedules = tuple(_parse_schedule(value, version) for value in values)
     config = BenchmarkConfig(Scene(**scene), Condition(**condition), schedules,
                              root.get("realization_id", "deterministic"), version,
-                             root.get("export_masks", False))
+                             root.get("export_masks", False), base_dir or Path.cwd())
+    if version < 6 and config.condition.apparatus is not None:
+        if any(isinstance(region, Polygon) for region in config.condition.apparatus.occluders):
+            raise ValueError("polygon occluders require schema_version 6")
     _validate(config)
     return config
 

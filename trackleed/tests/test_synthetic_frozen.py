@@ -131,3 +131,22 @@ class FrozenSyntheticPackageTests(unittest.TestCase):
             self.assertEqual(event["minimum_sample_count"], 1)
             self.assertTrue(event["captured_zero_gap"])
             self.assertEqual(event["context_status"], "bracketed")
+
+    def test_frozen_v5_keeps_apparatus_masks_clipping_and_reference_positions(self):
+        archive = FIXTURES / "benchmark-v5.zip"
+        self.assertEqual(sha256(archive.read_bytes()).hexdigest(),
+                         "27a24f28b7f7564f3f6e0ee1da275a4fd28317ede2b4973ad8bd4ae4e3671dc9")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with ZipFile(archive) as package:
+                package.extractall(root)
+            report = verify_package(root)
+            self.assertEqual((report.frames, report.reference_records), (3, 18))
+            self.assertEqual(json.loads((root / "manifest.json").read_text())["schema_version"], 5)
+            target = [r for r in read_rows(root, "reference.csv") if r["reflection_id"] == "h+1_k+0"]
+            self.assertEqual([float(r["x_px"]) for r in target], [22, 18, 10])
+            self.assertEqual(float(target[1]["occluder_loss_fraction"]), 1)
+            self.assertEqual(target[1]["bbox_signal"], "")
+            with Image.open(root / "apparatus/occluders.png") as image:
+                self.assertEqual(image.getpixel((18, 16)), 255)
+                self.assertEqual(image.getpixel((23, 16)), 0)

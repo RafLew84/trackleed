@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from trackleed.synthetic.apparatus import prepare_apparatus
+from trackleed.synthetic.backgrounds import PreparedBackground, prepare_background
 from trackleed.synthetic.config import BenchmarkConfig
 from trackleed.synthetic.attenuation import amplitude_at
 from trackleed.synthetic.profiles import GaussianShape, ProfileContribution, restrict_profile, sample_profile
@@ -72,9 +72,10 @@ def evaluate_scene(
 
 def render_observation(
     config: BenchmarkConfig, time_ns: int | None = None, *, observation_index: int | None = None,
+    prepared: PreparedBackground | None = None,
 ) -> RenderedObservation:
     reflections = evaluate_scene(config, time_ns, observation_index=observation_index)
-    apparatus = prepare_apparatus(config.condition.apparatus, config.scene.image_size, config.condition.background)
+    apparatus = (prepared or prepare_imaging(config)).apparatus
     profiles = tuple(restrict_profile(sample_profile(r.x_px, r.y_px, r.profile_shape),
                                       config.scene.image_size, apparatus.screen, apparatus.occluders) for r in reflections)
     raw = _compose(apparatus.background, reflections, profiles)
@@ -158,3 +159,9 @@ def encode_png(image: NDArray, lower: float, upper: float) -> NDArray[np.uint8]:
     """Map intensities with fixed bounds and round-half-up quantization."""
     scaled = np.clip((image.astype(np.float64) - lower) / (upper - lower), 0, 1)
     return np.floor(255 * scaled + 0.5).astype(np.uint8)
+
+
+def prepare_imaging(config: BenchmarkConfig) -> PreparedBackground:
+    """Snapshot the fixed background and apparatus once for all observations."""
+    return prepare_background(config.condition.background_model, config.condition.apparatus,
+                              config.scene.image_size, config.condition.background, config.base_dir)

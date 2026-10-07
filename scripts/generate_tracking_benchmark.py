@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from trackleed.synthetic.config import load_config  # noqa: E402
+from trackleed.synthetic.scene import prepare_imaging  # noqa: E402
 from trackleed.synthetic.package import (  # noqa: E402
     check_output, generate_benchmark, verify_package,
 )
@@ -38,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.output:
                 check_output(args.output)
             if args.validate_only:
+                prepare_imaging(config)
                 result = {"status": "valid", "plan": config.plan(), "config": config.expanded()}
             else:
                 print(json.dumps({"plan": config.plan()}), file=sys.stderr)

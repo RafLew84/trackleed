@@ -101,6 +101,20 @@ def schema_for(version: int) -> dict[str, Any]:
             "weights": ["full_unit_profile", "in_frame", "in_frame_and_screen", "in_frame_and_screen_and_not_occluders"],
             "loss_fractions": "(W0-W1)/W0,(W1-W2)/W0,(W2-W3)/W0; retained=W3/W0",
         }
+    if version >= 6:
+        schema["stage"] = {**schema["stage"], "background": ["constant", "procedural", "import"],
+                           "occluders": "static_circles_vertical_bands_convex_polygon_union_and_imported_masks"}
+        schema["apparatus"] = {**schema["apparatus"],
+                               "background": "procedural appearance or unchanged prepared import; see background.json"}
+        schema["background"] = {
+            "prepared_path": "background/prepared.tiff", "prepared_dtype": "float64",
+            "metadata_path": "background.json", "static": True, "new_noise": "none",
+            "rgb_to_gray": [.299, .587, .114], "scaling": "gray*gain+offset; no min-max",
+            "sources": "byte-exact inputs/*.source; original paths in input.json",
+            "scene_paths": "package-relative retained inputs", "geometry_coordinates": "output_pixel_centers",
+            "interpolation": {"background": "bilinear_edge_clamp", "masks": "nearest"},
+            "mask_composition": "screen intersection with input coverage; occluder union",
+        }
     return schema
 
 

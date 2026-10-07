@@ -1,0 +1,127 @@
+{
+  "schema_version": 6,
+  "scene": {
+    "id": "camera-arm-h18",
+    "pattern": "H18",
+    "image_size": [
+      1000,
+      1000
+    ],
+    "center_px": [
+      230,
+      250
+    ],
+    "lattice_scale_px": 110,
+    "sigma_px": 4,
+    "amplitude": 0.5,
+    "energy_ev": 100,
+    "drift_px_per_s": [
+      100,
+      0
+    ]
+  },
+  "condition": {
+    "id": "glow-texture-arm",
+    "background": 0.1,
+    "png_lower": 0,
+    "png_upper": 1,
+    "apparatus": {
+      "screen": {
+        "kind": "circle",
+        "center_px": [
+          488,
+          488
+        ],
+        "radius_px": 474
+      },
+      "occluders": [
+        {
+          "kind": "polygon",
+          "vertices_px": [
+            [
+              307,
+              0
+            ],
+            [
+              357,
+              0
+            ],
+            [
+              507,
+              445
+            ],
+            [
+              445,
+              465
+            ]
+          ]
+        },
+        {
+          "kind": "circle",
+          "center_px": [
+            486,
+            500
+          ],
+          "radius_px": 56
+        },
+        {
+          "kind": "polygon",
+          "vertices_px": [
+            [
+              453,
+              336
+            ],
+            [
+              494,
+              336
+            ],
+            [
+              496,
+              352
+            ],
+            [
+              459,
+              358
+            ]
+          ]
+        }
+      ],
+      "outside_screen_level": 0.02,
+      "occluder_level": 0.04
+    },
+    "background_model": {
+      "kind": "procedural",
+      "gradient": [
+        0.1,
+        -0.04
+      ],
+      "glow": {
+        "center_px": [
+          560,
+          470
+        ],
+        "sigma_px": [
+          330,
+          300
+        ],
+        "amplitude": 0.12
+      },
+      "texture_amplitude": 0.008,
+      "texture_seed": 1729
+    }
+  },
+  "schedules": [
+    {
+      "id": "preview",
+      "times_ns": [
+        0,
+        300000000,
+        650000000,
+        1100000000,
+        1400000000
+      ]
+    }
+  ],
+  "realization_id": "background-seed-1729",
+  "export_masks": true
+}

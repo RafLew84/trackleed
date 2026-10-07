@@ -15,9 +15,12 @@ import numpy as np
 from PIL import Image
 import tifffile
 
-from trackleed.synthetic.apparatus import prepare_apparatus
+from trackleed.synthetic.backgrounds import PreparedBackground
+from trackleed.synthetic.background_storage import (
+    background_files, packaged_config, verify_background, write_background,
+)
 from trackleed.synthetic.config import BenchmarkConfig, Schedule, load_config, parse_config, read_json
-from trackleed.synthetic.scene import RenderedObservation, render_observation
+from trackleed.synthetic.scene import RenderedObservation, prepare_imaging, render_observation
 from trackleed.synthetic.instances import mask_paths
 from trackleed.synthetic.coverage import build_coverage
 from trackleed.synthetic.storage import (
@@ -36,11 +39,12 @@ class PackageReport:
 
 def generate_benchmark(config_path: Path, output: Path) -> PackageReport:
     config = load_config(config_path)
+    prepared = prepare_imaging(config)
     output = output.absolute()
     check_output(output)
     stage = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=output.parent))
     try:
-        _write_package(stage, config_path, config)
+        _write_package(stage, config_path, config, prepared)
         _verify(stage, allow_staging=True)
         publish_directory(stage, output)
     except BaseException as exc:
@@ -65,17 +69,19 @@ def check_output(output: Path) -> None:
 
 
 def _write_package(
-    root: Path, config_path: Path, config: BenchmarkConfig,
+    root: Path, config_path: Path, config: BenchmarkConfig, prepared: PreparedBackground,
 ) -> None:
     (root / MARKER).write_text(PACKAGE_TYPE + "\n", encoding="utf-8")
     shutil.copyfile(config_path, root / "input.json")
-    write_json(root / "scene.json", config.expanded())
+    write_json(root / "scene.json", packaged_config(config).expanded())
     write_json(root / "schema.json", schema_for(config.schema_version))
     files: dict[str, Any] = {}
-    _write_binary_images(root, _apparatus_images(config), files)
+    if config.schema_version >= 6:
+        write_background(root, prepared, files)
+    _write_binary_images(root, _apparatus_images(config, prepared), files)
     frames, references = [], []
     for schedule, index in _scheduled_frames(config):
-        observation = render_observation(config, **schedule.coordinates(index))
+        observation = render_observation(config, **schedule.coordinates(index), prepared=prepared)
         paths = _write_images(root, observation, _image_paths(config, schedule, index), files)
         _write_masks(root, observation, schedule, index, files)
         frames.append(_frame_row(config, observation, schedule, index, paths, files))
@@ -158,7 +164,7 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     manifest = read_json(root / "manifest.json")
     if not isinstance(manifest, dict) or manifest.get("package_type") != PACKAGE_TYPE:
         raise ValueError("Wrong benchmark package_type")
-    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3, 4, 5):
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] not in (1, 2, 3, 4, 5, 6):
         raise ValueError("Unsupported benchmark schema_version")
     if manifest.get("status") != "complete":
         raise ValueError("Benchmark package is incomplete")
@@ -168,11 +174,11 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     if set(manifest) != required:
         raise ValueError("Invalid manifest fields")
     validate_provenance(manifest["generator"])
-    config = parse_config(read_json(root / "scene.json"))
+    config = parse_config(read_json(root / "scene.json"), base_dir=root)
     _verify_identity(manifest, config)
     if (root / MARKER).read_text(encoding="utf-8") != PACKAGE_TYPE + "\n":
         raise ValueError("Invalid benchmark marker")
-    if load_config(root / "input.json") != config:
+    if packaged_config(load_config(root / "input.json")) != config:
         raise ValueError("Input configuration disagrees with scene")
     if json.dumps(read_json(root / "schema.json"), sort_keys=True) != json.dumps(schema_for(config.schema_version), sort_keys=True):
         raise ValueError("Benchmark schema does not match its version")
@@ -180,10 +186,13 @@ def _verify(root: Path, *, allow_staging: bool) -> PackageReport:
     if not isinstance(files, dict) or set(files) != _expected_files(config):
         raise ValueError("Manifest file inventory disagrees with scene")
     _verify_files(root, files)
-    _verify_binary_images(root, _apparatus_images(config), files)
+    prepared = prepare_imaging(config)
+    if config.schema_version >= 6:
+        verify_background(root, prepared, files)
+    _verify_binary_images(root, _apparatus_images(config, prepared), files)
     expected_frames, expected_references = [], []
     for schedule, index in _scheduled_frames(config):
-        observation = render_observation(config, **schedule.coordinates(index))
+        observation = render_observation(config, **schedule.coordinates(index), prepared=prepared)
         paths = _image_paths(config, schedule, index)
         _verify_images(root, paths, files, observation)
         _verify_masks(root, observation, schedule, index, files)
@@ -242,6 +251,7 @@ def _verify_csv(path: Path, fields: dict[str, str], expected: list[dict[str, Any
 
 def _expected_files(config: BenchmarkConfig) -> set[str]:
     names = {MARKER, "input.json", "scene.json", "schema.json", "frames.csv", "reference.csv"}
+    names.update(background_files(config))
     if config.schema_version >= 4:
         names.add("coverage.json")
     if config.schema_version >= 5:
@@ -317,9 +327,8 @@ def _verify_binary_images(root: Path, images: Iterator[tuple[str, np.ndarray]], 
             raise ValueError(f"Mask pixel checksum mismatch: {path}")
 
 
-def _apparatus_images(config: BenchmarkConfig) -> Iterator[tuple[str, np.ndarray]]:
+def _apparatus_images(config: BenchmarkConfig, prepared: PreparedBackground) -> Iterator[tuple[str, np.ndarray]]:
     if config.schema_version >= 5:
-        apparatus = prepare_apparatus(config.condition.apparatus, config.scene.image_size,
-                                      config.condition.background)
+        apparatus = prepared.apparatus
         yield "apparatus/screen.png", apparatus.screen.astype(np.uint8) * 255
         yield "apparatus/occluders.png", apparatus.occluders.astype(np.uint8) * 255

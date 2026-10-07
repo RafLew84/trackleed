@@ -25,13 +25,19 @@ class VerticalBand:
     kind: str = "vertical_band"
 
 
-Region = FullFrame | Circle | VerticalBand
+@dataclass(frozen=True)
+class Polygon:
+    vertices_px: tuple[tuple[float, float], ...]
+    kind: str = "polygon"
+
+
+Region = FullFrame | Circle | VerticalBand | Polygon
 
 
 @dataclass(frozen=True)
 class Apparatus:
     screen: FullFrame | Circle
-    occluders: tuple[Circle | VerticalBand, ...] = ()
+    occluders: tuple[Circle | VerticalBand | Polygon, ...] = ()
     outside_screen_level: float = .02
     occluder_level: float = .04
 
@@ -50,7 +56,7 @@ class ApparatusImage:
 def parse_apparatus(value: Any) -> Apparatus:
     values = _object(value, {"screen", "occluders", "outside_screen_level", "occluder_level"})
     screen = _region(values.get("screen", {"kind": "full_frame"}))
-    if isinstance(screen, VerticalBand):
+    if not isinstance(screen, (FullFrame, Circle)):
         raise ValueError("apparatus.screen supports full_frame or circle")
     occluders = values.get("occluders", [])
     if not isinstance(occluders, (list, tuple)):
@@ -59,7 +65,7 @@ def parse_apparatus(value: Any) -> Apparatus:
     for raw in occluders:
         region = _region(raw)
         if isinstance(region, FullFrame):
-            raise ValueError("apparatus.occluders supports circle or vertical_band")
+            raise ValueError("apparatus.occluders supports circle, vertical_band or polygon")
         parsed.append(region)
     outside = _finite(values.get("outside_screen_level", .02), "outside_screen_level")
     occluded = _finite(values.get("occluder_level", .04), "occluder_level")
@@ -82,13 +88,16 @@ def _region(value: Any) -> Region:
         if radius <= 0:
             raise ValueError("apparatus.radius_px must be positive")
         return Circle(center, radius)
+    if kind == "polygon":
+        values = _object(value, {"kind", "vertices_px"})
+        return _polygon(values.get("vertices_px"))
     if kind == "vertical_band":
         values = _object(value, {"kind", "x_range_px"})
         bounds = _pair(values.get("x_range_px"), "x_range_px")
         if bounds[0] > bounds[1]:
             raise ValueError("apparatus.x_range_px must be ordered")
         return VerticalBand(bounds)
-    raise ValueError("apparatus region kind must be full_frame, circle or vertical_band")
+    raise ValueError("apparatus region kind must be full_frame, circle, vertical_band or polygon")
 
 
 def _object(value: Any, allowed: set[str]) -> dict[str, Any]:
@@ -137,4 +146,29 @@ def _raster(region: Region, image_size: tuple[int, int]) -> NDArray[np.bool_]:
     if isinstance(region, Circle):
         with np.errstate(over="ignore"):
             return np.hypot(x - region.center_px[0], y - region.center_px[1]) <= region.radius_px
+    if isinstance(region, Polygon):
+        vertices = region.vertices_px
+        sides = []
+        for (ax, ay), (bx, by) in zip(vertices, (*vertices[1:], vertices[0])):
+            sides.append((bx - ax) * (y - ay) - (by - ay) * (x - ax))
+        return np.logical_and.reduce([side >= 0 for side in sides]) | np.logical_and.reduce([side <= 0 for side in sides])
     return np.broadcast_to((x >= region.x_range_px[0]) & (x <= region.x_range_px[1]), (height, width))
+
+
+def _polygon(value: Any) -> Polygon:
+    if not isinstance(value, (list, tuple)) or not 3 <= len(value) <= 64:
+        raise ValueError("apparatus polygon needs 3..64 vertices")
+    vertices = tuple(_pair(point, "vertices_px") for point in value)
+    if any(abs(v) > 1e9 for point in vertices for v in point):
+        raise ValueError("apparatus polygon coordinates must be within +/-1e9 pixels")
+    if len(set(vertices)) != len(vertices):
+        raise ValueError("apparatus polygon vertices must be distinct")
+    winding = 0
+    for index, ((ax, ay), (bx, by)) in enumerate(zip(vertices, (*vertices[1:], vertices[0]))):
+        sides = [(bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+                 for i, (cx, cy) in enumerate(vertices) if i not in (index, (index + 1) % len(vertices))]
+        sign = 1 if all(side > 0 for side in sides) else -1 if all(side < 0 for side in sides) else 0
+        if sign == 0 or (winding and winding != sign):
+            raise ValueError("apparatus polygon must be simple and strictly convex")
+        winding = sign
+    return Polygon(vertices)
