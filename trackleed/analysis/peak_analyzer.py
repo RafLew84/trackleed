@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.optimize import curve_fit
+from trackleed.analysis.circle_fit import fit_circle_center as fit_circle_center
 from typing import Dict, Optional, Tuple, List
 import random
 from skimage.measure import EllipseModel
@@ -315,59 +316,6 @@ def fit_spot_to_gaussian(
     except (RuntimeError, ValueError) as e:
         print(f"Error during Gaussian fitting: {e}")
         return None
-
-
-def fit_circle_center(spot_positions: List[Dict[str, float]]) -> Optional[Dict[str, float]]:
-    """
-    Estimate the pattern center by least-squares circle fitting.
-
-    Returns center_x/center_y and approximate errors derived from the fit residuals.
-    """
-    if len(spot_positions) < 3:
-        return None
-
-    pts = np.array([[p["center_x"], p["center_y"]] for p in spot_positions], dtype=np.float64)
-    x = pts[:, 0]
-    y = pts[:, 1]
-
-    # Solve x^2 + y^2 + A x + B y + C = 0
-    A_mat = np.column_stack((x, y, np.ones_like(x)))
-    b_vec = -(x * x + y * y)
-    coeffs, residuals, rank, _ = np.linalg.lstsq(A_mat, b_vec, rcond=None)
-    if rank < 3:
-        return None
-
-    a, b, c = coeffs
-    center_x = -a / 2.0
-    center_y = -b / 2.0
-    radius_sq = center_x * center_x + center_y * center_y - c
-    if radius_sq <= 0:
-        return None
-    radius = np.sqrt(radius_sq)
-
-    # Estimate parameter uncertainty from residuals
-    n = len(x)
-    if residuals.size and n > 3:
-        sigma2 = float(residuals[0] / (n - 3))
-        cov = sigma2 * np.linalg.inv(A_mat.T @ A_mat)
-        err_a = np.sqrt(max(cov[0, 0], 0.0))
-        err_b = np.sqrt(max(cov[1, 1], 0.0))
-        error_x = err_a / 2.0
-        error_y = err_b / 2.0
-    else:
-        # Fallback: use radial residual scatter
-        radial = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
-        error = float(np.std(radial - radius)) if radial.size else 0.0
-        error_x = error
-        error_y = error
-
-    return {
-        "center_x": float(center_x),
-        "center_y": float(center_y),
-        "error_x": float(error_x),
-        "error_y": float(error_y),
-        "circle_radius": float(radius),
-    }
 
 
 def _ellipse_residuals_px(

@@ -483,6 +483,7 @@ def _center_mapping(center: PatternCenter) -> dict[str, float]:
     }
     optional = {
         "circle_radius": center.circle_radius,
+        "circle_radius_error": center.circle_radius_error,
         "radius_x": center.radius_x,
         "radius_y": center.radius_y,
         "angle_deg": center.angle_degrees,

@@ -125,6 +125,7 @@ class PatternCenter:
     radius_y: float | None = None
     angle_degrees: float | None = None
     radius_scale: float | None = None
+    circle_radius_error: float | None = None
 
 
 @dataclass(frozen=True)
@@ -272,6 +273,7 @@ def _geometry_fingerprint(
     request: GeometryRequest,
 ) -> GeometryFingerprint:
     canonical = {
+        "geometry_version": 2,
         "fit_set": [
             {
                 "track_id": item.track_id,
@@ -345,6 +347,7 @@ def _freeze_center(
         circle_radius=(
             float(values["circle_radius"]) if "circle_radius" in values else None
         ),
+        circle_radius_error=values.get("circle_radius_error"),
         radius_x=float(values["radius_x"]) if "radius_x" in values else None,
         radius_y=float(values["radius_y"]) if "radius_y" in values else None,
         angle_degrees=(float(values["angle_deg"]) if "angle_deg" in values else None),

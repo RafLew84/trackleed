@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
+from threading import Event
 from unittest.mock import patch
 
 import numpy as np
@@ -414,6 +415,48 @@ class SpotDetectionWorkflowTests(unittest.TestCase):
             run_spot_detection(request, context)
 
         self.assertEqual(events, [("read", 1), ("detect", 1)])
+
+    def test_cancellation_at_final_progress_discards_complete_batch(self) -> None:
+        for method_id in ("classic", "yolo"):
+            for frame_count in (1, 3):
+                with self.subTest(method=method_id, frames=frame_count):
+                    cancelled = Event()
+                    progress: list[int] = []
+
+                    def report_progress(step) -> None:
+                        progress.append(step.completed)
+                        if step.completed == step.total:
+                            cancelled.set()
+
+                    is_classic = method_id == "classic"
+                    method = DetectionMethod(
+                        method_id=method_id,
+                        display_name=method_id,
+                        family=(SpotDetectionFamily.CLASSICAL if is_classic
+                                else SpotDetectionFamily.NEURAL),
+                        capabilities=DetectionCapabilities(True, True, True),
+                        runtime=(_RecordingClassicRuntime([]) if is_classic
+                                 else _ReadyYoloRuntime()),
+                    )
+                    request = DetectionRequest(
+                        method_id=method_id,
+                        frames=tuple(
+                            DetectionFrame(index, Path(f"{index}.tif"))
+                            for index in range(1, frame_count + 1)
+                        ),
+                        config=(ClassicDetectionConfig() if is_classic
+                                else YoloDetectionConfig(model_path=Path("model.pt"))),
+                    )
+                    context = RunContext(
+                        image_reader=lambda _path: np.zeros((8, 8), dtype=np.uint8),
+                        report_progress=report_progress,
+                        is_cancelled=cancelled.is_set,
+                        detection_catalog=SpotDetectionCatalog((method,)),
+                    )
+                    with self.assertRaises(SpotDetectionCancelled):
+                        run_spot_detection(request, context)
+                    self.assertTrue(cancelled.is_set())
+                    self.assertEqual(progress, list(range(1, frame_count + 1)))
 
     def test_runtime_failure_does_not_return_partial_batch(self) -> None:
         events: list[tuple[str, object]] = []

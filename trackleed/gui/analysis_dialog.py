@@ -24,6 +24,7 @@ from trackleed.logic.track_analysis_compatibility import AnalysisPublication, ca
 from trackleed.core.data_models import LeedFile
 from trackleed.analysis.peak_analyzer import gaussian_2d
 from trackleed.analysis.result_parameters import ANALYSIS_RESULT_PARAMETERS
+from trackleed.gui.radius_results import RADIUS_SUMMARIES, draw_radius_plot, populate_radius_table
 from trackleed.io.image_reader import load_tiff
 
 import matplotlib
@@ -666,6 +667,17 @@ class AnalysisResultsDialog(QDialog):
         self.show_errors_checkbox.setChecked(True)
         self.radius_track_checklist = QListWidget()
         controls_layout.addLayout(axis_layout)
+        controls_layout.addWidget(QLabel("Radius summary:"))
+        self.radius_summary_combo = QComboBox()
+        for label, mode in RADIUS_SUMMARIES:
+            self.radius_summary_combo.addItem(label, mode)
+        controls_layout.addWidget(self.radius_summary_combo)
+        self.radius_summary_note = QLabel()
+        self.radius_summary_note.setWordWrap(True)
+        controls_layout.addWidget(self.radius_summary_note)
+        self.radius_summary_combo.currentIndexChanged.connect(
+            lambda _index: (self.update_radius_plot(0), self.update_radius_data_table())
+        )
         controls_layout.addWidget(QLabel("Display Tracks:"))
         controls_layout.addWidget(self.radius_track_checklist)
         controls_layout.addWidget(self.show_errors_checkbox)
@@ -807,108 +819,21 @@ class AnalysisResultsDialog(QDialog):
             traceback.print_exc()
     
     def update_radius_plot(self, current_frame_id: int):
-        """Update the radius plot, optionally showing error bars."""
-        ax = self.radius_plot_canvas.axes
-        ax.clear()
-
-        show_errors = self.show_errors_checkbox.isChecked()
-        
-        # track_ids_to_show = {self.radius_track_checklist.item(i).data(Qt.ItemDataRole.UserRole)
-        #                     for i in range(self.radius_track_checklist.count())
-        #                     if self.radius_track_checklist.item(i).checkState() == Qt.CheckState.Checked}
-
-        track_ids_to_show = {self.radius_track_checklist.item(i).data(Qt.ItemDataRole.UserRole)
-                         for i in range(self.radius_track_checklist.count())
-                         if self.radius_track_checklist.item(i).checkState() == Qt.CheckState.Checked}
-    
-        highlighted_track_id = -1
-        current_row = self.config_table.currentRow()
-        if current_row >= 0:
-            track_id_item = self.config_table.item(current_row, 0)
-            if track_id_item:
-                highlighted_track_id = int(track_id_item.text())
-        # Read the combo-box selection safely
-        x_key = self.radius_x_axis_combo.currentText()
-        x_data_key = {
-            "Frame ID": "id",
-            "Temperature": "temperature",
-            "Energy": "energy",
-            "Coverage": "coverage",
-        }.get(x_key)
-        if not x_data_key: return
-
-        colors = plt.get_cmap('tab10').colors
-        # Plot individual tracks
-        for i, track in enumerate(self.tracks):
-            if track.track_id in track_ids_to_show and hasattr(track, 'analysis_results'):
-                x_data, y_data, y_error = [], [], []
-                for frame_id, res in sorted(track.analysis_results.items()):
-                    if not res or 'radius' not in res: continue
-                    x_val = frame_id if x_data_key == 'id' else getattr(self.all_files_map[frame_id], x_data_key, None)
-                    if x_val is None: continue
-                    x_data.append(x_val)
-                    y_data.append(res['radius'])
-                    y_error.append(res.get('radius_error', 0))
-                
-                linewidth = 3.0 if track.track_id == highlighted_track_id else 1.5
-                alpha = 1.0 if track.track_id == highlighted_track_id else 0.7
-
-                if show_errors:
-                    # Plot with error bars
-                    ax.errorbar(x_data, y_data, yerr=y_error, fmt='o', markersize=4, 
-                                color=colors[i % len(colors)], label=f'Track {track.track_id}', 
-                                capsize=3, linewidth=linewidth, alpha=alpha)
-                else:
-                    # Plot without error bars
-                    ax.plot(x_data, y_data, linestyle='-',
-                            color=colors[i % len(colors)], label=f'Track {track.track_id}',
-                            linewidth=linewidth, alpha=alpha)
-                
-                # ax.errorbar(x_data, y_data, yerr=y_error, fmt='o', markersize=4, 
-                #             color=colors[i % len(colors)], label=f'Track {track.track_id}', 
-                #             capsize=3, linewidth=linewidth, alpha=alpha)
-
-        # Build the average series using only selected tracks
-        avg_x_data, avg_y_data, avg_y_error = [], [], []
-        for frame_id in sorted(self.all_files_map.keys()):
-            radii = []
-            for track in self.tracks:
-                if track.track_id not in track_ids_to_show:
-                    continue
-                res = track.analysis_results.get(frame_id)
-                if not res or 'radius' not in res:
-                    continue
-                radii.append(res['radius'])
-
-            if len(radii) < 2:
-                continue
-
-            x_val = frame_id if x_data_key == 'id' else getattr(self.all_files_map[frame_id], x_data_key, None)
-            if x_val is None:
-                continue
-
-            avg_x_data.append(x_val)
-            avg_y_data.append(float(np.mean(radii)))
-            avg_y_error.append(float(np.std(radii) / np.sqrt(len(radii))))
-
-        # Plot the average radius with the correct X axis
-        if avg_x_data and avg_y_data:
-            sorted_indices = np.argsort(avg_x_data)
-            sorted_avg_x = np.array(avg_x_data)[sorted_indices]
-            sorted_avg_y = np.array(avg_y_data)[sorted_indices]
-            sorted_avg_y_err = np.array(avg_y_error)[sorted_indices]
-
-            ax.plot(sorted_avg_x, sorted_avg_y, color='black', linewidth=2, label='Average Radius')
-            ax.fill_between(sorted_avg_x, sorted_avg_y - sorted_avg_y_err, sorted_avg_y + sorted_avg_y_err, color='black', alpha=0.2)
-        # --- End of additional logic ---
-        
-        ax.set_xlabel(x_key)
-        ax.set_ylabel("Radius (pixels)")
-        ax.set_title("Spot Radius vs. " + x_key)
-        # ax.legend() # Intentionally disabled per earlier request
-        ax.grid(True)
+        selected = {
+            self.radius_track_checklist.item(index).data(Qt.ItemDataRole.UserRole)
+            for index in range(self.radius_track_checklist.count())
+            if self.radius_track_checklist.item(index).checkState() == Qt.CheckState.Checked
+        }
+        row = self.config_table.currentRow()
+        highlighted = int(self.config_table.item(row, 0).text()) if row >= 0 else None
+        note = draw_radius_plot(
+            self.radius_plot_canvas.axes, self.tracks, self.all_files_map,
+            selected_track_ids=selected, x_axis=self.radius_x_axis_combo.currentText(),
+            summary_mode=self.radius_summary_combo.currentData(),
+            show_errors=self.show_errors_checkbox.isChecked(), highlighted_track_id=highlighted,
+        )
+        self.radius_summary_note.setText(note)
         self.radius_plot_canvas.draw()
-
 
     def update_results_table(self, track: Track):
         """
@@ -1943,42 +1868,11 @@ class AnalysisResultsDialog(QDialog):
         # e.g. self.update_plots()
 
     def update_radius_data_table(self):
-        """
-        Populates the "Radius Data" table with radius and uncertainty values.
-        Rows represent frames, columns represent tracks.
-        """
-        self.radius_data_table.clear() # Reset the entire table structure
-        if not self.tracks or not hasattr(self.tracks[0], 'analysis_results'):
-            return
+        populate_radius_table(
+            self.radius_data_table, self.tracks, self.all_files_map,
+            include_circle=self.radius_summary_combo.currentData() == "circle_fit",
+        )
 
-        # 1. Prepare headers and overall shape
-        all_frame_ids = sorted(list({fid for t in self.tracks for fid in t.analysis_results}))
-        
-        self.radius_data_table.setRowCount(len(all_frame_ids))
-        self.radius_data_table.setColumnCount(len(self.tracks))
-        
-        self.radius_data_table.setVerticalHeaderLabels([str(fid) for fid in all_frame_ids])
-        self.radius_data_table.setHorizontalHeaderLabels([f"Track {t.track_id}" for t in self.tracks])
-
-        # 2. Populate the cells with data
-        for col_idx, track in enumerate(self.tracks):
-            if not hasattr(track, 'analysis_results'): continue
-
-            for row_idx, frame_id in enumerate(all_frame_ids):
-                results = track.analysis_results.get(frame_id)
-                
-                cell_text = "N/A" # Default text when no data is available
-                if results and 'radius' in results:
-                    radius = results['radius']
-                    error = results.get('radius_error', 0)
-                    cell_text = f"{radius:.2f} +/- {error:.2f}"
-                
-                item = QTableWidgetItem(cell_text)
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.radius_data_table.setItem(row_idx, col_idx, item)
-        
-        self.radius_data_table.resizeColumnsToContents()
-    
     def on_table_filter_changed(self):
         self.on_selection_changed()
 

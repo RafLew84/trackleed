@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -97,6 +99,19 @@ class SpotDetectionDialogTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
 
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.model_directory = Path(directory.name)
+        for name in ("model.pt", "updated.pt"):
+            (self.model_directory / name).touch()
+        model_directory_patch = patch(
+            "trackleed.gui.spot_detection_dialog.YOLO_MODELS_DIRECTORY",
+            self.model_directory,
+        )
+        model_directory_patch.start()
+        self.addCleanup(model_directory_patch.stop)
+
     def test_classic_current_frame_builds_headless_request(self) -> None:
         current = _leed_file(7)
         dialog = SpotDetectionDialog(
@@ -135,7 +150,7 @@ class SpotDetectionDialogTests(unittest.TestCase):
                 "backend": "Classic",
                 "classic": {"roi_size": 40, "threshold_rel": 0.2},
                 "yolo": {
-                    "model_path": "model.pt",
+                    "model_path": str(self.model_directory / "model.pt"),
                     "confidence": 0.3,
                     "iou": 0.4,
                     "max_det": 25,
@@ -156,7 +171,10 @@ class SpotDetectionDialogTests(unittest.TestCase):
         self.addCleanup(dialog.deleteLater)
 
         dialog.method_tabs.setCurrentIndex(1)
-        dialog.yolo_page.model_path_edit.setText("updated.pt")
+        self.assertEqual(dialog.yolo_page.model_combo.currentText(), "model.pt")
+        dialog.yolo_page.model_combo.setCurrentIndex(
+            dialog.yolo_page.model_combo.findText("updated.pt")
+        )
         dialog.yolo_page.confidence_spinbox.setValue(0.55)
         dialog.detect_all_button.click()
 
@@ -167,7 +185,10 @@ class SpotDetectionDialogTests(unittest.TestCase):
         )
         self.assertEqual(dialog.decision.settings.classic.roi_size, 40)
         self.assertEqual(dialog.decision.settings.yolo.confidence, 0.55)
-        self.assertEqual(dialog.decision.settings.yolo.model_path, Path("updated.pt"))
+        self.assertEqual(
+            dialog.decision.settings.yolo.model_path,
+            self.model_directory / "updated.pt",
+        )
         self.assertEqual(dialog.decision.settings.yolo.iou, 0.4)
         self.assertEqual(dialog.decision.settings.yolo.max_detections, 25)
         self.assertEqual(dialog.decision.settings.yolo.bbox_margin_px, 3)

@@ -397,9 +397,10 @@ python -X utf8 scripts/validate_current_workflow.py
 ```
 
 The [shared local/CI validator](workflow-validation.md) checks changed text,
-generator types, code size, and all configured mandatory tests, including frozen
-historical v1/v2/v3 packages. Acquisition-dependent publication tests remain outside
-its CI suite.
+generator types, code size, and all configured mandatory tests, including the
+historical packages listed in the
+[frozen package catalog](../trackleed/tests/fixtures/synthetic/README.md).
+Acquisition-dependent publication tests remain outside its CI suite.
 Small fixtures check independent analytic positions/pixels, subpixel centers,
 support boundaries, quantization, preserved identities, real file round trips,
 legacy compatibility and publication failures. The supplied 1000 × 1000 example

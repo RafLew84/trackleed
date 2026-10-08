@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QSpinBox,
     QTabWidget,
@@ -36,6 +35,9 @@ from trackleed.logic.workflows.spot_detection import (
     YoloDetectionConfig,
     default_spot_detection_catalog,
 )
+
+
+YOLO_MODELS_DIRECTORY = Path(__file__).resolve().parents[2] / "tracking_models" / "yolo"
 
 
 class SpotDetectionScope(Enum):
@@ -99,14 +101,32 @@ class ClassicDetectionPage(QWidget):
         )
 
 
+def _yolo_model_selector(selected_model: Path | None) -> QComboBox:
+    selector = QComboBox()
+    for model_path in sorted(
+        YOLO_MODELS_DIRECTORY.glob("*.pt"), key=lambda path: path.name.casefold()
+    ):
+        if model_path.is_file():
+            selector.addItem(model_path.name, str(model_path.resolve()))
+    selector.setToolTip(str(YOLO_MODELS_DIRECTORY))
+    selector.setPlaceholderText(
+        "Select a model" if selector.count() else "No .pt models found"
+    )
+    selected_index = (
+        selector.findData(str(selected_model.resolve()))
+        if selected_model is not None else -1
+    )
+    selector.setCurrentIndex(selected_index)
+    selector.setEnabled(selector.count() > 0)
+    return selector
+
+
 class YoloDetectionPage(QWidget):
     def __init__(self, config: YoloDetectionConfig) -> None:
         super().__init__()
         layout = QFormLayout(self)
-        self.model_path_edit = QLineEdit(
-            str(config.model_path) if config.model_path else ""
-        )
-        layout.addRow("Model:", self.model_path_edit)
+        self.model_combo = _yolo_model_selector(config.model_path)
+        layout.addRow("Model:", self.model_combo)
         self.confidence_spinbox = QDoubleSpinBox()
         self.confidence_spinbox.setRange(0.01, 0.99)
         self.confidence_spinbox.setSingleStep(0.01)
@@ -137,7 +157,7 @@ class YoloDetectionPage(QWidget):
         layout.addRow("Device:", self.device_combo)
 
     def config_snapshot(self) -> YoloDetectionConfig:
-        model_text = self.model_path_edit.text().strip()
+        model_text = self.model_combo.currentData()
         return YoloDetectionConfig(
             model_path=Path(model_text) if model_text else None,
             confidence=self.confidence_spinbox.value(),

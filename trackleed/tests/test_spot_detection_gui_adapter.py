@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 
 import numpy as np
@@ -156,6 +157,43 @@ class SpotDetectionGuiAdapterTests(unittest.TestCase):
 
         self.assertIs(first.spots, original[0])
         self.assertIs(second.spots, original[1])
+
+    def test_final_progress_cancellation_returns_cancelled_completion(self) -> None:
+        image = np.zeros((32, 32), dtype=np.uint8)
+        image[14:18, 14:18] = 255
+        for frame_count in (1, 3):
+            with self.subTest(frames=frame_count):
+                cancelled = Event()
+                progress: list[int] = []
+
+                def report_progress(percent: int) -> None:
+                    progress.append(percent)
+                    if percent == 100:
+                        cancelled.set()
+
+                request = DetectionRequest(
+                    method_id="classic",
+                    frames=tuple(
+                        DetectionFrame(index, Path(f"{index}.tif"))
+                        for index in range(1, frame_count + 1)
+                    ),
+                    config=ClassicDetectionConfig(
+                        blur_sigma=1.0, wth_radius=2, min_distance=3,
+                        threshold_rel=0.05, roi_size=8,
+                    ),
+                )
+                result = run_spot_detection_job(
+                    request, lambda _path: image, cancelled,
+                    progress_callback=report_progress,
+                )
+                self.assertEqual(len(progress), frame_count)
+                self.assertEqual(progress[-1], 100)
+                self.assertTrue(cancelled.is_set())
+                self.assertIsNone(result)
+                completion = SpotDetectionCompletion.from_worker_result(result)
+                self.assertTrue(completion.cancelled)
+                with self.assertRaises(RuntimeError):
+                    _ = completion.successful_result
 
     def test_worker_job_builds_run_context_for_public_workflow(self) -> None:
         image = np.zeros((32, 32), dtype=np.uint8)

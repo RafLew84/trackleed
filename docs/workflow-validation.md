@@ -18,7 +18,8 @@ invocation. It supplies the same headless defaults as CI: `QT_QPA_PLATFORM=offsc
 and `MPLBACKEND=Agg`. Existing explicit values are respected.
 
 The gate checks changed text, generator types, the code-size guardrail, and
-all configured mandatory tests. Those tests include immutable v1/v2 packages.
+all configured mandatory tests. Those tests include immutable historical
+benchmark packages.
 A missing dependency, missing fixture, failed test, skip or expected failure
 makes the command fail; acquisition-dependent publication tests retain their
 existing separate, explicitly requested local-reference workflow.
@@ -68,16 +69,16 @@ The fixed scope is `trackleed/synthetic/`,
 `scripts/export_segmentation_to_png.py`. A missing target or unavailable mypy
 fails explicitly. A type error includes mypy's file, line and explanation.
 
-`trackleed/tests/fixtures/synthetic/` contains two historical ZIP archives,
-totalling about 18 KB. The fixture README records their producer commits and
-SHA-256 digests. Tests verify the pinned bytes, extract temporary copies,
-read them with the current public reader, and check independent expected
+The [frozen package catalog](../trackleed/tests/fixtures/synthetic/README.md)
+is the canonical inventory of historical archives, their coverage, producer
+commits and SHA-256 digests. Tests verify the pinned bytes, extract temporary
+copies, read them with the current public reader, and check independent expected
 values. They never call the generator to recreate expected packages.
 New versions get new fixtures; old fixtures and their pinned hashes stay fixed.
 
 The mandatory suite includes deliberately invalid temporary repositories and
-corrupted copies of both packages. It asserts nonzero CLI exits with actionable
-diagnostics for invalid text and type errors, and rejection of damaged historical
+corrupted copies of historical packages. It asserts nonzero CLI exits with
+actionable diagnostics for invalid text and type errors, and rejection of damaged historical
 package data. No broken examples are written into the user's working files.
 
 ## Results and full logs
@@ -97,7 +98,7 @@ its lifetime follows the runner's workspace retention.
 Follow this order for each implementation:
 
 1. Small tests for the change and affected regressions; check types regularly.
-2. Read the immutable v1/v2 packages with the current reader:
+2. Read all immutable historical benchmark packages with the current reader:
    `python -X utf8 -m unittest trackleed.tests.test_synthetic_frozen -v`.
 3. Review Standards and Spec, fix findings, and repeat affected small checks.
 4. Run the complete `python -X utf8 scripts/validate_current_workflow.py` gate

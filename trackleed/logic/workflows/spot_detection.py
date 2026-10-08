@@ -371,4 +371,6 @@ def run_spot_detection(
             raise SpotDetectionExecutionError(frame.frame_id, exc) from exc
         completed.append(FrameDetections(frame.frame_id, spots))
         context.report_progress(DetectionProgress(len(completed), total, frame.frame_id))
+    if context.is_cancelled():
+        raise SpotDetectionCancelled("Spot detection was cancelled")
     return DetectionResult(tuple(completed))
